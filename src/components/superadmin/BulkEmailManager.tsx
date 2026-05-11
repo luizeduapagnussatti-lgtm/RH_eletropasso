@@ -108,8 +108,8 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
       if (result.count === 0) {
         onMessage({ type: 'error', text: 'No recipients matched this audience' });
       }
-    } catch {
-      onMessage({ type: 'error', text: 'Preview failed. Check console for details.' });
+    } catch (e: any) {
+      onMessage({ type: 'error', text: e?.message ? `Preview failed: ${e.message}` : 'Preview failed. Check console for details.' });
     } finally {
       setPreviewing(false);
     }
