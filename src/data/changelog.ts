@@ -15,10 +15,43 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-05-11',
+    title: 'Fix: PWA update reliability + manifest improvements',
+    entries: [
+      { type: 'fix', description: 'PWA update button sometimes did nothing or required a second manual refresh. Added controllerchange listener as a reload safety net — fires when the new SW takes control, ensuring the page always reloads with fresh assets after an update.' },
+      { type: 'fix', description: 'Update banner now shows a loading/spinning state while the new SW is activating, so the UI does not appear frozen during the brief activation gap.' },
+      { type: 'improvement', description: 'Added webp and png to Workbox globPatterns — app icons and screenshots now precached so the install prompt works fully offline.' },
+      { type: 'improvement', description: 'Switched injectRegister to inline so SW registration does not depend solely on the React hook mounting — prevents edge cases where SW never registers.' },
+      { type: 'improvement', description: 'apple-touch-icon now points to icon-192.png (correct 192×192 PNG) instead of logo.png — fixes blurry iOS home screen icon.' },
+      { type: 'improvement', description: 'Manifest id set to "openhrapp" — stable unique identifier for Chrome install tracking instead of generic "/".' },
+      { type: 'fix', description: 'Registration endpoint was reading FormData fields from requestInfo.body (always empty for multipart) instead of requestInfo.data. country defaulted to BD for every org. Now merges both sources so the correct country code is used for holiday and config seeding.' },
+    ]
+  },
+  {
+    date: '2026-05-05',
+    title: 'Fix: auto-absent check now per-org with correct timezone',
+    entries: [
+      { type: 'fix', description: 'auto_absent_check cron was loading a single app_config with no organization_id filter, applying one random org\'s autoAbsentTime, workingDays, and holidays to all employees across every org. Rewritten to loop over each org independently, loading its own config with a scoped filter.' },
+      { type: 'fix', description: 'auto_absent_check used server-local clock for time matching, date string, and day-of-week. All three now use org-local time via getOrgLocalTime() (same helper used by auto_close_sessions), ensuring absent marks fire at the correct local time on the correct local date for every org regardless of server timezone.' },
+      { type: 'fix', description: 'Absent records were missing the organization_id field, breaking multi-tenant attendance queries. Field now set on every auto-absent record.' },
+      { type: 'fix', description: 'daily_attendance_report cron used server-local clock to build the dateStr for attendance queries. For UTC+6 orgs the report at 23:00 UTC (05:00 Dhaka next day) would query the wrong date. Now uses getOrgLocalTime() per org so the report always reflects the correct local business day.' },
+    ]
+  },
+  {
+    date: '2026-05-05',
+    title: 'Fix: org registration country-aware timezone, currency, and default config',
+    entries: [
+      { type: 'fix', description: 'Timezone dropdown in System Settings was hardcoded to 3 options (Asia/Dhaka, UTC, Asia/Kolkata). When a non-Bangladesh org was registered, the backend correctly stored the right timezone (e.g. Asia/Bahrain) but the select had no matching option so the browser displayed the first option (Asia/Dhaka). Replaced with a full grouped IANA timezone list covering all 73 countries supported by the platform.' },
+      { type: 'fix', description: 'DEFAULT_CONFIG fallback in constants.tsx hardcoded timezone: "Asia/Dhaka" and currency: "BDT". On any config load failure or race condition after registration, all orgs would fall back to Bangladesh values. Changed fallback to timezone: "UTC" and currency: "USD".' },
+      { type: 'fix', description: 'Registration form defaulted country to "BD" (Bangladesh). If an admin did not change the dropdown, the backend would seed Bangladesh timezone, currency, and holidays for a non-Bangladesh org. Default changed to empty string with a required "Select country..." placeholder, forcing an explicit selection.' },
+    ]
+  },
+  {
     date: '2026-05-05',
     title: 'Fix: auto-close session now uses org timezone for correct global behaviour',
     entries: [
-      { type: 'fix', description: 'Auto-close session cron (cron.pb.js) was comparing the configured close time against the server\'s UTC clock instead of each organisation\'s local time. For example, a Bangladesh org (UTC+6) that set 10:00 PM as the close time would not have sessions closed until ~6 AM the next morning. Fixed by converting the server clock to each org\'s IANA timezone (stored in app_config) before comparing. Both the today-vs-past-date decision and the HH:MM comparison now use org-local time. The shift-level > org-level > fallback priority chain is unchanged. A per-org timezone cache prevents repeated DB lookups within a single cron run.' }
+      { type: 'fix', description: 'Auto-close session cron (cron.pb.js) was comparing the configured close time against the server\'s UTC clock instead of each organisation\'s local time. For example, a Bangladesh org (UTC+6) that set 10:00 PM as the close time would not have sessions closed until ~6 AM the next morning. Fixed by converting the server clock to each org\'s IANA timezone (stored in app_config) before comparing. Both the today-vs-past-date decision and the HH:MM comparison now use org-local time. The shift-level > org-level > fallback priority chain is unchanged. A per-org timezone cache prevents repeated DB lookups within a single cron run.' },
+      { type: 'fix', description: 'Rush-hour skip guard in auto_close_sessions was referencing an undefined todayStr variable (leftover from before the timezone fix). Guard now correctly uses orgTodayStr derived from the org\'s IANA timezone, computed before the guard check.' }
     ]
   },
   {
