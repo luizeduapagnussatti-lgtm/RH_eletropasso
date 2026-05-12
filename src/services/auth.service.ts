@@ -1,123 +1,141 @@
-import { apiClient } from './api.client';
+import { supabase, isSupabaseConfigured } from './supabase';
 import { User } from '../types';
 import { organizationService } from './organization.service';
 import { sessionManager } from './session/sessionManager';
+import { apiClient } from './api.client';
+
+// Build the app User object from a Supabase profile row
+const profileToUser = (profile: Record<string, any>): User => ({
+  id: profile.id,
+  employeeId: profile.employee_id || '',
+  email: profile.email || '',
+  name: profile.name || 'User',
+  role: (profile.role || 'EMPLOYEE').toString().toUpperCase() as any,
+  department: profile.department || 'Unassigned',
+  designation: profile.designation || 'Staff',
+  teamId: profile.team_id || undefined,
+  organizationId: profile.organization_id || undefined,
+  avatar: profile.avatar
+    ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar}`
+    : undefined,
+});
 
 export const authService = {
   async login(email: string, pass: string): Promise<{ user: User | null; error?: string }> {
-    if (!apiClient.isConfigured() || !apiClient.pb) return { user: null, error: "PocketBase is not configured." };
-    try {
-      const authData = await apiClient.pb.collection('users').authWithPassword(email, pass);
-      const m = authData.record;
-      
-      if (!m.verified) {
-        apiClient.pb.authStore.clear();
-        return { user: null, error: "Account not verified. Please check your email." };
-      }
+    if (!isSupabaseConfigured()) return { user: null, error: 'Supabase not configured.' };
 
-      // prefetchMetadata() is called once from AuthContext.initAuth — no need to call here
-      return { user: {
-        id: m.id.toString().trim(),
-        employeeId: m.employee_id || '', 
-        email: m.email,
-        name: m.name || 'User',
-        role: (m.role || 'EMPLOYEE').toString().toUpperCase() as any,
-        department: m.department || 'Unassigned',
-        designation: m.designation || 'Staff',
-        teamId: m.team_id || undefined,
-        organizationId: m.organization_id || undefined,
-        avatar: m.avatar ? apiClient.pb.files.getURL(m, m.avatar) : undefined
-      }};
-    } catch (err: any) { 
-      let msg = "Login Failed";
-      if (err.response && err.response.message) msg = err.response.message;
-      else if (err.data && err.data.message) msg = err.data.message; 
-      else if (err.message) msg = err.message;
-      return { user: null, error: msg }; 
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
+
+    if (authError || !authData.user) {
+      return { user: null, error: authError?.message || 'Login failed.' };
     }
+
+    // Fetch profile row
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
+      return { user: null, error: 'Account profile not found. Contact support.' };
+    }
+
+    if (!profile.verified) {
+      await supabase.auth.signOut();
+      return { user: null, error: 'Account not verified. Please check your email.' };
+    }
+
+    const appUser = profileToUser({ ...profile, email: authData.user.email });
+    apiClient.setOrganizationId(profile.organization_id);
+    return { user: appUser };
   },
 
   async logout() {
-    // Session-manager is the single authority for clearing authStore.
-    // See Others/CLAUDE.md "Frozen Modules — Change-Control".
     await sessionManager.forceLogout('USER_INITIATED');
+    await supabase.auth.signOut();
     organizationService.clearCache();
     apiClient.notify();
   },
 
-  async finalizePasswordReset(token: string, newPassword: string): Promise<boolean> {
-    if (!apiClient.pb || !apiClient.isConfigured()) return false;
-    try {
-      await apiClient.pb.collection('users').confirmPasswordReset(token, newPassword, newPassword);
-      return true;
-    } catch (err: any) {
-      console.error("Password reset confirmation failed:", err);
-      return false;
-    }
+  async finalizePasswordReset(_token: string, newPassword: string): Promise<boolean> {
+    // Supabase handles token via magic link in URL — user lands back in app
+    // already authenticated; we just update the password.
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { console.error('[Auth] Password reset failed:', error.message); return false; }
+    return true;
   },
 
   async requestVerificationEmail(email: string): Promise<boolean> {
-    if (!apiClient.pb || !apiClient.isConfigured()) return false;
-    try {
-      await apiClient.pb.collection('users').requestVerification(email);
-      return true;
-    } catch (e) {
-      console.error("Failed to request verification", e);
-      return false;
-    }
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) { console.error('[Auth] Resend verification failed:', error.message); return false; }
+    return true;
   },
 
-  async registerOrganization(data: { orgName: string, adminName: string, email: string, password: string, country: string, address?: string, logo?: File | null }): Promise<{ success: boolean, error?: string }> {
-    if (!apiClient.pb || !apiClient.isConfigured()) return { success: false, error: "System offline" };
+  async requestPasswordReset(email: string): Promise<boolean> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/?reset=1`,
+    });
+    if (error) { console.error('[Auth] Password reset request failed:', error.message); return false; }
+    return true;
+  },
+
+  async registerOrganization(data: {
+    orgName: string;
+    adminName: string;
+    email: string;
+    password: string;
+    country: string;
+    address?: string;
+    logo?: File | null;
+  }): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) return { success: false, error: 'System offline' };
 
     try {
-      console.log("[AUTH] Registration initiated for org: " + data.orgName);
-
-      // Create FormData to handle file upload
       const formData = new FormData();
       formData.append('orgName', data.orgName);
       formData.append('adminName', data.adminName);
       formData.append('email', data.email);
       formData.append('password', data.password);
       formData.append('country', data.country);
-      if (data.address) {
-        formData.append('address', data.address);
-      }
-      if (data.logo) {
-        formData.append('logo', data.logo);
-      }
+      if (data.address) formData.append('address', data.address);
+      if (data.logo) formData.append('logo', data.logo);
 
-      await apiClient.pb.send("/api/openhr/register", {
-        method: "POST",
-        headers: {
-          // Don't set Content-Type - browser will set it with boundary for multipart/form-data
-          // Prevent caching of this request
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0"
-        },
-        body: formData
+      // Calls the Supabase Edge Function (Phase 4 will create this)
+      const { data: result, error } = await supabase.functions.invoke('register', {
+        body: formData,
       });
 
-      // SECURITY: Clear the password from memory immediately after sending
+      // SECURITY: Clear password from memory immediately
       data.password = '';
 
+      if (error) return { success: false, error: error.message };
+      if (result?.error) return { success: false, error: result.error };
+
       return { success: true };
-
     } catch (err: any) {
-      console.error("[AUTH] Registration Error (detailed message only, no payload logged)");
-      let finalMsg = "Registration failed.";
-
-      if (err.response && typeof err.response === 'object') {
-         if (err.response.message) finalMsg = err.response.message;
-         else if (err.response.code) finalMsg = `Error Code: ${err.response.code}`;
-      } else if (err.data && err.data.message) {
-        finalMsg = err.data.message;
-      } else if (err.message) {
-        finalMsg = err.message;
-      }
-
-      return { success: false, error: finalMsg };
+      data.password = '';
+      console.error('[Auth] Registration error');
+      return { success: false, error: err?.message || 'Registration failed.' };
     }
-  }
+  },
+
+  // Fetch the current user's profile from Supabase (used by sessionManager shim)
+  async getCurrentUser(): Promise<User | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) return null;
+    return profileToUser({ ...profile, email: user.email });
+  },
 };
