@@ -1,5 +1,6 @@
 
 import { pb, isPocketBaseConfigured } from './pocketbase';
+import { supabase, isSupabaseConfigured } from './supabase';
 import { convertToWebP } from '../utils/imageConvert';
 
 const subscribers: Set<() => void> = new Set();
@@ -49,7 +50,9 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 
 export const apiClient = {
   pb,
+  supabase,
   isConfigured: isPocketBaseConfigured,
+  isSupabaseConfigured,
 
   // Event Bus for global state updates
   subscribe(callback: () => void) {
@@ -62,7 +65,17 @@ export const apiClient = {
   },
 
   // Helper to get current Organization ID
+  // Phase 2: reads from Supabase session cache (set by authService.login)
+  // Falls back to PocketBase authStore during parallel-run migration window.
+  _cachedOrgId: undefined as string | undefined,
+
+  setOrganizationId(orgId: string | undefined) {
+    (this as any)._cachedOrgId = orgId;
+  },
+
   getOrganizationId(): string | undefined {
+    if ((this as any)._cachedOrgId) return (this as any)._cachedOrgId;
+    // PocketBase fallback (removed in Phase 5 after all services migrated)
     const orgId = pb?.authStore.model?.organization_id;
     if (!orgId && pb?.authStore.isValid) {
       console.warn("[API Client] User authenticated but no organization_id found in auth model");
