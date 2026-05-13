@@ -1,41 +1,39 @@
+import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabase';
 import { apiClient } from './api.client';
 import { UpgradeRequest, DonationTier } from '../types';
 import { convertFileToWebP } from '../utils/imageConvert';
 
 export const upgradeService = {
-  /**
-   * Submit a donation activation request
-   */
   async submitDonationRequest(data: {
     donationTier: DonationTier;
     donationAmount: number;
     donationReference: string;
     donationScreenshot?: File;
   }): Promise<{ success: boolean; message: string; requestId?: string }> {
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      return { success: false, message: 'Not configured' };
-    }
-
+    if (!isSupabaseConfigured()) return { success: false, message: 'Not configured' };
     try {
       const orgId = apiClient.getOrganizationId();
-      if (!orgId) {
-        return { success: false, message: 'No organization found' };
-      }
+      if (!orgId) return { success: false, message: 'No organization found' };
 
-      const formData = new FormData();
-      formData.append('organization_id', orgId);
-      formData.append('request_type', 'DONATION');
-      formData.append('status', 'PENDING');
-      formData.append('donation_tier', data.donationTier);
-      formData.append('donation_amount', data.donationAmount.toString());
-      formData.append('donation_reference', data.donationReference);
-
+      let screenshotPath: string | null = null;
       if (data.donationScreenshot) {
-        const webpScreenshot = await convertFileToWebP(data.donationScreenshot);
-        formData.append('donation_screenshot', webpScreenshot);
+        const webp = await convertFileToWebP(data.donationScreenshot);
+        const path = `${orgId}/${Date.now()}.webp`;
+        const { error: uploadErr } = await supabase.storage.from('donation-screenshots').upload(path, webp, { upsert: false });
+        if (uploadErr) throw uploadErr;
+        screenshotPath = path;
       }
 
-      const record = await apiClient.pb.collection('upgrade_requests').create(formData);
+      const { data: record, error } = await supabase.from('upgrade_requests').insert({
+        organization_id: orgId,
+        request_type: 'DONATION',
+        status: 'PENDING',
+        donation_tier: data.donationTier,
+        donation_amount: data.donationAmount,
+        donation_reference: data.donationReference,
+        donation_screenshot: screenshotPath,
+      }).select('id').single();
+      if (error) throw error;
       return { success: true, message: 'Request submitted successfully', requestId: record.id };
     } catch (e: any) {
       console.error('[UpgradeService] Failed to submit donation request:', e);
@@ -43,31 +41,23 @@ export const upgradeService = {
     }
   },
 
-  /**
-   * Submit a trial extension request
-   */
   async submitExtensionRequest(data: {
     extensionReason: string;
     extensionDays: number;
   }): Promise<{ success: boolean; message: string; requestId?: string }> {
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      return { success: false, message: 'Not configured' };
-    }
-
+    if (!isSupabaseConfigured()) return { success: false, message: 'Not configured' };
     try {
       const orgId = apiClient.getOrganizationId();
-      if (!orgId) {
-        return { success: false, message: 'No organization found' };
-      }
+      if (!orgId) return { success: false, message: 'No organization found' };
 
-      const record = await apiClient.pb.collection('upgrade_requests').create({
+      const { data: record, error } = await supabase.from('upgrade_requests').insert({
         organization_id: orgId,
         request_type: 'TRIAL_EXTENSION',
         status: 'PENDING',
         extension_reason: data.extensionReason,
-        extension_days: data.extensionDays
-      });
-
+        extension_days: data.extensionDays,
+      }).select('id').single();
+      if (error) throw error;
       return { success: true, message: 'Extension request submitted', requestId: record.id };
     } catch (e: any) {
       console.error('[UpgradeService] Failed to submit extension request:', e);
@@ -75,50 +65,41 @@ export const upgradeService = {
     }
   },
 
-  /**
-   * Accept ad-supported mode (instant activation)
-   */
   async acceptAdSupported(): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      return { success: false, message: 'Not configured' };
-    }
-
+    if (!isSupabaseConfigured()) return { success: false, message: 'Not configured' };
     try {
-      const response = await apiClient.pb.send('/api/openhr/accept-ads', {
-        method: 'POST'
-      });
-
-      if (response.success) {
-        return { success: true, message: 'Ad-supported mode activated' };
-      } else {
-        return { success: false, message: response.message || 'Failed to activate' };
-      }
+      const orgId = apiClient.getOrganizationId();
+      if (!orgId) return { success: false, message: 'No organization found' };
+      const { error } = await supabase
+        .from('organizations')
+        .update({ subscription_status: 'AD_SUPPORTED', trial_end_date: null })
+        .eq('id', orgId);
+      if (error) throw error;
+      apiClient.notify();
+      return { success: true, message: 'Ad-supported mode activated' };
     } catch (e: any) {
       console.error('[UpgradeService] Failed to accept ad-supported:', e);
       return { success: false, message: e?.message || 'Failed to activate ad-supported mode' };
     }
   },
 
-  /**
-   * Get pending upgrade request for current organization
-   */
   async getPendingRequest(): Promise<UpgradeRequest | null> {
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      return null;
-    }
-
+    if (!isSupabaseConfigured()) return null;
     try {
       const orgId = apiClient.getOrganizationId();
       if (!orgId) return null;
 
-      const records = await apiClient.pb.collection('upgrade_requests').getList(1, 1, {
-        filter: `organization_id = "${orgId}" && status = "PENDING"`,
-        sort: '-created'
-      });
-
-      if (records.items.length === 0) return null;
-
-      const r = records.items[0];
+      const { data, error } = await supabase
+        .from('upgrade_requests')
+        .select('*')
+        .eq('organization_id', orgId)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const r = data;
       return {
         id: r.id,
         organizationId: r.organization_id,
@@ -127,11 +108,11 @@ export const upgradeService = {
         donationAmount: r.donation_amount,
         donationTier: r.donation_tier,
         donationReference: r.donation_reference,
-        donationScreenshot: r.donation_screenshot ? apiClient.pb.files.getURL(r, r.donation_screenshot) : undefined,
+        donationScreenshot: r.donation_screenshot ? getSupabaseStorageUrl('donation-screenshots', r.donation_screenshot) : undefined,
         extensionReason: r.extension_reason,
         extensionDays: r.extension_days,
         adminNotes: r.admin_notes,
-        created: r.created
+        created: r.created_at,
       };
     } catch (e: any) {
       console.error('[UpgradeService] Failed to get pending request:', e);
@@ -139,41 +120,33 @@ export const upgradeService = {
     }
   },
 
-  /**
-   * Get all upgrade requests (Super Admin only)
-   */
   async getAllRequests(statusFilter?: string): Promise<UpgradeRequest[]> {
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      console.log('[UpgradeService] getAllRequests: Not configured');
-      return [];
-    }
-
+    if (!isSupabaseConfigured()) return [];
     try {
-      const filter = statusFilter ? `status = "${statusFilter}"` : '';
-      console.log('[UpgradeService] getAllRequests: Fetching with filter:', filter);
-      const records = await apiClient.pb.collection('upgrade_requests').getFullList({
-        filter,
-        sort: '-created',
-        expand: 'organization_id'
-      });
-      console.log('[UpgradeService] getAllRequests: Found', records.length, 'records');
+      let query = supabase
+        .from('upgrade_requests')
+        .select('*, organizations(name)')
+        .order('created_at', { ascending: false });
+      if (statusFilter) query = query.eq('status', statusFilter);
 
-      return records.map(r => ({
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
         id: r.id,
         organizationId: r.organization_id,
-        organizationName: r.expand?.organization_id?.name || 'Unknown',
+        organizationName: r.organizations?.name || 'Unknown',
         requestType: r.request_type,
         status: r.status,
         donationAmount: r.donation_amount,
         donationTier: r.donation_tier,
         donationReference: r.donation_reference,
-        donationScreenshot: r.donation_screenshot ? apiClient.pb!.files.getURL(r, r.donation_screenshot) : undefined,
+        donationScreenshot: r.donation_screenshot ? getSupabaseStorageUrl('donation-screenshots', r.donation_screenshot) : undefined,
         extensionReason: r.extension_reason,
         extensionDays: r.extension_days,
         adminNotes: r.admin_notes,
         processedBy: r.processed_by,
         processedAt: r.processed_at,
-        created: r.created
+        created: r.created_at,
       }));
     } catch (e: any) {
       console.error('[UpgradeService] Failed to get all requests:', e);
@@ -181,34 +154,59 @@ export const upgradeService = {
     }
   },
 
-  /**
-   * Process an upgrade request (Super Admin only)
-   */
   async processRequest(
     requestId: string,
     action: 'APPROVED' | 'REJECTED',
     adminNotes?: string,
-    extensionDays?: number
+    extensionDays?: number,
   ): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      return { success: false, message: 'Not configured' };
-    }
-
+    if (!isSupabaseConfigured()) return { success: false, message: 'Not configured' };
     try {
-      const response = await apiClient.pb.send('/api/openhr/process-upgrade-request', {
-        method: 'POST',
-        body: JSON.stringify({
-          requestId,
-          action,
-          adminNotes,
-          extensionDays
-        })
-      });
+      const { data: { user } } = await supabase.auth.getUser();
 
-      return { success: response.success, message: response.message };
+      // Fetch the request to know org + type
+      const { data: req, error: fetchErr } = await supabase
+        .from('upgrade_requests')
+        .select('organization_id, request_type, extension_days, donation_tier')
+        .eq('id', requestId)
+        .single();
+      if (fetchErr || !req) return { success: false, message: 'Request not found' };
+
+      // Update request status
+      const { error: updateErr } = await supabase.from('upgrade_requests').update({
+        status: action,
+        admin_notes: adminNotes || null,
+        processed_by: user?.id || null,
+        processed_at: new Date().toISOString(),
+      }).eq('id', requestId);
+      if (updateErr) throw updateErr;
+
+      // If approved, update organization subscription
+      if (action === 'APPROVED') {
+        const orgUpdate: any = {};
+        if (req.request_type === 'TRIAL_EXTENSION') {
+          const days = extensionDays ?? req.extension_days ?? 14;
+          const newEnd = new Date();
+          newEnd.setDate(newEnd.getDate() + days);
+          orgUpdate.trial_end_date = newEnd.toISOString();
+          orgUpdate.subscription_status = 'TRIAL';
+        } else if (req.request_type === 'DONATION') {
+          orgUpdate.subscription_status = 'ACTIVE';
+          orgUpdate.trial_end_date = null;
+        } else if (req.request_type === 'AD_SUPPORTED') {
+          orgUpdate.subscription_status = 'AD_SUPPORTED';
+          orgUpdate.trial_end_date = null;
+        }
+        if (Object.keys(orgUpdate).length > 0) {
+          await supabase.from('organizations').update(orgUpdate).eq('id', req.organization_id);
+        }
+      }
+
+      apiClient.notify();
+      return { success: true, message: action === 'APPROVED' ? 'Request approved' : 'Request rejected' };
     } catch (e: any) {
       console.error('[UpgradeService] Failed to process request:', e);
       return { success: false, message: e?.message || 'Failed to process request' };
     }
-  }
+  },
 };
