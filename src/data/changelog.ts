@@ -29,6 +29,10 @@ export const changelog: ChangelogRelease[] = [
       { type: 'improvement', description: 'announcement.service.ts rewritten to use Supabase. All CRUD and bulk notification fan-out ported.' },
       { type: 'improvement', description: 'review.service.ts rewritten to use Supabase. self_ratings/manager_ratings stored as jsonb objects (no JSON.stringify). Legacy column writes removed. Attendance/leave summary queries ported.' },
       { type: 'improvement', description: 'superadmin.service.ts rewritten to use Supabase. getAllOrganizations uses single profiles query + client-side aggregation (no N+1). createOrganization/deleteOrganization delegate to new Edge Functions (superadmin-create-org, superadmin-delete-org). deleteOrganization cascade deletes auth users via service-role. Bulk email, platform stats, guide links, content image upload all ported.' },
+      { type: 'improvement', description: 'blog.service.ts rewritten to use Supabase. Public methods query blog_posts table directly (no PB custom endpoint). Cover images in content-images storage bucket.' },
+      { type: 'improvement', description: 'tutorial.service.ts rewritten to use Supabase. Public methods query tutorials table directly. Cover images in content-images storage bucket.' },
+      { type: 'improvement', description: 'upgrade.service.ts rewritten to use Supabase. Donation screenshots in donation-screenshots bucket. acceptAdSupported does direct org update. processRequest updates request + org subscription inline.' },
+      { type: 'improvement', description: 'verification.service.ts rewritten to use Supabase. verifyEmailToken uses supabase.auth.verifyOtp. resendVerificationEmail uses supabase.auth.resend. manuallyVerifyUser and getUnverifiedUsers use profiles table directly. All PocketBase SDK calls removed.' },
     ]
   },
   {
