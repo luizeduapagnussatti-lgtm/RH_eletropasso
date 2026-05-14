@@ -19,6 +19,7 @@ export const changelog: ChangelogRelease[] = [
     title: 'Supabase Migration: OrgSystem migrated from PocketBase',
     entries: [
       { type: 'improvement', description: 'OrgSystem now reads and writes organization data (name, country, address, logo) via Supabase. Logo uploads go to the org-logos storage bucket. No more PocketBase dependency in this component.' },
+      { type: 'fix', description: 'Fixed employee dashboard slow load and intermittent blank screen on page refresh. Root cause: resolveOrgId() was not deduplicated — 6 parallel dashboard service calls each fired their own auth.getUser + profiles fetch on cold cache (~12 extra network requests). Now a single shared promise resolves org context once for all callers. Also fixed employee.service.getEmployees() which used a sync org-id lookup that returned undefined on cold cache, causing an unfiltered full-table query.' },
     ],
   },
   {
