@@ -49,7 +49,7 @@ function saveIdMap() {
 }
 
 function mapId(pbId) {
-  return pbId ? (idMap[pbId] ?? pbId) : null;
+  return pbId ? (idMap[pbId] ?? null) : null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -121,42 +121,44 @@ async function migrateUsers() {
     if (!r.email) { skipped++; continue; }
     const email = r.email.toLowerCase().trim();
 
+    let newId;
     if (existingEmails.has(email)) {
-      // Already migrated — ensure idMap has entry
+      // Auth user exists — ensure idMap populated, then upsert profile below
       const existing = (existingAuthUsers || []).find(u => u.email?.toLowerCase() === email);
-      if (existing) idMap[r.id] = existing.id;
+      if (!existing) { skipped++; continue; }
+      newId = existing.id;
+      idMap[r.id] = newId;
       skipped++;
-      continue;
+    } else {
+      // Create auth user via admin API
+      const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
+        email,
+        password: TEMP_PASSWORD,
+        email_confirm: true,
+        user_metadata: { name: r.name || '' },
+      });
+
+      if (authErr || !authData.user) {
+        console.error(`  ERROR creating auth user ${email}: ${authErr?.message}`);
+        failed++;
+        continue;
+      }
+
+      newId = authData.user.id;
+      idMap[r.id] = newId;
+      created++;
     }
 
-    // Create auth user via admin API
-    const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-      email,
-      password: TEMP_PASSWORD,
-      email_confirm: true,
-      user_metadata: { name: r.name || '' },
-    });
-
-    if (authErr || !authData.user) {
-      console.error(`  ERROR creating auth user ${email}: ${authErr?.message}`);
-      failed++;
-      continue;
-    }
-
-    const newId = authData.user.id;
-    idMap[r.id] = newId;
-
-    // Insert profile
-    const { error: profileErr } = await supabase.from('profiles').insert({
+    // Upsert profile (handles both new and previously-failed inserts)
+    const { error: profileErr } = await supabase.from('profiles').upsert({
       id: newId,
       organization_id: mapId(r.organization_id),
       name: r.name || '',
-      email,
       role: r.role || 'EMPLOYEE',
       employee_id: r.employee_id || null,
       designation: r.designation || null,
       department: r.department || null,
-      avatar: r.avatar ? `${r.id}/${r.avatar}` : null, // file migration in 03-files.mjs
+      avatar: r.avatar ? `${r.id}/${r.avatar}` : null,
       verified: r.verified ?? false,
       employment_type: r.employment_type || null,
       work_type: r.work_type || null,
@@ -166,13 +168,12 @@ async function migrateUsers() {
       location: r.location || null,
       created: ts(r.created),
       updated: ts(r.updated),
-    });
+    }, { onConflict: 'id', ignoreDuplicates: false });
 
     if (profileErr) console.error(`  ERROR profile ${email}: ${profileErr.message}`);
-    else created++;
 
     // Throttle to avoid rate limiting
-    if (created % 10 === 0) await new Promise(res => setTimeout(res, 200));
+    if ((created + skipped) % 10 === 0) await new Promise(res => setTimeout(res, 200));
   }
 
   saveIdMap();
@@ -227,13 +228,18 @@ async function migrateShifts() {
       id: newId,
       organization_id: mapId(r.organization_id),
       name: r.name,
-      start_time: r.start_time || r.startTime || '09:00',
-      end_time: r.end_time || r.endTime || '18:00',
-      late_grace_period: r.late_grace_period ?? r.lateGracePeriod ?? 0,
-      early_out_grace_period: r.early_out_grace_period ?? r.earlyOutGracePeriod ?? 0,
-      earliest_check_in: r.earliest_check_in || r.earliestCheckIn || null,
-      auto_session_close_time: r.auto_session_close_time || r.autoSessionCloseTime || null,
-      working_days: r.working_days || r.workingDays || ['MON','TUE','WED','THU','FRI'],
+      start_time: r.startTime || r.start_time || '09:00',
+      end_time: r.endTime || r.end_time || '18:00',
+      late_grace_period: r.lateGracePeriod ?? r.late_grace_period ?? 0,
+      early_out_grace_period: r.earlyOutGracePeriod ?? r.early_out_grace_period ?? 0,
+      earliest_check_in: r.earliestCheckIn || r.earliest_check_in || null,
+      auto_session_close_time: r.autoSessionCloseTime || r.auto_session_close_time || null,
+      working_days: (() => {
+        const DAY_MAP = { Monday:'MON', Tuesday:'TUE', Wednesday:'WED', Thursday:'THU', Friday:'FRI', Saturday:'SAT', Sunday:'SUN' };
+        const raw = r.workingDays || r.working_days;
+        const arr = typeof raw === 'string' ? JSON.parse(raw) : (raw || ['MON','TUE','WED','THU','FRI']);
+        return arr.map(d => DAY_MAP[d] || d);
+      })(),
       is_default: r.is_default ?? r.isDefault ?? false,
       created: ts(r.created),
       updated: ts(r.updated),
@@ -248,7 +254,7 @@ async function migrateShifts() {
 
 async function migrateSettings() {
   console.log('\n[5/9] settings…');
-  const records = load('settings');
+  const records = load('settings').filter(r => r.organization_id);
   const rows = records.map(r => {
     const newId = idMap[r.id] ?? (idMap[r.id] = crypto.randomUUID());
     return {
@@ -261,7 +267,7 @@ async function migrateSettings() {
     };
   });
   saveIdMap();
-  const { inserted } = await upsertBatch('settings', rows);
+  const { inserted } = await upsertBatch('settings', rows, 'organization_id,key');
   console.log(`  ✓ ${inserted} rows`);
 }
 
@@ -285,10 +291,12 @@ async function migrateAttendance() {
     // PB SQLite stores check_in/check_out as time-only strings ("HH:MM" or "HH:MM:SS")
     // Combine with date field to get full timestamptz
     const toTimestamptz = (timeStr) => {
-      if (!timeStr) return null;
+      if (!timeStr || !timeStr.trim() || timeStr === '-') return null;
       // Already a full datetime?
       if (timeStr.includes('T') || timeStr.length > 10) return ts(timeStr);
-      return ts(`${r.date}T${timeStr}`);
+      if (!r.date) return null;
+      const d = new Date(`${r.date}T${timeStr}`);
+      return isNaN(d) ? null : d.toISOString();
     };
 
     return {
@@ -363,7 +371,7 @@ async function migrateAnnouncements() {
       author_id: mapId(r.author_id) ?? r.author_id ?? null,
       author_name: r.author_name || '',
       priority: r.priority || 'NORMAL',
-      target_roles: r.target_roles || [],
+      target_roles: (() => { const v = r.target_roles; if (!v) return []; return typeof v === 'string' ? JSON.parse(v) : v; })(),
       expires_at: ts(r.expires_at),
       created: ts(r.created),
       updated: ts(r.updated),
@@ -396,7 +404,7 @@ async function migrateBlogPosts() {
     };
   });
   saveIdMap();
-  const { inserted } = await upsertBatch('blog_posts', rows);
+  const { inserted } = await upsertBatch('blog_posts', rows, 'slug');
   console.log(`  ✓ ${inserted} rows`);
 }
 
@@ -431,7 +439,7 @@ async function migrateTutorials() {
       created: ts(r.created),
       updated: ts(r.updated),
     }));
-    await upsertBatch('tutorials', rows);
+    await upsertBatch('tutorials', rows, 'slug');
   }
   console.log(`  ✓ ${records.length} rows`);
 }
@@ -465,6 +473,23 @@ async function migrateNotifications() {
   console.log(`  ✓ ${inserted} rows`);
 }
 
+async function backfillTeamLeaders() {
+  console.log('\n[2b] backfill team leader_ids…');
+  const records = load('teams');
+  let updated = 0;
+  for (const r of records) {
+    if (!r.leader_id) continue;
+    const newLeaderId = mapId(r.leader_id);
+    if (!newLeaderId) continue;
+    const newTeamId = idMap[r.id];
+    if (!newTeamId) continue;
+    const { error } = await supabase.from('teams').update({ leader_id: newLeaderId }).eq('id', newTeamId);
+    if (error) console.error(`  ERROR team ${r.name} leader backfill: ${error.message}`);
+    else updated++;
+  }
+  console.log(`  ✓ ${updated} teams updated`);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -474,10 +499,12 @@ async function migrateNotifications() {
   console.log('─'.repeat(60));
 
   await migrateOrgs();
-  await migrateTeams();
+  await migrateTeams();        // leader_id = null initially (users not yet created)
   await migrateShifts();
   await migrateSettings();
   await migrateUsers();        // after orgs/teams/shifts so IDs exist
+  // Back-fill team leader_ids now that user UUIDs are in idMap
+  await backfillTeamLeaders();
   await migrateAttendance();
   await migrateLeaves();
   await migrateAnnouncements();
