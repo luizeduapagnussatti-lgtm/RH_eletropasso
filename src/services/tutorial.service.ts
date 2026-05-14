@@ -2,72 +2,46 @@
 import { apiClient } from './api.client';
 import { Tutorial } from '../types';
 import { convertFileToWebP } from '../utils/imageConvert';
-
-// Build correct file URL using PocketBase base URL (not appURL from backend)
-const buildFileUrl = (collectionName: string, recordId: string, fileName: string): string => {
-  if (!fileName || !apiClient.pb) return '';
-  const baseUrl = apiClient.pb.baseURL || '';
-  return `${baseUrl}/api/files/${collectionName}/${recordId}/${fileName}`;
-};
-
-// Extract just the filename from a full URL or return as-is if already a filename
-const extractFileName = (coverValue: string): string => {
-  if (!coverValue) return '';
-  // If it's a full URL, extract just the filename (last path segment)
-  if (coverValue.startsWith('http://') || coverValue.startsWith('https://')) {
-    try {
-      const url = new URL(coverValue);
-      const segments = url.pathname.split('/');
-      return segments[segments.length - 1] || '';
-    } catch {
-      return coverValue;
-    }
-  }
-  return coverValue;
-};
+import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabase';
 
 export const tutorialService = {
-  // =============================================
-  // PUBLIC METHODS (no auth required)
-  // =============================================
-
   async getPublishedTutorials(page: number = 1, limit: number = 100): Promise<{
     tutorials: Tutorial[];
     page: number;
     totalPages: number;
     totalTutorials: number;
   }> {
-    if (!apiClient.pb) {
-      console.warn('[TutorialService] PocketBase not configured');
-      return { tutorials: [], page: 1, totalPages: 0, totalTutorials: 0 };
-    }
+    if (!isSupabaseConfigured()) return { tutorials: [], page: 1, totalPages: 0, totalTutorials: 0 };
     try {
-      const response = await apiClient.pb.send(`/api/openhr/tutorials/posts?page=${page}&limit=${limit}`, { method: 'GET' });
-      const tutorials: Tutorial[] = (response.tutorials || []).map((p: any) => {
-        const fileName = extractFileName(p.cover_image || '');
-        return {
-          id: p.id,
-          title: p.title,
-          slug: p.slug,
-          content: '',
-          excerpt: p.excerpt,
-          coverImage: fileName ? buildFileUrl('tutorials', p.id, fileName) : '',
-          status: 'PUBLISHED' as const,
-          authorName: p.author_name || '',
-          displayOrder: p.display_order || 0,
-          parentId: p.parent_id || '',
-          category: p.category || '',
-          publishedAt: p.published_at || '',
-          created: p.created || '',
-          updated: p.updated || '',
-        };
-      });
-      return {
-        tutorials,
-        page: response.page || 1,
-        totalPages: response.totalPages || 1,
-        totalTutorials: response.totalTutorials || tutorials.length,
-      };
+      const { data, count, error } = await supabase
+        .from('tutorials')
+        .select('*', { count: 'exact' })
+        .eq('status', 'PUBLISHED')
+        .order('display_order', { ascending: true })
+        .order('published_at', { ascending: false })
+        .range((page - 1) * limit, page * limit - 1);
+
+      if (error) throw error;
+
+      const tutorials: Tutorial[] = (data || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        slug: r.slug,
+        content: '',
+        excerpt: r.excerpt || '',
+        coverImage: r.cover_image ? getSupabaseStorageUrl('content-images', r.cover_image) : '',
+        status: 'PUBLISHED' as const,
+        authorName: r.author_name || '',
+        displayOrder: r.display_order || 0,
+        parentId: r.parent_id || '',
+        category: r.category || '',
+        publishedAt: r.published_at || '',
+        created: r.created || '',
+        updated: r.updated || '',
+      }));
+
+      const totalTutorials = count ?? tutorials.length;
+      return { tutorials, page, totalPages: Math.ceil(totalTutorials / limit), totalTutorials };
     } catch (e: any) {
       console.error('[TutorialService] Failed to fetch published tutorials:', e?.message || e);
       return { tutorials: [], page: 1, totalPages: 0, totalTutorials: 0 };
@@ -75,32 +49,33 @@ export const tutorialService = {
   },
 
   async getTutorialBySlug(slug: string): Promise<Tutorial | null> {
-    if (!apiClient.pb) {
-      console.warn('[TutorialService] PocketBase not configured');
-      return null;
-    }
+    if (!isSupabaseConfigured()) return null;
     try {
-      // Sanitize slug to ensure clean URL path (lowercase, alphanumeric + hyphens only)
       const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/(^-|-$)/g, '');
-      const response = await apiClient.pb.send(`/api/openhr/tutorials/posts/${cleanSlug}`, { method: 'GET' });
-      if (!response.success || !response.tutorial) return null;
-      const p = response.tutorial;
-      const fileName = extractFileName(p.cover_image || '');
+      const { data, error } = await supabase
+        .from('tutorials')
+        .select('*')
+        .eq('status', 'PUBLISHED')
+        .eq('slug', cleanSlug)
+        .single();
+
+      if (error || !data) return null;
+      const r = data;
       return {
-        id: p.id,
-        title: p.title,
-        slug: p.slug,
-        content: p.content || '',
-        excerpt: p.excerpt || '',
-        coverImage: fileName ? buildFileUrl('tutorials', p.id, fileName) : '',
+        id: r.id,
+        title: r.title,
+        slug: r.slug,
+        content: r.content || '',
+        excerpt: r.excerpt || '',
+        coverImage: r.cover_image ? getSupabaseStorageUrl('content-images', r.cover_image) : '',
         status: 'PUBLISHED',
-        authorName: p.author_name || '',
-        displayOrder: p.display_order || 0,
-        parentId: p.parent_id || '',
-        category: p.category || '',
-        publishedAt: p.published_at || '',
-        created: p.created || '',
-        updated: p.updated || '',
+        authorName: r.author_name || '',
+        displayOrder: r.display_order || 0,
+        parentId: r.parent_id || '',
+        category: r.category || '',
+        publishedAt: r.published_at || '',
+        created: r.created || '',
+        updated: r.updated || '',
       };
     } catch (e: any) {
       console.error('[TutorialService] Failed to fetch tutorial by slug:', e?.message || e);
@@ -108,21 +83,23 @@ export const tutorialService = {
     }
   },
 
-  // =============================================
-  // ADMIN METHODS (auth required, PB SDK)
-  // =============================================
-
   async getAllTutorials(): Promise<Tutorial[]> {
-    if (!apiClient.pb) return [];
+    if (!isSupabaseConfigured()) return [];
     try {
-      const records = await apiClient.pb.collection('tutorials').getFullList({ sort: 'display_order,-created' });
-      return records.map((r: any) => ({
+      const { data, error } = await supabase
+        .from('tutorials')
+        .select('*')
+        .order('display_order', { ascending: true })
+        .order('created', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
         id: r.id,
         title: r.title || '',
         slug: r.slug || '',
         content: r.content || '',
         excerpt: r.excerpt || '',
-        coverImage: r.cover_image ? apiClient.pb!.files.getURL(r, r.cover_image) : '',
+        coverImage: r.cover_image ? getSupabaseStorageUrl('content-images', r.cover_image) : '',
         status: r.status || 'DRAFT',
         authorName: r.author_name || '',
         displayOrder: r.display_order || 0,
@@ -150,8 +127,17 @@ export const tutorialService = {
     parentId: string;
     category: string;
   }): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb) return { success: false, message: 'PocketBase not configured' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
     try {
+      let coverPath: string | null = null;
+      if (data.coverImage) {
+        const webpCover = await convertFileToWebP(data.coverImage);
+        const path = `tutorial-covers/${Date.now()}.webp`;
+        const { error: uploadErr } = await supabase.storage.from('content-images').upload(path, webpCover, { upsert: true });
+        if (uploadErr) throw uploadErr;
+        coverPath = path;
+      }
+
       const record: Record<string, any> = {
         title: data.title,
         slug: data.slug,
@@ -160,34 +146,18 @@ export const tutorialService = {
         status: data.status,
         author_name: data.authorName,
         display_order: data.displayOrder,
-        parent_id: data.parentId,
+        parent_id: data.parentId || null,
         category: data.category,
       };
-      if (data.status === 'PUBLISHED') {
-        record.published_at = new Date().toISOString();
-      }
+      if (coverPath) record.cover_image = coverPath;
+      if (data.status === 'PUBLISHED') record.published_at = new Date().toISOString();
 
-      if (data.coverImage) {
-        const webpCover = await convertFileToWebP(data.coverImage);
-        const formData = new FormData();
-        Object.entries(record).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) formData.append(key, String(val));
-        });
-        formData.append('cover_image', webpCover);
-        await apiClient.pb.collection('tutorials').create(formData);
-      } else {
-        await apiClient.pb.collection('tutorials').create(record);
-      }
-
+      const { error } = await supabase.from('tutorials').insert(record);
+      if (error) throw error;
       apiClient.notify();
       return { success: true, message: 'Tutorial created successfully' };
     } catch (e: any) {
       console.error('[TutorialService] Failed to create tutorial:', e);
-      const fieldErrors = e?.data?.data;
-      if (fieldErrors) {
-        const details = Object.entries(fieldErrors).map(([k, v]: [string, any]) => `${k}: ${v?.message || v}`).join(', ');
-        return { success: false, message: `Validation error: ${details}` };
-      }
       return { success: false, message: e?.message || 'Failed to create tutorial' };
     }
   },
@@ -205,7 +175,7 @@ export const tutorialService = {
     category?: string;
     publishedAt?: string;
   }): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb) return { success: false, message: 'PocketBase not configured' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
     try {
       const record: Record<string, any> = {};
       if (data.title !== undefined) record.title = data.title;
@@ -215,39 +185,33 @@ export const tutorialService = {
       if (data.status !== undefined) record.status = data.status;
       if (data.authorName !== undefined) record.author_name = data.authorName;
       if (data.displayOrder !== undefined) record.display_order = data.displayOrder;
-      if (data.parentId !== undefined) record.parent_id = data.parentId;
+      if (data.parentId !== undefined) record.parent_id = data.parentId || null;
       if (data.category !== undefined) record.category = data.category;
       if (data.publishedAt !== undefined) record.published_at = data.publishedAt;
 
       if (data.coverImage) {
         const webpCover = await convertFileToWebP(data.coverImage);
-        const formData = new FormData();
-        Object.entries(record).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) formData.append(key, String(val));
-        });
-        formData.append('cover_image', webpCover);
-        await apiClient.pb.collection('tutorials').update(id, formData);
-      } else {
-        await apiClient.pb.collection('tutorials').update(id, record);
+        const path = `tutorial-covers/${Date.now()}.webp`;
+        const { error: uploadErr } = await supabase.storage.from('content-images').upload(path, webpCover, { upsert: true });
+        if (uploadErr) throw uploadErr;
+        record.cover_image = path;
       }
 
+      const { error } = await supabase.from('tutorials').update(record).eq('id', id);
+      if (error) throw error;
       apiClient.notify();
       return { success: true, message: 'Tutorial updated successfully' };
     } catch (e: any) {
       console.error('[TutorialService] Failed to update tutorial:', e);
-      const fieldErrors = e?.data?.data;
-      if (fieldErrors) {
-        const details = Object.entries(fieldErrors).map(([k, v]: [string, any]) => `${k}: ${v?.message || v}`).join(', ');
-        return { success: false, message: `Validation error: ${details}` };
-      }
       return { success: false, message: e?.message || 'Failed to update tutorial' };
     }
   },
 
   async deleteTutorial(id: string): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb) return { success: false, message: 'PocketBase not configured' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
     try {
-      await apiClient.pb.collection('tutorials').delete(id);
+      const { error } = await supabase.from('tutorials').delete().eq('id', id);
+      if (error) throw error;
       apiClient.notify();
       return { success: true, message: 'Tutorial deleted successfully' };
     } catch (e: any) {

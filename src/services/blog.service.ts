@@ -2,69 +2,49 @@
 import { apiClient } from './api.client';
 import { BlogPost } from '../types';
 import { convertFileToWebP } from '../utils/imageConvert';
-
-// Build correct file URL using PocketBase base URL (not appURL from backend)
-const buildFileUrl = (collectionName: string, recordId: string, fileName: string): string => {
-  if (!fileName || !apiClient.pb) return '';
-  const baseUrl = apiClient.pb.baseURL || '';
-  return `${baseUrl}/api/files/${collectionName}/${recordId}/${fileName}`;
-};
-
-// Extract just the filename from a full URL or return as-is if already a filename
-const extractFileName = (coverValue: string): string => {
-  if (!coverValue) return '';
-  // If it's a full URL, extract just the filename (last path segment)
-  if (coverValue.startsWith('http://') || coverValue.startsWith('https://')) {
-    try {
-      const url = new URL(coverValue);
-      const segments = url.pathname.split('/');
-      return segments[segments.length - 1] || '';
-    } catch {
-      return coverValue;
-    }
-  }
-  return coverValue;
-};
+import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabase';
 
 export const blogService = {
-  // =============================================
-  // PUBLIC METHODS (no auth required)
-  // =============================================
-
   async getPublishedPosts(page: number = 1, limit: number = 10): Promise<{
     posts: BlogPost[];
     page: number;
     totalPages: number;
     totalPosts: number;
   }> {
-    if (!apiClient.pb) {
-      console.warn('[BlogService] PocketBase not configured');
+    if (!isSupabaseConfigured()) {
       return { posts: [], page: 1, totalPages: 0, totalPosts: 0 };
     }
     try {
-      const response = await apiClient.pb.send(`/api/openhr/blog/posts?page=${page}&limit=${limit}`, { method: 'GET' });
-      const posts: BlogPost[] = (response.posts || []).map((p: any) => {
-        const fileName = extractFileName(p.cover_image || '');
-        return {
-          id: p.id,
-          title: p.title,
-          slug: p.slug,
-          content: '',
-          excerpt: p.excerpt,
-          coverImage: fileName ? buildFileUrl('blog_posts', p.id, fileName) : '',
-          status: 'PUBLISHED' as const,
-          authorId: '',
-          authorName: p.author_name || '',
-          publishedAt: p.published_at || '',
-          created: p.created || '',
-          updated: p.updated || '',
-        };
-      });
+      const { data, count, error } = await supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact' })
+        .eq('status', 'PUBLISHED')
+        .order('published_at', { ascending: false })
+        .range((page - 1) * limit, page * limit - 1);
+
+      if (error) throw error;
+
+      const posts: BlogPost[] = (data || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        slug: r.slug,
+        content: '',
+        excerpt: r.excerpt || '',
+        coverImage: r.cover_image ? getSupabaseStorageUrl('content-images', r.cover_image) : '',
+        status: 'PUBLISHED' as const,
+        authorId: '',
+        authorName: r.author_name || '',
+        publishedAt: r.published_at || '',
+        created: r.created || '',
+        updated: r.updated || '',
+      }));
+
+      const totalPosts = count ?? posts.length;
       return {
         posts,
-        page: response.page || 1,
-        totalPages: response.totalPages || 1,
-        totalPosts: response.totalPosts || posts.length,
+        page,
+        totalPages: Math.ceil(totalPosts / limit),
+        totalPosts,
       };
     } catch (e: any) {
       console.error('[BlogService] Failed to fetch published posts:', e?.message || e);
@@ -73,30 +53,31 @@ export const blogService = {
   },
 
   async getPostBySlug(slug: string): Promise<BlogPost | null> {
-    if (!apiClient.pb) {
-      console.warn('[BlogService] PocketBase not configured');
-      return null;
-    }
+    if (!isSupabaseConfigured()) return null;
     try {
-      // Sanitize slug to ensure clean URL path (lowercase, alphanumeric + hyphens only)
       const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/(^-|-$)/g, '');
-      const response = await apiClient.pb.send(`/api/openhr/blog/posts/${cleanSlug}`, { method: 'GET' });
-      if (!response.success || !response.post) return null;
-      const p = response.post;
-      const fileName = extractFileName(p.cover_image || '');
+      const { data, error } = await supabase
+        .from('blog_posts')
+        .select('*')
+        .eq('status', 'PUBLISHED')
+        .eq('slug', cleanSlug)
+        .single();
+
+      if (error || !data) return null;
+      const r = data;
       return {
-        id: p.id,
-        title: p.title,
-        slug: p.slug,
-        content: p.content || '',
-        excerpt: p.excerpt || '',
-        coverImage: fileName ? buildFileUrl('blog_posts', p.id, fileName) : '',
+        id: r.id,
+        title: r.title,
+        slug: r.slug,
+        content: r.content || '',
+        excerpt: r.excerpt || '',
+        coverImage: r.cover_image ? getSupabaseStorageUrl('content-images', r.cover_image) : '',
         status: 'PUBLISHED',
         authorId: '',
-        authorName: p.author_name || '',
-        publishedAt: p.published_at || '',
-        created: p.created || '',
-        updated: p.updated || '',
+        authorName: r.author_name || '',
+        publishedAt: r.published_at || '',
+        created: r.created || '',
+        updated: r.updated || '',
       };
     } catch (e: any) {
       console.error('[BlogService] Failed to fetch post by slug:', e?.message || e);
@@ -104,23 +85,25 @@ export const blogService = {
     }
   },
 
-  // =============================================
-  // ADMIN METHODS (auth required, PB SDK)
-  // =============================================
-
   async getAllPosts(): Promise<BlogPost[]> {
-    if (!apiClient.pb) return [];
+    if (!isSupabaseConfigured()) return [];
     try {
-      const records = await apiClient.pb.collection('blog_posts').getFullList({ sort: '-created' });
-      return records.map((r: any) => ({
+      const { data, error } = await supabase
+        .from('blog_posts')
+        .select('*')
+        .order('created', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((r: any) => ({
         id: r.id,
         title: r.title || '',
         slug: r.slug || '',
         content: r.content || '',
         excerpt: r.excerpt || '',
-        coverImage: r.cover_image ? apiClient.pb!.files.getURL(r, r.cover_image) : '',
+        coverImage: r.cover_image ? getSupabaseStorageUrl('content-images', r.cover_image) : '',
         status: r.status || 'DRAFT',
-        authorId: r.author_id || '',
+        authorId: '',
         authorName: r.author_name || '',
         publishedAt: r.published_at || '',
         created: r.created || '',
@@ -141,9 +124,20 @@ export const blogService = {
     status: 'DRAFT' | 'PUBLISHED';
     authorName: string;
   }): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb) return { success: false, message: 'PocketBase not configured' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
     try {
-      // Build plain record data
+      let coverPath: string | null = null;
+
+      if (data.coverImage) {
+        const webpCover = await convertFileToWebP(data.coverImage);
+        const path = `blog-covers/${Date.now()}.webp`;
+        const { error: uploadError } = await supabase.storage
+          .from('content-images')
+          .upload(path, webpCover, { upsert: true });
+        if (uploadError) throw uploadError;
+        coverPath = path;
+      }
+
       const record: Record<string, any> = {
         title: data.title,
         slug: data.slug,
@@ -152,33 +146,15 @@ export const blogService = {
         status: data.status,
         author_name: data.authorName,
       };
-      if (data.status === 'PUBLISHED') {
-        record.published_at = new Date().toISOString();
-      }
+      if (coverPath) record.cover_image = coverPath;
+      if (data.status === 'PUBLISHED') record.published_at = new Date().toISOString();
 
-      // If there's a file, use FormData; otherwise use plain object
-      if (data.coverImage) {
-        const webpCover = await convertFileToWebP(data.coverImage);
-        const formData = new FormData();
-        Object.entries(record).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) formData.append(key, val);
-        });
-        formData.append('cover_image', webpCover);
-        await apiClient.pb.collection('blog_posts').create(formData);
-      } else {
-        await apiClient.pb.collection('blog_posts').create(record);
-      }
+      const { error } = await supabase.from('blog_posts').insert(record);
+      if (error) throw error;
 
       apiClient.notify();
       return { success: true, message: 'Blog post created successfully' };
     } catch (e: any) {
-      console.error('[BlogService] Failed to create post:', e);
-      // Extract PocketBase field validation errors if available
-      const fieldErrors = e?.data?.data;
-      if (fieldErrors) {
-        const details = Object.entries(fieldErrors).map(([k, v]: [string, any]) => `${k}: ${v?.message || v}`).join(', ');
-        return { success: false, message: `Validation error: ${details}` };
-      }
       return { success: false, message: e?.message || 'Failed to create blog post' };
     }
   },
@@ -193,9 +169,8 @@ export const blogService = {
     authorName?: string;
     publishedAt?: string;
   }): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb) return { success: false, message: 'PocketBase not configured' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
     try {
-      // Build plain record data — only include fields that are defined
       const record: Record<string, any> = {};
       if (data.title !== undefined) record.title = data.title;
       if (data.slug !== undefined) record.slug = data.slug;
@@ -205,37 +180,31 @@ export const blogService = {
       if (data.authorName !== undefined) record.author_name = data.authorName;
       if (data.publishedAt !== undefined) record.published_at = data.publishedAt;
 
-      // If there's a new file, use FormData; otherwise use plain object
       if (data.coverImage) {
         const webpCover = await convertFileToWebP(data.coverImage);
-        const formData = new FormData();
-        Object.entries(record).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) formData.append(key, String(val));
-        });
-        formData.append('cover_image', webpCover);
-        await apiClient.pb.collection('blog_posts').update(id, formData);
-      } else {
-        await apiClient.pb.collection('blog_posts').update(id, record);
+        const path = `blog-covers/${Date.now()}.webp`;
+        const { error: uploadError } = await supabase.storage
+          .from('content-images')
+          .upload(path, webpCover, { upsert: true });
+        if (uploadError) throw uploadError;
+        record.cover_image = path;
       }
+
+      const { error } = await supabase.from('blog_posts').update(record).eq('id', id);
+      if (error) throw error;
 
       apiClient.notify();
       return { success: true, message: 'Blog post updated successfully' };
     } catch (e: any) {
-      console.error('[BlogService] Failed to update post:', e);
-      // Extract PocketBase field validation errors if available
-      const fieldErrors = e?.data?.data;
-      if (fieldErrors) {
-        const details = Object.entries(fieldErrors).map(([k, v]: [string, any]) => `${k}: ${v?.message || v}`).join(', ');
-        return { success: false, message: `Validation error: ${details}` };
-      }
       return { success: false, message: e?.message || 'Failed to update blog post' };
     }
   },
 
   async deletePost(id: string): Promise<{ success: boolean; message: string }> {
-    if (!apiClient.pb) return { success: false, message: 'PocketBase not configured' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
     try {
-      await apiClient.pb.collection('blog_posts').delete(id);
+      const { error } = await supabase.from('blog_posts').delete().eq('id', id);
+      if (error) throw error;
       apiClient.notify();
       return { success: true, message: 'Blog post deleted successfully' };
     } catch (e: any) {

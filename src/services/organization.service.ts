@@ -1,10 +1,10 @@
+import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient } from './api.client';
 import { AppConfig, Holiday, Team, LeavePolicy, LeaveWorkflow, OrgReviewConfig, CustomLeaveType, OrgNotificationConfig } from '../types';
 import { DEFAULT_CONFIG, DEFAULT_REVIEW_CONFIG, DEFAULT_LEAVE_TYPES, DEFAULT_NOTIFICATION_CONFIG } from '../constants';
 import { shiftService } from './shift.service';
 
-// Internal Cache with TTL
-const ORG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const ORG_CACHE_TTL = 5 * 60 * 1000;
 let orgCacheTimestamp = 0;
 
 let cachedConfig: AppConfig | null = null;
@@ -20,48 +20,42 @@ let cachedNotificationConfig: OrgNotificationConfig | null = null;
 function isCacheValid() {
   return orgCacheTimestamp > 0 && Date.now() - orgCacheTimestamp < ORG_CACHE_TTL;
 }
+function touchCache() { orgCacheTimestamp = Date.now(); }
 
-function touchCache() {
-  orgCacheTimestamp = Date.now();
-}
-
-// Helper functions extracted to avoid 'this' binding issues
 async function getSetting(key: string, defaultValue: any) {
-  if (!apiClient.pb || !apiClient.isConfigured()) {
-    console.warn(`[OrgService] PocketBase not configured, returning default for: ${key}`);
+  if (!isSupabaseConfigured()) {
+    console.warn(`[OrgService] Supabase not configured, returning default for: ${key}`);
     return defaultValue;
   }
   const orgId = apiClient.getOrganizationId();
   if (!orgId) {
-    console.warn(`[OrgService] No organization_id found in auth, returning default for: ${key}`);
+    console.warn(`[OrgService] No organization_id, returning default for: ${key}`);
     return defaultValue;
   }
-  const filter = `key = "${key}" && organization_id = "${orgId}"`;
-
   try {
-    const record = await apiClient.pb.collection('settings').getFirstListItem(filter);
-    return record.value || defaultValue;
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', key)
+      .eq('organization_id', orgId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.value ?? defaultValue;
   } catch (e: any) {
-    // This is expected for new orgs that don't have settings yet
-    if (e?.status !== 404) {
-      console.warn(`[OrgService] Failed to fetch setting '${key}':`, e?.message || e);
-    }
+    console.warn(`[OrgService] Failed to fetch setting '${key}':`, e?.message || e);
     return defaultValue;
   }
 }
 
 async function setSetting(key: string, value: any) {
-  if (!apiClient.pb || !apiClient.isConfigured()) return;
+  if (!isSupabaseConfigured()) return;
   const orgId = apiClient.getOrganizationId();
-  if (!orgId) throw new Error("No Organization Context");
-
-  const filter = `key = "${key}" && organization_id = "${orgId}"`;
-  try {
-    const record = await apiClient.pb.collection('settings').getFirstListItem(filter);
-    await apiClient.pb.collection('settings').update(record.id, { value });
-  } catch {
-    await apiClient.pb.collection('settings').create({ key, value, organization_id: orgId });
-  }
+  if (!orgId) throw new Error('No Organization Context');
+  // Upsert requires unique constraint on (organization_id, key) — see migration 0001.
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key, value, organization_id: orgId }, { onConflict: 'organization_id,key' });
+  if (error) throw error;
 }
 
 export const organizationService = {
@@ -80,7 +74,7 @@ export const organizationService = {
   },
 
   async prefetchMetadata() {
-    if (!apiClient.isConfigured()) return;
+    if (!isSupabaseConfigured()) return;
     try {
       await Promise.all([
         organizationService.getConfig(),
@@ -89,14 +83,13 @@ export const organizationService = {
         organizationService.getHolidays(),
         organizationService.getTeams(),
         organizationService.getLeavePolicy(),
-        shiftService.getShifts()
+        shiftService.getShifts(),
       ]);
     } catch (e) {
-      console.warn("Metadata prefetch partial failure", e);
+      console.warn('Metadata prefetch partial failure', e);
     }
   },
 
-  // Expose getSetting for external use if needed
   getSetting,
   setSetting,
 
@@ -158,60 +151,63 @@ export const organizationService = {
 
   async getTeams(): Promise<Team[]> {
     if (cachedTeams && isCacheValid()) return cachedTeams;
-    if (!apiClient.pb || !apiClient.isConfigured()) {
-      console.warn("[OrgService] PocketBase not configured for teams");
-      return [];
-    }
+    if (!isSupabaseConfigured()) return [];
     try {
-      // Explicit organization_id filter (defence-in-depth beyond the API rule)
-      // plus pagination via getFullList — teams rarely exceed a few dozen per
-      // org, but `getList(1, 500, ...)` would be silently truncated at
-      // PocketBase's default 500-row server cap for edge cases.
       const orgId = apiClient.getOrganizationId();
-      const records = await apiClient.pb.collection('teams').getFullList({
-        sort: 'name',
-        filter: orgId ? `organization_id = "${orgId}"` : undefined,
-        batch: 500,
-      });
-      console.log(`[OrgService] Fetched ${records.length} teams`);
-      cachedTeams = records.map(r => ({ id: r.id, name: r.name, leaderId: r.leader_id, department: r.department, organizationId: r.organization_id }));
+      let query = supabase.from('teams').select('*').order('name');
+      if (orgId) query = query.eq('organization_id', orgId);
+      const { data, error } = await query;
+      if (error) throw error;
+      console.log(`[OrgService] Fetched ${data?.length ?? 0} teams`);
+      cachedTeams = (data ?? []).map(r => ({
+        id: r.id,
+        name: r.name,
+        leaderId: r.leader_id,
+        department: r.department,
+        organizationId: r.organization_id,
+      }));
       return cachedTeams;
     } catch (e: any) {
-      console.error("[OrgService] Failed to fetch teams:", e?.message || e);
+      console.error('[OrgService] Failed to fetch teams:', e?.message || e);
       return [];
     }
   },
 
   async createTeam(data: Partial<Team>) {
-    if (!apiClient.pb || !apiClient.isConfigured()) return null;
+    if (!isSupabaseConfigured()) return null;
     const orgId = apiClient.getOrganizationId();
-    const record = await apiClient.pb.collection('teams').create({
-      name: data.name,
-      leader_id: data.leaderId,
-      department: data.department,
-      organization_id: orgId
-    });
+    const { data: record, error } = await supabase
+      .from('teams')
+      .insert({ name: data.name, leader_id: data.leaderId, department: data.department, organization_id: orgId })
+      .select()
+      .single();
+    if (error) throw error;
     cachedTeams = null;
     apiClient.notify();
     return record;
   },
 
   async updateTeam(id: string, data: Partial<Team>) {
-    if (!apiClient.pb || !apiClient.isConfigured()) return;
-    await apiClient.pb.collection('teams').update(id, { name: data.name, leader_id: data.leaderId, department: data.department });
+    if (!isSupabaseConfigured()) return;
+    const { error } = await supabase
+      .from('teams')
+      .update({ name: data.name, leader_id: data.leaderId, department: data.department })
+      .eq('id', id);
+    if (error) throw error;
     cachedTeams = null;
     apiClient.notify();
   },
 
   async deleteTeam(id: string) {
-    if (!apiClient.pb || !apiClient.isConfigured()) return;
-    await apiClient.pb.collection('teams').delete(id);
+    if (!isSupabaseConfigured()) return;
+    const { error } = await supabase.from('teams').delete().eq('id', id);
+    if (error) throw error;
     cachedTeams = null;
     apiClient.notify();
   },
 
   async getWorkflows(): Promise<LeaveWorkflow[]> {
-    return await getSetting('workflows', []);
+    return getSetting('workflows', []);
   },
 
   async setWorkflows(wfs: LeaveWorkflow[]) {
@@ -221,10 +217,7 @@ export const organizationService = {
 
   async getLeavePolicy(): Promise<LeavePolicy> {
     if (cachedLeavePolicy && isCacheValid()) return cachedLeavePolicy;
-    const defaultPolicy: LeavePolicy = {
-      defaults: { ANNUAL: 15, CASUAL: 10, SICK: 14 },
-      overrides: {}
-    };
+    const defaultPolicy: LeavePolicy = { defaults: { ANNUAL: 15, CASUAL: 10, SICK: 14 }, overrides: {} };
     const val = await getSetting('leave_policy', defaultPolicy);
     cachedLeavePolicy = val;
     return val;
@@ -236,7 +229,6 @@ export const organizationService = {
     apiClient.notify();
   },
 
-  // Review Config
   async getReviewConfig(): Promise<OrgReviewConfig> {
     if (cachedReviewConfig && isCacheValid()) return cachedReviewConfig;
     const val = await getSetting('review_config', DEFAULT_REVIEW_CONFIG);
@@ -250,7 +242,6 @@ export const organizationService = {
     apiClient.notify();
   },
 
-  // Leave Types
   async getLeaveTypes(): Promise<CustomLeaveType[]> {
     if (cachedLeaveTypes && isCacheValid()) return cachedLeaveTypes;
     const val = await getSetting('leave_types', DEFAULT_LEAVE_TYPES);
@@ -264,7 +255,6 @@ export const organizationService = {
     apiClient.notify();
   },
 
-  // Notification Config
   async getNotificationConfig(): Promise<OrgNotificationConfig> {
     if (cachedNotificationConfig && isCacheValid()) return cachedNotificationConfig;
     const val = await getSetting('notification_config', DEFAULT_NOTIFICATION_CONFIG);
@@ -278,9 +268,8 @@ export const organizationService = {
     apiClient.notify();
   },
 
-  // System/Admin
   async sendCustomEmail(data: { recipientEmail: string; subject: string; html: string; type?: string }) {
-    if (!apiClient.pb || !apiClient.isConfigured()) return;
+    if (!isSupabaseConfigured()) return;
     const orgId = apiClient.getOrganizationId();
     const payload = {
       recipient_email: data.recipientEmail.trim(),
@@ -288,64 +277,55 @@ export const organizationService = {
       html_content: data.html,
       type: data.type || 'SYSTEM_REPORT',
       status: 'PENDING',
-      organization_id: orgId
+      organization_id: orgId,
     };
-    try {
-      const result = await apiClient.pb.collection('reports_queue').create(payload);
-      return result;
-    } catch (err: any) {
-      const errorMessage = err.message || JSON.stringify(err);
-      if (errorMessage.includes("html_content") && (errorMessage.includes("5000") || errorMessage.includes("length"))) {
-        throw new Error("DATABASE ERROR: Report is too large (over 5000 chars). Go to PocketBase Admin > Collections > reports_queue > html_content and change Max Characters to 0 (Unlimited).");
-      }
-
-      let errorDetails = err.message || "Failed to create record";
-      if (err.response?.data) {
-        const fieldErrors = Object.entries(err.response.data)
-          .map(([key, val]: [string, any]) => `${key}: ${val.message}`)
-          .join(', ');
-        if (fieldErrors) errorDetails = `Validation Error: ${fieldErrors}`;
-      }
-
-      throw new Error(errorDetails);
-    }
+    const { data: result, error } = await supabase.from('reports_queue').insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    return result;
   },
 
   async getReportQueueLog(): Promise<any[]> {
-    if (!apiClient.pb || !apiClient.isConfigured()) return [];
+    if (!isSupabaseConfigured()) return [];
     try {
-      const records = await apiClient.pb.collection('reports_queue').getList(1, 10, { sort: '-created' });
-      return records.items;
-    } catch {
-      return [];
-    }
+      const { data, error } = await supabase
+        .from('reports_queue')
+        .select('*')
+        .order('created', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    } catch { return []; }
   },
 
   async getAdminUnverifiedUsers() {
-    if (!apiClient.pb || !apiClient.isConfigured()) return [];
+    if (!isSupabaseConfigured()) return [];
     try {
-      const response = await apiClient.pb.send("/api/openhr/unverified-users", { method: "GET" });
-      return response.users || [];
-    } catch {
-      return [];
-    }
+      const orgId = apiClient.getOrganizationId();
+      let query = supabase
+        .from('profiles')
+        .select('id, name, email:id, employee_id, department, designation, created')
+        .eq('verified', false);
+      if (orgId) query = query.eq('organization_id', orgId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    } catch { return []; }
   },
 
   async adminVerifyUser(userId: string) {
-    if (!apiClient.pb || !apiClient.isConfigured()) return { success: false };
+    if (!isSupabaseConfigured()) return { success: false };
     try {
-      const response = await apiClient.pb.send("/api/openhr/admin-verify-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId })
-      });
-      return { success: response.success || false, message: response.message };
+      const { error } = await supabase
+        .from('profiles')
+        .update({ verified: true })
+        .eq('id', userId);
+      if (error) throw error;
+      return { success: true };
     } catch (err: any) {
-      return { success: false, message: err.message || "Verification failed" };
+      return { success: false, message: err.message || 'Verification failed' };
     }
   },
 
-  // Onboarding status (per-org)
   async getOnboardingStatus(): Promise<{ dismissed: boolean } | null> {
     return getSetting('onboarding_status', null);
   },
@@ -354,30 +334,33 @@ export const organizationService = {
     await setSetting('onboarding_status', status);
   },
 
-  // Guide help links (reads platform-level setting, no org filter)
+  // Platform-level setting — no org_id filter
   async getGuideHelpLinks(): Promise<Record<string, string>> {
-    if (!apiClient.pb || !apiClient.isConfigured()) return {};
+    if (!isSupabaseConfigured()) return {};
     try {
-      const record = await apiClient.pb.collection('settings').getFirstListItem('key = "guide_help_links"');
-      return record.value || {};
-    } catch {
-      return {};
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'guide_help_links')
+        .is('organization_id', null)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.value ?? {};
+    } catch { return {}; }
+  },
+
+  async testSupabaseConnection(): Promise<{ success: boolean; message: string }> {
+    try {
+      const { error } = await supabase.from('organizations').select('id').limit(1);
+      if (error) return { success: false, message: error.message };
+      return { success: true, message: 'Connection successful!' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Connection failed' };
     }
   },
 
-  async testPocketBaseConnection(url: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const cleanUrl = url.trim().replace(/\/+$/, '');
-      const response = await fetch(`${cleanUrl}/api/health`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      if (response.ok) {
-        return { success: true, message: "Connection successful!" };
-      }
-      return { success: false, message: `Server responded with status: ${response.status}` };
-    } catch (err: any) {
-      return { success: false, message: err.message || "Connection failed" };
-    }
-  }
+  // Legacy alias kept so existing callers don't break during migration
+  testPocketBaseConnection: async (url: string): Promise<{ success: boolean; message: string }> => {
+    return organizationService.testSupabaseConnection();
+  },
 };

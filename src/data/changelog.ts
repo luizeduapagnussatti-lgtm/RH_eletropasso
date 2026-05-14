@@ -15,6 +15,29 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-05-13',
+    title: 'Supabase Migration Phase 5.5: employee + attendance services ported',
+    entries: [
+      { type: 'improvement', description: 'employee.service.ts rewritten to use Supabase (profiles table + avatars storage bucket). Removed all PocketBase SDK calls.' },
+      { type: 'feature', description: 'Added create-employee Edge Function (Deno) so ADMIN/HR can create new auth users with service-role key without exposing credentials to the frontend.' },
+      { type: 'improvement', description: 'attendance.service.ts rewritten to use Supabase (attendance table + selfies storage bucket). Selfie async upload, sync queue drain, and late-notify all ported.' },
+      { type: 'improvement', description: 'workdaySessionManager.ts (frozen module) ported to Supabase: 5 surgical PB replacements, zero logic changes. Open session filter changed from check_out="" to IS NULL. Selfie URL uses Supabase Storage. All frozen-module invariants preserved.' },
+      { type: 'improvement', description: 'leave.service.ts rewritten to use Supabase. All CRUD, workflow routing, leave balance, and admin operations ported. PB date formatting removed — ISO dates used directly.' },
+      { type: 'improvement', description: 'organization.service.ts rewritten to use Supabase. getSetting/setSetting use upsert on settings table. Teams CRUD, report queue, admin verify, guide links all ported. Added migration 0006 for unique constraint on (organization_id,key).' },
+      { type: 'improvement', description: 'shift.service.ts rewritten to use Supabase. PB camelCase fields (startTime) mapped to Supabase snake_case (start_time). clearOtherDefaults uses batch update instead of parallel individual updates.' },
+      { type: 'improvement', description: 'notification.service.ts rewritten to use Supabase. Bulk create uses single insert. markAllAsRead uses single update filter. deleteAllNotifications uses single delete. getUnreadCount uses count:exact head query.' },
+      { type: 'improvement', description: 'announcement.service.ts rewritten to use Supabase. All CRUD and bulk notification fan-out ported.' },
+      { type: 'improvement', description: 'review.service.ts rewritten to use Supabase. self_ratings/manager_ratings stored as jsonb objects (no JSON.stringify). Legacy column writes removed. Attendance/leave summary queries ported.' },
+      { type: 'improvement', description: 'superadmin.service.ts rewritten to use Supabase. getAllOrganizations uses single profiles query + client-side aggregation (no N+1). createOrganization/deleteOrganization delegate to new Edge Functions (superadmin-create-org, superadmin-delete-org). deleteOrganization cascade deletes auth users via service-role. Bulk email, platform stats, guide links, content image upload all ported.' },
+      { type: 'improvement', description: 'blog.service.ts rewritten to use Supabase. Public methods query blog_posts table directly (no PB custom endpoint). Cover images in content-images storage bucket.' },
+      { type: 'improvement', description: 'tutorial.service.ts rewritten to use Supabase. Public methods query tutorials table directly. Cover images in content-images storage bucket.' },
+      { type: 'improvement', description: 'upgrade.service.ts rewritten to use Supabase. Donation screenshots in donation-screenshots bucket. acceptAdSupported does direct org update. processRequest updates request + org subscription inline.' },
+      { type: 'improvement', description: 'verification.service.ts rewritten to use Supabase. verifyEmailToken uses supabase.auth.verifyOtp. resendVerificationEmail uses supabase.auth.resend. manuallyVerifyUser and getUnverifiedUsers use profiles table directly. All PocketBase SDK calls removed.' },
+      { type: 'feature', description: 'Phase 7: Data migration scripts added (scripts/migrate-from-pb/). 01-export.mjs exports all PocketBase collections to JSON. 02-import.mjs transforms + imports into Supabase (ID mapping, auth user creation, FK remapping). 03-verify.mjs checks row counts and FK integrity. 04-files.mjs migrates file attachments to Supabase Storage buckets. npm scripts: migrate:export, migrate:import, migrate:verify, migrate:files.' },
+      { type: 'improvement', description: 'sessionManager.ts (frozen module, Phase 6) ported to Supabase. initialize uses supabase.auth.getSession. attemptRefresh uses supabase.auth.refreshSession + profiles fetch. performForceLogout uses supabase.auth.signOut. isHardAuthFailure adds Supabase AuthSessionMissingError/AuthInvalidRefreshTokenError detection. All invariants (transient-vs-hard, single logout exit, retry backoff) preserved.' },
+    ]
+  },
+  {
     date: '2026-05-11',
     title: 'Fix: Bulk email recipient count incorrect',
     entries: [
