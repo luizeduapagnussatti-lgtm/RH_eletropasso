@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.105.4",
     "@types/dompurify": "^3.0.5",
     "@vercel/analytics": "^1.6.1",
+    "better-sqlite3": "^12.10.0",
     "dompurify": "^3.4.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",

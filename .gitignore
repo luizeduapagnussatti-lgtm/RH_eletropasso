@@ -25,3 +25,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Migration exports (contain PII)
+exports/
+scripts/migrate-from-pb/exports/

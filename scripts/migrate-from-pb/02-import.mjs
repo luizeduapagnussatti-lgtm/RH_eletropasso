@@ -111,9 +111,9 @@ async function migrateUsers() {
   console.log('\n[2/9] users → auth.users + profiles…');
   const records = load('users');
 
-  // Fetch existing auth emails to skip already-migrated users
-  const { data: existingProfiles } = await supabase.from('profiles').select('id, email');
-  const existingEmails = new Set((existingProfiles || []).map(p => p.email?.toLowerCase()));
+  // Fetch existing auth users to skip already-migrated users (email lives in auth.users, not profiles)
+  const { data: { users: existingAuthUsers } } = await supabase.auth.admin.listUsers({ perPage: 10000 });
+  const existingEmails = new Set((existingAuthUsers || []).map(u => u.email?.toLowerCase()));
 
   let created = 0, skipped = 0, failed = 0;
 
@@ -123,7 +123,7 @@ async function migrateUsers() {
 
     if (existingEmails.has(email)) {
       // Already migrated — ensure idMap has entry
-      const existing = (existingProfiles || []).find(p => p.email?.toLowerCase() === email);
+      const existing = (existingAuthUsers || []).find(u => u.email?.toLowerCase() === email);
       if (existing) idMap[r.id] = existing.id;
       skipped++;
       continue;
@@ -270,21 +270,41 @@ async function migrateSettings() {
 async function migrateAttendance() {
   console.log('\n[6/9] attendance…');
   const records = load('attendance');
+  // Build PB-id → organization_id lookup from users export for records missing org
+  const pbUsers = load('users');
+  const userOrgMap = Object.fromEntries(pbUsers.map(u => [u.id, u.organization_id]));
+
   const rows = records.map(r => {
     const newId = idMap[r.id] ?? (idMap[r.id] = crypto.randomUUID());
-    // employee_id in PB was the user's PB record ID — map to new UUID
     const mappedEmployeeId = mapId(r.employee_id) ?? r.employee_id;
+
+    // Recover org when empty — look up from original PB user record
+    const rawOrgId = r.organization_id || userOrgMap[r.employee_id] || null;
+    const orgId = mapId(rawOrgId) ?? null;
+
+    // PB SQLite stores check_in/check_out as time-only strings ("HH:MM" or "HH:MM:SS")
+    // Combine with date field to get full timestamptz
+    const toTimestamptz = (timeStr) => {
+      if (!timeStr) return null;
+      // Already a full datetime?
+      if (timeStr.includes('T') || timeStr.length > 10) return ts(timeStr);
+      return ts(`${r.date}T${timeStr}`);
+    };
+
     return {
       id: newId,
-      organization_id: mapId(r.organization_id),
+      organization_id: orgId,
       employee_id: mappedEmployeeId,
       employee_name: r.employee_name || null,
-      check_in: ts(r.check_in),
-      check_out: r.check_out ? ts(r.check_out) : null,
+      date: r.date || null,
+      check_in: toTimestamptz(r.check_in),
+      check_out: toTimestamptz(r.check_out),
       status: r.status || 'PRESENT',
       duty_type: r.duty_type || null,
       location: r.location || null,
-      selfie: r.selfie ? `${r.id}/selfie.webp` : null,
+      latitude: r.latitude || null,
+      longitude: r.longitude || null,
+      selfie: r.selfie ? `${r.id}/${r.selfie}` : null,
       remarks: r.remarks || null,
       reconcile: r.reconcile ?? false,
       created: ts(r.created),

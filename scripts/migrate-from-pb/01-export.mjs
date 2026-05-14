@@ -1,8 +1,9 @@
 /**
- * Phase 7 — Step 1: Export PocketBase data to JSON files
+ * Phase 7 — Step 1: Export PocketBase SQLite backup to JSON files
+ *
+ * Reads directly from the local SQLite backup — no PB server required.
  *
  * Usage:
- *   PB_URL=https://your-pb-host.com PB_EMAIL=admin@example.com PB_PASSWORD=secret \
  *   node scripts/migrate-from-pb/01-export.mjs
  *
  * Output: exports/ directory with one JSON file per collection.
@@ -12,66 +13,20 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import Database from 'better-sqlite3';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXPORTS_DIR = join(__dirname, '../../exports');
+const DB_PATH = join(__dirname, '@auto_pb_backup_open_hr_app_20260513000000/data.db');
 
-const PB_URL   = process.env.PB_URL?.replace(/\/$/, '');
-const PB_EMAIL = process.env.PB_EMAIL;
-const PB_PASS  = process.env.PB_PASSWORD;
-
-if (!PB_URL || !PB_EMAIL || !PB_PASS) {
-  console.error('Missing env: PB_URL, PB_EMAIL, PB_PASSWORD');
+if (!existsSync(DB_PATH)) {
+  console.error(`SQLite backup not found at: ${DB_PATH}`);
   process.exit(1);
 }
 
 mkdirSync(EXPORTS_DIR, { recursive: true });
 
-// ── Auth ────────────────────────────────────────────────────────────────────
-
-async function pbLogin() {
-  const res = await fetch(`${PB_URL}/api/admins/auth-with-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identity: PB_EMAIL, password: PB_PASS }),
-  });
-  if (!res.ok) throw new Error(`PB login failed: ${res.status} ${await res.text()}`);
-  const { token } = await res.json();
-  console.log('✓ PocketBase admin login OK');
-  return token;
-}
-
-// ── Paginated export ─────────────────────────────────────────────────────────
-
-async function exportCollection(token, collection) {
-  const outFile = join(EXPORTS_DIR, `${collection}.json`);
-  if (existsSync(outFile)) {
-    console.log(`  skip ${collection} (already exported)`);
-    return;
-  }
-
-  let page = 1;
-  const perPage = 200;
-  const allItems = [];
-
-  while (true) {
-    const url = `${PB_URL}/api/collections/${collection}/records?page=${page}&perPage=${perPage}&sort=created`;
-    const res = await fetch(url, { headers: { Authorization: token } });
-    if (!res.ok) {
-      console.warn(`  WARN: ${collection} page ${page} → ${res.status} (skipped)`);
-      break;
-    }
-    const body = await res.json();
-    allItems.push(...(body.items || []));
-    if (allItems.length >= body.totalItems) break;
-    page++;
-  }
-
-  writeFileSync(outFile, JSON.stringify(allItems, null, 2));
-  console.log(`  ✓ ${collection}: ${allItems.length} records → exports/${collection}.json`);
-}
-
-// ── Main ─────────────────────────────────────────────────────────────────────
+const db = new Database(DB_PATH, { readonly: true });
 
 const COLLECTIONS = [
   'organizations',
@@ -89,13 +44,32 @@ const COLLECTIONS = [
   'blog_posts',
   'tutorials',
   'reports_queue',
+  'self_assessment',
 ];
 
-(async () => {
-  const token = await pbLogin();
-  console.log('\nExporting collections…');
-  for (const col of COLLECTIONS) {
-    await exportCollection(token, col);
+function exportTable(table) {
+  const outFile = join(EXPORTS_DIR, `${table}.json`);
+  if (existsSync(outFile)) {
+    console.log(`  skip ${table} (already exported)`);
+    return;
   }
-  console.log('\nDone. Run 02-import.mjs next.');
-})().catch(e => { console.error(e); process.exit(1); });
+
+  let rows;
+  try {
+    rows = db.prepare(`SELECT * FROM ${table} ORDER BY created`).all();
+  } catch (e) {
+    console.warn(`  WARN: ${table} — ${e.message} (skipped)`);
+    return;
+  }
+
+  writeFileSync(outFile, JSON.stringify(rows, null, 2));
+  console.log(`  ✓ ${table}: ${rows.length} records → exports/${table}.json`);
+}
+
+console.log(`Reading SQLite backup: ${DB_PATH}\n`);
+for (const col of COLLECTIONS) {
+  exportTable(col);
+}
+
+db.close();
+console.log('\nDone. Run 02-import.mjs next.');
