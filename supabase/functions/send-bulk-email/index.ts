@@ -10,7 +10,7 @@ const corsHeaders = {
 
 const BULK_CAMPAIGN_PREFIX = 'BULK_CAMPAIGN_';
 const MAX_BULK_RECIPIENTS = 5000;
-const SEND_BATCH_SIZE = 50;
+const SEND_BATCH_SIZE = 100;
 const FROM_EMAIL = 'OpenHR <noreply@openhrapp.com>';
 
 type BulkEmailFilter =
@@ -115,71 +115,63 @@ Deno.serve(async (req: Request) => {
     const batch = profiles.slice(i, i + SEND_BATCH_SIZE);
     const queueRows: unknown[] = [];
 
+    // Separate profiles with/without emails
+    const toSend: { profile: typeof batch[0]; email: string }[] = [];
     for (const profile of batch) {
       const email = emailMap.get(profile.id);
       if (!email) {
         queueRows.push({
           organization_id: profile.organization_id || null,
-          type,
-          status: 'FAILED',
-          recipient_email: '',
-          subject,
-          message: htmlContent,
-          error_message: 'Email not found in auth.users',
-          sent_at: null,
+          type, status: 'FAILED', recipient_email: '',
+          subject, message: htmlContent,
+          error_message: 'Email not found in auth.users', sent_at: null,
         });
         failed++;
-        continue;
+      } else {
+        toSend.push({ profile, email });
       }
+    }
 
-      // Send via Resend
-      let sendError: string | null = null;
+    // Send batch via Resend batch API (1 request = up to 100 emails)
+    if (toSend.length > 0) {
+      let batchError: string | null = null;
       try {
-        const res = await fetch('https://api.resend.com/emails', {
+        const res = await fetch('https://api.resend.com/emails/batch', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+          headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(toSend.map(({ email }) => ({
             from: FROM_EMAIL,
             to: [email],
             subject,
             html: htmlContent,
-          }),
+          }))),
         });
         if (!res.ok) {
           const errBody = await res.text();
-          sendError = `Resend ${res.status}: ${errBody}`;
+          batchError = `Resend ${res.status}: ${errBody}`;
         }
       } catch (e: unknown) {
-        sendError = e instanceof Error ? e.message : String(e);
+        batchError = e instanceof Error ? e.message : String(e);
       }
 
-      if (sendError) {
-        failed++;
-        queueRows.push({
-          organization_id: profile.organization_id || null,
-          type,
-          status: 'FAILED',
-          recipient_email: email,
-          subject,
-          message: htmlContent,
-          error_message: sendError,
-          sent_at: null,
-        });
-      } else {
-        sent++;
-        queueRows.push({
-          organization_id: profile.organization_id || null,
-          type,
-          status: 'SENT',
-          recipient_email: email,
-          subject,
-          message: htmlContent,
-          error_message: null,
-          sent_at: now,
-        });
+      for (const { profile, email } of toSend) {
+        if (batchError) {
+          failed++;
+          queueRows.push({
+            organization_id: profile.organization_id || null,
+            type, status: 'FAILED', recipient_email: email,
+            subject, message: htmlContent,
+            error_message: batchError, sent_at: null,
+          });
+        } else {
+          sent++;
+          queueRows.push({
+            organization_id: profile.organization_id || null,
+            type, status: 'SENT', recipient_email: email,
+            subject, message: htmlContent,
+            error_message: null, sent_at: now,
+          });
+        }
       }
     }
 
