@@ -18,6 +18,7 @@ export const changelog: ChangelogRelease[] = [
     date: '2026-05-16',
     title: 'Service layer ported to Supabase',
     entries: [
+      { type: 'fix', description: 'Password reset email link now opens the set-new-password screen instead of dropping users on the landing page. Added a Supabase PASSWORD_RECOVERY auth listener and a hash-fragment fallback (type=recovery) so the reset UI fires whether Supabase preserves the redirect query string or appends recovery tokens to the URL hash.' },
       { type: 'improvement', description: 'sociallinks.service.ts, showcase.service.ts, and contact.service.ts migrated from PocketBase to Supabase. Showcase logo uploads now go to the showcase-logos Storage bucket. Contact form submissions are stored in a new contact_submissions table (readable only by super admin). PocketBase dependency removed from all three services.' },
     ],
   },
