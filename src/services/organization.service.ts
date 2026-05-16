@@ -364,6 +364,34 @@ export const organizationService = {
     } catch { return {}; }
   },
 
+  async getOrgBranding(): Promise<{ name: string; address: string; logoDataUrl: string | null }> {
+    const orgId = await resolveOrgId();
+    if (!orgId) return { name: '', address: '', logoDataUrl: null };
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('name, address, logo')
+        .eq('id', orgId)
+        .maybeSingle();
+      if (error) throw error;
+      let logoDataUrl: string | null = null;
+      if (data?.logo) {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/org-logos/${data.logo}`;
+        try {
+          const resp = await fetch(url);
+          const blob = await resp.blob();
+          logoDataUrl = await new Promise<string>((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result as string);
+            reader.onerror = rej;
+            reader.readAsDataURL(blob);
+          });
+        } catch { /* logo unavailable */ }
+      }
+      return { name: data?.name || '', address: data?.address || '', logoDataUrl };
+    } catch { return { name: '', address: '', logoDataUrl: null }; }
+  },
+
   async testSupabaseConnection(): Promise<{ success: boolean; message: string }> {
     try {
       const { error } = await supabase.from('organizations').select('id').limit(1);

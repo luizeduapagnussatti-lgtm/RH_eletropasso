@@ -3,22 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Send, RefreshCw, X, AlertCircle, Info, Download } from 'lucide-react';
 import { employeeService } from '../../services/employeeService';
 import { hrService } from '../../services/hrService';
-import { apiClient } from '../../services/api.client';
+import { organizationService } from '../../services/organization.service';
 import { LeaveBalance, LeaveRequest, Holiday, AppConfig, Shift, CustomLeaveType } from '../../types';
 import { DEFAULT_LEAVE_TYPES } from '../../constants';
 
-const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch { return null; }
-};
 
 const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
   new Promise((resolve) => {
@@ -128,24 +116,19 @@ const EmployeeLeaveModule: React.FC<Props> = ({ user, balance, history, onRefres
       // Fetch org info
       let orgName = '', orgAddress = '', logoDataUrl: string | null = null;
       try {
-        const orgId = apiClient.getOrganizationId();
-        if (orgId && apiClient.pb) {
-          const org = await apiClient.pb.collection('organizations').getOne(orgId);
-          orgName = org.name || '';
-          orgAddress = org.address || '';
-          if (org.logo) {
-            const logoUrl = apiClient.pb.files.getURL(org, org.logo);
-            logoDataUrl = await fetchImageAsDataUrl(logoUrl);
-          }
-        }
+        const branding = await organizationService.getOrgBranding();
+        orgName = branding.name;
+        orgAddress = branding.address;
+        logoDataUrl = branding.logoDataUrl;
       } catch { /* proceed without org info */ }
 
       // Fetch manager name
       let managerName = 'N/A';
       try {
-        if (req.lineManagerId && apiClient.pb) {
-          const mgr = await apiClient.pb.collection('users').getOne(req.lineManagerId);
-          managerName = mgr.name || 'N/A';
+        if (req.lineManagerId) {
+          const employees = await employeeService.getEmployees();
+          const mgr = employees.find(e => e.id === req.lineManagerId);
+          managerName = mgr?.name || 'N/A';
         }
       } catch { /* proceed with N/A */ }
 

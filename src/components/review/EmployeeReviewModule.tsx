@@ -2,25 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Send, FileText, ChevronDown, ChevronUp, Loader2, CheckCircle2, Calendar, Download, RefreshCw } from 'lucide-react';
 import { hrService } from '../../services/hrService';
-import { apiClient } from '../../services/api.client';
+import { organizationService } from '../../services/organization.service';
 import { PerformanceReview, ReviewCycle, CompetencyRating, OrgReviewConfig, CustomCompetency } from '../../types';
 import CompetencyRatingCard from './CompetencyRatingCard';
 import AttendanceLeaveCard from './AttendanceLeaveCard';
 import ReviewStatusBadge from './ReviewStatusBadge';
 import HelpButton from '../onboarding/HelpButton';
 
-const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch { return null; }
-};
 
 const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
   new Promise((resolve) => {
@@ -155,16 +143,10 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
       // Fetch org info
       let orgName = '', orgAddress = '', logoDataUrl: string | null = null;
       try {
-        const orgId = apiClient.getOrganizationId();
-        if (orgId && apiClient.pb) {
-          const org = await apiClient.pb.collection('organizations').getOne(orgId);
-          orgName = org.name || '';
-          orgAddress = org.address || '';
-          if (org.logo) {
-            const logoUrl = apiClient.pb.files.getURL(org, org.logo);
-            logoDataUrl = await fetchImageAsDataUrl(logoUrl);
-          }
-        }
+        const branding = await organizationService.getOrgBranding();
+        orgName = branding.name;
+        orgAddress = branding.address;
+        logoDataUrl = branding.logoDataUrl;
       } catch { /* proceed without org info */ }
 
       const resolvedCycleName = cycleName || cycles?.find(c => c.id === review.cycleId)?.name || review.cycleId;

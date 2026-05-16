@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Bell, Clock, AlertTriangle, CheckCircle2, RefreshCw, Mail, MailOpen, Zap } from 'lucide-react';
-import { apiClient } from '../../services/api.client';
+import { supabase } from '../../services/supabase';
+import { organizationService } from '../../services/organization.service';
 
 interface NotificationStats {
   totalNotifications: number;
@@ -41,46 +42,26 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
   const loadStats = async () => {
     setIsLoading(true);
     try {
-      // Get retention setting
-      let currentRetention = 30;
-      try {
-        const setting = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "notification_retention_days"',
-          { requestKey: 'get_notif_retention' }
-        );
-        if (setting?.value) {
-          currentRetention = parseInt(setting.value as string) || 30;
-        }
-      } catch (e) {
-        // Not found, use default
-      }
+      const currentRetention = await organizationService.getSetting('notification_retention_days', 30) as number;
       setRetentionDays(currentRetention);
 
-      // Get cleanup log
-      let lastCleanup = null;
-      try {
-        const logSetting = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "notification_cleanup_log"',
-          { requestKey: 'get_notif_cleanup_log' }
-        );
-        if (logSetting?.value) {
-          lastCleanup = logSetting.value as NotificationStats['lastCleanup'];
-        }
-      } catch (e) {
-        // Not found
-      }
+      const lastCleanup = await organizationService.getSetting('notification_cleanup_log', null) as NotificationStats['lastCleanup'] | null;
 
-      // Get platform-wide notification counts via custom endpoint (bypasses API rules)
       let totalNotifications = 0;
       let readNotifications = 0;
       let unreadNotifications = 0;
       try {
-        const response = await apiClient.pb?.send('/api/openhr/notification-stats', { method: 'GET' });
-        if (response) {
-          totalNotifications = response.total || 0;
-          readNotifications = response.read || 0;
-          unreadNotifications = response.unread || 0;
-        }
+        const { count: total } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true });
+        totalNotifications = total || 0;
+
+        const { count: read } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_read', true);
+        readNotifications = read || 0;
+        unreadNotifications = totalNotifications - readNotifications;
       } catch (e) {
         console.log('[NotificationRetention] Error fetching notification stats:', e);
       }
@@ -90,7 +71,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
         readNotifications,
         unreadNotifications,
         retentionDays: currentRetention,
-        lastCleanup
+        lastCleanup,
       });
     } catch (e) {
       console.error('[NotificationRetention] Load error:', e);
@@ -103,45 +84,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
   const handleSaveRetention = async () => {
     setIsSaving(true);
     try {
-      let existingSetting = null;
-      try {
-        existingSetting = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "notification_retention_days"',
-          { requestKey: 'find_notif_retention' }
-        );
-      } catch (e) {
-        // Not found
-      }
-
-      let systemOrgId = apiClient.pb?.authStore.model?.organization_id;
-      if (!systemOrgId) {
-        try {
-          const sysOrg = await apiClient.pb?.collection('organizations').getFirstListItem(
-            'name = "__SYSTEM__"',
-            { requestKey: 'get_system_org_notif' }
-          );
-          systemOrgId = sysOrg?.id;
-        } catch (e) {
-          const newOrg = await apiClient.pb?.collection('organizations').create({
-            name: '__SYSTEM__',
-            subscription_status: 'ACTIVE'
-          });
-          systemOrgId = newOrg?.id;
-        }
-      }
-
-      if (existingSetting) {
-        await apiClient.pb?.collection('settings').update(existingSetting.id, {
-          value: retentionDays.toString()
-        });
-      } else {
-        await apiClient.pb?.collection('settings').create({
-          key: 'notification_retention_days',
-          value: retentionDays.toString(),
-          organization_id: systemOrgId
-        });
-      }
-
+      await organizationService.setSetting('notification_retention_days', retentionDays);
       onMessage({ type: 'success', text: `Notification retention updated to ${retentionDays} days` });
       await loadStats();
     } catch (e: any) {
@@ -159,15 +102,15 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
 
     setIsPurging(true);
     try {
-      const response = await apiClient.pb?.send('/api/openhr/purge-all-notifications', { method: 'POST' });
-      console.log('[NotificationRetention] Purge response:', JSON.stringify(response));
-      const deleted = response?.deleted || 0;
-      const errors = response?.errors || 0;
+      const { error, count } = await supabase
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .lt('created_at', new Date().toISOString());
 
-      onMessage({
-        type: errors > 0 ? 'error' : 'success',
-        text: `Purge complete! Deleted ${deleted} notifications${errors > 0 ? `, ${errors} errors` : ''}`
-      });
+      if (error) throw error;
+      const deleted = count || 0;
+
+      onMessage({ type: 'success', text: `Purge complete! Deleted ${deleted} notifications` });
       await loadStats();
     } catch (e: any) {
       console.error('[NotificationRetention] Purge error:', e);
