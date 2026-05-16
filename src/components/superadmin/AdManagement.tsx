@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, X, Code, Image, Globe } from 'lucide-react';
-import { apiClient } from '../../services/api.client';
+import { organizationService } from '../../services/organization.service';
 import { AdConfig, AdSlot, AdPlaceholder } from '../ads';
 
 const AD_SLOTS: { id: AdSlot; name: string; description: string; size: string }[] = [
@@ -27,9 +27,6 @@ const DEFAULT_CONFIG: Omit<AdConfig, 'id' | 'slot'> = {
   altText: ''
 };
 
-// System organization name for global settings (fallback if Super Admin has no org)
-const SYSTEM_ORG_NAME = '__SYSTEM__';
-
 interface AdManagementProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
 }
@@ -40,52 +37,6 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [editingSlot, setEditingSlot] = useState<AdSlot | null>(null);
   const [editForm, setEditForm] = useState<AdConfig | null>(null);
-  const systemOrgIdRef = useRef<string | null>(null);
-
-  // Get organization ID for storing global ad settings
-  // Priority: 1) Super Admin's own org (e.g., "Platform"), 2) SYSTEM org, 3) Create SYSTEM org
-  const getSystemOrgId = async (): Promise<string> => {
-    if (systemOrgIdRef.current) return systemOrgIdRef.current;
-
-    // First, check if Super Admin has their own organization
-    const superAdminOrgId = apiClient.pb?.authStore.model?.organization_id;
-    if (superAdminOrgId) {
-      console.log('[AdManagement] Using Super Admin organization:', superAdminOrgId);
-      systemOrgIdRef.current = superAdminOrgId;
-      return superAdminOrgId;
-    }
-
-    // Fallback: Look for or create SYSTEM org (for Super Admins without org)
-    try {
-      const existing = await apiClient.pb?.collection('organizations').getFirstListItem(
-        `name = "${SYSTEM_ORG_NAME}"`,
-        { requestKey: 'get_system_org' }
-      );
-      if (existing) {
-        systemOrgIdRef.current = existing.id;
-        return existing.id;
-      }
-    } catch {
-      // Not found, create it
-    }
-
-    try {
-      const newOrg = await apiClient.pb?.collection('organizations').create({
-        name: SYSTEM_ORG_NAME,
-        subscription_status: 'ACTIVE',
-        address: 'System Organization for Global Settings'
-      });
-      if (newOrg) {
-        systemOrgIdRef.current = newOrg.id;
-        console.log('[AdManagement] Created SYSTEM organization:', newOrg.id);
-        return newOrg.id;
-      }
-    } catch (e) {
-      console.error('[AdManagement] Failed to create SYSTEM org:', e);
-    }
-
-    throw new Error('Could not get or create SYSTEM organization');
-  };
 
   useEffect(() => {
     loadConfigs();
@@ -94,29 +45,15 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
   const loadConfigs = async () => {
     setIsLoading(true);
     try {
-      // First, ensure we have the SYSTEM org ID
-      const systemOrgId = await getSystemOrgId();
-
       const loadedConfigs: Record<AdSlot, AdConfig> = {} as Record<AdSlot, AdConfig>;
-
       for (const slot of AD_SLOTS) {
-        try {
-          // Find ad config in SYSTEM organization
-          const setting = await apiClient.pb?.collection('settings').getFirstListItem(
-            `key = "ad_config_${slot.id}" && organization_id = "${systemOrgId}"`,
-            { requestKey: `ad_${slot.id}` }
-          );
-          if (setting?.value) {
-            loadedConfigs[slot.id] = { ...setting.value as AdConfig, id: setting.id };
-          } else {
-            loadedConfigs[slot.id] = { id: '', slot: slot.id, ...DEFAULT_CONFIG };
-          }
-        } catch (e: any) {
-          // 404 is expected for new slots
+        const value = await organizationService.getSetting(`ad_config_${slot.id}`, null);
+        if (value) {
+          loadedConfigs[slot.id] = { ...(value as AdConfig), slot: slot.id };
+        } else {
           loadedConfigs[slot.id] = { id: '', slot: slot.id, ...DEFAULT_CONFIG };
         }
       }
-
       setConfigs(loadedConfigs);
     } catch (e) {
       console.error('[AdManagement] Load error:', e);
@@ -138,39 +75,15 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
 
   const handleSave = async () => {
     if (!editingSlot || !editForm) return;
-
     setIsSaving(true);
     try {
-      const key = `ad_config_${editingSlot}`;
-      const systemOrgId = await getSystemOrgId();
-
-      // Check if setting exists in SYSTEM org
-      const existing = await apiClient.pb?.collection('settings').getFirstListItem(
-        `key = "${key}" && organization_id = "${systemOrgId}"`,
-        { requestKey: `save_ad_${editingSlot}` }
-      ).catch(() => null);
-
-      if (existing) {
-        await apiClient.pb?.collection('settings').update(existing.id, {
-          value: editForm
-        });
-      } else {
-        // Create in SYSTEM organization
-        console.log('[AdManagement] Creating setting in SYSTEM org:', systemOrgId);
-        await apiClient.pb?.collection('settings').create({
-          key,
-          value: editForm,
-          organization_id: systemOrgId
-        });
-      }
-
+      await organizationService.setSetting(`ad_config_${editingSlot}`, editForm);
       setConfigs(prev => ({ ...prev, [editingSlot]: editForm }));
       onMessage({ type: 'success', text: `Ad slot "${editingSlot}" updated successfully` });
       closeEditModal();
     } catch (e: any) {
       console.error('[AdManagement] Save error:', e);
-      const errorMsg = e?.data?.data?.organization_id?.message || e?.data?.message || e?.message || 'Failed to save configuration';
-      onMessage({ type: 'error', text: errorMsg });
+      onMessage({ type: 'error', text: e?.message || 'Failed to save configuration' });
     } finally {
       setIsSaving(false);
     }
@@ -179,28 +92,9 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
   const toggleEnabled = async (slot: AdSlot) => {
     const config = configs[slot];
     const updated = { ...config, enabled: !config.enabled };
-
     setConfigs(prev => ({ ...prev, [slot]: updated }));
-
     try {
-      const key = `ad_config_${slot}`;
-      const systemOrgId = await getSystemOrgId();
-
-      const existing = await apiClient.pb?.collection('settings').getFirstListItem(
-        `key = "${key}" && organization_id = "${systemOrgId}"`,
-        { requestKey: `toggle_ad_${slot}` }
-      ).catch(() => null);
-
-      if (existing) {
-        await apiClient.pb?.collection('settings').update(existing.id, { value: updated });
-      } else {
-        await apiClient.pb?.collection('settings').create({
-          key,
-          value: updated,
-          organization_id: systemOrgId
-        });
-      }
-
+      await organizationService.setSetting(`ad_config_${slot}`, updated);
       onMessage({ type: 'success', text: `Ad slot "${slot}" ${updated.enabled ? 'enabled' : 'disabled'}` });
     } catch (e: any) {
       console.error('[AdManagement] Toggle error:', e);
