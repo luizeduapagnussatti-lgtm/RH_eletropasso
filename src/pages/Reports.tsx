@@ -6,24 +6,12 @@ import {
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { emailService } from '../services/emailService';
-import { apiClient } from '../services/api.client';
+import { organizationService } from '../services/organization.service';
 import { User, Employee, Attendance, LeaveRequest, AppConfig, Holiday, Shift } from '../types';
 import { consolidateAttendance } from '../utils/attendanceUtils';
 import HelpButton from '../components/onboarding/HelpButton';
 import { useToast } from '../context/ToastContext';
 
-const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch { return null; }
-};
 
 const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
   new Promise((resolve) => {
@@ -142,16 +130,8 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
 
         // Fetch organization info for PDF header
         try {
-          const orgId = apiClient.getOrganizationId();
-          if (orgId && apiClient.pb) {
-            const org = await apiClient.pb.collection('organizations').getOne(orgId);
-            let logoDataUrl: string | null = null;
-            if (org.logo) {
-              const logoUrl = apiClient.pb!.files.getURL(org, org.logo);
-              logoDataUrl = await fetchImageAsDataUrl(logoUrl);
-            }
-            setOrgInfo({ name: org.name || '', address: org.address || '', logoDataUrl });
-          }
+          const branding = await organizationService.getOrgBranding();
+          setOrgInfo(branding);
         } catch (e) { console.warn("Failed to fetch org info for PDF header"); }
 
         await fetchLogs();

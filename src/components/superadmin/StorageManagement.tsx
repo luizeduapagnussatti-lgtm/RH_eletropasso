@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, HardDrive, Trash2, Clock, AlertTriangle, CheckCircle2, RefreshCw, Camera } from 'lucide-react';
-import { apiClient } from '../../services/api.client';
+import { supabase } from '../../services/supabase';
+import { organizationService } from '../../services/organization.service';
 
 interface StorageStats {
   totalAttendanceRecords: number;
@@ -41,62 +42,37 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
   const loadStats = async () => {
     setIsLoading(true);
     try {
-      // Get retention setting
-      let currentRetention = 30;
-      try {
-        const setting = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "selfie_retention_days"',
-          { requestKey: 'get_retention' }
-        );
-        if (setting?.value) {
-          currentRetention = parseInt(setting.value as string) || 30;
-        }
-      } catch (e) {
-        // Not found, use default
-      }
+      const currentRetention = await organizationService.getSetting('selfie_retention_days', 30) as number;
       setRetentionDays(currentRetention);
 
-      // Get cleanup log
-      let lastCleanup = null;
-      try {
-        const logSetting = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "selfie_cleanup_log"',
-          { requestKey: 'get_cleanup_log' }
-        );
-        if (logSetting?.value) {
-          lastCleanup = logSetting.value as StorageStats['lastCleanup'];
-        }
-      } catch (e) {
-        // Not found
-      }
+      const lastCleanup = await organizationService.getSetting('selfie_cleanup_log', null) as StorageStats['lastCleanup'] | null;
 
-      // Count attendance records with selfies
+      // Count attendance records
       let totalRecords = 0;
       let recordsWithSelfies = 0;
       try {
-        const allRecords = await apiClient.pb?.collection('attendance').getList(1, 1, {
-          requestKey: 'count_all'
-        });
-        totalRecords = allRecords?.totalItems || 0;
+        const { count: total } = await supabase
+          .from('attendance')
+          .select('*', { count: 'exact', head: true });
+        totalRecords = total || 0;
 
-        const selfieRecords = await apiClient.pb?.collection('attendance').getList(1, 1, {
-          filter: 'selfie_in != "" || selfie_out != ""',
-          requestKey: 'count_selfies'
-        });
-        recordsWithSelfies = selfieRecords?.totalItems || 0;
+        const { count: withSelfies } = await supabase
+          .from('attendance')
+          .select('*', { count: 'exact', head: true })
+          .not('selfie', 'is', null);
+        recordsWithSelfies = withSelfies || 0;
       } catch (e) {
         console.log('[Storage] Error counting records:', e);
       }
 
-      // Estimate storage (average 150KB per selfie, 2 selfies per record)
-      const estimatedStorageMB = Math.round((recordsWithSelfies * 2 * 150) / 1024);
+      const estimatedStorageMB = Math.round((recordsWithSelfies * 150) / 1024);
 
       setStats({
         totalAttendanceRecords: totalRecords,
         recordsWithSelfies,
         estimatedStorageMB,
         retentionDays: currentRetention,
-        lastCleanup
+        lastCleanup,
       });
     } catch (e) {
       console.error('[Storage] Load error:', e);
@@ -109,48 +85,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
   const handleSaveRetention = async () => {
     setIsSaving(true);
     try {
-      // Find or create the retention setting
-      let existingSetting = null;
-      try {
-        existingSetting = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "selfie_retention_days"',
-          { requestKey: 'find_retention' }
-        );
-      } catch (e) {
-        // Not found
-      }
-
-      // Get system org for storing global settings
-      let systemOrgId = apiClient.pb?.authStore.model?.organization_id;
-      if (!systemOrgId) {
-        try {
-          const sysOrg = await apiClient.pb?.collection('organizations').getFirstListItem(
-            'name = "__SYSTEM__"',
-            { requestKey: 'get_system_org' }
-          );
-          systemOrgId = sysOrg?.id;
-        } catch (e) {
-          // Create system org
-          const newOrg = await apiClient.pb?.collection('organizations').create({
-            name: '__SYSTEM__',
-            subscription_status: 'ACTIVE'
-          });
-          systemOrgId = newOrg?.id;
-        }
-      }
-
-      if (existingSetting) {
-        await apiClient.pb?.collection('settings').update(existingSetting.id, {
-          value: retentionDays.toString()
-        });
-      } else {
-        await apiClient.pb?.collection('settings').create({
-          key: 'selfie_retention_days',
-          value: retentionDays.toString(),
-          organization_id: systemOrgId
-        });
-      }
-
+      await organizationService.setSetting('selfie_retention_days', retentionDays);
       onMessage({ type: 'success', text: `Retention period updated to ${retentionDays} days` });
       await loadStats();
     } catch (e: any) {
@@ -168,29 +103,30 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
 
     setIsRunningCleanup(true);
     try {
-      // Calculate cutoff date
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
       const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
       // Fetch records with selfies older than retention period
+      const { data: records, error: fetchError } = await supabase
+        .from('attendance')
+        .select('id')
+        .lt('date', cutoffStr)
+        .not('selfie', 'is', null);
+
+      if (fetchError) throw fetchError;
+
       let cleaned = 0;
       let errors = 0;
-      const BATCH_SIZE = 100;
-
-      const records = await apiClient.pb?.collection('attendance').getFullList({
-        filter: `date < "${cutoffStr}" && (selfie_in != "" || selfie_out != "")`,
-        sort: '-date',
-        requestKey: 'cleanup_fetch'
-      });
 
       if (records && records.length > 0) {
         for (const record of records) {
           try {
-            await apiClient.pb?.collection('attendance').update(record.id, {
-              selfie_in: '',
-              selfie_out: ''
-            });
+            const { error } = await supabase
+              .from('attendance')
+              .update({ selfie: null })
+              .eq('id', record.id);
+            if (error) throw error;
             cleaned++;
           } catch (e) {
             errors++;
@@ -200,7 +136,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
 
       onMessage({
         type: 'success',
-        text: `Cleanup complete! Cleaned ${cleaned} records${errors > 0 ? `, ${errors} errors` : ''}`
+        text: `Cleanup complete! Cleaned ${cleaned} records${errors > 0 ? `, ${errors} errors` : ''}`,
       });
       await loadStats();
     } catch (e: any) {

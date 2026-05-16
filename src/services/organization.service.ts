@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient, resolveOrgId } from './api.client';
-import { AppConfig, Holiday, Team, LeavePolicy, LeaveWorkflow, OrgReviewConfig, CustomLeaveType, OrgNotificationConfig } from '../types';
+import { AppConfig, Holiday, Team, LeavePolicy, LeaveWorkflow, OrgReviewConfig, CustomLeaveType, OrgNotificationConfig, SubscriptionInfo, SubscriptionStatus, User } from '../types';
 import { DEFAULT_CONFIG, DEFAULT_REVIEW_CONFIG, DEFAULT_LEAVE_TYPES, DEFAULT_NOTIFICATION_CONFIG } from '../constants';
 import { shiftService } from './shift.service';
 
@@ -81,19 +81,29 @@ export const organizationService = {
 
   async prefetchMetadata() {
     if (!isSupabaseConfigured()) return;
+    // Two tiers to keep iOS LTE login responsive. Tier 1 is what the dashboard
+    // shell needs to render correctly (company name + role lists). Tier 2 is
+    // module-specific (Leave, Attendance, Team Directory) and is fired in the
+    // background so it doesn't block the first paint of the authenticated UI.
     try {
       await Promise.all([
         organizationService.getConfig(),
         organizationService.getDepartments(),
         organizationService.getDesignations(),
-        organizationService.getHolidays(),
-        organizationService.getTeams(),
-        organizationService.getLeavePolicy(),
-        shiftService.getShifts(),
       ]);
     } catch (e) {
-      console.warn('Metadata prefetch partial failure', e);
+      console.warn('Metadata prefetch (tier 1) partial failure', e);
     }
+    // Fire-and-forget — never blocks the caller, errors are logged only.
+    Promise.allSettled([
+      organizationService.getHolidays(),
+      organizationService.getTeams(),
+      organizationService.getLeavePolicy(),
+      shiftService.getShifts(),
+    ]).then(results => {
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length) console.warn('Metadata prefetch (tier 2) partial failure', failed);
+    });
   },
 
   getSetting,
@@ -362,6 +372,99 @@ export const organizationService = {
       if (error) throw error;
       return data?.value ?? {};
     } catch { return {}; }
+  },
+
+  /**
+   * Fetch subscription status directly from Supabase. Replaces the dead
+   * PocketBase `/api/openhr/subscription-status` endpoint.
+   * Super Admins (no org) get a synthetic ACTIVE response.
+   */
+  async getSubscriptionStatus(user: User | null): Promise<SubscriptionInfo | null> {
+    if (!user) return null;
+
+    // SUPER_ADMIN has no org context — always active, not blocked.
+    if (user.role === 'SUPER_ADMIN' || !user.organizationId) {
+      return {
+        status: 'ACTIVE',
+        isSuperAdmin: true,
+        isReadOnly: false,
+        isBlocked: false,
+        showAds: false,
+      };
+    }
+
+    if (!isSupabaseConfigured()) {
+      // Safe default: don't block users when backend is unreachable.
+      return {
+        status: 'ACTIVE',
+        isSuperAdmin: false,
+        isReadOnly: false,
+        isBlocked: false,
+        showAds: false,
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('subscription_status, trial_end_date')
+      .eq('id', user.organizationId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[OrgService] getSubscriptionStatus failed:', error.message);
+      throw error;
+    }
+
+    const status = (data?.subscription_status as SubscriptionStatus) || 'TRIAL';
+    const trialEndDate = data?.trial_end_date as string | undefined;
+
+    let daysRemaining: number | undefined;
+    if (status === 'TRIAL' && trialEndDate) {
+      const endDate = new Date(trialEndDate);
+      const now = new Date();
+      // Calendar-date math (ignore wall-clock time) to match the legacy PB endpoint.
+      const endDay = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
+      const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      daysRemaining = Math.max(0, Math.round((endDay - today) / (1000 * 60 * 60 * 24)));
+    }
+
+    return {
+      status,
+      trialEndDate,
+      daysRemaining,
+      isSuperAdmin: false,
+      isReadOnly: status === 'EXPIRED',
+      isBlocked: status === 'SUSPENDED',
+      showAds: status === 'AD_SUPPORTED',
+    };
+  },
+
+  async getOrgBranding(): Promise<{ name: string; address: string; logoDataUrl: string | null }> {
+    const orgId = await resolveOrgId();
+    if (!orgId) return { name: '', address: '', logoDataUrl: null };
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('name, address, logo')
+        .eq('id', orgId)
+        .maybeSingle();
+      if (error) throw error;
+      let logoDataUrl: string | null = null;
+      if (data?.logo) {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/org-logos/${data.logo}`;
+        try {
+          const resp = await fetch(url);
+          const blob = await resp.blob();
+          logoDataUrl = await new Promise<string>((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result as string);
+            reader.onerror = rej;
+            reader.readAsDataURL(blob);
+          });
+        } catch { /* logo unavailable */ }
+      }
+      return { name: data?.name || '', address: data?.address || '', logoDataUrl };
+    } catch { return { name: '', address: '', logoDataUrl: null }; }
   },
 
   async testSupabaseConnection(): Promise<{ success: boolean; message: string }> {

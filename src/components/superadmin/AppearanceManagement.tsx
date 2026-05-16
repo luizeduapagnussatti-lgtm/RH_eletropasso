@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Check, Palette } from 'lucide-react';
 import { THEMES, useTheme, cacheThemeId } from '../../context/ThemeContext';
-import { apiClient } from '../../services/api.client';
+import { organizationService } from '../../services/organization.service';
 
 interface AppearanceManagementProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
@@ -21,15 +21,10 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
   const loadCurrentDefault = async () => {
     setIsLoading(true);
     try {
-      const record = await apiClient.pb?.collection('settings').getFirstListItem(
-        'key = "default_theme"',
-        { requestKey: 'get_default_theme' }
-      );
-      if (record?.value) {
-        setSelectedTheme(record.value as string);
-      }
+      const value = await organizationService.getSetting('default_theme', 'arctic-frost');
+      if (value) setSelectedTheme(value as string);
     } catch (e) {
-      // Not found — use default arctic-frost
+      // use default
     }
     setIsLoading(false);
   };
@@ -38,29 +33,9 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
     setIsSaving(true);
     setSelectedTheme(themeId);
     try {
-      // Try to update existing record
-      try {
-        const record = await apiClient.pb?.collection('settings').getFirstListItem(
-          'key = "default_theme"',
-          { requestKey: 'update_default_theme' }
-        );
-        if (record) {
-          await apiClient.pb?.collection('settings').update(record.id, { value: themeId });
-        }
-      } catch {
-        // Not found — create new
-        const orgId = apiClient.pb?.authStore.model?.organization_id || '';
-        await apiClient.pb?.collection('settings').create({
-          key: 'default_theme',
-          value: themeId,
-          organization_id: orgId,
-        });
-      }
-
-      // Apply theme immediately to current session and cache for instant load
+      await organizationService.setSetting('default_theme', themeId);
       setTheme(themeId);
       cacheThemeId(themeId);
-
       const theme = THEMES.find(t => t.id === themeId);
       onMessage({ type: 'success', text: `Global theme set to "${theme?.name || themeId}". All users will see this on their next visit.` });
     } catch (e: any) {
