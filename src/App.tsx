@@ -13,6 +13,7 @@ import SearchDialog from './components/search/SearchDialog';
 import { PWAUpdateBanner } from './components/PWAUpdateBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { lazyWithReload } from './utils/lazyWithReload';
+import { supabase } from './services/supabase';
 
 // Eager: public pages needed for first paint / SEO
 import Login from './pages/Login';
@@ -186,12 +187,28 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    // Check for password reset redirect: /?reset=1
-    if (new URLSearchParams(window.location.search).get('reset') === '1') {
+    // Check for password reset redirect: /?reset=1 (query) or #type=recovery (hash, Supabase default)
+    const queryReset = new URLSearchParams(window.location.search).get('reset') === '1';
+    const hashRecovery = window.location.hash.includes('type=recovery');
+    if (queryReset || hashRecovery) {
       setShowPasswordReset(true);
       setShowLanding(false);
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // Strip query but KEEP hash — supabase-js needs hash tokens to establish recovery session
+      if (queryReset) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
+  }, []);
+
+  // Listen for Supabase PASSWORD_RECOVERY event (fires after hash tokens parsed)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true);
+        setShowLanding(false);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // Legacy hash redirect: redirect old #/blog and #/how-to-use URLs to clean paths
