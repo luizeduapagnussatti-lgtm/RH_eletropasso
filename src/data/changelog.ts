@@ -15,6 +15,18 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-05-17',
+    title: 'Rush hour performance + iOS PWA fixes',
+    entries: [
+      { type: 'feature', description: 'Super Admin push broadcast: new "Push" tab in the Super Admin dashboard sends Web Push notifications to subscribed users. Four target types supported — all users platform-wide, a specific organization, a role across the platform (ADMIN/HR/MANAGER/EMPLOYEE), or a single user by UUID. Recipient count preview before send, confirmation modal for cross-tenant ALL broadcasts, automatic cleanup of stale 410-Gone subscriptions, and a 20-row history feed showing delivered/failed/cleaned counts per broadcast. New broadcasts audit table records every send.' },
+      { type: 'feature', description: 'PWA push notifications: employees receive a check-in reminder 15 minutes before their shift starts, and a missed check-in alert 30 minutes after shift start if not yet checked in. Works with app closed and phone locked (iOS 16.4+ with PWA added to Home Screen).' },
+      { type: 'fix', description: 'Confirmation email now sent on first registration attempt — admin.createUser does not auto-send; explicit resend call added to register Edge Function' },
+      { type: 'improvement', description: 'Checkout page is faster during rush hour: resolveShiftForEmployee now runs in parallel with getActiveAttendance + getConfig instead of sequentially after them, cutting the attendance page load by ~200–400ms.' },
+      { type: 'improvement', description: 'Employee dashboard no longer triggers a Storage signed-URL batch on every mount. The today\'s-attendance fetch used to resolve selfie URLs for every checked-in employee (50–100 requests during rush hour). Dashboard only needs a present-count, so selfie URLs are skipped there.' },
+      { type: 'improvement', description: 'iOS PWA network timeout increased from 5s to 8s for Supabase REST calls. 5s was too tight on iOS LTE under load, causing the service worker to fall back to stale cached data.' },
+    ],
+  },
+  {
     date: '2026-05-16',
     title: 'Service layer ported to Supabase',
     entries: [
