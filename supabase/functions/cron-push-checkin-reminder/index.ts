@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
               url: '/attendance',
             }
           : {
-              title: '❗ You haven't checked in',
+              title: "❗ You haven't checked in",
               body: `Your shift started at ${shiftStart}. Please check in now.`,
               url: '/attendance',
             };
