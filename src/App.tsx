@@ -53,7 +53,7 @@ const Announcements = lazyWithReload(() => import('./pages/Announcements'));
 const AdminNotifications = lazyWithReload(() => import('./pages/AdminNotifications'));
 
 import { navigateTo } from './utils/seo';
-import { subscribeToPush, isPushSupported } from './services/pushNotification.service';
+import { PushPermissionPrompt } from './components/PushPermissionPrompt';
 
 // Parse features route from pathname
 const parseFeaturesRoute = (pathname: string) => {
@@ -321,12 +321,7 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Subscribe to push notifications when user logs in (non-blocking)
-  useEffect(() => {
-    if (!user?.id || !user?.organizationId) return;
-    if (!isPushSupported()) return;
-    void subscribeToPush(user.id, user.organizationId as string);
-  }, [user?.id, user?.organizationId]);
+  // Push subscription handled via PushPermissionPrompt (soft-gate, user-initiated)
 
   const handleNavigate = (path: string, params?: any) => {
     if (path === 'attendance-quick-office') {
@@ -479,13 +474,23 @@ const AppContent: React.FC = () => {
     </div>
   );
 
+  const pushPrompt = !isSuperAdmin ? (
+    <PushPermissionPrompt userId={user.id} organizationId={user.organizationId as string | undefined} />
+  ) : null;
+
   if (currentPath === 'attendance') {
-    return <Suspense fallback={suspenseFallback}>{renderContent()}</Suspense>;
+    return (
+      <>
+        <Suspense fallback={suspenseFallback}>{renderContent()}</Suspense>
+        {pushPrompt}
+      </>
+    );
   }
 
   return (
     <MainLayout currentPath={currentPath} onNavigate={handleNavigate}>
       <Suspense fallback={suspenseFallback}>{renderContent()}</Suspense>
+      {pushPrompt}
     </MainLayout>
   );
 };
