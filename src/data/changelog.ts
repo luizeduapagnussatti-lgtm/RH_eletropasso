@@ -15,6 +15,22 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-06-06',
+    title: 'Employee registration fix',
+    entries: [
+      { type: 'fix', description: 'Admins can register new employees again. Creating an auth user fires the on_auth_user_created trigger, which already inserts a minimal profile row; the create-employee Edge Function then tried a second plain insert with the same id and failed with "duplicate key value violates unique constraint profiles_pkey", rolling the whole creation back. The Edge Function now upserts the profile on id, filling in the full employee details on the row the trigger created.' },
+    ],
+  },
+  {
+    date: '2026-05-22',
+    title: 'Push notification reliability improvements',
+    entries: [
+      { type: 'fix', description: 'Fixed service worker push handler to gracefully handle empty push events; added SKIP_WAITING message handler for manual updates.' },
+      { type: 'fix', description: 'Updated Edge Function admin-send-push to use JWK VAPID key format and removed payload encryption, improving delivery reliability.' },
+      { type: 'improvement', description: 'Cleanup: Removed legacy Ezoic and Ahrefs analytics scripts from index.html.' },
+    ],
+  },
+  {
     date: '2026-05-17',
     title: 'Rush hour performance + iOS PWA fixes',
     entries: [
