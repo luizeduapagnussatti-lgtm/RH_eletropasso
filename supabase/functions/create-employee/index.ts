@@ -99,8 +99,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Create profile
-    const { error: profileInsertErr } = await adminClient.from('profiles').insert({
+    // Create profile.
+    // NOTE: the `on_auth_user_created` trigger (handle_new_user) already inserts a
+    // minimal profile row when the auth user is created above, so a plain insert
+    // here collides on profiles_pkey. Upsert on `id` to fill in the full details.
+    const { error: profileInsertErr } = await adminClient.from('profiles').upsert({
       id:              userId,
       organization_id: orgId,
       name,
@@ -115,7 +118,7 @@ Deno.serve(async (req: Request) => {
       joining_date:    joiningDate,
       avatar:          avatarPath,
       verified:        false,
-    });
+    }, { onConflict: 'id' });
 
     if (profileInsertErr) {
       // Rollback auth user
