@@ -155,11 +155,29 @@ export const employeeService = {
       }
     }
 
-    // Password change goes through Supabase auth admin — not supported from anon key.
-    // Password updates must be handled via the update-password Edge Function or
-    // supabase.auth.updateUser (for self-updates only).
+    // Self-service password change via supabase.auth.updateUser.
+    // Only works for the currently authenticated user changing their own password.
     if (updates.password) {
-      console.warn('[EmployeeService] Password update for other users requires an admin Edge Function. Skipping.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) {
+        throw new Error('No active session. Please log in again.');
+      }
+
+      // Verify current password before allowing change
+      if (updates.oldPassword) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: session.user.email,
+          password: updates.oldPassword,
+        });
+        if (signInError) {
+          throw new Error('Current password is incorrect.');
+        }
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: updates.password,
+      });
+      if (updateError) throw updateError;
     }
 
     console.log('[EmployeeService] Updating profile:', id, payload);
