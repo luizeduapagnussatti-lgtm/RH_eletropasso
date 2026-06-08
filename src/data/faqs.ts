@@ -88,6 +88,27 @@ export const faqs = [
         q: 'Can I upgrade or downgrade anytime?',
         a: 'Yes. You can change your plan at any time from the Settings page. Upgrades take effect immediately, and downgrades apply at the next billing cycle.',
       },
+      {
+        q: 'What features should I look for in HR management software?',
+        a: 'A good HRMS should include attendance tracking, leave management, an employee directory, and reporting tools. OpenHRApp provides all of these plus performance reviews and GPS geofencing — all in one free, open-source platform.',
+      },
+      {
+        q: 'Can small businesses use OpenHRApp for free?',
+        a: 'Absolutely. The Free plan supports up to 10 employees with full access to attendance tracking, leave management, and employee directory features. It is ideal for startups and small businesses looking for a no-cost HR solution.',
+      },
+    ],
+  },
+  {
+    category: 'Comparisons',
+    items: [
+      {
+        q: 'How is OpenHRApp different from other HR platforms?',
+        a: 'Unlike proprietary HR software, OpenHRApp is completely open-source — you can inspect the code, self-host it, or customize it. It also works as a PWA, so employees can check in from any device without downloading an app. Plus, the free tier includes features that competitors charge for, like selfie-based attendance and GPS tracking.',
+      },
+      {
+        q: 'Does OpenHRApp support multi-location attendance tracking?',
+        a: 'Yes. OpenHRApp supports GPS geofencing, allowing you to define office locations and verify that employees are checking in from authorized sites. The Enterprise plan includes advanced multi-location management for organizations with multiple branches.',
+      },
     ],
   },
 ];

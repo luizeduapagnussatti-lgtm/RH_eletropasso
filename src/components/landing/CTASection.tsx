@@ -11,8 +11,8 @@ const CTASection: React.FC<CTASectionProps> = ({ onRegisterClick }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative bg-primary rounded-3xl overflow-hidden px-6 py-16 sm:px-12 sm:py-20 text-center">
           {/* Background decorations */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" aria-hidden="true"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" aria-hidden="true"></div>
 
           <div className="relative z-10">
             <h2 className="text-3xl sm:text-4xl font-semibold text-white mb-4">

@@ -31,12 +31,12 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onRegisterClick }) => {
   };
 
   const navLinks = [
-    { label: 'Features', id: 'features-link' },
-    { label: 'Roadmap', id: 'how-it-works' },
-    { label: 'FAQ', id: 'faq' },
-    { label: 'Contact', id: 'contact' },
-    { label: 'Blog', id: 'blog-link' },
-    { label: 'Guides', id: 'tutorials-link' },
+    { label: 'Features', href: '/features', type: 'page' as const },
+    { label: 'How It Works', href: '#how-it-works', type: 'hash' as const },
+    { label: 'FAQ', href: '#faq', type: 'hash' as const },
+    { label: 'Contact', href: '#contact', type: 'hash' as const },
+    { label: 'Blog', href: '/blog', type: 'page' as const },
+    { label: 'Guides', href: '/how-to-use', type: 'page' as const },
   ];
 
   return (
@@ -46,7 +46,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onRegisterClick }) => {
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-1.5 border border-primary/20 shadow-sm overflow-hidden">
-              <img src="/img/logo.webp" className="w-full h-full object-contain" alt="OpenHRApp" />
+              <img src="/img/logo.webp" className="w-full h-full object-contain" alt="OpenHRApp" width="48" height="48" />
             </div>
             <span className="text-lg font-semibold tracking-tight">
               <span className="text-primary">Open</span>
@@ -58,30 +58,30 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onRegisterClick }) => {
           {/* Desktop Links */}
           <div className="hidden md:flex items-center gap-5 lg:gap-7">
             {navLinks.map(link => (
-              <button
-                key={link.id}
-                onClick={() => {
-                  if (link.id === 'blog-link') {
-                    navigateTo('/blog');
-                  } else if (link.id === 'tutorials-link') {
-                    navigateTo('/how-to-use');
-                  } else if (link.id === 'features-link') {
-                    navigateTo('/features');
+              <a
+                key={link.label}
+                href={link.href}
+                onClick={(e) => {
+                  if (link.type === 'page') {
+                    e.preventDefault();
+                    navigateTo(link.href);
                   } else {
-                    scrollTo(link.id);
+                    e.preventDefault();
+                    scrollTo(link.href.slice(1));
                   }
                 }}
                 className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors"
               >
                 {link.label}
-              </button>
+              </a>
             ))}
             <button
               onClick={() => setSearchOpen(true)}
               className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+              aria-label="Search (Ctrl+K)"
             >
               <Search size={14} />
-              <span>Search...</span>
+              <span>Search…</span>
               <kbd className="text-[10px] font-medium text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">Ctrl+K</kbd>
             </button>
           </div>
@@ -91,7 +91,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onRegisterClick }) => {
             <button
               onClick={toggleDarkMode}
               className="p-2.5 rounded-xl text-slate-500 hover:text-primary hover:bg-slate-100 transition-all"
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -114,20 +114,21 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onRegisterClick }) => {
             <button
               onClick={() => setSearchOpen(true)}
               className="p-2 text-slate-500 hover:text-primary transition-colors"
-              title="Search"
+              aria-label="Search"
             >
               <Search size={20} />
             </button>
             <button
               onClick={toggleDarkMode}
               className="p-2 text-slate-500 hover:text-primary transition-colors"
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="p-2 text-slate-600 hover:text-primary transition-colors"
+              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             >
               {mobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -140,23 +141,22 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onRegisterClick }) => {
         <div className="md:hidden bg-white border-t border-slate-100 shadow-lg animate-in slide-in-from-top-2 duration-200">
           <div className="px-4 py-4 space-y-1">
             {navLinks.map(link => (
-              <button
-                key={link.id}
-                onClick={() => {
-                  if (link.id === 'blog-link') {
-                    setMobileOpen(false);
-                    navigateTo('/blog');
-                  } else if (link.id === 'tutorials-link') {
-                    setMobileOpen(false);
-                    navigateTo('/how-to-use');
+              <a
+                key={link.label}
+                href={link.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setMobileOpen(false);
+                  if (link.type === 'page') {
+                    navigateTo(link.href);
                   } else {
-                    scrollTo(link.id);
+                    scrollTo(link.href.slice(1));
                   }
                 }}
                 className="block w-full text-left px-4 py-3 text-sm font-semibold text-slate-600 hover:text-primary hover:bg-slate-50 rounded-xl transition-colors"
               >
                 {link.label}
-              </button>
+              </a>
             ))}
           </div>
         </div>

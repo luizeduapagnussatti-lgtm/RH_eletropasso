@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Clock, CreditCard, Zap, LogIn, Mail, Lock, Eye, EyeOff, AlertCircle, RefreshCw, Building2, Download, RotateCcw, Share, MoreVertical, X, Send } from 'lucide-react';
-import { hrService } from '../../services/hrService';
-import { useToast } from '../../context/ToastContext';
+import { ArrowRight, Clock, CreditCard, Zap, LogIn, Download, RotateCcw, Share, MoreVertical, X } from 'lucide-react';
 
 interface HeroSectionProps {
   onLoginClick: () => void;
@@ -9,14 +7,7 @@ interface HeroSectionProps {
   onLoginSuccess?: (user: any) => void;
 }
 
-const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick, onRegisterClick, onLoginSuccess }) => {
-  const { showToast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showResend, setShowResend] = useState(false);
+const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick, onRegisterClick }) => {
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [canPrompt, setCanPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -49,53 +40,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick, onRegisterClick
     }
   };
 
-  const handleResetCache = async () => {
-    if (!confirm('Reset App Cache? This will reload the application.')) return;
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const reg of registrations) await reg.unregister();
-    }
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.reload();
-  };
-
-  const handleResendVerification = async () => {
-    if (!email) return;
-    try {
-      await hrService.requestVerificationEmail(email);
-      showToast("A new verification link has been sent to your email.", "success");
-      setShowResend(false);
-      setError('');
-    } catch (e) {
-      showToast("Failed to send verification email.", "error");
-    }
-  };
-
-  const handleMobileLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) return;
-    setIsLoading(true);
-    setError('');
-    setShowResend(false);
-    try {
-      const result = await hrService.login(email, password);
-      if (result.user) {
-        onLoginSuccess?.(result.user);
-      } else {
-        const msg = result.error || 'Login failed. Check your credentials.';
-        setError(msg);
-        if (msg.toLowerCase().includes('verified') || msg.toLowerCase().includes('verification')) {
-          setShowResend(true);
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <section className="relative pt-28 md:pt-36 pb-16 md:pb-24 overflow-hidden">
       {/* Background gradients */}
@@ -104,106 +48,20 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick, onRegisterClick
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-4xl mx-auto">
-          {/* Mobile: Inline Login Form (above headline) */}
-          <div className="sm:hidden mb-8">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-left">
-              <div className="flex items-center gap-2 mb-4">
-                <LogIn size={16} className="text-primary" />
-                <h3 className="text-sm font-bold text-slate-900">Sign in to your account</h3>
-              </div>
-
-              <form onSubmit={handleMobileLogin} className="space-y-3" autoComplete="on">
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="Email address"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 placeholder:text-slate-400"
-                  />
-                </div>
-
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Password"
-                    className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 placeholder:text-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-
-                {error && (
-                  <div className="p-2.5 bg-rose-50 border border-rose-100 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle size={14} className="text-rose-500 flex-shrink-0" />
-                      <p className="text-[11px] font-semibold text-rose-600">{error}</p>
-                    </div>
-                    {showResend && (
-                      <button
-                        type="button"
-                        onClick={handleResendVerification}
-                        className="mt-2 w-full flex items-center justify-center gap-1.5 bg-white px-3 py-2 rounded-lg shadow-sm text-[11px] font-bold text-rose-600 hover:text-rose-800 border border-rose-100 transition-colors"
-                      >
-                        <Send size={12} /> Resend Verification Link
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-sm"
-                >
-                  {isLoading ? <RefreshCw size={16} className="animate-spin" /> : <><LogIn size={16} /> Login</>}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onRegisterClick}
-                  className="w-full py-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-semibold text-xs hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2"
-                >
-                  <Building2 size={14} /> Register New Organization
-                </button>
-
-                {/* Utils: Install / Download / Reset */}
-                <div className="flex items-center justify-center gap-3 pt-3 border-t border-slate-100">
-                  {!isInstalled && (
-                    <button
-                      type="button"
-                      onClick={handleInstallClick}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 text-[10px] font-semibold uppercase tracking-wider hover:text-primary transition-colors"
-                    >
-                      <Download size={12} /> {canPrompt ? 'Install' : 'Install Guide'}
-                    </button>
-                  )}
-                  <div className="w-px h-3 bg-slate-200"></div>
-                  <button
-                    type="button"
-                    onClick={handleResetCache}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 text-[10px] font-semibold uppercase tracking-wider hover:text-rose-500 transition-colors"
-                  >
-                    <RotateCcw size={12} /> Reset
-                  </button>
-                </div>
-              </form>
-            </div>
+          {/* Mobile: CTA Buttons */}
+          <div className="sm:hidden mb-8 flex flex-col gap-3">
+            <button
+              onClick={onLoginClick}
+              className="w-full py-3.5 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2"
+            >
+              <LogIn size={18} /> Login to Your Account
+            </button>
+            <button
+              onClick={onRegisterClick}
+              className="w-full py-3.5 bg-primary text-white rounded-2xl font-bold text-sm hover:bg-primary-hover transition-all shadow-sm flex items-center justify-center gap-2"
+            >
+              Get Started Free <ArrowRight size={18} />
+            </button>
           </div>
 
           {/* Badge */}
@@ -220,7 +78,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick, onRegisterClick
 
           {/* Subtext */}
           <p className="text-lg sm:text-xl text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Streamline attendance tracking, leave management, and employee records — all in one powerful platform built for growing teams.
+            OpenHRApp is a free, open-source HR management platform trusted by growing teams worldwide. Track attendance with selfie-based check-ins, manage leave requests with one click, and keep employee records organized — all from one intuitive dashboard. No downloads, no credit card — get started in minutes.
           </p>
 
           {/* Desktop: CTA Buttons */}

@@ -61,7 +61,7 @@ const CarouselView: React.FC<{ orgs: ShowcaseOrganization[] }> = ({ orgs }) => {
 
       <div className="overflow-hidden">
         <div
-          className="flex gap-8 hover:[animation-play-state:paused]"
+          className="flex gap-8 hover:[animation-play-state:paused] motion-safe:animate-none"
           style={{
             animation: `showcase-scroll ${duration}s linear infinite`,
             width: 'max-content'
@@ -132,6 +132,9 @@ const LogoDisplay: React.FC<{ org: ShowcaseOrganization }> = ({ org }) => {
       <img
         src={org.logo}
         alt={org.name}
+        width="96"
+        height="96"
+        loading="lazy"
         onError={() => setImgError(true)}
         className="max-w-full max-h-full object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
       />

@@ -31,27 +31,26 @@ const Footer: React.FC = () => {
     {
       title: 'Product',
       links: [
-        { label: 'Features', action: () => { navigateTo('/features'); } },
-        { label: 'Roadmap', action: () => scrollTo('how-it-works') },
-        { label: 'FAQ', action: () => scrollTo('faq') },
-        { label: 'Blog', action: () => { navigateTo('/blog'); } },
-        { label: 'Changelog', action: () => { navigateTo('/changelog'); } },
+        { label: 'Features', href: '/features', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/features'); } },
+        { label: 'How It Works', href: '#how-it-works', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('how-it-works'); } },
+        { label: 'FAQ', href: '#faq', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('faq'); } },
+        { label: 'Blog', href: '/blog', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/blog'); } },
+        { label: 'Changelog', href: '/changelog', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/changelog'); } },
       ],
     },
     {
       title: 'Resources',
       links: [
-        { label: 'Guides', action: () => { navigateTo('/how-to-use'); } },
-        { label: 'GitHub', action: () => window.open('https://github.com/mimnets/openhrapp', '_blank') },
+        { label: 'Guides', href: '/how-to-use', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/how-to-use'); } },
+        { label: 'GitHub', href: 'https://github.com/mimnets/openhrapp', onClick: () => {} },
       ],
     },
     {
       title: 'Company',
       links: [
-        { label: 'About', action: () => scrollTo('features') },
-        { label: 'Contact', action: () => scrollTo('contact') },
-        { label: 'Privacy Policy', action: () => { navigateTo('/privacy'); } },
-        { label: 'Terms of Service', action: () => { navigateTo('/terms'); } },
+        { label: 'Contact', href: '#contact', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('contact'); } },
+        { label: 'Privacy Policy', href: '/privacy', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/privacy'); } },
+        { label: 'Terms of Service', href: '/terms', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/terms'); } },
       ],
     },
   ];
@@ -64,7 +63,7 @@ const Footer: React.FC = () => {
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-sm overflow-hidden">
-                <img src="/img/logo.webp" className="w-full h-full object-contain" alt="OpenHRApp" />
+                <img src="/img/logo.webp" className="w-full h-full object-contain" alt="OpenHRApp" width="44" height="44" />
               </div>
               <span className="text-base font-semibold tracking-tight">
                 <span className="text-primary">Open</span>
@@ -84,12 +83,13 @@ const Footer: React.FC = () => {
               <ul className="space-y-3">
                 {col.links.map((link) => (
                   <li key={link.label}>
-                    <button
-                      onClick={link.action}
+                    <a
+                      href={link.href}
+                      onClick={link.onClick}
                       className="text-sm text-slate-400 hover:text-white transition-colors"
                     >
                       {link.label}
-                    </button>
+                    </a>
                   </li>
                 ))}
               </ul>
