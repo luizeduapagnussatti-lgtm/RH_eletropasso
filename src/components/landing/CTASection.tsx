@@ -11,15 +11,15 @@ const CTASection: React.FC<CTASectionProps> = ({ onRegisterClick }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative bg-primary rounded-3xl overflow-hidden px-6 py-16 sm:px-12 sm:py-20 text-center">
           {/* Background decorations */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" aria-hidden="true"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" aria-hidden="true"></div>
 
           <div className="relative z-10">
             <h2 className="text-3xl sm:text-4xl font-semibold text-white mb-4">
               Ready to Transform Your HR?
             </h2>
             <p className="text-lg text-white/80 max-w-xl mx-auto mb-8">
-              Start your 14-day free trial today. No credit card required. Set up in minutes.
+              Get started today — completely free. No credit card, no time limits, no catches.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
@@ -30,7 +30,7 @@ const CTASection: React.FC<CTASectionProps> = ({ onRegisterClick }) => {
               </button>
             </div>
             <p className="text-sm text-white/60 mt-4">
-              Or continue with our free ad-supported plan
+              Free and open-source — forever
             </p>
           </div>
         </div>

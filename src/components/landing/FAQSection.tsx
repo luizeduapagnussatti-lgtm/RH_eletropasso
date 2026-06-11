@@ -46,6 +46,7 @@ const FAQSection: React.FC = () => {
                         <span className="text-sm font-semibold text-slate-800 pr-4">{item.q}</span>
                         <ChevronDown
                           size={16}
+                          aria-hidden="true"
                           className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                         />
                       </button>

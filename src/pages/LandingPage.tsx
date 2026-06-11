@@ -1,16 +1,23 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import Navbar from '../components/landing/Navbar';
 import HeroSection from '../components/landing/HeroSection';
 import FeaturesSection from '../components/landing/FeaturesSection';
 import HowItWorksSection from '../components/landing/HowItWorksSection';
-import TestimonialsSection from '../components/landing/TestimonialsSection';
-import FAQSection from '../components/landing/FAQSection';
-import ContactSection from '../components/landing/ContactSection';
-import CTASection from '../components/landing/CTASection';
+import PricingSection from '../components/landing/PricingSection';
 import Footer from '../components/landing/Footer';
-import ShowcaseSection from '../components/landing/ShowcaseSection';
 import { PublicAdBanner } from '../components/ads';
 import { updatePageMeta, setJsonLd } from '../utils/seo';
+
+const ShowcaseSection = React.lazy(() => import('../components/landing/ShowcaseSection'));
+const FAQSection = React.lazy(() => import('../components/landing/FAQSection'));
+const ContactSection = React.lazy(() => import('../components/landing/ContactSection'));
+const CTASection = React.lazy(() => import('../components/landing/CTASection'));
+
+const SectionSkeleton = () => (
+  <div className="py-20 flex justify-center">
+    <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+  </div>
+);
 
 interface LandingPageProps {
   onLoginClick: () => void;
@@ -20,18 +27,15 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onRegisterClick, onLoginSuccess }) => {
   useEffect(() => {
-    // Enable smooth scrolling for the page
     document.documentElement.style.scrollBehavior = 'smooth';
 
-    // Reset meta to defaults for the landing page
     updatePageMeta(
-      'OpenHRApp - Open Source HR Management System | Free HRMS Software',
-      'OpenHRApp is a free, open-source HR management system for organizations. Features include attendance tracking, leave management, employee directory, and local compliance tools.',
+      'OpenHRApp — Free Open-Source HR Management Software',
+      'OpenHRApp is a free, open-source HR platform with attendance tracking, leave management, and employee directory. Get started today — no credit card required, completely free forever.',
       'https://openhrapp.com/',
       'https://openhrapp.com/img/screenshot-wide.webp'
     );
 
-    // Set combined JSON-LD for landing page
     setJsonLd({
       '@context': 'https://schema.org',
       '@graph': [
@@ -44,13 +48,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onRegisterClick
             '@type': 'Offer',
             price: '0',
             priceCurrency: 'USD',
-          },
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: '4.8',
-            reviewCount: '5',
-            bestRating: '5',
-            worstRating: '1',
           },
           description: 'Free, open-source HR management system with attendance tracking, leave management, employee directory, and compliance tools.',
           url: 'https://openhrapp.com',
@@ -72,7 +69,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onRegisterClick
               name: 'Is OpenHRApp really free?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: 'Yes! OpenHRApp offers a free ad-supported plan for small teams. We also offer premium plans with additional features like advanced analytics, priority support, and no ads.',
+                text: 'Yes — completely free. OpenHRApp is open-source software with no paywalls, no user limits, and no credit card required. The app is ad-supported, and you can remove ads by making a small donation to support the project.',
               },
             },
             {
@@ -103,7 +100,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onRegisterClick
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-white focus:font-semibold focus:shadow-lg"
@@ -116,12 +113,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onRegisterClick
         <div className="py-4 flex justify-center"><PublicAdBanner slot="landing-hero" /></div>
         <FeaturesSection />
         <HowItWorksSection />
+        <Suspense fallback={<SectionSkeleton />}><PricingSection onRegisterClick={onRegisterClick} /></Suspense>
         <div className="py-4 flex justify-center"><PublicAdBanner slot="landing-mid" /></div>
-        <TestimonialsSection />
-        <ShowcaseSection />
-        <FAQSection />
-        <ContactSection />
-        <CTASection onRegisterClick={onRegisterClick} />
+        <Suspense fallback={<SectionSkeleton />}><ShowcaseSection /></Suspense>
+        <Suspense fallback={<SectionSkeleton />}><FAQSection /></Suspense>
+        <Suspense fallback={<SectionSkeleton />}><ContactSection /></Suspense>
+        <Suspense fallback={<SectionSkeleton />}><CTASection onRegisterClick={onRegisterClick} /></Suspense>
       </main>
       <Footer />
     </div>

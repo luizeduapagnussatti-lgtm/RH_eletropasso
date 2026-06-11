@@ -38,8 +38,8 @@ const HowItWorksSection: React.FC = () => {
           <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 mt-3 mb-4">
             Get Started in 3 Steps
           </h2>
-          <p className="text-slate-500 text-lg">
-            From sign-up to fully operational — in just a few minutes.
+          <p className="text-slate-500 text-lg max-w-xl mx-auto">
+            From sign-up to fully operational in just a few minutes. No installation, no credit card, no commitment — start managing your HR today.
           </p>
         </div>
 
@@ -53,7 +53,7 @@ const HowItWorksSection: React.FC = () => {
               )}
 
               <div className={`w-20 h-20 ${s.bg} rounded-2xl flex items-center justify-center mx-auto mb-5 relative`}>
-                <s.icon size={28} className={s.color} />
+                <s.icon size={28} className={s.color} aria-hidden="true" />
                 <span className="absolute -top-2 -right-2 w-7 h-7 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center text-xs font-semibold text-slate-500">
                   {s.step}
                 </span>

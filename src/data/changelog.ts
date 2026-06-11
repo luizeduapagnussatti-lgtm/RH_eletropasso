@@ -15,6 +15,28 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-06-11',
+    title: 'Leave application — 0-day calculation fix',
+    entries: [
+      { type: 'fix', description: 'Fixed leave applications always showing "Net leave duration is 0 days" for employees assigned to shifts whose working_days were stored as 3-letter abbreviations (MON, TUE) by the DB default. The leave form now normalizes both full-name and 3-letter working day formats before comparing against locale-formatted day names.' },
+    ],
+  },
+  {
+    date: '2026-06-08',
+    title: 'Landing page overhaul — SEO, accessibility, and UX improvements',
+    entries: [
+      { type: 'improvement', description: 'Converted all navigation links from buttons to semantic <a> anchors with href attributes so search engines can discover and crawl internal pages (Blog, Features, Guides, FAQ, etc.). Footer links also updated.' },
+      { type: 'improvement', description: 'Trimmed page title from ~78 to ~56 characters for better SERP display. Updated meta description with a clearer call-to-action.' },
+      { type: 'feature', description: 'Added Pricing section to landing page with Free, Pro, and Enterprise tiers. Includes feature comparison, popular-plan highlight, and dark mode support.' },
+      { type: 'improvement', description: 'Expanded landing page content for SEO: richer hero subtext with primary keywords, longer feature descriptions, keyword-targeted FAQs (HR software features, small business use, competitor comparison, multi-location support).' },
+      { type: 'improvement', description: 'Added 2 more testimonial cards with star ratings — now shows 3 testimonials in a responsive grid for better social proof.' },
+      { type: 'improvement', description: 'Cleaned up mobile hero: removed inline login form, replaced with clean CTA buttons. Moved install/reset utilities out of hero.' },
+      { type: 'improvement', description: 'Accessibility pass: added aria-labels to all icon-only buttons, aria-hidden on decorative icons, explicit width/height on images to prevent CLS, prefers-reduced-motion support, and fixed typographic ellipsis.' },
+      { type: 'improvement', description: 'Performance: lazy-loaded below-fold sections (Testimonials, Showcase, FAQ, Contact, CTA) with React.lazy + Suspense. Added YouTube preconnect hints. Added loading="lazy" on showcase images.' },
+      { type: 'improvement', description: 'Added dark mode support to landing page wrapper and section components. Renamed misleading "Roadmap" nav link to "How It Works" and fixed "About" footer link.' },
+    ],
+  },
+  {
     date: '2026-06-08',
     title: 'PocketBase fully removed — Supabase-only backend',
     entries: [

@@ -130,7 +130,7 @@ const ContactSection: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Sending...
+                    Sending…
                   </>
                 ) : (
                   <>
