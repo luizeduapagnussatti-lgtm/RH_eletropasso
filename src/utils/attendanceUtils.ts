@@ -320,16 +320,14 @@ export const calculateEmployeeSummaries = (params: {
 
   // Compute summary per employee
   const summaries: EmployeeAttendanceSummary[] = targetEmployees.map(emp => {
-    const totalWorkingDays = getWorkingDaysInPeriod(
-      emp, startDate, endDate, shifts, shiftOverrides, appConfig, holidays
-    );
-
     // Build set of this employee's leave dates
     const empLeaveDates = leaveDateMap.get(emp.id) || new Set();
     const leaveDays = empLeaveDates.size;
 
-    // Gap analysis: for each working day with no attendance record AND not on leave → absent
+    // Single pass: iterate every calendar day once to compute totalWorkingDays, gapAbsent, and leave days.
+    // This ensures totalWorkingDays, present, absent, late, and leave always add up consistently.
     const empRecordedDates = recordedDateMap.get(emp.id) || new Set();
+    let totalWorkingDays = 0;
     let gapAbsentDays = 0;
 
     const start = new Date(startDate);
@@ -359,6 +357,9 @@ export const calculateEmployeeSummaries = (params: {
 
       if (!empWorkingDays.includes(dayName)) continue;
 
+      // This is a working day for this employee
+      totalWorkingDays++;
+
       // If no attendance record AND not on leave → gap absent
       if (!empRecordedDates.has(dateStr) && !empLeaveDates.has(dateStr)) {
         gapAbsentDays++;
@@ -369,7 +370,7 @@ export const calculateEmployeeSummaries = (params: {
     const lateDays = lateMap.get(emp.id)?.size ?? 0;
     const recordedAbsentDays = absentMap.get(emp.id)?.size ?? 0;
     const halfDays = halfDayMap.get(emp.id)?.size ?? 0;
-    // Absent = explicitly marked absent + gap analysis (working days with no punch)
+    // Absent = explicitly marked absent records + gap analysis (working days with no punch)
     const absentDays = recordedAbsentDays + gapAbsentDays;
 
     const effectiveWorkingDays = Math.max(1, totalWorkingDays - leaveDays);
