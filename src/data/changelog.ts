@@ -16,7 +16,7 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-14',
-    title: 'AdSense compliance overhaul — removed ads from non-content pages, added About page and blog content',
+    title: 'AdSense compliance overhaul, Supabase README & open-source self-hosting guide',
     entries: [
       { type: 'fix', description: 'Removed AdBanner components from all authenticated/functional pages (Sidebar, MainLayout footer, AdminDashboard, ManagerDashboard, EmployeeDashboard) to comply with Google AdSense policy prohibiting ads on screens without publisher content.' },
       { type: 'fix', description: 'Removed PublicAdBanner slots from LandingPage (landing-hero and landing-mid). Marketing pages are not considered sufficient publisher content for AdSense. Replaced with TestimonialsSection for richer social-proof content.' },
