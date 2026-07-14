@@ -29,6 +29,8 @@ export const changelog: ChangelogRelease[] = [
       { type: 'fix', description: 'Org admins now receive in-app bell notifications when their upgrade requests are approved or rejected by a super admin.' },
       { type: 'feature', description: 'Added Supabase real-time subscription to the notification bell — server-created notifications (e.g. from edge functions) now appear immediately without a page refresh.' },
       { type: 'improvement', description: 'Added notify_super_admins PostgreSQL function (SECURITY DEFINER) in migration 0015, so client code can create notifications for super admins without bypassing RLS.' },
+      { type: 'improvement', description: 'Complete README rewrite for Supabase — replaced all PocketBase references with full Supabase setup instructions including cloud quick-start, self-hosted Docker guide, environment variable reference, architecture diagram, Edge Functions catalog, cron job table, storage bucket docs, and database table reference.' },
+      { type: 'feature', description: 'Added .env.example file with documented VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, and VITE_VAPID_PUBLIC_KEY variables so new users can clone and configure the project without hunting through source code.' },
     ],
   },
   {
