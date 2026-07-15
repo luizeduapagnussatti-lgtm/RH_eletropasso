@@ -1,0 +1,57 @@
+{
+  "leave": {
+    "PENDING_MANAGER": "Pending manager",
+    "PENDING_HR": "Pending HR",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected",
+    "CANCELLED": "Cancelled"
+  },
+  "attendance": {
+    "PRESENT": "Present",
+    "LATE": "Late",
+    "ABSENT": "Absent",
+    "LEAVE": "On leave",
+    "EARLY_OUT": "Early out",
+    "HALF_DAY": "Half day"
+  },
+  "review": {
+    "DRAFT": "Draft",
+    "SELF_REVIEW_SUBMITTED": "Self-review submitted",
+    "MANAGER_REVIEWED": "Manager reviewed",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled"
+  },
+  "subscription": {
+    "TRIAL": "Trial",
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "SUSPENDED": "Suspended",
+    "AD_SUPPORTED": "Ad-supported"
+  },
+  "role": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Admin",
+    "HR": "HR",
+    "MANAGER": "Manager",
+    "TEAM_LEAD": "Team lead",
+    "EMPLOYEE": "Employee",
+    "MANAGEMENT": "Management"
+  },
+  "priority": {
+    "LOW": "Low",
+    "NORMAL": "Normal",
+    "MEDIUM": "Medium",
+    "HIGH": "High",
+    "URGENT": "Urgent"
+  },
+  "notification": {
+    "LEAVE": "Leave",
+    "ATTENDANCE": "Attendance",
+    "REVIEW": "Review",
+    "ANNOUNCEMENT": "Announcement",
+    "SYSTEM": "System",
+    "GENERAL": "General",
+    "NEW_REGISTRATION": "New registration",
+    "UPGRADE_REQUEST": "Upgrade request"
+  }
+}

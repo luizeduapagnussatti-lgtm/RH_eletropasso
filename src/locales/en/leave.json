@@ -1,0 +1,23 @@
+{
+  "title": "Leave",
+  "apply": "Apply for leave",
+  "myRequests": "My requests",
+  "teamRequests": "Team requests",
+  "allRequests": "All requests",
+  "type": "Leave type",
+  "startDate": "Start date",
+  "endDate": "End date",
+  "totalDays": "Total days",
+  "reason": "Reason",
+  "balance": "Balance",
+  "approve": "Approve",
+  "reject": "Reject",
+  "pending": "Pending",
+  "guidelines": "Leave guidelines",
+  "noRequests": "No leave requests",
+  "submitSuccess": "Leave request submitted",
+  "actionSuccess": "Leave updated",
+  "managerRemarks": "Manager remarks",
+  "hrRemarks": "Approver remarks",
+  "cancelRequest": "Cancel request"
+}

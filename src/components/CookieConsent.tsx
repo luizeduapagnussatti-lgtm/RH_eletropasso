@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const GA_ID = 'G-KNNWM2N5NL';
 const STORAGE_KEY = 'openhr-cookie-consent';
@@ -19,6 +20,7 @@ function loadGoogleAnalytics() {
 }
 
 const CookieConsent: React.FC = () => {
+  const { t } = useTranslation('common');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -47,20 +49,20 @@ const CookieConsent: React.FC = () => {
     <div className="fixed bottom-0 inset-x-0 z-[9999] p-4 sm:p-6">
       <div className="max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-lg p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
         <p className="text-sm text-slate-600 flex-1">
-          We use cookies and analytics to improve your experience. You can accept or decline tracking.
+          {t('cookie.message')}
         </p>
         <div className="flex gap-2 shrink-0">
           <button
             onClick={handleDecline}
             className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
           >
-            Decline
+            {t('cookie.decline')}
           </button>
           <button
             onClick={handleAccept}
             className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors"
           >
-            Accept
+            {t('cookie.accept')}
           </button>
         </div>
       </div>

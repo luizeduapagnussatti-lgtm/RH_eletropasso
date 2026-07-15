@@ -1,0 +1,23 @@
+{
+  "title": "Férias e licenças",
+  "apply": "Solicitar licença",
+  "myRequests": "Minhas solicitações",
+  "teamRequests": "Solicitações da equipe",
+  "allRequests": "Todas as solicitações",
+  "type": "Tipo de licença",
+  "startDate": "Data início",
+  "endDate": "Data fim",
+  "totalDays": "Total de dias",
+  "reason": "Motivo",
+  "balance": "Saldo",
+  "approve": "Aprovar",
+  "reject": "Recusar",
+  "pending": "Pendentes",
+  "guidelines": "Diretrizes de licenças",
+  "noRequests": "Nenhuma solicitação de licença",
+  "submitSuccess": "Solicitação enviada",
+  "actionSuccess": "Licença atualizada",
+  "managerRemarks": "Observações do gestor",
+  "hrRemarks": "Observações do aprovador",
+  "cancelRequest": "Cancelar solicitação"
+}

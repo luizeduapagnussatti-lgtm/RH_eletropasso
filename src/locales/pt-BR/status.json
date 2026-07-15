@@ -1,0 +1,57 @@
+{
+  "leave": {
+    "PENDING_MANAGER": "Pendente gestor",
+    "PENDING_HR": "Pendente RH",
+    "APPROVED": "Aprovado",
+    "REJECTED": "Recusado",
+    "CANCELLED": "Cancelado"
+  },
+  "attendance": {
+    "PRESENT": "Presente",
+    "LATE": "Atrasado",
+    "ABSENT": "Ausente",
+    "LEAVE": "Em licença",
+    "EARLY_OUT": "Saída antecipada",
+    "HALF_DAY": "Meio período"
+  },
+  "review": {
+    "DRAFT": "Rascunho",
+    "SELF_REVIEW_SUBMITTED": "Autoavaliação enviada",
+    "MANAGER_REVIEWED": "Avaliado pelo gestor",
+    "COMPLETED": "Concluído",
+    "CANCELLED": "Cancelado"
+  },
+  "subscription": {
+    "TRIAL": "Trial",
+    "ACTIVE": "Ativo",
+    "EXPIRED": "Expirado",
+    "SUSPENDED": "Suspenso",
+    "AD_SUPPORTED": "Com anúncios"
+  },
+  "role": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Administrador",
+    "HR": "RH",
+    "MANAGER": "Gestor",
+    "TEAM_LEAD": "Líder de equipe",
+    "EMPLOYEE": "Colaborador",
+    "MANAGEMENT": "Diretoria"
+  },
+  "priority": {
+    "LOW": "Baixa",
+    "NORMAL": "Normal",
+    "MEDIUM": "Média",
+    "HIGH": "Alta",
+    "URGENT": "Urgente"
+  },
+  "notification": {
+    "LEAVE": "Licença",
+    "ATTENDANCE": "Ponto",
+    "REVIEW": "Avaliação",
+    "ANNOUNCEMENT": "Comunicado",
+    "SYSTEM": "Sistema",
+    "GENERAL": "Geral",
+    "NEW_REGISTRATION": "Novo cadastro",
+    "UPGRADE_REQUEST": "Pedido de upgrade"
+  }
+}

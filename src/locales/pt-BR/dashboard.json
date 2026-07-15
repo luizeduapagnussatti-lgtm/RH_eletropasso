@@ -1,0 +1,18 @@
+{
+  "title": "Painel",
+  "welcome": "Olá, {{name}}",
+  "todayAttendance": "Ponto de hoje",
+  "present": "Presentes",
+  "late": "Atrasados",
+  "absent": "Ausentes",
+  "onLeave": "Em licença",
+  "quickActions": "Ações rápidas",
+  "clockIn": "Entrada",
+  "clockOut": "Saída",
+  "applyLeave": "Solicitar licença",
+  "recentAnnouncements": "Comunicados",
+  "teamOverview": "Visão da equipe",
+  "pendingApprovals": "Aprovações pendentes",
+  "noData": "Sem dados para hoje",
+  "viewAll": "Ver tudo"
+}

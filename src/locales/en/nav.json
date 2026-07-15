@@ -1,0 +1,23 @@
+{
+  "organizations": "Organizations",
+  "myProfile": "My Profile",
+  "dashboard": "Dashboard",
+  "myAttendance": "My Attendance",
+  "attendanceAudit": "Attendance Audit",
+  "leave": "Leave",
+  "announcements": "Announcements",
+  "notifications": "Notifications",
+  "teamDirectory": "Team Directory",
+  "performance": "Performance",
+  "organization": "Organization",
+  "reports": "Reports",
+  "settings": "Settings",
+  "signOut": "Sign Out",
+  "mobile": {
+    "home": "Home",
+    "history": "History",
+    "leave": "Leave",
+    "account": "Account"
+  },
+  "cloudNode": "Cloud Node Alpha"
+}

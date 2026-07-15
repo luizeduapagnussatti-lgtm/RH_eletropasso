@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FileText, Calendar, Clock, RefreshCw, User as UserIcon, Search, FileSpreadsheet, FileDown, MapPin,
   Activity, AlertCircle, HelpCircle, CheckCircle2, CheckCircle, Settings2, Mail, CheckSquare, Square, Layout,
@@ -30,6 +31,7 @@ interface ReportsProps {
 }
 
 const Reports: React.FC<ReportsProps> = ({ user }) => {
+  const { t } = useTranslation('reports');
   const { showToast } = useToast();
   const [reportType, setReportType] = useState('ATTENDANCE');
   const [periodPreset, setPeriodPreset] = useState<string>('THIS_MONTH');
@@ -703,7 +705,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">Audit & Reports</h1><HelpButton helpPointId="reports.generator" /></div>
+          <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1><HelpButton helpPointId="reports.generator" /></div>
           <p className="text-slate-500 font-medium text-sm">Employee attendance summary & detailed record extraction</p>
         </div>
       </header>

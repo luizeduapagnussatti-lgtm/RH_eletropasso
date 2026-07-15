@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Megaphone, Plus, Loader2, AlertTriangle, Inbox } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { Announcement } from '../types';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 const Announcements: React.FC<Props> = ({ user }) => {
+  const { t } = useTranslation('announcements');
   const { canPerformAction, subscription } = useSubscription();
   const canWrite = canPerformAction('write');
   const { announcements, visibleAnnouncements, isLoading } = useAnnouncements(user);
@@ -96,7 +98,7 @@ const Announcements: React.FC<Props> = ({ user }) => {
             <Megaphone size={22} className="text-primary" />
           </div>
           <div>
-            <div className="flex items-center gap-2"><h1 className="text-xl font-semibold text-slate-900">Announcements</h1><HelpButton helpPointId="announcements" size={16} /></div>
+            <div className="flex items-center gap-2"><h1 className="text-xl font-semibold text-slate-900">{t('title')}</h1><HelpButton helpPointId="announcements" size={16} /></div>
             <p className="text-xs text-slate-400 font-medium">{sortedAnnouncements.length} announcement{sortedAnnouncements.length !== 1 ? 's' : ''}</p>
           </div>
         </div>

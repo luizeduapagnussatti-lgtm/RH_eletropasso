@@ -573,6 +573,14 @@ Rules:
 
 ---
 
+## i18n — MUST FOLLOW
+
+- UI copy must use `react-i18next` (`useTranslation` / `t()`), not hardcoded English literals.
+- Locale files live in `src/locales/{pt-BR,en}/` by namespace.
+- Default language for this deployment is **`pt-BR`** (`openhr_lang` in localStorage).
+- Status/role codes stay as machine values; display via `tStatus()` / `tRole()` from `src/i18n/statusMaps.ts`.
+- Server email/notification templates are a separate phase (`emails` namespace placeholder).
+
 ## Git Workflow — MUST FOLLOW
 
 ### Branch model (Eletropasso) — do not confuse `main` with `master`

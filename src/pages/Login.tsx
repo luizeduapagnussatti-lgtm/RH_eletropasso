@@ -16,6 +16,7 @@ declare global {
 }
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Mail, Lock, ArrowRight, AlertCircle, RefreshCw, Eye, EyeOff, Download, X, Share, MoreVertical, RotateCcw, Building2, Send, Home, CheckCircle2 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { authService } from '../services/auth.service';
@@ -29,7 +30,9 @@ interface LoginProps {
   initError?: string;
 }
 
-const BrandLogo = () => (
+const BrandLogo = () => {
+  const { t } = useTranslation('auth');
+  return (
   <div className="flex flex-col items-center justify-center gap-6">
     <div className="relative w-24 h-24 md:w-32 md:h-32">
       <div className="absolute inset-0 bg-primary-light blur-[50px] rounded-full -z-10 opacity-50"></div>
@@ -47,12 +50,14 @@ const BrandLogo = () => (
         <span className="text-[#f59e0b]">HR</span>
         <span className="text-[#10b981]">App</span>
       </h1>
-      <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">Personnel Gateway</p>
+      <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">{t('personnelGateway')}</p>
     </div>
   </div>
-);
+  );
+};
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackToLanding, initError }) => {
+  const { t } = useTranslation('auth');
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -128,7 +133,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
   // Steps run in best-effort order; any individual failure must not block the
   // final reload.
   const handleSystemReset = async () => {
-    if (!confirm("Reset App Cache? This will sign you out and reload the app.")) return;
+    if (!confirm(t('resetCacheConfirm'))) return;
     try {
       // 1. Wipe Workbox / runtime caches (the SW unregister below does NOT
       //    clear these — they live independently in CacheStorage).
@@ -174,26 +179,26 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
   // the user gets a toast that they are already current.
   const handleCheckForUpdates = async () => {
     if (!('serviceWorker' in navigator)) {
-      showToast('Service workers not supported in this browser.', 'error');
+      showToast(t('swUnsupported'), 'error');
       return;
     }
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg) {
-        showToast('App is not installed as a PWA.', 'info');
+        showToast(t('notInstalledPwa'), 'info');
         return;
       }
       await reg.update();
       if (reg.waiting) {
-        showToast('Update found — reloading…', 'success');
+        showToast(t('updateFound'), 'success');
         // Ask the waiting SW to take over; controllerchange triggers reload.
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
-        showToast('You are on the latest version.', 'success');
+        showToast(t('latestVersion'), 'success');
       }
     } catch (err: any) {
       console.error('[Login] Update check failed:', err);
-      showToast('Could not check for updates.', 'error');
+      showToast(t('updateCheckFailed'), 'error');
     }
   };
 
@@ -201,11 +206,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
     if (!email) return;
     try {
       await hrService.requestVerificationEmail(email);
-      showToast("A new verification link has been sent to your email.", "success");
+      showToast(t('verificationSent'), "success");
       setShowResend(false);
       setError("");
     } catch (e) {
-      showToast("Failed to send verification email.", "error");
+      showToast(t('verificationFailedSend'), "error");
     }
   };
 
@@ -389,11 +394,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                 ) : (
                   <form onSubmit={handleForgotPassword} className="space-y-5">
                     <div className="text-center space-y-1">
-                      <p className="text-sm font-semibold text-slate-800">Reset Password</p>
-                      <p className="text-xs text-slate-400">Enter your email and we'll send a reset link.</p>
+                      <p className="text-sm font-semibold text-slate-800">{t('resetPassword')}</p>
+                      <p className="text-xs text-slate-400">{t('resetPasswordHint')}</p>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">Organization Email</label>
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationEmail')}</label>
                       <div className="relative group">
                         <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
                         <input
@@ -401,7 +406,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                           required
                           autoComplete="email"
                           className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
-                          placeholder="e.g. name@company.com"
+                          placeholder={t('emailPlaceholder')}
                           value={forgotEmail}
                           onChange={e => setForgotEmail(e.target.value)}
                         />
@@ -418,14 +423,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                       disabled={forgotStatus === 'loading'}
                       className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3 disabled:opacity-70"
                     >
-                      {forgotStatus === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <>Send Reset Link <ArrowRight size={16} /></>}
+                      {forgotStatus === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <>{t('sendResetLink')} <ArrowRight size={16} /></>}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setShowForgot(false); setForgotStatus('idle'); setForgotError(''); }}
                       className="w-full py-2.5 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
                     >
-                      Back to Login
+                      {t('backToLogin')}
                     </button>
                   </form>
                 )}
@@ -434,7 +439,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
             <form onSubmit={handleLogin} className="space-y-6" autoComplete="on" method="post" action=".">
               <div className="space-y-5">
                 <div className="space-y-1.5">
-                  <label htmlFor="login-email" className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">Organization Email</label>
+                  <label htmlFor="login-email" className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationEmail')}</label>
                   <div className="relative group">
                     <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
                     <input
@@ -446,13 +451,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                       className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="e.g. name@company.com"
+                      placeholder={t('emailPlaceholder')}
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label htmlFor="login-password" className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">Security Credentials</label>
+                  <label htmlFor="login-password" className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('securityCredentials')}</label>
                   <div className="relative group">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
                     <input
@@ -464,7 +469,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                       className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="Your secret key"
+                      placeholder={t('passwordPlaceholder')}
                     />
                     <button 
                       type="button" 
@@ -490,13 +495,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                         onClick={handleResendVerification}
                         className="ml-auto flex items-center gap-1 bg-white px-2 py-1 rounded-md shadow-sm text-rose-600 hover:text-rose-800 transition-colors"
                       >
-                        <Send size={10} /> Resend Link
+                        <Send size={10} /> {t('resendVerification')}
                       </button>
                     )}
                   </div>
                   {showResend && (
                     <p className="text-[11px] font-medium normal-case tracking-normal text-rose-500/90 leading-snug">
-                      Already requested a link? <span className="font-bold">Check your spam or junk folder</span> before resending — verification emails from <span className="font-mono">noreply@openhrapp.com</span> sometimes land there.
+                      {t('spamHint')}
                     </p>
                   )}
                 </div>
@@ -508,7 +513,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                   disabled={isLoading}
                   className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3 disabled:opacity-70 mt-2"
                 >
-                  {isLoading ? <RefreshCw className="animate-spin" size={18} /> : <>Continue <ArrowRight size={16} /></>}
+                  {isLoading ? <RefreshCw className="animate-spin" size={18} /> : <>{t('continue')} <ArrowRight size={16} /></>}
                 </button>
 
                 <button
@@ -516,7 +521,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                   onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotStatus('idle'); setForgotError(''); }}
                   className="w-full py-2 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
                 >
-                  Forgot Password?
+                  {t('forgotPassword')}
                 </button>
 
                 <button
@@ -524,7 +529,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                   onClick={onRegisterClick}
                   className="w-full py-3 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-semibold text-[10px] uppercase tracking-widest hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2"
                 >
-                  <Building2 size={14} /> Register New Organization
+                  <Building2 size={14} /> {t('registerOrg')}
                 </button>
 
                 {/* Back to Home */}
@@ -534,7 +539,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                     onClick={onBackToLanding}
                     className="w-full py-2.5 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors flex items-center justify-center gap-2"
                   >
-                    <Home size={12} /> Back to Home
+                    <Home size={12} /> {t('backToHome')}
                   </button>
                 )}
 
@@ -546,7 +551,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                      onClick={handleInstallClick}
                      className="flex items-center gap-2 px-4 py-2 text-slate-400 rounded-xl text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
                    >
-                     <Download size={12} /> {isIOS && !canPrompt ? 'App Guide' : 'Install App'}
+                     <Download size={12} /> {isIOS && !canPrompt ? t('appGuide') : t('installApp')}
                    </button>
                    )}
 
@@ -556,9 +561,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                      type="button"
                      onClick={handleCheckForUpdates}
                      className="flex items-center gap-2 px-4 py-2 text-slate-400 rounded-xl text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
-                     title="Check for app updates without signing out"
+                     title={t('updates')}
                    >
-                     <RefreshCw size={12} /> Updates
+                     <RefreshCw size={12} /> {t('updates')}
                    </button>
 
                    <div className="w-px h-3 bg-slate-200"></div>
@@ -567,9 +572,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                      type="button"
                      onClick={handleSystemReset}
                      className="flex items-center gap-2 px-4 py-2 text-slate-400 rounded-xl text-[10px] font-semibold uppercase tracking-widest hover:text-rose-600 transition-colors"
-                     title="Clear all app data and reload (destructive — signs you out)"
+                     title={t('resetCache')}
                    >
-                     <RotateCcw size={12} /> Reset Cache
+                     <RotateCcw size={12} /> {t('resetCache')}
                    </button>
                 </div>
               </div>
@@ -579,13 +584,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
         </div>
 
         {/* System Version */}
-        <p className="text-center mt-6 text-[8px] font-semibold text-slate-300 uppercase tracking-[0.4em]">v3.0 Multi-Tenant</p>
+        <p className="text-center mt-6 text-[8px] font-semibold text-slate-300 uppercase tracking-[0.4em]">v3.0 {t('multiTenant')}</p>
       </div>
 
       {/* Database Connection Indicator */}
       <div className="fixed top-6 right-6 hidden md:flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
         <div className={`w-1.5 h-1.5 rounded-full ${isConfigured ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></div>
-        <span className="text-[8px] font-semibold uppercase text-slate-500 tracking-[0.2em]">{isConfigured ? 'Node Connected' : 'No Connection'}</span>
+        <span className="text-[8px] font-semibold uppercase text-slate-500 tracking-[0.2em]">{isConfigured ? t('nodeConnected') : t('noConnection')}</span>
       </div>
 
       {/* Installation Instructions Popup */}

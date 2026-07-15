@@ -1,0 +1,14 @@
+{
+  "title": "Announcements",
+  "create": "New announcement",
+  "edit": "Edit announcement",
+  "delete": "Delete announcement",
+  "titleField": "Title",
+  "content": "Content",
+  "priority": "Priority",
+  "targetRoles": "Target roles",
+  "expiresAt": "Expires at",
+  "noAnnouncements": "No announcements",
+  "publish": "Publish",
+  "confirmDelete": "Delete this announcement?"
+}

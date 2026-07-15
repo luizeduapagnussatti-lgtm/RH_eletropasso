@@ -1,0 +1,27 @@
+{
+  "title": "Organização",
+  "tabs": {
+    "STRUCTURE": "Estrutura",
+    "TEAMS": "Equipes",
+    "PLACEMENT": "Alocação",
+    "SHIFTS": "Turnos",
+    "WORKFLOW": "Fluxo",
+    "LEAVES": "Licenças",
+    "HOLIDAYS": "Feriados",
+    "NOTIFICATIONS": "Notificações",
+    "SYSTEM": "Sistema"
+  },
+  "departments": "Departamentos",
+  "designations": "Cargos",
+  "teams": "Equipes",
+  "shifts": "Turnos",
+  "holidays": "Feriados",
+  "workflows": "Fluxos de licença",
+  "leavePolicy": "Política de licenças",
+  "saveConfig": "Salvar configuração",
+  "addItem": "Adicionar",
+  "removeItem": "Remover",
+  "defaultShift": "Turno padrão",
+  "workingDays": "Dias de trabalho",
+  "gracePeriod": "Tolerância"
+}

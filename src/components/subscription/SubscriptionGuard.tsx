@@ -1,7 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useToast } from '../../context/ToastContext';
 import { AlertTriangle } from 'lucide-react';
+import i18n from '../../i18n';
 
 interface SubscriptionGuardProps {
   children: React.ReactNode;
@@ -16,6 +18,7 @@ export const SubscriptionGuard: React.FC<SubscriptionGuardProps> = ({
   fallback,
   showMessage = true
 }) => {
+  const { t } = useTranslation('subscription');
   const { subscription, canPerformAction } = useSubscription();
 
   if (canPerformAction(action)) {
@@ -32,12 +35,12 @@ export const SubscriptionGuard: React.FC<SubscriptionGuardProps> = ({
 
   const getMessage = () => {
     if (subscription?.status === 'EXPIRED') {
-      return 'Your trial has expired. Upgrade to continue using this feature.';
+      return t('expiredAdmin');
     }
     if (subscription?.status === 'SUSPENDED') {
-      return 'Your account is suspended. Contact support for assistance.';
+      return t('blockedBody');
     }
-    return 'This feature is not available with your current subscription.';
+    return t('actionBlocked');
   };
 
   return (
@@ -59,9 +62,9 @@ export const useSubscriptionCheck = () => {
     }
 
     if (subscription?.status === 'EXPIRED') {
-      showToast('Your trial has expired. Please upgrade to continue using this feature.', 'error');
+      showToast(i18n.t('subscription:expiredAdmin'), 'error');
     } else if (subscription?.status === 'SUSPENDED') {
-      showToast('Your account is suspended. Please contact support.', 'error');
+      showToast(i18n.t('subscription:blockedBody'), 'error');
     }
 
     return false;

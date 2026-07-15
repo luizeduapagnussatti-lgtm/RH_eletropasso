@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Clock, MapPin, History, Search, RefreshCw, ChevronRight, ExternalLink,
   Camera, X, SortAsc, SortDesc, Users, Building, Trash2, Save,
@@ -30,6 +31,7 @@ const LogSkeleton = () => (
 );
 
 const AttendanceLogs: React.FC<AttendanceLogsProps> = ({ user, viewMode = 'MY' }) => {
+  const { t } = useTranslation('attendance');
   const { showToast } = useToast();
   const isAdmin = user.role === 'ADMIN' || user.role === 'HR';
   const isManager = user.role === 'MANAGER';
@@ -256,12 +258,12 @@ const AttendanceLogs: React.FC<AttendanceLogsProps> = ({ user, viewMode = 'MY' }
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
-              {isAuditMode ? (isAdmin ? 'Attendance Audit' : 'Team Attendance') : 'My Attendance History'}
+              {isAuditMode ? (isAdmin ? t('audit') : t('teamAttendance')) : t('myHistory')}
             </h1>
             <HelpButton helpPointId={isAuditMode ? 'attendance.audit' : 'attendance.logs'} />
           </div>
           <p className="text-sm text-slate-500 font-medium">
-            {isAuditMode ? 'Consolidated organization tracking (First-In / Last-Out)' : 'Your consolidated workday records'}
+            {isAuditMode ? t('auditSubtitle') : t('mySubtitle')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -270,7 +272,7 @@ const AttendanceLogs: React.FC<AttendanceLogsProps> = ({ user, viewMode = 'MY' }
               onClick={() => setShowAbsentModal(true)}
               className="p-3 bg-rose-50 border border-rose-100 rounded-2xl shadow-sm text-rose-600 hover:bg-rose-100 transition-all flex items-center gap-2"
             >
-              <UserX size={20} /> <span className="text-xs font-bold uppercase hidden md:inline">Mark Absent</span>
+              <UserX size={20} /> <span className="text-xs font-bold uppercase hidden md:inline">{t('markAbsent')}</span>
             </button>
           )}
           <button 

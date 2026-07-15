@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Database, Server, Activity, RefreshCw, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { updatePocketBaseConfig } from '../services/pocketbase';
 import { hrService } from '../services/hrService';
@@ -9,6 +10,7 @@ interface SetupProps {
 }
 
 const Setup: React.FC<SetupProps> = ({ onComplete }) => {
+  const { t } = useTranslation('auth');
   const [url, setUrl] = useState('https://pbase.vclbd.net');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -46,7 +48,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
             <div className="inline-flex items-center justify-center p-4 bg-white/20 rounded-3xl mb-6 shadow-xl backdrop-blur-md">
               <Database size={40} />
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight mb-2">Backend Setup</h1>
+            <h1 className="text-3xl font-semibold tracking-tight mb-2">{t('setupTitle')}</h1>
             <p className="text-white/80 font-medium">Link OpenHR to your PocketBase instance</p>
           </div>
 

@@ -1,0 +1,12 @@
+{
+  "title": "Relatórios",
+  "attendanceReport": "Relatório de ponto",
+  "leaveReport": "Relatório de licenças",
+  "dateRange": "Período",
+  "generate": "Gerar",
+  "exportCsv": "Exportar CSV",
+  "exportPdf": "Exportar PDF",
+  "noData": "Sem dados para o período selecionado",
+  "summary": "Resumo",
+  "details": "Detalhes"
+}

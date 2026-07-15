@@ -1,0 +1,27 @@
+{
+  "title": "Organization",
+  "tabs": {
+    "STRUCTURE": "Structure",
+    "TEAMS": "Teams",
+    "PLACEMENT": "Placement",
+    "SHIFTS": "Shifts",
+    "WORKFLOW": "Workflow",
+    "LEAVES": "Leaves",
+    "HOLIDAYS": "Holidays",
+    "NOTIFICATIONS": "Notifications",
+    "SYSTEM": "System"
+  },
+  "departments": "Departments",
+  "designations": "Designations",
+  "teams": "Teams",
+  "shifts": "Shifts",
+  "holidays": "Holidays",
+  "workflows": "Leave workflows",
+  "leavePolicy": "Leave policy",
+  "saveConfig": "Save configuration",
+  "addItem": "Add",
+  "removeItem": "Remove",
+  "defaultShift": "Default shift",
+  "workingDays": "Working days",
+  "gracePeriod": "Grace period"
+}

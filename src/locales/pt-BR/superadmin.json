@@ -1,0 +1,18 @@
+{
+  "title": "Super admin",
+  "orgs": "Organizações",
+  "upgrades": "Upgrades",
+  "ads": "Anúncios",
+  "storage": "Armazenamento",
+  "notifs": "Notificações",
+  "theme": "Tema",
+  "email": "E-mail",
+  "push": "Push",
+  "blog": "Blog",
+  "tutorials": "Tutoriais",
+  "showcase": "Vitrine",
+  "social": "Redes sociais",
+  "appearance": "Aparência",
+  "createOrg": "Criar organização",
+  "deleteOrg": "Excluir organização"
+}

@@ -1,4 +1,5 @@
 import React from 'react';
+import i18n from '../i18n';
 
 interface Props {
   children: React.ReactNode;
@@ -34,15 +35,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Something went wrong</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">{i18n.t('common:errorBoundary.title')}</h2>
           <p className="text-sm text-gray-500 mb-6">
-            Something went wrong with this feature. Please restart the app.
+            {i18n.t('common:errorBoundary.body')}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"
           >
-            Reload App
+            {i18n.t('common:errorBoundary.retry')}
           </button>
         </div>
       );

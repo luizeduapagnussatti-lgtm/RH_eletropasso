@@ -1,5 +1,6 @@
 
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Home, ArrowLeft, SearchX } from 'lucide-react';
 import { updatePageMeta, navigateTo } from '../utils/seo';
 
@@ -8,15 +9,14 @@ interface NotFoundPageProps {
 }
 
 const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
+  const { t } = useTranslation(['common', 'marketing']);
+
   useEffect(() => {
     updatePageMeta(
-      '404 — Page Not Found | OpenHRApp',
-      'The page you are looking for does not exist or has been moved. Return to the OpenHRApp homepage.'
+      `404 — ${t('notFoundTitle')} | OpenHRApp`,
+      t('notFoundBody')
     );
 
-    // Inject noindex so soft-404s don't get indexed (the SPA returns HTTP 200
-    // for unknown routes; this is the minimum hedge until an edge middleware
-    // issues a real 404 status).
     const robots = document.createElement('meta');
     robots.name = 'robots';
     robots.content = 'noindex';
@@ -25,7 +25,7 @@ const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
     return () => {
       robots.remove();
     };
-  }, []);
+  }, [t]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 text-center">
@@ -35,9 +35,9 @@ const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
         </div>
 
         <h1 className="text-7xl font-semibold text-slate-900 mb-2">404</h1>
-        <h2 className="text-xl font-bold text-slate-700 mb-3">Page Not Found</h2>
+        <h2 className="text-xl font-bold text-slate-700 mb-3">{t('notFoundTitle')}</h2>
         <p className="text-slate-500 mb-8 leading-relaxed">
-          The page you're looking for doesn't exist or has been moved. Let's get you back on track.
+          {t('notFoundBody')}
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -45,7 +45,7 @@ const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
             onClick={onGoHome}
             className="w-full sm:w-auto px-6 py-3 bg-primary text-white font-bold text-sm rounded-2xl hover:bg-primary-hover transition-all shadow-lg shadow-primary-light flex items-center justify-center gap-2"
           >
-            <Home size={18} /> Go to Home
+            <Home size={18} /> {t('goHome')}
           </button>
           <button
             onClick={() => {
@@ -57,7 +57,7 @@ const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
             }}
             className="w-full sm:w-auto px-6 py-3 bg-white text-slate-700 font-bold text-sm rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
           >
-            <ArrowLeft size={18} /> Go Back
+            <ArrowLeft size={18} /> {t('goBack')}
           </button>
         </div>
 

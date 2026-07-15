@@ -1,0 +1,22 @@
+{
+  "title": "Diretório da equipe",
+  "addEmployee": "Adicionar colaborador",
+  "editEmployee": "Editar colaborador",
+  "searchPlaceholder": "Buscar por nome ou e-mail…",
+  "status": "Status",
+  "active": "Ativo",
+  "inactive": "Inativo",
+  "invite": "Convidar",
+  "export": "Exportar",
+  "lineManager": "Gestor direto",
+  "workType": "Tipo de trabalho",
+  "joiningDate": "Data de admissão",
+  "noEmployees": "Nenhum colaborador encontrado",
+  "deleteConfirm": "Desativar este colaborador?",
+  "orgDirectory": "Diretório da organização",
+  "myTeamReports": "Minha equipe e reports",
+  "myTeammates": "Meus colegas",
+  "managingCount": "Gerenciando {{count}} contas de colaboradores.",
+  "viewingCount": "Visualizando {{count}} membros no seu escopo."
+}
+

@@ -1,0 +1,14 @@
+{
+  "title": "Avaliação de desempenho",
+  "cycles": "Ciclos de avaliação",
+  "selfAssessment": "Autoavaliação",
+  "managerReview": "Avaliação do gestor",
+  "hrFinalize": "Finalização RH",
+  "submit": "Enviar avaliação",
+  "competencies": "Competências",
+  "overallRating": "Nota geral",
+  "remarks": "Observações",
+  "noCycles": "Nenhum ciclo de avaliação ativo",
+  "attendanceSummary": "Resumo de ponto",
+  "leaveSummary": "Resumo de licenças"
+}

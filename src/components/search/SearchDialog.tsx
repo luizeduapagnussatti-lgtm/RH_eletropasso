@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, X, Layers, FileText, BookOpen, HelpCircle } from 'lucide-react';
 import { useSearch } from '../../context/SearchContext';
 import { navigateTo } from '../../utils/seo';
@@ -63,6 +64,7 @@ function buildStaticItems(): SearchItem[] {
 const STATIC_ITEMS = buildStaticItems();
 
 const SearchDialog: React.FC = () => {
+  const { t } = useTranslation('common');
   const { isSearchOpen, setSearchOpen } = useSearch();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -235,7 +237,7 @@ const SearchDialog: React.FC = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search features, blog posts, guides, FAQ..."
+            placeholder={t('searchDialog.placeholder')}
             className="flex-1 bg-transparent text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
           />
           {/* Esc badge (desktop) / X button (mobile) */}
@@ -255,7 +257,7 @@ const SearchDialog: React.FC = () => {
           {hasQuery && !hasResults && (
             <div className="px-4 py-12 text-center">
               <Search size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">No results found for "{debouncedQuery}"</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t('searchDialog.noResults')}: "{debouncedQuery}"</p>
             </div>
           )}
 

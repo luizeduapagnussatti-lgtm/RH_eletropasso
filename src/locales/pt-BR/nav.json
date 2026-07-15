@@ -1,0 +1,23 @@
+{
+  "organizations": "Organizações",
+  "myProfile": "Meu perfil",
+  "dashboard": "Painel",
+  "myAttendance": "Meu ponto",
+  "attendanceAudit": "Auditoria de ponto",
+  "leave": "Férias e licenças",
+  "announcements": "Comunicados",
+  "notifications": "Notificações",
+  "teamDirectory": "Equipe",
+  "performance": "Desempenho",
+  "organization": "Organização",
+  "reports": "Relatórios",
+  "settings": "Configurações",
+  "signOut": "Sair",
+  "mobile": {
+    "home": "Início",
+    "history": "Histórico",
+    "leave": "Licenças",
+    "account": "Conta"
+  },
+  "cloudNode": "Nó na nuvem"
+}

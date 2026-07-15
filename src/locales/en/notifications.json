@@ -1,0 +1,12 @@
+{
+  "title": "Notifications",
+  "markAllRead": "Mark all as read",
+  "markRead": "Mark as read",
+  "empty": "No notifications",
+  "preferences": "Notification preferences",
+  "compose": "Send notification",
+  "recipients": "Recipients",
+  "message": "Message",
+  "send": "Send",
+  "unread": "{{count}} unread"
+}

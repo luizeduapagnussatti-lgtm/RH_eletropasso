@@ -1,0 +1,8 @@
+{
+  "leaveSubmittedSubject": "Leave request submitted",
+  "leaveApprovedSubject": "Leave request approved",
+  "leaveRejectedSubject": "Leave request rejected",
+  "attendanceLateSubject": "Late check-in alert",
+  "dailyReportSubject": "Daily attendance summary",
+  "placeholderNote": "Server email templates — locale-aware rendering lands in a later sprint"
+}

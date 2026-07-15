@@ -1,0 +1,19 @@
+{
+  "title": "Configurações",
+  "profile": "Meu perfil",
+  "updateProfile": "Atualizar perfil",
+  "changePassword": "Alterar senha",
+  "currentPassword": "Senha atual",
+  "newPassword": "Nova senha",
+  "confirmPassword": "Confirmar senha",
+  "theme": "Tema",
+  "darkMode": "Modo escuro",
+  "lightMode": "Modo claro",
+  "systemMode": "Sistema",
+  "language": "Idioma",
+  "languageHint": "Escolha o idioma da interface",
+  "contact": "Contato",
+  "verification": "Verificação de colaboradores",
+  "saved": "Configurações salvas",
+  "passwordChanged": "Senha alterada"
+}

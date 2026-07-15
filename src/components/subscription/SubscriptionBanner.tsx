@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { AlertTriangle, Clock } from 'lucide-react';
 
@@ -8,6 +9,7 @@ interface SubscriptionBannerProps {
 }
 
 export const SubscriptionBanner: React.FC<SubscriptionBannerProps> = ({ onUpgradeClick, userRole }) => {
+  const { t } = useTranslation('subscription');
   const { subscription, isLoading } = useSubscription();
 
   if (isLoading) return null;
@@ -15,7 +17,6 @@ export const SubscriptionBanner: React.FC<SubscriptionBannerProps> = ({ onUpgrad
 
   const canUpgrade = userRole === 'ADMIN' || userRole === 'HR';
 
-  // Trial banner with countdown
   if (subscription.status === 'TRIAL' && subscription.daysRemaining !== undefined) {
     const isUrgent = subscription.daysRemaining <= 3;
 
@@ -29,12 +30,12 @@ export const SubscriptionBanner: React.FC<SubscriptionBannerProps> = ({ onUpgrad
           <Clock className="w-4 h-4" />
           <span>
             {subscription.daysRemaining === 0
-              ? 'Your trial expires today!'
+              ? t('trialExpiresToday')
               : subscription.daysRemaining === 1
-                ? 'Trial: 1 day remaining'
-                : `Trial: ${subscription.daysRemaining} days remaining`
+                ? t('trialOneDay')
+                : t('trialDays', { count: subscription.daysRemaining })
             }
-            {!canUpgrade && ' — Contact your administrator to upgrade.'}
+            {!canUpgrade && t('contactAdminUpgrade')}
           </span>
         </div>
         {canUpgrade && (
@@ -42,21 +43,20 @@ export const SubscriptionBanner: React.FC<SubscriptionBannerProps> = ({ onUpgrad
             onClick={onUpgradeClick}
             className="px-3 py-1 bg-primary text-white rounded text-xs font-medium hover:bg-primary-hover transition-colors"
           >
-            Upgrade Now
+            {t('upgradeNow')}
           </button>
         )}
       </div>
     );
   }
 
-  // Expired banner
   if (subscription.status === 'EXPIRED') {
     return (
       <div className="px-4 py-2 flex items-center justify-between text-sm bg-red-50 border-b border-red-200 text-red-700">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4" />
           <span>
-            Your trial has expired. {canUpgrade ? 'You are in read-only mode.' : 'Read-only mode — Contact your administrator to upgrade.'}
+            {canUpgrade ? t('expiredAdmin') : t('expiredUser')}
           </span>
         </div>
         {canUpgrade && (
@@ -64,7 +64,7 @@ export const SubscriptionBanner: React.FC<SubscriptionBannerProps> = ({ onUpgrad
             onClick={onUpgradeClick}
             className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition-colors"
           >
-            Upgrade to Continue
+            {t('upgradeToContinue')}
           </button>
         )}
       </div>

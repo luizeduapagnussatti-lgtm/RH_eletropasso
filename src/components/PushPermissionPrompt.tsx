@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bell, X, Smartphone } from 'lucide-react';
 import {
   isPushSupported,
@@ -35,6 +36,7 @@ function isSnoozed(userId: string): boolean {
 }
 
 export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }) => {
+  const { t } = useTranslation('common');
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<'enable' | 'ios-install'>('enable');
   const [busy, setBusy] = useState(false);
@@ -89,12 +91,10 @@ export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-slate-800 tracking-tight">
-            {mode === 'ios-install' ? 'Install App for Reminders' : 'Enable Check-in Reminders'}
+            {mode === 'ios-install' ? t('push.iosTitle') : t('push.title')}
           </p>
           <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
-            {mode === 'ios-install'
-              ? 'Tap the Share button in Safari and choose "Add to Home Screen" to receive shift check-in alerts.'
-              : 'Get a notification 15 minutes before your shift and an alert if you forget to check in.'}
+            {mode === 'ios-install' ? t('push.iosBody') : t('push.body')}
           </p>
           <div className="flex items-center gap-2 mt-2.5">
             {mode === 'enable' && (
@@ -103,21 +103,21 @@ export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }
                 disabled={busy}
                 className="px-3 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
-                {busy ? 'Enabling…' : 'Enable'}
+                {busy ? t('push.enabling') : t('push.enable')}
               </button>
             )}
             <button
               onClick={dismiss}
               className="px-3 py-1.5 text-slate-500 hover:text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
             >
-              Not Now
+              {t('push.notNow')}
             </button>
           </div>
         </div>
         <button
           onClick={dismiss}
           className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
-          title="Dismiss"
+          title={t('push.dismiss')}
         >
           <X size={14} />
         </button>

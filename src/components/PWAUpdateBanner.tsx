@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, X } from 'lucide-react';
 import { useServiceWorker } from '../hooks/useServiceWorker';
 
 export const PWAUpdateBanner: React.FC = () => {
+  const { t } = useTranslation('common');
   const { needRefresh, offlineReady, applyUpdate, isUpdating, close } = useServiceWorker();
 
   if (!needRefresh && !offlineReady) return null;
@@ -15,14 +17,14 @@ export const PWAUpdateBanner: React.FC = () => {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-slate-800 tracking-tight">
-            {isUpdating ? 'Updating…' : needRefresh ? 'App Update Available' : 'Ready for Offline Use'}
+            {isUpdating ? t('pwa.updating') : needRefresh ? t('pwa.updateTitle') : t('pwa.offlineReady')}
           </p>
           <p className="text-[10px] text-slate-500 mt-0.5">
             {isUpdating
-              ? 'Installing update, page will reload shortly.'
+              ? t('pwa.installing')
               : needRefresh
-              ? 'A new version is ready. Update to get the latest features.'
-              : 'App has been cached and works offline.'}
+              ? t('pwa.updateBody')
+              : t('pwa.offlineBody')}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -31,14 +33,14 @@ export const PWAUpdateBanner: React.FC = () => {
               onClick={applyUpdate}
               className="px-3 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-primary-hover transition-colors"
             >
-              Update
+              {t('pwa.reload')}
             </button>
           )}
           {!isUpdating && (
             <button
               onClick={close}
               className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
-              title="Dismiss"
+              title={t('pwa.dismiss')}
             >
               <X size={14} />
             </button>

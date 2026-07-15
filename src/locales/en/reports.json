@@ -1,0 +1,12 @@
+{
+  "title": "Reports",
+  "attendanceReport": "Attendance report",
+  "leaveReport": "Leave report",
+  "dateRange": "Date range",
+  "generate": "Generate",
+  "exportCsv": "Export CSV",
+  "exportPdf": "Export PDF",
+  "noData": "No data for the selected period",
+  "summary": "Summary",
+  "details": "Details"
+}

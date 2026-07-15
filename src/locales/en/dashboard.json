@@ -1,0 +1,18 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welcome, {{name}}",
+  "todayAttendance": "Today's attendance",
+  "present": "Present",
+  "late": "Late",
+  "absent": "Absent",
+  "onLeave": "On leave",
+  "quickActions": "Quick actions",
+  "clockIn": "Clock in",
+  "clockOut": "Clock out",
+  "applyLeave": "Apply for leave",
+  "recentAnnouncements": "Announcements",
+  "teamOverview": "Team overview",
+  "pendingApprovals": "Pending approvals",
+  "noData": "No data for today",
+  "viewAll": "View all"
+}

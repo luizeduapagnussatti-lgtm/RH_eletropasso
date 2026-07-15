@@ -1,0 +1,18 @@
+{
+  "title": "Super admin",
+  "orgs": "Organizations",
+  "upgrades": "Upgrades",
+  "ads": "Ads",
+  "storage": "Storage",
+  "notifs": "Notifications",
+  "theme": "Theme",
+  "email": "Email",
+  "push": "Push",
+  "blog": "Blog",
+  "tutorials": "Tutorials",
+  "showcase": "Showcase",
+  "social": "Social links",
+  "appearance": "Appearance",
+  "createOrg": "Create organization",
+  "deleteOrg": "Delete organization"
+}

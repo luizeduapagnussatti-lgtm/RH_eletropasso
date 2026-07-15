@@ -1,0 +1,8 @@
+{
+  "leaveSubmittedSubject": "Solicitação de licença enviada",
+  "leaveApprovedSubject": "Solicitação de licença aprovada",
+  "leaveRejectedSubject": "Solicitação de licença recusada",
+  "attendanceLateSubject": "Alerta de atraso no ponto",
+  "dailyReportSubject": "Resumo diário de ponto",
+  "placeholderNote": "Templates de e-mail do servidor — renderização por locale em sprint posterior"
+}

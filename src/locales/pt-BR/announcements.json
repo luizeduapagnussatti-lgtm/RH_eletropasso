@@ -1,0 +1,14 @@
+{
+  "title": "Comunicados",
+  "create": "Novo comunicado",
+  "edit": "Editar comunicado",
+  "delete": "Excluir comunicado",
+  "titleField": "Título",
+  "content": "Conteúdo",
+  "priority": "Prioridade",
+  "targetRoles": "Funções-alvo",
+  "expiresAt": "Expira em",
+  "noAnnouncements": "Nenhum comunicado",
+  "publish": "Publicar",
+  "confirmDelete": "Excluir este comunicado?"
+}

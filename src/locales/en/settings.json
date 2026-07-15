@@ -1,0 +1,19 @@
+{
+  "title": "Settings",
+  "profile": "My profile",
+  "updateProfile": "Update profile",
+  "changePassword": "Change password",
+  "currentPassword": "Current password",
+  "newPassword": "New password",
+  "confirmPassword": "Confirm password",
+  "theme": "Theme",
+  "darkMode": "Dark mode",
+  "lightMode": "Light mode",
+  "systemMode": "System",
+  "language": "Language",
+  "languageHint": "Choose the interface language",
+  "contact": "Contact",
+  "verification": "Employee verification",
+  "saved": "Settings saved",
+  "passwordChanged": "Password changed"
+}

@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   UserPlus,
@@ -67,6 +68,7 @@ interface EmployeeDirectoryProps {
 }
 
 const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
+  const { t } = useTranslation('employees');
   const { showToast } = useToast();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'HR';
   const isManager = user?.role === 'MANAGER' || user?.role === 'TEAM_LEAD';
@@ -504,12 +506,12 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
-              {isAdmin ? 'Organization Directory' : (isManager ? 'My Team & Reports' : 'My Teammates')}
+              {isAdmin ? t('orgDirectory') : (isManager ? t('myTeamReports') : t('myTeammates'))}
             </h1>
             <HelpButton helpPointId="employees.directory" />
           </div>
           <p className="text-sm text-slate-500 font-medium tracking-tight">
-            {isAdmin ? `Managing ${employees.length} personnel accounts.` : `Viewing ${employees.length} members within your scope.`}
+            {isAdmin ? t('managingCount', { count: employees.length }) : t('viewingCount', { count: employees.length })}
           </p>
         </div>
         {isAdmin && (

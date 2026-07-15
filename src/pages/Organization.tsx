@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, Save, X, RefreshCw, MapPin, AlertTriangle, Search
 } from 'lucide-react';
@@ -28,6 +29,7 @@ interface OrganizationProps {
 }
 
 const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
+  const { t } = useTranslation('org');
   const {
       departments, designations, holidays, teams, employees, leavePolicy, config, workflows, shiftOverrides, notificationConfig,
       isLoading, isSaving,
@@ -224,7 +226,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Organization & Setup</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1>
             <p className="text-sm text-slate-500 font-medium">Core structural and policy configurations</p>
           </div>
           <HelpButton helpPointId={`org.${activeTab.toLowerCase()}`} />
@@ -238,7 +240,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
           <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
             {(['STRUCTURE', 'TEAMS', 'PLACEMENT', 'SHIFTS'] as OrgTab[]).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 md:flex-1 min-w-[90px] py-3 px-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                {tab.replace('_', ' ')}
+                {t(`tabs.${tab}`)}
                 {activeTab === tab && <HelpButton helpPointId={`org.${tab.toLowerCase()}`} size={12} variant="inline" />}
               </button>
             ))}
@@ -250,7 +252,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
           <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
             {(['WORKFLOW', 'LEAVES', 'HOLIDAYS', 'NOTIFICATIONS', 'SYSTEM'] as OrgTab[]).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 md:flex-1 min-w-[100px] py-3 px-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                {tab.replace('_', ' ')}
+                {t(`tabs.${tab}`)}
                 {activeTab === tab && <HelpButton helpPointId={`org.${tab.toLowerCase()}`} size={12} variant="inline" />}
               </button>
             ))}

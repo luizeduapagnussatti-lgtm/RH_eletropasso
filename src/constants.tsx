@@ -1,26 +1,26 @@
 import { AppConfig, CustomCompetency, CustomLeaveType, OrgReviewConfig, OrgNotificationConfig, UserNotificationPreferences } from './types';
 
 export const DEPARTMENTS = [
-  "Engineering",
-  "Human Resources",
-  "Finance",
-  "Operations",
+  "Engenharia",
+  "Recursos Humanos",
+  "Financeiro",
+  "Operações",
   "Marketing",
-  "Sales",
-  "Product",
-  "Factory"
+  "Vendas",
+  "Produto",
+  "Fábrica"
 ];
 
 export const DESIGNATIONS = [
-  "Senior Developer",
-  "Junior Developer",
-  "HR Manager",
-  "Operations Lead",
-  "Finance Associate",
-  "Marketing Specialist",
-  "UX Designer",
-  "Factory Supervisor",
-  "Field Technician"
+  "Desenvolvedor Sênior",
+  "Desenvolvedor Júnior",
+  "Gerente de RH",
+  "Líder de Operações",
+  "Assistente Financeiro",
+  "Especialista de Marketing",
+  "Designer UX",
+  "Supervisor de Fábrica",
+  "Técnico de Campo"
 ];
 
 export const OFFICE_LOCATIONS = [
@@ -102,13 +102,13 @@ export const DEFAULT_OVERALL_RATINGS: {
 export const HR_OVERALL_RATINGS = DEFAULT_OVERALL_RATINGS;
 
 export const DEFAULT_LEAVE_TYPES: CustomLeaveType[] = [
-  { id: 'ANNUAL', name: 'Annual Leave', color: 'bg-primary', hasBalance: true },
-  { id: 'CASUAL', name: 'Casual Leave', color: 'bg-emerald-500', hasBalance: true },
-  { id: 'SICK', name: 'Sick Leave', color: 'bg-rose-500', hasBalance: true },
-  { id: 'MATERNITY', name: 'Maternity Leave', color: 'bg-pink-500', hasBalance: false },
-  { id: 'PATERNITY', name: 'Paternity Leave', color: 'bg-indigo-500', hasBalance: false },
-  { id: 'EARNED', name: 'Earned Leave', color: 'bg-amber-500', hasBalance: false },
-  { id: 'UNPAID', name: 'Unpaid Leave', color: 'bg-slate-500', hasBalance: false },
+  { id: 'ANNUAL', name: 'Férias anuais', color: 'bg-primary', hasBalance: true },
+  { id: 'CASUAL', name: 'Licença eventual', color: 'bg-emerald-500', hasBalance: true },
+  { id: 'SICK', name: 'Atestado médico', color: 'bg-rose-500', hasBalance: true },
+  { id: 'MATERNITY', name: 'Licença-maternidade', color: 'bg-pink-500', hasBalance: false },
+  { id: 'PATERNITY', name: 'Licença-paternidade', color: 'bg-indigo-500', hasBalance: false },
+  { id: 'EARNED', name: 'Licença remunerada', color: 'bg-amber-500', hasBalance: false },
+  { id: 'UNPAID', name: 'Licença não remunerada', color: 'bg-slate-500', hasBalance: false },
 ];
 
 export const DEFAULT_REVIEW_CONFIG: OrgReviewConfig = {
@@ -206,12 +206,12 @@ export const DEFAULT_CONFIG: AppConfig = {
   timezone: "UTC",
   currency: "USD",
   dateFormat: "DD/MM/YYYY",
-  workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Sunday"],
+  workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
   officeStartTime: "09:00",
   officeEndTime: "18:00",
   lateGracePeriod: 5,
   earlyOutGracePeriod: 15,
   defaultReportRecipient: "",
-  dutyLabel1: "Office",
-  dutyLabel2: "Factory"
+  dutyLabel1: "Escritório",
+  dutyLabel2: "Fábrica"
 };

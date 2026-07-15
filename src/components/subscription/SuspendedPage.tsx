@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { XCircle, Mail } from 'lucide-react';
 
 interface SuspendedPageProps {
@@ -10,6 +11,8 @@ export const SuspendedPage: React.FC<SuspendedPageProps> = ({
   organizationName,
   onLogout
 }) => {
+  const { t } = useTranslation(['subscription', 'common']);
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
@@ -18,7 +21,7 @@ export const SuspendedPage: React.FC<SuspendedPageProps> = ({
         </div>
 
         <h1 className="text-2xl font-bold text-slate-800 mb-2">
-          Account Suspended
+          {t('suspendedTitle')}
         </h1>
 
         {organizationName && (
@@ -26,26 +29,26 @@ export const SuspendedPage: React.FC<SuspendedPageProps> = ({
         )}
 
         <p className="text-slate-600 mb-6">
-          Your organization's account has been suspended. This may be due to:
+          {t('suspendedIntro')}
         </p>
 
         <ul className="text-left text-slate-600 mb-6 space-y-2">
           <li className="flex items-start gap-2">
             <span className="text-red-500 mt-1">•</span>
-            <span>Payment issues or subscription lapse</span>
+            <span>{t('suspendedReasonPayment')}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-red-500 mt-1">•</span>
-            <span>Terms of service violation</span>
+            <span>{t('suspendedReasonTerms')}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-red-500 mt-1">•</span>
-            <span>Administrative action pending review</span>
+            <span>{t('suspendedReasonAdmin')}</span>
           </li>
         </ul>
 
         <div className="border-t pt-6 mb-6">
-          <p className="text-slate-600 mb-4">Contact us to resolve this issue:</p>
+          <p className="text-slate-600 mb-4">{t('suspendedContact')}</p>
           <div className="flex flex-col gap-2 text-sm">
             <a href="mailto:support@openhr.app" className="flex items-center justify-center gap-2 text-primary hover:underline">
               <Mail className="w-4 h-4" />
@@ -58,7 +61,7 @@ export const SuspendedPage: React.FC<SuspendedPageProps> = ({
           onClick={onLogout}
           className="w-full py-2 px-4 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
         >
-          Sign Out
+          {t('logout')}
         </button>
       </div>
     </div>

@@ -1,0 +1,22 @@
+{
+  "title": "Team directory",
+  "addEmployee": "Add employee",
+  "editEmployee": "Edit employee",
+  "searchPlaceholder": "Search by name or email…",
+  "status": "Status",
+  "active": "Active",
+  "inactive": "Inactive",
+  "invite": "Invite",
+  "export": "Export",
+  "lineManager": "Line manager",
+  "workType": "Work type",
+  "joiningDate": "Joining date",
+  "noEmployees": "No employees found",
+  "deleteConfirm": "Deactivate this employee?",
+  "orgDirectory": "Organization directory",
+  "myTeamReports": "My team & reports",
+  "myTeammates": "My teammates",
+  "managingCount": "Managing {{count}} personnel accounts.",
+  "viewingCount": "Viewing {{count}} members within your scope."
+}
+

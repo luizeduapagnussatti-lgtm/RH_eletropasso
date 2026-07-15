@@ -16,6 +16,11 @@ Frozen files:
 - `Others/pb_hooks/cron.pb.js` — especially the `auto_close_sessions` block
 - `scripts/validate-pb-hooks.cjs`
 
+## i18n — MUST FOLLOW
+
+- UI strings via `react-i18next` (`src/locales/{pt-BR,en}/`). Default language: **pt-BR**.
+- Use `tStatus` / `tRole` for DB status/role codes. Commit/push on **`dev`**.
+
 ## Git Workflow — MUST FOLLOW
 
 ### Branch model (Eletropasso) — do not confuse `main` with `master`

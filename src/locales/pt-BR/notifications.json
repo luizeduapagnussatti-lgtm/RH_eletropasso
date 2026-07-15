@@ -1,0 +1,12 @@
+{
+  "title": "Notificações",
+  "markAllRead": "Marcar todas como lidas",
+  "markRead": "Marcar como lida",
+  "empty": "Nenhuma notificação",
+  "preferences": "Preferências de notificação",
+  "compose": "Enviar notificação",
+  "recipients": "Destinatários",
+  "message": "Mensagem",
+  "send": "Enviar",
+  "unread": "{{count}} não lidas"
+}

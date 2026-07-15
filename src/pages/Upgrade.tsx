@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Heart, Clock, Monitor, ArrowLeft, ExternalLink, Upload,
   CheckCircle2, AlertCircle, Loader2, Coffee, X
@@ -29,6 +30,7 @@ const EXTENSION_REASONS = [
 ];
 
 const Upgrade: React.FC<UpgradeProps> = ({ onBack }) => {
+  const { t } = useTranslation('subscription');
   const { subscription, refreshSubscription } = useSubscription();
   const [activeTab, setActiveTab] = useState<'donate' | 'extend' | 'ads'>('donate');
   const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +146,7 @@ const Upgrade: React.FC<UpgradeProps> = ({ onBack }) => {
           <ArrowLeft size={24} className="text-slate-600" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Upgrade Your Plan</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('upgradeTitle')}</h1>
           <p className="text-slate-500">Choose how you'd like to continue using OpenHR</p>
         </div>
       </div>

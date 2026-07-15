@@ -1,0 +1,13 @@
+---
+description: OpenHR i18n — pt-BR default, no hardcoded UI English
+alwaysApply: true
+---
+
+# i18n (MUST FOLLOW)
+
+- Default language: **pt-BR** (localStorage key `openhr_lang`).
+- New UI strings must use `useTranslation` / `t()` from `react-i18next`.
+- Add keys to both `src/locales/pt-BR/<ns>.json` and `src/locales/en/<ns>.json`.
+- Status/role codes: use `tStatus()` / `tRole()` from `src/i18n/statusMaps.ts`.
+- Do not hardcode English labels in pages/components (except CMS/user-authored content).
+- Server emails/notifications remain a later phase (`emails` namespace is a placeholder).

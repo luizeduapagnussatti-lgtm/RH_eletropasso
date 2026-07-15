@@ -7,6 +7,8 @@ import {
 import { hrService } from '../services/hrService';
 import { User as UserType, Employee, Shift } from '../types';
 import { ThemeSelector } from '../components/settings/ThemeSelector';
+import { LanguageSelector } from '../components/settings/LanguageSelector';
+import { useTranslation } from 'react-i18next';
 import { AdminVerificationPanel } from '../components/admin/AdminVerificationPanel';
 import HelpButton from '../components/onboarding/HelpButton';
 import { ReEnableSetupGuide } from '../components/onboarding/SetupChecklist';
@@ -44,6 +46,7 @@ const ProfileSkeleton = () => (
 );
 
 const Settings: React.FC<SettingsProps> = ({ user, onBack }) => {
+  const { t } = useTranslation('settings');
   const { showToast } = useToast();
   const [profile, setProfile] = useState<Partial<Employee> & { managerName?: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -193,14 +196,14 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack }) => {
         <div className="flex items-center gap-4">
           {onBack && <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-xl transition-all"><ArrowLeft size={20} /></button>}
           <div>
-            <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">System & Profile</h1><HelpButton helpPointId="settings.profile" /></div>
-            <p className="text-slate-500 font-medium">Manage preferences, appearance, and personal data</p>
+            <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1><HelpButton helpPointId="settings.profile" /></div>
+            <p className="text-slate-500 font-medium">{t('profile')}</p>
           </div>
         </div>
       </header>
 
-      {/* Theme Selector Module */}
-      <div className="max-w-3xl">
+      <div className="max-w-3xl space-y-6">
+        <LanguageSelector />
         <ThemeSelector />
       </div>
 

@@ -20,6 +20,7 @@ export const changelog: ChangelogRelease[] = [
     entries: [
       { type: 'improvement', description: 'Root URL (`/`) now opens the login screen directly instead of the marketing LandingPage. "Back to Home" on login was removed for this deployment.' },
       { type: 'improvement', description: 'Established Eletropasso branch model: develop/commit/push on `dev`, stable deploy pull from `master`; `main` kept as original baseline.' },
+      { type: 'feature', description: 'Added react-i18next with pt-BR (default) and en locale catalogs; wired shared chrome, login, settings language selector, org tabs, notifications bell, subscription UI, and seed defaults to Portuguese BR.' },
       { type: 'fix', description: 'Fixed migration 0007 attendance_update RLS comparing text employee_id to uuid auth.uid() without cast, which aborted local supabase start before migration 0008 could run.' },
       { type: 'fix', description: 'Migration 0009 now creates pg_cron when available and schedules cleanup jobs conditionally so local Supabase can boot without a pre-enabled cron schema.' },
       { type: 'improvement', description: 'Added migration 0016 granting Data API privileges to anon/authenticated/service_role for local Supabase where auto_expose_new_tables is disabled.' },

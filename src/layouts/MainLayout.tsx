@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Database, Menu, X, LayoutDashboard, Clock, CalendarDays, UserCircle, Sun, Moon } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import NotificationBell from '../components/notifications/NotificationBell';
@@ -14,6 +15,7 @@ interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNavigate }) => {
+  const { t } = useTranslation(['common', 'nav']);
   const { user, logout } = useAuth();
   const { darkMode, setDarkModePreference } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -36,7 +38,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-white focus:font-semibold focus:shadow-lg"
       >
-        Skip to content
+        {t('skipToContent')}
       </a>
       {/* Mobile Overlay */}
       <div 
@@ -74,7 +76,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
                  <h2 className="font-semibold text-xl tracking-tighter text-primary md:hidden truncate min-w-0">OpenHRApp</h2>
                  <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full border bg-slate-50 text-slate-400 border-slate-100">
                    <Database size={12} />
-                   <span className="text-[9px] font-semibold uppercase tracking-widest">Cloud Node Alpha</span>
+                   <span className="text-[9px] font-semibold uppercase tracking-widest">{t('nav:cloudNode')}</span>
                  </div>
               </div>
            </div>
@@ -83,7 +85,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
               <button
                 onClick={() => setDarkModePreference(darkMode ? 'light' : 'dark')}
                 className="p-2.5 rounded-xl text-slate-500 hover:text-primary hover:bg-slate-100 transition-all flex-shrink-0"
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={darkMode ? t('theme.toLight') : t('theme.toDark')}
               >
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
@@ -121,28 +123,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
             className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'dashboard' ? 'text-primary' : 'text-slate-400'}`}
           >
             <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">Home</span>
+            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.home')}</span>
           </button>
           <button 
             onClick={() => handleNavigate('attendance-logs')}
             className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'attendance-logs' || currentPath === 'attendance-audit' ? 'text-primary' : 'text-slate-400'}`}
           >
             <Clock size={20} className={currentPath === 'attendance-logs' || currentPath === 'attendance-audit' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">History</span>
+            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.history')}</span>
           </button>
           <button 
             onClick={() => handleNavigate('leave')}
             className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'leave' ? 'text-primary' : 'text-slate-400'}`}
           >
             <CalendarDays size={20} className={currentPath === 'leave' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">Leave</span>
+            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.leave')}</span>
           </button>
           <button 
             onClick={() => handleNavigate('profile')}
             className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'profile' ? 'text-primary' : 'text-slate-400'}`}
           >
             <UserCircle size={20} className={currentPath === 'profile' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">Account</span>
+            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.account')}</span>
           </button>
         </nav>
       </main>

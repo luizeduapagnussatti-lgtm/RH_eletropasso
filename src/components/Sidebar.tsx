@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   Users,
@@ -28,27 +29,27 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, role, user }) => {
+  const { t } = useTranslation(['nav', 'common']);
   const isSuperAdmin = role === 'SUPER_ADMIN';
 
-  // Super Admin has a different menu
   const superAdminMenuItems = [
-    { id: 'super-admin', label: 'Organizations', icon: Shield, roles: ['SUPER_ADMIN'] },
-    { id: 'profile', label: 'My Profile', icon: UserCircle, roles: ['SUPER_ADMIN'] },
+    { id: 'super-admin', labelKey: 'organizations', icon: Shield, roles: ['SUPER_ADMIN'] },
+    { id: 'profile', labelKey: 'myProfile', icon: UserCircle, roles: ['SUPER_ADMIN'] },
   ];
 
   const regularMenuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'profile', label: 'My Profile', icon: UserCircle, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'attendance-logs', label: 'My Attendance', icon: History, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'attendance-audit', label: 'Attendance Audit', icon: List, roles: ['ADMIN', 'HR', 'MANAGER'] },
-    { id: 'leave', label: 'Leave', icon: CalendarDays, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'announcements', label: 'Announcements', icon: Megaphone, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'admin-notifications', label: 'Notifications', icon: Bell, roles: ['ADMIN', 'HR'] },
-    { id: 'employees', label: 'Team Directory', icon: Users, roles: ['ADMIN', 'HR', 'MANAGER'] },
-    { id: 'performance-review', label: 'Performance', icon: ClipboardCheck, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'organization', label: 'Organization', icon: Network, roles: ['ADMIN', 'HR'] },
-    { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'HR'] },
-    { id: 'settings', label: 'Settings', icon: Settings, roles: ['ADMIN', 'HR'] },
+    { id: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    { id: 'profile', labelKey: 'myProfile', icon: UserCircle, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    { id: 'attendance-logs', labelKey: 'myAttendance', icon: History, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    { id: 'attendance-audit', labelKey: 'attendanceAudit', icon: List, roles: ['ADMIN', 'HR', 'MANAGER'] },
+    { id: 'leave', labelKey: 'leave', icon: CalendarDays, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    { id: 'announcements', labelKey: 'announcements', icon: Megaphone, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    { id: 'admin-notifications', labelKey: 'notifications', icon: Bell, roles: ['ADMIN', 'HR'] },
+    { id: 'employees', labelKey: 'teamDirectory', icon: Users, roles: ['ADMIN', 'HR', 'MANAGER'] },
+    { id: 'performance-review', labelKey: 'performance', icon: ClipboardCheck, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    { id: 'organization', labelKey: 'organization', icon: Network, roles: ['ADMIN', 'HR'] },
+    { id: 'reports', labelKey: 'reports', icon: BarChart3, roles: ['ADMIN', 'HR'] },
+    { id: 'settings', labelKey: 'settings', icon: Settings, roles: ['ADMIN', 'HR'] },
   ];
 
   const menuItems = isSuperAdmin ? superAdminMenuItems : regularMenuItems;
@@ -56,22 +57,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, ro
 
   return (
     <aside className="w-80 bg-white h-screen flex flex-col border-r border-slate-100 shadow-sm relative z-50">
-      {/* Profile Header */}
       <div className="p-10 pb-8 flex flex-col items-center text-center">
         <div className="relative mb-4">
           <img
             src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=random`}
             className="w-24 h-24 rounded-full border-4 border-white shadow-xl bg-slate-50 object-cover"
-            alt="Profile"
+            alt={t('common:profile')}
           />
           <div className="absolute bottom-1 right-1 w-5 h-5 bg-primary border-4 border-white rounded-full"></div>
         </div>
-        <h2 className="text-xl font-semibold text-slate-900 leading-tight">{user?.name || 'User Name'}</h2>
-        <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-tight">{user?.designation || 'Specialist'}</p>
+        <h2 className="text-xl font-semibold text-slate-900 leading-tight">{user?.name || t('common:userName')}</h2>
+        <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-tight">{user?.designation || t('common:specialist')}</p>
         <div className="w-full h-px bg-slate-50 mt-8"></div>
       </div>
 
-      {/* Navigation + Sign Out (all scrollable) */}
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto no-scrollbar">
         {filteredItems.map((item) => (
           <div key={item.id} className="space-y-1">
@@ -88,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, ro
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary rounded-r-full"></div>
                 )}
                 <item.icon size={22} className={currentPath === item.id ? 'text-primary' : 'text-slate-400'} />
-                <span className="font-bold text-sm tracking-tight">{item.label}</span>
+                <span className="font-bold text-sm tracking-tight">{t(item.labelKey)}</span>
               </div>
               <div className="flex items-center gap-1">
                 {!isSuperAdmin && (
@@ -100,7 +99,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, ro
           </div>
         ))}
 
-        {/* Sign Out */}
         <div className="pt-4 pb-2 space-y-4">
           <button
             onClick={onLogout}
@@ -110,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, ro
               <div className="p-3 bg-white rounded-2xl shadow-sm text-slate-600 group-hover:text-rose-600 transition-colors">
                 <LogOut size={20} />
               </div>
-              <span className="font-semibold text-sm text-slate-900 uppercase tracking-tight">Sign Out</span>
+              <span className="font-semibold text-sm text-slate-900 uppercase tracking-tight">{t('signOut')}</span>
             </div>
             <ChevronRight size={18} className="text-slate-300 group-hover:text-rose-300 transition-colors" />
           </button>

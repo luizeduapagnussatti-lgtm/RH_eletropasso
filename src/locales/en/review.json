@@ -1,0 +1,14 @@
+{
+  "title": "Performance review",
+  "cycles": "Review cycles",
+  "selfAssessment": "Self-assessment",
+  "managerReview": "Manager review",
+  "hrFinalize": "HR finalize",
+  "submit": "Submit review",
+  "competencies": "Competencies",
+  "overallRating": "Overall rating",
+  "remarks": "Remarks",
+  "noCycles": "No active review cycles",
+  "attendanceSummary": "Attendance summary",
+  "leaveSummary": "Leave summary"
+}

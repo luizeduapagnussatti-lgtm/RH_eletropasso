@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bell, Send, Trash2, Search, Loader2 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { AppNotification, NotificationType } from '../types';
@@ -35,6 +36,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const AdminNotifications: React.FC<Props> = (_props) => {
+  const { t } = useTranslation('notifications');
   const { showToast } = useToast();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -120,7 +122,7 @@ const AdminNotifications: React.FC<Props> = (_props) => {
             <Bell size={24} className="text-primary" />
           </div>
           <div>
-            <div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-slate-900">Notifications</h1><HelpButton helpPointId="notifications.admin" size={16} /></div>
+            <div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-slate-900">{t('title')}</h1><HelpButton helpPointId="notifications.admin" size={16} /></div>
             <p className="text-xs text-slate-400 font-medium">Send and manage notifications for your organization</p>
           </div>
         </div>
