@@ -575,12 +575,25 @@ Rules:
 
 ## Git Workflow — MUST FOLLOW
 
-After completing any code changes:
-1. Stage the changed files: `git add <specific files>` (never use `git add .` or `git add -A`)
-2. Commit with a descriptive message: `git commit -m "description of changes"`
-3. Push to the current branch: `git push origin <current-branch>`
+### Branch model (Eletropasso) — do not confuse `main` with `master`
 
-Always push immediately after committing. Never leave unpushed commits.
+| Branch | Role |
+|--------|------|
+| `main` | First / original baseline of the software. Not day-to-day. |
+| `master` | Edited **stable** version — pull from here for deploy. |
+| `dev` | **Development** branch — all daily work, commit, and push land here. |
+
+**Flow:** develop on `dev` → commit + push always to `dev` → promote to `master` only when validated → pull/`deploy` from `master`.
+
+After completing any code changes (on `dev`):
+1. Ensure checkout is `dev` (create/switch if needed)
+2. Stage the changed files: `git add <specific files>` (never use `git add .` or `git add -A`)
+3. Update `src/data/changelog.ts` with a new entry describing the change (add to the first release group if same date, or create a new group at the top)
+4. Commit with a descriptive message: `git commit -m "description of changes"`
+5. Push to dev: `git push origin dev`
+
+Always push immediately after committing to `dev`. Never leave unpushed commits on `dev`.
+Do not commit daily work directly to `master` or `main`.
 
 ---
 

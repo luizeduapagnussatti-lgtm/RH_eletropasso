@@ -1,0 +1,28 @@
+---
+description: Fluxo de versionamento Eletropasso (main / master / dev)
+alwaysApply: true
+---
+
+# Versionamento Git — Eletropasso (MUST FOLLOW)
+
+Não confundir `main` com `master`.
+
+| Branch | Papel |
+|--------|--------|
+| `main` | Primeira versão do software (baseline original). Não usar no dia a dia. |
+| `master` | Versão editada **estável** — referência de deploy / produção local. |
+| `dev` | Branch de **desenvolvimento** — único lugar de commit e push do trabalho diário. |
+
+## Fluxo obrigatório
+
+1. **Desenvolvimento:** trabalhar sempre na branch `dev`.
+2. **Salvar:** após alterações → commit + push **sempre em `dev`** (`git push origin dev`).
+3. **Deploy / versão estável:** atualizar o ambiente estável com pull da **`master`** (não da `main`).
+4. Promover para estável só quando a `dev` estiver validada (merge/`dev` → `master` sob pedido explícito).
+
+## Regras práticas
+
+- Nunca fazer commit/push de trabalho diário direto na `master` ou na `main`.
+- Stage apenas arquivos específicos (`git add <files>` — nunca `git add .` / `git add -A`).
+- Atualizar `src/data/changelog.ts` junto com mudanças de código.
+- A branch `feature/*` antiga não substitui a `dev`; novas alterações vão para `dev`.

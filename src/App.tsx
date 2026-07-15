@@ -19,7 +19,6 @@ import { supabase } from './services/supabase';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
 import RegisterOrganization from './pages/RegisterOrganization';
-import LandingPage from './pages/LandingPage';
 import { VerifyAccount } from './pages/VerifyAccount';
 import { ResetPassword } from './pages/ResetPassword';
 import { SuspendedPage } from './components/subscription';
@@ -106,8 +105,7 @@ const AppContent: React.FC = () => {
   const [currentPath, setCurrentPath] = useState('dashboard');
   const [navParams, setNavParams] = useState<any>(null);
 
-  // Public Pages State
-  const [showLanding, setShowLanding] = useState(true);
+  // Public Pages State — login is the default entry (no marketing landing)
   const [showRegister, setShowRegister] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
@@ -199,7 +197,6 @@ const AppContent: React.FC = () => {
     const hashRecovery = window.location.hash.includes('type=recovery');
     if (queryReset || hashRecovery) {
       setShowPasswordReset(true);
-      setShowLanding(false);
       // Strip query but KEEP hash — supabase-js needs hash tokens to establish recovery session
       if (queryReset) {
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -212,7 +209,6 @@ const AppContent: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setShowPasswordReset(true);
-        setShowLanding(false);
       }
     });
     return () => subscription.unsubscribe();
@@ -367,9 +363,9 @@ const AppContent: React.FC = () => {
   // Priority 0b: Public Features pages (accessible regardless of auth)
   if (featuresRoute) {
     if (featuresRoute.type === 'detail' && featuresRoute.slug) {
-      return <FeatureDetailPage slug={featuresRoute.slug} onBack={() => { navigateTo('/features'); }} onRegisterClick={() => { navigateTo('/'); setShowLanding(false); setShowRegister(true); }} />;
+      return <FeatureDetailPage slug={featuresRoute.slug} onBack={() => { navigateTo('/features'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
     }
-    return <FeaturesPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowLanding(false); setShowRegister(true); }} />;
+    return <FeaturesPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
   }
 
   // Priority 0c: Public Changelog (accessible regardless of auth)
@@ -379,7 +375,7 @@ const AppContent: React.FC = () => {
 
   // Priority 0c2: Public About (accessible regardless of auth)
   if (aboutRoute) {
-    return <AboutPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowLanding(false); setShowRegister(true); }} />;
+    return <AboutPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
   }
 
   // Priority 0d: Public Tutorials (accessible regardless of auth)
@@ -387,7 +383,7 @@ const AppContent: React.FC = () => {
     if (tutorialRoute.type === 'single' && tutorialRoute.slug) {
       return <TutorialPage slug={tutorialRoute.slug} onBack={() => { navigateTo('/how-to-use'); }} />;
     }
-    return <TutorialsPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowLanding(false); setShowRegister(true); }} />;
+    return <TutorialsPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
   }
 
   // Priority 0: Public Blog (accessible regardless of auth)
@@ -395,17 +391,17 @@ const AppContent: React.FC = () => {
     if (blogRoute.type === 'post' && blogRoute.slug) {
       return <BlogPostPage slug={blogRoute.slug} onBack={() => { navigateTo('/blog'); }} />;
     }
-    return <BlogPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowLanding(false); setShowRegister(true); }} />;
+    return <BlogPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
   }
 
   // Priority 1: Verification Flow (must come BEFORE 404 check)
   if (verificationToken) {
-    return <VerifyAccount token={verificationToken} onFinished={() => { setVerificationToken(null); setShowLanding(false); setShowRegister(false); }} />;
+    return <VerifyAccount token={verificationToken} onFinished={() => { setVerificationToken(null); setShowRegister(false); }} />;
   }
 
   // Priority 1.5: Password Reset Flow
   if (showPasswordReset) {
-    return <ResetPassword onFinished={() => { setShowPasswordReset(false); setShowLanding(false); }} />;
+    return <ResetPassword onFinished={() => { setShowPasswordReset(false); }} />;
   }
 
   // 404: Unknown clean URL path (after all valid routes are checked)
@@ -421,19 +417,15 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Priority 2: Public Landing/Login/Register
+  // Priority 2: Public Login/Register (landing page skipped for this deployment)
   if (!user) {
     if (showRegister) {
-      return <RegisterOrganization onBack={() => { setShowRegister(false); setShowLanding(true); }} onSuccess={login} />;
-    }
-    if (!showLanding) {
-      return <Login onLoginSuccess={login} onRegisterClick={() => setShowRegister(true)} onBackToLanding={() => setShowLanding(true)} />;
+      return <RegisterOrganization onBack={() => { setShowRegister(false); }} onSuccess={login} />;
     }
     return (
-      <LandingPage
-        onLoginClick={() => setShowLanding(false)}
-        onRegisterClick={() => { setShowLanding(false); setShowRegister(true); }}
+      <Login
         onLoginSuccess={login}
+        onRegisterClick={() => setShowRegister(true)}
       />
     );
   }
