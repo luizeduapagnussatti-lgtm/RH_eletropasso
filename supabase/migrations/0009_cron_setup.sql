@@ -11,27 +11,32 @@
 -- scripts/setup-cron-edge-functions.sql after deploying Edge Functions.
 -- ============================================================
 
--- pg_cron: must be enabled in Supabase Dashboard → Database → Extensions → pg_cron
--- before running this migration. The extension requires superuser and cannot be
--- created inside a regular migration.
--- create extension if not exists pg_cron;  ← run manually if not yet enabled
-
--- pg_net: enables net.http_post() for calling Edge Functions from pg_cron
+-- pg_cron + pg_net (local Supabase runs migrations as superuser)
+create extension if not exists pg_cron with schema pg_catalog;
 create extension if not exists pg_net with schema extensions;
+grant usage on schema cron to postgres;
+grant all on all tables in schema cron to postgres;
 
 -- ============================================================
 -- NOTIFICATION CLEANUP — Daily 3 AM UTC
 -- Deletes notifications older than 30 days to keep table lean.
 -- Retention period can be extended by changing the interval.
 -- ============================================================
-select cron.schedule(
-  'notification-cleanup',
-  '0 3 * * *',
-  $$
-    delete from public.notifications
-    where created < now() - interval '30 days';
-  $$
-);
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.schedule(
+      'notification-cleanup',
+      '0 3 * * *',
+      $cron$
+        delete from public.notifications
+        where created < now() - interval '30 days';
+      $cron$
+    );
+  else
+    raise notice 'pg_cron unavailable — skipping notification-cleanup schedule';
+  end if;
+end $$;
 
 -- ============================================================
 -- SELFIE CLEANUP — Daily 2 AM UTC
@@ -42,16 +47,23 @@ select cron.schedule(
 -- This SQL step nulls the path reference so the app stops
 -- serving broken URLs immediately.
 -- ============================================================
-select cron.schedule(
-  'selfie-cleanup',
-  '0 2 * * *',
-  $$
-    update public.attendance
-    set
-      selfie = null,
-      updated = now()
-    where
-      date < current_date - interval '30 days'
-      and selfie is not null;
-  $$
-);
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.schedule(
+      'selfie-cleanup',
+      '0 2 * * *',
+      $cron$
+        update public.attendance
+        set
+          selfie = null,
+          updated = now()
+        where
+          date < current_date - interval '30 days'
+          and selfie is not null;
+      $cron$
+    );
+  else
+    raise notice 'pg_cron unavailable — skipping selfie-cleanup schedule';
+  end if;
+end $$;

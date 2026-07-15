@@ -15,6 +15,16 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-15',
+    title: 'Local Eletropasso self-host bootstrap (Supabase migrations)',
+    entries: [
+      { type: 'fix', description: 'Fixed migration 0007 attendance_update RLS comparing text employee_id to uuid auth.uid() without cast, which aborted local supabase start before migration 0008 could run.' },
+      { type: 'fix', description: 'Migration 0009 now creates pg_cron when available and schedules cleanup jobs conditionally so local Supabase can boot without a pre-enabled cron schema.' },
+      { type: 'improvement', description: 'Added migration 0016 granting Data API privileges to anon/authenticated/service_role for local Supabase where auto_expose_new_tables is disabled.' },
+      { type: 'improvement', description: 'Configured Supabase Auth site_url / redirect URLs for LAN access on 192.168.15.245.' },
+    ],
+  },
+  {
     date: '2026-07-14',
     title: 'AdSense compliance overhaul, Supabase README & open-source self-hosting guide',
     entries: [
