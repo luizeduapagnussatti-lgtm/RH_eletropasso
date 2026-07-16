@@ -1,0 +1,36 @@
+services:
+  rep-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rh-eletropasso/rep-gateway:local
+    container_name: rep_gateway_printpoint
+    restart: unless-stopped
+    env_file:
+      - E:/RH_eletropasso/config/rep-gateway.env
+    ports:
+      - "192.168.15.245:3002:3002"
+    volumes:
+      - E:/RH_eletropasso/data/rep-gateway:/data/captures
+      - E:/RH_eletropasso/logs/rep-gateway:/data/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - rep_gateway_internal
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  rep_gateway_internal:
+    name: rep_gateway_internal
+    driver: bridge

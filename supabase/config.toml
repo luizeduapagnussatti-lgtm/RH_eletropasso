@@ -382,6 +382,11 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Hardware traffic is authenticated by the isolated gateway's ingest key.
+# Supabase JWT verification must not reject it before the function runs.
+[functions.ingest-punches]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
