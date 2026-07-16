@@ -27,6 +27,7 @@ export const changelog: ChangelogRelease[] = [
       { type: 'feature', description: 'Migration 0022: per-weekday day_schedules on shifts (Saturday half-day 08:00–11:45) with PTRP calc + Organization UI.' },
       { type: 'fix', description: 'Team create/update: empty leader selection is sent as null instead of "" (fixes invalid UUID syntax error).' },
       { type: 'feature', description: 'Holiday calendar: one-click import of BR national + RS Data Magna (20/09) for a selected year, optional Carnival/Corpus Christi; merge skips existing dates.' },
+      { type: 'fix', description: 'Dashboard leave balance copy no longer says “fiscal year”; it correctly describes the sum of remaining leave-type balances (BR calendar year / CLT context).' },
     ],
   },
   {
