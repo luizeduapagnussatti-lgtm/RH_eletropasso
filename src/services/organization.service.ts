@@ -195,9 +195,10 @@ export const organizationService = {
   async createTeam(data: Partial<Team>) {
     if (!isSupabaseConfigured()) return null;
     const orgId = apiClient.getOrganizationId();
+    const leaderId = data.leaderId?.trim() ? data.leaderId : null;
     const { data: record, error } = await supabase
       .from('teams')
-      .insert({ name: data.name, leader_id: data.leaderId, department: data.department, organization_id: orgId })
+      .insert({ name: data.name, leader_id: leaderId, department: data.department, organization_id: orgId })
       .select()
       .single();
     if (error) throw error;
@@ -208,9 +209,10 @@ export const organizationService = {
 
   async updateTeam(id: string, data: Partial<Team>) {
     if (!isSupabaseConfigured()) return;
+    const leaderId = data.leaderId?.trim() ? data.leaderId : null;
     const { error } = await supabase
       .from('teams')
-      .update({ name: data.name, leader_id: data.leaderId, department: data.department })
+      .update({ name: data.name, leader_id: leaderId, department: data.department })
       .eq('id', id);
     if (error) throw error;
     cachedTeams = null;
