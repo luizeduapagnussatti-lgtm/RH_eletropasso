@@ -10,6 +10,14 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        // Domínios locais via Nginx Proxy Manager (loja Eletropasso)
+        allowedHosts: [
+          'rh.eletropasso.local',
+          'api-rh.eletropasso.local',
+          'localhost',
+          '127.0.0.1',
+          '192.168.15.245',
+        ],
       },
       build: {
         minify: 'esbuild',
