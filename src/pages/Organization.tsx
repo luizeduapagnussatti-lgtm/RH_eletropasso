@@ -351,6 +351,10 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
              onAdd={() => openModal('HOLIDAY')}
              onEdit={(i) => openModal('HOLIDAY', i)}
              onDelete={(i) => handleDelete('HOLIDAY', i)}
+             onImportMerged={async (merged) => {
+               await updateHolidays(merged);
+               showToast(t('holidayImportSuccess'), 'success');
+             }}
            />
         )}
 
@@ -382,7 +386,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                     <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('holidayName')}</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={holidayForm.name} onChange={e => setHolidayForm({...holidayForm, name: e.target.value})} /></div>
                     <div className="grid grid-cols-2 gap-4">
                        <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('date')}</label><input type="date" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.date} onChange={e => setHolidayForm({...holidayForm, date: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('type')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.type} onChange={e => setHolidayForm({...holidayForm, type: e.target.value as any})}><option value="NATIONAL">{t('holidayTypes.NATIONAL')}</option><option value="FESTIVAL">{t('holidayTypes.FESTIVAL')}</option><option value="ISLAMIC">{t('holidayTypes.ISLAMIC')}</option></select></div>
+                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('type')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.type} onChange={e => setHolidayForm({...holidayForm, type: e.target.value as any})}><option value="NATIONAL">{t('holidayTypes.NATIONAL')}</option><option value="STATE">{t('holidayTypes.STATE')}</option><option value="FESTIVAL">{t('holidayTypes.FESTIVAL')}</option><option value="ISLAMIC">{t('holidayTypes.ISLAMIC')}</option></select></div>
                     </div>
                  </div>
               )}

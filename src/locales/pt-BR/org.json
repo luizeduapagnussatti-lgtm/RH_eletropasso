@@ -53,9 +53,17 @@
   "type": "Tipo",
   "holidayTypes": {
     "NATIONAL": "Nacional",
-    "FESTIVAL": "Festival",
+    "STATE": "Estadual (RS)",
+    "FESTIVAL": "Festival / facultativo",
     "ISLAMIC": "Islâmico"
   },
+  "holidayImportTitle": "Importar calendário BR + RS",
+  "holidayImportHint": "Nacionais + Data Magna (20/09). Municipais continuam manuais.",
+  "holidayImportFacultative": "Incluir Carnaval e Corpus Christi",
+  "holidayImportAction": "Importar ano",
+  "holidayImportConfirm": "Importar {{added}} feriado(s) de {{year}}? ({{skipped}} data(s) já existiam e serão mantidas.)",
+  "holidayImportNone": "Nenhum feriado novo para {{year}}. {{skipped}} data(s) já estavam cadastradas.",
+  "holidayImportSuccess": "Feriados importados com sucesso.",
   "officeName": "Nome do escritório",
   "latitude": "Latitude",
   "longitude": "Longitude",

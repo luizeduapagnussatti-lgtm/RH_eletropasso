@@ -53,9 +53,17 @@
   "type": "Type",
   "holidayTypes": {
     "NATIONAL": "National",
-    "FESTIVAL": "Festival",
+    "STATE": "State (RS)",
+    "FESTIVAL": "Festival / optional",
     "ISLAMIC": "Islamic"
   },
+  "holidayImportTitle": "Import BR + RS calendar",
+  "holidayImportHint": "National holidays + RS Magna Day (Sep 20). Municipal holidays stay manual.",
+  "holidayImportFacultative": "Include Carnival and Corpus Christi",
+  "holidayImportAction": "Import year",
+  "holidayImportConfirm": "Import {{added}} holiday(s) for {{year}}? ({{skipped}} existing date(s) will be kept.)",
+  "holidayImportNone": "No new holidays for {{year}}. {{skipped}} date(s) already exist.",
+  "holidayImportSuccess": "Holidays imported successfully.",
   "officeName": "Office name",
   "latitude": "Latitude",
   "longitude": "Longitude",

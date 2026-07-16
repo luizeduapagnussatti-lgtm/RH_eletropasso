@@ -188,7 +188,7 @@ export interface Holiday {
   date: string;
   name: string;
   isGovernment: boolean;
-  type: 'FESTIVAL' | 'ISLAMIC' | 'NATIONAL';
+  type: 'FESTIVAL' | 'ISLAMIC' | 'NATIONAL' | 'STATE';
 }
 
 export interface SentEmail {
