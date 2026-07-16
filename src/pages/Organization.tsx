@@ -30,6 +30,7 @@ interface OrganizationProps {
 
 const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const { t } = useTranslation('org');
+  const { t: tCommon } = useTranslation('common');
   const {
       departments, designations, holidays, teams, employees, leavePolicy, config, workflows, shiftOverrides, notificationConfig,
       isLoading, isSaving,
@@ -75,7 +76,19 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const [leaveTypes, setLeaveTypes] = useState<CustomLeaveType[]>([]);
   const [overrideForm, setOverrideForm] = useState<Record<string, any>>({ employeeId: '' });
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
-  const [shiftForm, setShiftForm] = useState<Partial<Shift>>({ name: '', startTime: '09:00', endTime: '18:00', lateGracePeriod: 5, earlyOutGracePeriod: 15, earliestCheckIn: '06:00', autoSessionCloseTime: '23:59', workingDays: ['Monday','Tuesday','Wednesday','Thursday','Sunday'], isDefault: false });
+  const defaultShiftForm: Partial<Shift> = {
+    name: '', code: '', scheduleType: 'FIXED',
+    startTime: '09:00', endTime: '18:00',
+    lateGracePeriod: 5, earlyOutGracePeriod: 15,
+    earliestCheckIn: '06:00', autoSessionCloseTime: '23:59',
+    workingDays: ['Monday','Tuesday','Wednesday','Thursday','Sunday'],
+    isDefault: false,
+    breakDurationMinutes: 90, breakFlexible: true,
+    expectedDailyMinutes: 480, expectedWeeklyMinutes: 2640,
+    nightStart: '22:00', nightEnd: '05:00',
+    overtimeToBank: true, active: true,
+  };
+  const [shiftForm, setShiftForm] = useState<Partial<Shift>>(defaultShiftForm);
   const [shiftOverrideForm, setShiftOverrideForm] = useState({ employeeId: '', shiftId: '', startDate: '', endDate: '', reason: '' });
   const [memberSearch, setMemberSearch] = useState('');
 
@@ -105,7 +118,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
       if (index !== null) {
         setShiftForm({ ...shifts[index] });
       } else {
-        setShiftForm({ name: '', startTime: '09:00', endTime: '18:00', lateGracePeriod: 5, earlyOutGracePeriod: 15, earliestCheckIn: '06:00', autoSessionCloseTime: '23:59', workingDays: ['Monday','Tuesday','Wednesday','Thursday','Sunday'], isDefault: false });
+        setShiftForm({ ...defaultShiftForm });
       }
     } else if (type === 'SHIFT_OVERRIDE') {
       setShiftOverrideForm({ employeeId: '', shiftId: shifts[0]?.id || '', startDate: '', endDate: '', reason: '' });
@@ -118,7 +131,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const handleModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canWrite) {
-      showToast('Your subscription does not allow modifications. Please upgrade to continue.', 'warning');
+      showToast(t('upgradeRequired'), 'warning');
       return;
     }
     try {
@@ -169,11 +182,15 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         await updateShiftOverrides(next);
       }
       setShowModal(false);
-    } catch (err) { showToast('Operation failed.', 'error'); }
+    } catch (err: any) {
+      const detail = err?.message || err?.error_description || err?.details;
+      console.error('[Organization] modal submit failed:', err);
+      showToast(detail ? `${t('operationFailed')}: ${detail}` : t('operationFailed'), 'error');
+    }
   };
 
   const handleDelete = async (type: typeof modalType, index: number) => {
-    if (!confirm(`Confirm deletion?`)) return;
+    if (!confirm(t('confirmDeletion'))) return;
     try {
       if (type === 'DEPT') {
         const next = departments.filter((_, idx) => idx !== index);
@@ -198,11 +215,11 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         const next = shiftOverrides.filter((_, idx) => idx !== index);
         await updateShiftOverrides(next);
       }
-    } catch (err) { showToast('Delete failed.', 'error'); }
+    } catch (err) { showToast(t('deleteFailed'), 'error'); }
   };
 
   const deleteOverride = async (empId: string) => {
-    if (!confirm('Remove this custom policy?')) return;
+    if (!confirm(t('removePolicyConfirm'))) return;
     const next = { ...leavePolicy };
     delete next.overrides[empId];
     await updateLeavePolicy(next);
@@ -219,7 +236,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
     await updateWorkflows(next);
   };
 
-  if (isLoading) return <div className="flex flex-col items-center justify-center h-64 text-slate-400"><Loader2 className="w-8 h-8 text-primary animate-spin mb-4" /><p className="text-xs font-semibold uppercase tracking-widest">Initialising Organization Data...</p></div>;
+  if (isLoading) return <div className="flex flex-col items-center justify-center h-64 text-slate-400"><Loader2 className="w-8 h-8 text-primary animate-spin mb-4" /><p className="text-xs font-semibold uppercase tracking-widest">{t('loading')}</p></div>;
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
@@ -227,7 +244,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         <div className="flex items-center gap-2">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1>
-            <p className="text-sm text-slate-500 font-medium">Core structural and policy configurations</p>
+            <p className="text-sm text-slate-500 font-medium">{t('subtitle')}</p>
           </div>
           <HelpButton helpPointId={`org.${activeTab.toLowerCase()}`} />
         </div>
@@ -236,7 +253,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
       <div className="space-y-2">
         {/* Row 1 — Structure & Teams */}
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Structure</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('tabGroups.structure')}</p>
           <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
             {(['STRUCTURE', 'TEAMS', 'PLACEMENT', 'SHIFTS'] as OrgTab[]).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 md:flex-1 min-w-[90px] py-3 px-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -248,7 +265,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         </div>
         {/* Row 2 — Policies & Config */}
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Policies</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('tabGroups.policies')}</p>
           <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
             {(['WORKFLOW', 'LEAVES', 'HOLIDAYS', 'NOTIFICATIONS', 'SYSTEM'] as OrgTab[]).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 md:flex-1 min-w-[100px] py-3 px-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -266,8 +283,8 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
           <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span className="text-sm">
             {subscription?.status === 'EXPIRED'
-              ? 'Your trial has expired. Organization settings are read-only. Please upgrade to make changes.'
-              : 'Your account is suspended. Please contact support.'}
+              ? t('subscriptionReadOnly')
+              : t('accountSuspended')}
           </span>
         </div>
       )}
@@ -350,50 +367,50 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className={`bg-white rounded-xl w-full shadow-2xl overflow-hidden animate-in zoom-in ${modalType === 'TEAM' || modalType === 'LOCATION' || modalType === 'OVERRIDE' || modalType === 'SHIFT' || modalType === 'SHIFT_OVERRIDE' ? 'max-w-xl' : 'max-w-md'}`}>
             <div className="bg-primary p-6 flex justify-between items-center text-white">
-               <h3 className="text-sm font-semibold uppercase tracking-widest">{modalType} Configuration</h3>
+               <h3 className="text-sm font-semibold uppercase tracking-widest">{t('modalConfig')} — {t(`modalTypes.${modalType}`, { defaultValue: modalType })}</h3>
                <button onClick={() => setShowModal(false)}><X size={24} /></button>
             </div>
             <form onSubmit={handleModalSubmit} className="p-6 md:p-8 space-y-6 max-h-[85vh] overflow-y-auto no-scrollbar">
               
               {(modalType === 'DEPT' || modalType === 'DESIG') && (
-                <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Entry Name</label><input autoFocus required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-4 focus:ring-primary-light transition-all" value={modalValue} onChange={e => setModalValue(e.target.value)} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('entryName')}</label><input autoFocus required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-4 focus:ring-primary-light transition-all" value={modalValue} onChange={e => setModalValue(e.target.value)} /></div>
               )}
 
               {modalType === 'HOLIDAY' && (
                  <div className="space-y-4">
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Holiday Name</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={holidayForm.name} onChange={e => setHolidayForm({...holidayForm, name: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('holidayName')}</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={holidayForm.name} onChange={e => setHolidayForm({...holidayForm, name: e.target.value})} /></div>
                     <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Date</label><input type="date" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.date} onChange={e => setHolidayForm({...holidayForm, date: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Type</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.type} onChange={e => setHolidayForm({...holidayForm, type: e.target.value as any})}><option value="NATIONAL">National</option><option value="FESTIVAL">Festival</option><option value="ISLAMIC">Islamic</option></select></div>
+                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('date')}</label><input type="date" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.date} onChange={e => setHolidayForm({...holidayForm, date: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('type')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={holidayForm.type} onChange={e => setHolidayForm({...holidayForm, type: e.target.value as any})}><option value="NATIONAL">{t('holidayTypes.NATIONAL')}</option><option value="FESTIVAL">{t('holidayTypes.FESTIVAL')}</option><option value="ISLAMIC">{t('holidayTypes.ISLAMIC')}</option></select></div>
                     </div>
                  </div>
               )}
 
               {modalType === 'LOCATION' && (
                  <div className="space-y-4">
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Office Name</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.name} onChange={e => setLocationForm({...locationForm, name: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('officeName')}</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.name} onChange={e => setLocationForm({...locationForm, name: e.target.value})} /></div>
                     <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Latitude</label><input type="number" step="any" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.lat} onChange={e => setLocationForm({...locationForm, lat: parseFloat(e.target.value)})} /></div>
-                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Longitude</label><input type="number" step="any" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.lng} onChange={e => setLocationForm({...locationForm, lng: parseFloat(e.target.value)})} /></div>
+                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('latitude')}</label><input type="number" step="any" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.lat} onChange={e => setLocationForm({...locationForm, lat: parseFloat(e.target.value)})} /></div>
+                       <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('longitude')}</label><input type="number" step="any" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.lng} onChange={e => setLocationForm({...locationForm, lng: parseFloat(e.target.value)})} /></div>
                     </div>
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Radius (Meters)</label><input type="number" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.radius} onChange={e => setLocationForm({...locationForm, radius: parseInt(e.target.value)})} /></div>
-                    <a href="https://www.google.com/maps" target="_blank" rel="noreferrer" className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1 justify-end"><MapPin size={10}/> Open Google Maps to find Lat/Lng</a>
+                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('radiusMeters')}</label><input type="number" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={locationForm.radius} onChange={e => setLocationForm({...locationForm, radius: parseInt(e.target.value)})} /></div>
+                    <a href="https://www.google.com/maps" target="_blank" rel="noreferrer" className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1 justify-end"><MapPin size={10}/> {t('openGoogleMaps')}</a>
                  </div>
               )}
 
               {modalType === 'OVERRIDE' && (
                  <div className="space-y-4">
                     <div className="space-y-1">
-                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Select Employee</label>
+                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('selectEmployee')}</label>
                        <select required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={overrideForm.employeeId} onChange={e => setOverrideForm({...overrideForm, employeeId: e.target.value})}>
-                          <option value="">-- Choose Staff --</option>
+                          <option value="">{t('chooseStaff')}</option>
                           {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
                        </select>
                     </div>
                     <div className={`grid gap-3 ${[,'grid-cols-1','grid-cols-2','grid-cols-3','grid-cols-4'][Math.min(leaveTypes.filter(t => t.hasBalance).length, 4)] || 'grid-cols-4'}`}>
                        {leaveTypes.filter(t => t.hasBalance).map(lt => (
                          <div key={lt.id} className="space-y-1">
-                           <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{lt.name.replace(' Leave', '')}</label>
+                           <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{lt.name}</label>
                            <input type="number" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-center" value={overrideForm[lt.id] || 0} onChange={e => setOverrideForm({...overrideForm, [lt.id]: parseInt(e.target.value)})} />
                          </div>
                        ))}
@@ -403,16 +420,16 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
 
               {modalType === 'TEAM' && (
                  <div className="space-y-4">
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Team Name</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={teamForm.name} onChange={e => setTeamForm({...teamForm, name: e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Department</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={teamForm.department} onChange={e => setTeamForm({...teamForm, department: e.target.value})}>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Team Lead</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={teamForm.leaderId} onChange={e => setTeamForm({...teamForm, leaderId: e.target.value})}><option value="">-- Assign Lead --</option>{employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('teamName')}</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={teamForm.name} onChange={e => setTeamForm({...teamForm, name: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('departments')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={teamForm.department} onChange={e => setTeamForm({...teamForm, department: e.target.value})}>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
+                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('teamLead')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={teamForm.leaderId} onChange={e => setTeamForm({...teamForm, leaderId: e.target.value})}><option value="">{t('assignLead')}</option>{employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Members ({selectedEmployeeIds.size})</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('members', { count: selectedEmployeeIds.size })}</label>
                       <div className="relative mb-2">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                           type="text"
-                          placeholder="Search employees..."
+                          placeholder={t('searchEmployees')}
                           value={memberSearch}
                           onChange={e => setMemberSearch(e.target.value)}
                           className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-4 focus:ring-primary-light transition-all"
@@ -432,43 +449,81 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
               {modalType === 'SHIFT' && (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Shift Name</label>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('shiftName')}</label>
                     <input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={shiftForm.name} onChange={e => setShiftForm({...shiftForm, name: e.target.value})} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Start Time</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('startTime')}</label>
                       <input type="time" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.startTime} onChange={e => setShiftForm({...shiftForm, startTime: e.target.value})} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">End Time</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('endTime')}</label>
                       <input type="time" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.endTime} onChange={e => setShiftForm({...shiftForm, endTime: e.target.value})} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Late Grace (min)</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('lateGraceMin')}</label>
                       <input type="number" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.lateGracePeriod} onChange={e => setShiftForm({...shiftForm, lateGracePeriod: parseInt(e.target.value) || 0})} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Early Out Grace (min)</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('earlyOutGraceMin')}</label>
                       <input type="number" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.earlyOutGracePeriod} onChange={e => setShiftForm({...shiftForm, earlyOutGracePeriod: parseInt(e.target.value) || 0})} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Earliest Check-In</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('earliestCheckIn')}</label>
                       <input type="time" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.earliestCheckIn} onChange={e => setShiftForm({...shiftForm, earliestCheckIn: e.target.value})} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Auto Session Close</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('autoSessionClose')}</label>
                       <input type="time" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.autoSessionCloseTime} onChange={e => setShiftForm({...shiftForm, autoSessionCloseTime: e.target.value})} />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('breakDurationMin')}</label>
+                      <input type="number" min={0} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.breakDurationMinutes ?? 90} onChange={e => setShiftForm({...shiftForm, breakDurationMinutes: parseInt(e.target.value) || 0})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('expectedDailyMin')}</label>
+                      <input type="number" min={0} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.expectedDailyMinutes ?? 480} onChange={e => setShiftForm({...shiftForm, expectedDailyMinutes: parseInt(e.target.value) || 0})} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('expectedWeeklyMin')}</label>
+                      <input type="number" min={0} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.expectedWeeklyMinutes ?? 2640} onChange={e => setShiftForm({...shiftForm, expectedWeeklyMinutes: parseInt(e.target.value) || 0})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('shiftCode')}</label>
+                      <input className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.code || ''} onChange={e => setShiftForm({...shiftForm, code: e.target.value})} placeholder={t('shiftCodePlaceholder')} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('nightStart')}</label>
+                      <input type="time" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.nightStart || '22:00'} onChange={e => setShiftForm({...shiftForm, nightStart: e.target.value})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('nightEnd')}</label>
+                      <input type="time" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.nightEnd || '05:00'} onChange={e => setShiftForm({...shiftForm, nightEnd: e.target.value})} />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                    <input type="checkbox" checked={shiftForm.breakFlexible ?? true} onChange={e => setShiftForm({...shiftForm, breakFlexible: e.target.checked})} className="w-4 h-4 accent-primary" />
+                    <span className="text-xs font-bold text-slate-600">{t('breakFlexible')}</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100 cursor-pointer">
+                    <input type="checkbox" checked={shiftForm.overtimeToBank ?? true} onChange={e => setShiftForm({...shiftForm, overtimeToBank: e.target.checked})} className="w-4 h-4 accent-indigo-500" />
+                    <span className="text-xs font-bold text-indigo-700">{t('overtimeToBank')}</span>
+                  </label>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Working Days</label>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('workingDays')}</label>
                     <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                      {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => (
+                      {(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const).map(day => (
                         <button
                           key={day}
                           type="button"
@@ -481,14 +536,14 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${(shiftForm.workingDays || []).includes(day) ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
                         >
-                          {day.slice(0, 3)}
+                          {tCommon(`weekdaysShort.${day.toLowerCase()}`)}
                         </button>
                       ))}
                     </div>
                   </div>
                   <label className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100 cursor-pointer">
                     <input type="checkbox" checked={shiftForm.isDefault || false} onChange={e => setShiftForm({...shiftForm, isDefault: e.target.checked})} className="w-4 h-4 accent-amber-500" />
-                    <span className="text-xs font-bold text-amber-700">Set as Default Shift (auto-assigned to new employees)</span>
+                    <span className="text-xs font-bold text-amber-700">{t('defaultShiftHint')}</span>
                   </label>
                 </div>
               )}
@@ -496,38 +551,38 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
               {modalType === 'SHIFT_OVERRIDE' && (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Select Employee</label>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('selectEmployee')}</label>
                     <select required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={shiftOverrideForm.employeeId} onChange={e => setShiftOverrideForm({...shiftOverrideForm, employeeId: e.target.value})}>
-                      <option value="">-- Choose Staff --</option>
+                      <option value="">{t('chooseStaff')}</option>
                       {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Assign to Shift</label>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('assignToShift')}</label>
                     <select required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={shiftOverrideForm.shiftId} onChange={e => setShiftOverrideForm({...shiftOverrideForm, shiftId: e.target.value})}>
                       {shifts.map(s => <option key={s.id} value={s.id}>{s.name} ({s.startTime}-{s.endTime})</option>)}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Start Date</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('startDate')}</label>
                       <input type="date" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftOverrideForm.startDate} onChange={e => setShiftOverrideForm({...shiftOverrideForm, startDate: e.target.value})} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">End Date</label>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('endDate')}</label>
                       <input type="date" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftOverrideForm.endDate} onChange={e => setShiftOverrideForm({...shiftOverrideForm, endDate: e.target.value})} />
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">Reason (Optional)</label>
-                    <input className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="e.g. Ramadan shift" value={shiftOverrideForm.reason} onChange={e => setShiftOverrideForm({...shiftOverrideForm, reason: e.target.value})} />
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('reasonOptional')}</label>
+                    <input className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder={t('reasonPlaceholder')} value={shiftOverrideForm.reason} onChange={e => setShiftOverrideForm({...shiftOverrideForm, reason: e.target.value})} />
                   </div>
                 </div>
               )}
 
               <div className="flex gap-3 pt-4 border-t border-slate-50">
-                <button type="button" disabled={isSaving} onClick={() => setShowModal(false)} className="flex-1 py-4 bg-slate-100 rounded-2xl font-semibold uppercase text-[10px] tracking-widest transition-colors hover:bg-slate-200">Cancel</button>
-                <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-primary text-white rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg transition-colors hover:bg-primary-hover">{isSaving ? <RefreshCw className="animate-spin" size={16} /> : <><Save size={16} /> Confirm</>}</button>
+                <button type="button" disabled={isSaving} onClick={() => setShowModal(false)} className="flex-1 py-4 bg-slate-100 rounded-2xl font-semibold uppercase text-[10px] tracking-widest transition-colors hover:bg-slate-200">{t('cancel')}</button>
+                <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-primary text-white rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg transition-colors hover:bg-primary-hover">{isSaving ? <RefreshCw className="animate-spin" size={16} /> : <><Save size={16} /> {t('confirm')}</>}</button>
               </div>
             </form>
           </div>

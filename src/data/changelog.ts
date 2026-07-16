@@ -24,6 +24,7 @@ export const changelog: ChangelogRelease[] = [
       { type: 'feature', description: 'Sprint 4: Timesheet mirror page (approval workflow, manual adjustments, hour-bank extract, manual punches) with ptrp i18n.' },
       { type: 'feature', description: 'Sprint 5: SICK leave medical certificate attachment/CID; org ptrp_policy settings; payroll CSV + eSocial stub export; Reports TIMESHEET type.' },
       { type: 'feature', description: 'Migration 0021: equipments + employee_epis (NR-6 EPI sheet) and payroll_consolidations (monthly pre-payroll hour snapshot) with org/role RLS.' },
+      { type: 'fix', description: 'Applied pending PTRP migrations 0016–0021 on local Supabase (missing shifts.code/break columns caused shift create failures); Organization modal now surfaces the API error detail.' },
     ],
   },
   {
