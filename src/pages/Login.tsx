@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Mail, Lock, ArrowRight, AlertCircle, RefreshCw, Eye, EyeOff, Download, X, Share, MoreVertical, RotateCcw, Building2, Send, Home, CheckCircle2 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { authService } from '../services/auth.service';
-import { isPocketBaseConfigured } from '../services/pocketbase';
+import { checkSupabaseConnection, isSupabaseConfigured } from '../services/supabase';
 import { useToast } from '../context/ToastContext';
 
 interface LoginProps {
@@ -77,7 +77,36 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
   const [isInstalled, setIsInstalled] = useState(false);
   const [canPrompt, setCanPrompt] = useState(false);
   
-  const isConfigured = isPocketBaseConfigured();
+  const isConfigured = isSupabaseConfigured();
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>(
+    isConfigured ? 'checking' : 'disconnected'
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    const refreshConnectionStatus = async () => {
+      const connected = await checkSupabaseConnection();
+      if (isActive) setConnectionStatus(connected ? 'connected' : 'disconnected');
+    };
+    const handleOnline = () => {
+      setConnectionStatus('checking');
+      void refreshConnectionStatus();
+    };
+    const handleOffline = () => setConnectionStatus('disconnected');
+
+    void refreshConnectionStatus();
+    const intervalId = window.setInterval(refreshConnectionStatus, 30000);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     // 1. Detect platform
@@ -588,9 +617,24 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
       </div>
 
       {/* Database Connection Indicator */}
-      <div className="fixed top-6 right-6 hidden md:flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
-        <div className={`w-1.5 h-1.5 rounded-full ${isConfigured ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></div>
-        <span className="text-[8px] font-semibold uppercase text-slate-500 tracking-[0.2em]">{isConfigured ? t('nodeConnected') : t('noConnection')}</span>
+      <div
+        className="fixed top-6 right-6 hidden md:flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-100 shadow-sm"
+        role="status"
+        aria-live="polite"
+        title={t(`databaseConnection.${connectionStatus}Hint`)}
+      >
+        <div
+          className={`w-1.5 h-1.5 rounded-full ${
+            connectionStatus === 'connected'
+              ? 'bg-emerald-500'
+              : connectionStatus === 'checking'
+                ? 'bg-amber-400 animate-pulse'
+                : 'bg-rose-500'
+          }`}
+        />
+        <span className="text-[8px] font-semibold uppercase text-slate-500 tracking-[0.2em]">
+          {t(`databaseConnection.${connectionStatus}`)}
+        </span>
       </div>
 
       {/* Installation Instructions Popup */}

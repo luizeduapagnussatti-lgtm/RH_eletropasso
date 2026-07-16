@@ -18,6 +18,7 @@ export const changelog: ChangelogRelease[] = [
     date: '2026-07-16',
     title: 'PTRP Portaria 671 — jornada, punches, espelho e export',
     entries: [
+      { type: 'improvement', description: 'Login database indicator now performs a real Supabase Auth health check on load, every 30 seconds, and on browser online/offline events; shows checking, connected, or unavailable states.' },
       { type: 'feature', description: 'Sprint 1: extended shifts (break, daily/weekly load, night window, overtime-to-bank) and persisted shift_overrides in Supabase (migrations 0017).' },
       { type: 'feature', description: 'Sprint 2: punches table + ingest-punches Edge Function + punch.service; raw punches panel in Attendance Audit.' },
       { type: 'feature', description: 'Sprint 3: timesheet_periods/days, hour_bank_ledger, timeCalculation.service and recalculate day/period orchestration (migration 0019).' },

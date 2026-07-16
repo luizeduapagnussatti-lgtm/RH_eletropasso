@@ -18,6 +18,32 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
 export const isSupabaseConfigured = (): boolean =>
   Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
+/** Checks whether the Supabase Auth service is reachable without requiring a user session. */
+export const checkSupabaseConnection = async (timeoutMs = 5000): Promise<boolean> => {
+  if (!isSupabaseConfigured() || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
+
 export const getSupabaseStorageUrl = (bucket: string, path: string): string =>
   `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 
