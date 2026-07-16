@@ -15,12 +15,37 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-16',
+    title: 'PTRP Portaria 671 — jornada, punches, espelho e export',
+    entries: [
+      { type: 'feature', description: 'Sprint 1: extended shifts (break, daily/weekly load, night window, overtime-to-bank) and persisted shift_overrides in Supabase (migrations 0017).' },
+      { type: 'feature', description: 'Sprint 2: punches table + ingest-punches Edge Function + punch.service; raw punches panel in Attendance Audit.' },
+      { type: 'feature', description: 'Sprint 3: timesheet_periods/days, hour_bank_ledger, timeCalculation.service and recalculate day/period orchestration (migration 0019).' },
+      { type: 'feature', description: 'Sprint 4: Timesheet mirror page (approval workflow, manual adjustments, hour-bank extract, manual punches) with ptrp i18n.' },
+      { type: 'feature', description: 'Sprint 5: SICK leave medical certificate attachment/CID; org ptrp_policy settings; payroll CSV + eSocial stub export; Reports TIMESHEET type.' },
+      { type: 'feature', description: 'Migration 0021: equipments + employee_epis (NR-6 EPI sheet) and payroll_consolidations (monthly pre-payroll hour snapshot) with org/role RLS.' },
+    ],
+  },
+  {
     date: '2026-07-15',
     title: 'Local Eletropasso self-host bootstrap (Supabase migrations)',
     entries: [
+      { type: 'improvement', description: 'Branding split: Eletropasso store wordmark in app headers (replacing cloud-node badge) and login; circular RH icon for PWA/favicon/sidebar/HTML only (not shown on login).' },
+      { type: 'improvement', description: 'Added circular RH_Eletropasso system icon (transparent PNG) as browser favicon, Apple touch icon, and PWA install icons (192/512 any + maskable); login and mobile header now show the system icon alongside the Eletropasso store wordmark.' },
+      { type: 'improvement', description: 'Rebranded deployment to RH_Eletropasso: replaced OpenHR logos with the Eletropasso store logo, updated PWA manifest/icons, login/header chrome, package/manifest names, and user-facing export labels.' },
       { type: 'improvement', description: 'Root URL (`/`) now opens the login screen directly instead of the marketing LandingPage. "Back to Home" on login was removed for this deployment.' },
       { type: 'improvement', description: 'Established Eletropasso branch model: develop/commit/push on `dev`, stable deploy pull from `master`; `main` kept as original baseline.' },
       { type: 'feature', description: 'Added react-i18next with pt-BR (default) and en locale catalogs; wired shared chrome, login, settings language selector, org tabs, notifications bell, subscription UI, and seed defaults to Portuguese BR.' },
+      { type: 'improvement', description: 'Dashboard (Painel) sprint: translated stats cards, setup checklist, quick-access tabs, leave allocation card, announcement widget, and role dashboards (Admin/Manager/Employee) via dashboard and onboarding namespaces.' },
+      { type: 'improvement', description: 'Settings / Meu perfil sprint: translated appearance card (ThemeSelector), profile fields, security/password section, contact support form, and admin tools header via settings namespace.' },
+      { type: 'improvement', description: 'Leave (Férias e licenças) sprint: translated guidelines, employee dashboard, application form/history, HR administration module, and admin create-leave modal via leave namespace.' },
+      { type: 'improvement', description: 'Team directory (Equipe) sprint: translated EmployeeDirectory cards, modals, export filters, role labels via tRole, and expanded employees namespace.' },
+      { type: 'improvement', description: 'Performance review (Desempenho) sprint: translated PerformanceReview page and review modules (employee/manager/HR, competency cards, attendance summary) via review namespace.' },
+      { type: 'improvement', description: 'Organization sprint: translated Organization page chrome, modals/toasts, OrgStructure, and expanded org namespace.' },
+      { type: 'improvement', description: 'Reports sprint: translated Reports filters, presets, export sections, live preview sidebar, and toasts via reports namespace.' },
+      { type: 'improvement', description: 'Attendance sprint: translated punch screen (camera/location/actions/header) and logs filters/modals/toasts via attendance namespace; status codes via tStatus.' },
+      { type: 'improvement', description: 'Organization shift modal: wired remaining English labels (title SHIFT→Turno, fields, working-day pills Seg–Dom, default-shift hint) to org/common i18n.' },
+      { type: 'feature', description: 'Completed i18n pt-BR sprints: auth (register/verify/reset/setup), attendance punch UI + location help, org tabs, leave/review leftovers, Upgrade + SuperAdmin, marketing/public pages; seeds (competencies/ratings/offices) in Portuguese; SearchDialog type labels via common.' },
       { type: 'fix', description: 'Fixed migration 0007 attendance_update RLS comparing text employee_id to uuid auth.uid() without cast, which aborted local supabase start before migration 0008 could run.' },
       { type: 'fix', description: 'Migration 0009 now creates pg_cron when available and schedules cleanup jobs conditionally so local Supabase can boot without a pre-enabled cron schema.' },
       { type: 'improvement', description: 'Added migration 0016 granting Data API privileges to anon/authenticated/service_role for local Supabase where auto_expose_new_tables is disabled.' },
