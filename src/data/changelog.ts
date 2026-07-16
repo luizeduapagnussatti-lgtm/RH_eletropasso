@@ -25,6 +25,7 @@ export const changelog: ChangelogRelease[] = [
       { type: 'feature', description: 'Sprint 5: SICK leave medical certificate attachment/CID; org ptrp_policy settings; payroll CSV + eSocial stub export; Reports TIMESHEET type.' },
       { type: 'feature', description: 'Migration 0021: equipments + employee_epis (NR-6 EPI sheet) and payroll_consolidations (monthly pre-payroll hour snapshot) with org/role RLS.' },
       { type: 'feature', description: 'Migration 0022: per-weekday day_schedules on shifts (Saturday half-day 08:00–11:45) with PTRP calc + Organization UI.' },
+      { type: 'fix', description: 'Team create/update: empty leader selection is sent as null instead of "" (fixes invalid UUID syntax error).' },
     ],
   },
   {
