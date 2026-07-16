@@ -163,6 +163,9 @@ export interface LeaveRequest {
   approverRemarks?: string;
   managerRemarks?: string;
   organizationId?: string;
+  attachmentPath?: string;
+  cid?: string;
+  certificateValidUntil?: string;
 }
 
 export interface LeaveBalance {
@@ -246,9 +249,28 @@ export interface Tutorial {
   updated: string;
 }
 
+export type ShiftWeekday =
+  | 'Monday'
+  | 'Tuesday'
+  | 'Wednesday'
+  | 'Thursday'
+  | 'Friday'
+  | 'Saturday'
+  | 'Sunday';
+
+/** Per-weekday override of base shift times (e.g. Saturday half-day). */
+export interface ShiftDaySchedule {
+  startTime: string;
+  endTime: string;
+  breakDurationMinutes?: number;
+  expectedDailyMinutes?: number;
+}
+
 export interface Shift {
   id: string;
   name: string;
+  code?: string;
+  scheduleType?: 'FIXED' | 'FLEXIBLE' | 'SHIFT_12X36' | 'SCALE';
   startTime: string;
   endTime: string;
   lateGracePeriod: number;
@@ -257,6 +279,18 @@ export interface Shift {
   autoSessionCloseTime: string;
   workingDays: string[];
   isDefault: boolean;
+  breakDurationMinutes?: number;
+  breakFlexible?: boolean;
+  breakEarliestStart?: string;
+  breakLatestEnd?: string;
+  expectedDailyMinutes?: number;
+  expectedWeeklyMinutes?: number;
+  nightStart?: string;
+  nightEnd?: string;
+  overtimeToBank?: boolean;
+  active?: boolean;
+  /** Overrides keyed by weekday name (Monday…Sunday). Missing days use base times. */
+  daySchedules?: Partial<Record<ShiftWeekday, ShiftDaySchedule>>;
 }
 
 export interface ShiftOverride {
@@ -266,6 +300,90 @@ export interface ShiftOverride {
   startDate: string;
   endDate: string;
   reason: string;
+  organizationId?: string;
+}
+
+export type PunchDirection = 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'UNKNOWN';
+export type PunchSource = 'CLOCK' | 'MANUAL' | 'IMPORT' | 'SYSTEM';
+
+export interface Punch {
+  id: string;
+  organizationId?: string;
+  employeeId: string;
+  punchedAt: string;
+  direction: PunchDirection;
+  source: PunchSource;
+  deviceId?: string;
+  nsr?: string;
+  rawPayload?: Record<string, unknown>;
+  timesheetDayId?: string;
+}
+
+export type TimesheetPeriodStatus = 'OPEN' | 'IN_REVIEW' | 'APPROVED' | 'LOCKED';
+
+export interface TimesheetPeriod {
+  id: string;
+  organizationId: string;
+  year: number;
+  month: number;
+  startDate: string;
+  endDate: string;
+  status: TimesheetPeriodStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+}
+
+export type TimesheetDayStatus = 'OK' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'INCOMPLETE' | 'ADJUSTED';
+
+export interface TimesheetDay {
+  id: string;
+  organizationId: string;
+  periodId: string;
+  employeeId: string;
+  workDate: string;
+  shiftId?: string;
+  expectedMinutes: number;
+  workedMinutes: number;
+  breakMinutes: number;
+  lateMinutes: number;
+  earlyOutMinutes: number;
+  overtimeMinutes: number;
+  nightMinutes: number;
+  absenceMinutes: number;
+  status: TimesheetDayStatus;
+  leaveRequestId?: string;
+  firstPunchAt?: string;
+  lastPunchAt?: string;
+  calcVersion: number;
+  manualAdjustment?: Record<string, unknown>;
+  employeeAck: boolean;
+  managerAck: boolean;
+  remarks?: string;
+}
+
+export type HourBankEntryType = 'OT_CREDIT' | 'ABSENCE_DEBIT' | 'COMPENSATION' | 'MANUAL' | 'PERIOD_CLOSE';
+
+export interface HourBankLedgerEntry {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  entryDate: string;
+  minutesDelta: number;
+  entryType: HourBankEntryType;
+  timesheetDayId?: string;
+  periodId?: string;
+  balanceAfter?: number;
+  createdBy?: string;
+  notes?: string;
+  created?: string;
+}
+
+export interface PtrpPolicy {
+  bankEnabled: boolean;
+  periodStartDay: number;
+  weeklyOtThresholdMinutes: number;
+  defaultBreakMinutes: number;
 }
 
 export interface AppConfig {
@@ -283,6 +401,7 @@ export interface AppConfig {
   defaultReportRecipient?: string;
   smtp?: RelayConfig;
   overtimeEnabled?: boolean;
+  ptrpPolicy?: PtrpPolicy;
   autoAbsentEnabled?: boolean;
   autoAbsentTime?: string; // HH:mm
   officeLocations?: OfficeLocation[];

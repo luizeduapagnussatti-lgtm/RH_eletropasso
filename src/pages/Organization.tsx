@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { hrService } from '../services/hrService';
-import { Holiday, Team, OfficeLocation, LeaveWorkflow, Shift, ShiftOverride, CustomLeaveType } from '../types';
+import { Holiday, Team, OfficeLocation, LeaveWorkflow, Shift, ShiftOverride, CustomLeaveType, ShiftWeekday, ShiftDaySchedule } from '../types';
 import { useSubscription } from '../context/SubscriptionContext';
 import { useToast } from '../context/ToastContext';
 
@@ -87,6 +87,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
     expectedDailyMinutes: 480, expectedWeeklyMinutes: 2640,
     nightStart: '22:00', nightEnd: '05:00',
     overtimeToBank: true, active: true,
+    daySchedules: {},
   };
   const [shiftForm, setShiftForm] = useState<Partial<Shift>>(defaultShiftForm);
   const [shiftOverrideForm, setShiftOverrideForm] = useState({ employeeId: '', shiftId: '', startDate: '', endDate: '', reason: '' });
@@ -529,9 +530,15 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                           type="button"
                           onClick={() => {
                             const days = shiftForm.workingDays || [];
+                            const nextDays = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
+                            const nextSchedules = { ...(shiftForm.daySchedules || {}) };
+                            if (!nextDays.includes(day)) {
+                              delete nextSchedules[day];
+                            }
                             setShiftForm({
                               ...shiftForm,
-                              workingDays: days.includes(day) ? days.filter(d => d !== day) : [...days, day]
+                              workingDays: nextDays,
+                              daySchedules: nextSchedules,
                             });
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${(shiftForm.workingDays || []).includes(day) ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
@@ -541,6 +548,138 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                       ))}
                     </div>
                   </div>
+                  {(shiftForm.workingDays || []).length > 0 && (
+                    <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase">{t('daySchedules')}</p>
+                        <p className="text-[10px] text-slate-500 mt-1">{t('daySchedulesHint')}</p>
+                      </div>
+                      {(shiftForm.workingDays || []).map((day) => {
+                        const weekday = day as ShiftWeekday;
+                        const override = shiftForm.daySchedules?.[weekday];
+                        const useCustom = !!override;
+                        const saturdayDefaults: ShiftDaySchedule = {
+                          startTime: '08:00',
+                          endTime: '11:45',
+                          breakDurationMinutes: 0,
+                          expectedDailyMinutes: 225,
+                        };
+                        return (
+                          <div key={day} className="p-3 bg-white border border-slate-100 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-slate-700">
+                                {tCommon(`weekdaysShort.${day.toLowerCase()}`)}
+                              </span>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!useCustom}
+                                  onChange={(e) => {
+                                    const next = { ...(shiftForm.daySchedules || {}) };
+                                    if (e.target.checked) {
+                                      delete next[weekday];
+                                    } else {
+                                      next[weekday] = weekday === 'Saturday'
+                                        ? saturdayDefaults
+                                        : {
+                                            startTime: shiftForm.startTime || '09:00',
+                                            endTime: shiftForm.endTime || '18:00',
+                                            breakDurationMinutes: shiftForm.breakDurationMinutes ?? 90,
+                                            expectedDailyMinutes: shiftForm.expectedDailyMinutes ?? 480,
+                                          };
+                                    }
+                                    setShiftForm({ ...shiftForm, daySchedules: next });
+                                  }}
+                                  className="w-4 h-4 accent-primary"
+                                />
+                                <span className="text-[10px] font-semibold text-slate-500">{t('useDefaultSchedule')}</span>
+                              </label>
+                            </div>
+                            {useCustom && override && (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-slate-400 uppercase px-1">{t('dayOverrideStart')}</label>
+                                  <input
+                                    type="time"
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                                    value={override.startTime}
+                                    onChange={(e) => {
+                                      setShiftForm({
+                                        ...shiftForm,
+                                        daySchedules: {
+                                          ...(shiftForm.daySchedules || {}),
+                                          [weekday]: { ...override, startTime: e.target.value },
+                                        },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-slate-400 uppercase px-1">{t('dayOverrideEnd')}</label>
+                                  <input
+                                    type="time"
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                                    value={override.endTime}
+                                    onChange={(e) => {
+                                      setShiftForm({
+                                        ...shiftForm,
+                                        daySchedules: {
+                                          ...(shiftForm.daySchedules || {}),
+                                          [weekday]: { ...override, endTime: e.target.value },
+                                        },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-slate-400 uppercase px-1">{t('breakDurationMin')}</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                                    value={override.breakDurationMinutes ?? 0}
+                                    onChange={(e) => {
+                                      setShiftForm({
+                                        ...shiftForm,
+                                        daySchedules: {
+                                          ...(shiftForm.daySchedules || {}),
+                                          [weekday]: {
+                                            ...override,
+                                            breakDurationMinutes: parseInt(e.target.value) || 0,
+                                          },
+                                        },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-slate-400 uppercase px-1">{t('expectedDailyMin')}</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                                    value={override.expectedDailyMinutes ?? 0}
+                                    onChange={(e) => {
+                                      setShiftForm({
+                                        ...shiftForm,
+                                        daySchedules: {
+                                          ...(shiftForm.daySchedules || {}),
+                                          [weekday]: {
+                                            ...override,
+                                            expectedDailyMinutes: parseInt(e.target.value) || 0,
+                                          },
+                                        },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   <label className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100 cursor-pointer">
                     <input type="checkbox" checked={shiftForm.isDefault || false} onChange={e => setShiftForm({...shiftForm, isDefault: e.target.checked})} className="w-4 h-4 accent-amber-500" />
                     <span className="text-xs font-bold text-amber-700">{t('defaultShiftHint')}</span>
