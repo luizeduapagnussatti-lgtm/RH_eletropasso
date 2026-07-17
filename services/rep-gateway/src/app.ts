@@ -10,7 +10,7 @@ import { normalizeIp } from './config.js';
 import { forwardPunches } from './ingest/client.js';
 import { normalizeCapture } from './protocol/normalize.js';
 import { ReplayGuard } from './security/replay.js';
-import { encryptRsaProbe, evaluateRequestSignature } from './security/rsa.js';
+import { encryptRsaProbeVariant, evaluateRequestSignature } from './security/rsa.js';
 import type { QuarantineStore } from './storage/quarantine.js';
 import type { CapturedRequest, SanitizedHeaders } from './types.js';
 
@@ -40,7 +40,7 @@ export function createApp(dependencies: AppDependencies) {
     processingFailures: 0,
   };
   let rsaProbeIndex = 0;
-  let lastRsaProbe: { index: number; plaintextHex: string } | null = null;
+  let lastRsaProbe: { index: number; plaintextHex: string; variant: string } | null = null;
   app.disable('x-powered-by');
   app.set('trust proxy', false);
 
@@ -122,6 +122,7 @@ export function createApp(dependencies: AppDependencies) {
         {
           probeIndex: lastRsaProbe.index,
           plaintextHex: lastRsaProbe.plaintextHex || 'empty',
+          variant: lastRsaProbe.variant,
           command: firstQueryValue(req.query.command),
           deviceError: firstQueryValue(req.query.error),
         },
@@ -141,24 +142,34 @@ export function createApp(dependencies: AppDependencies) {
 
     // ACK before downstream work: the REP must not retry because Supabase is slow.
     try {
-      let probe: { index: number; plaintextHex: string } | null = null;
+      let probe: { index: number; plaintextHex: string; variant: string } | null = null;
       if (config.ack.mode === 'rsa-pkcs1-probe' && req.path === '/v1/identification') {
         const candidates =
           config.ack.rsaProbeHexCandidates.length > 0
             ? config.ack.rsaProbeHexCandidates
             : [config.ack.rsaPlaintextHex];
-        const index = rsaProbeIndex % candidates.length;
-        probe = { index, plaintextHex: candidates[index] ?? '' };
+        const variants =
+          config.ack.rsaProbeVariants.length > 0
+            ? config.ack.rsaProbeVariants
+            : ['pkcs1-binary'];
+        const combinations = candidates.length * variants.length;
+        const index = rsaProbeIndex % combinations;
+        probe = {
+          index,
+          plaintextHex: candidates[index % candidates.length] ?? '',
+          variant: variants[Math.floor(index / candidates.length)] ?? 'pkcs1-binary',
+        };
         rsaProbeIndex++;
         lastRsaProbe = probe;
       }
-      const ackBody = buildAckBody(req.path, config, probe?.plaintextHex);
+      const ackBody = buildAckBody(req.path, config, probe?.plaintextHex, probe?.variant);
       res.status(config.ack.status).type(config.ack.contentType).send(ackBody);
       if (probe) {
         logger.info(
           {
             probeIndex: probe.index,
             plaintextHex: probe.plaintextHex || 'empty',
+            variant: probe.variant,
             cipherBytes: Buffer.isBuffer(ackBody) ? ackBody.length : 0,
           },
           'REP RSA probe sent',
@@ -298,6 +309,7 @@ function buildAckBody(
   pathname: string,
   config: GatewayConfig,
   probePlaintextHex?: string,
+  probeVariant = 'pkcs1-binary',
 ): string | Buffer {
   if (config.ack.mode === 'plain' || pathname !== '/v1/identification') {
     return config.ack.body;
@@ -305,9 +317,10 @@ function buildAckBody(
   if (!config.security.modulusHex) {
     throw new Error('RSA modulus is required for encrypted ACK probe');
   }
-  return encryptRsaProbe(
+  return encryptRsaProbeVariant(
     Buffer.from(probePlaintextHex ?? config.ack.rsaPlaintextHex, 'hex'),
     config.security.modulusHex,
     config.security.exponentHex,
+    probeVariant,
   );
 }

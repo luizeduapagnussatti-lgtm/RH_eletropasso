@@ -23,6 +23,7 @@ const configSchema = z.object({
   REP_ACK_MODE: z.enum(['plain', 'rsa-pkcs1-probe']).default('plain'),
   REP_ACK_RSA_PLAINTEXT_HEX: z.string().regex(/^(?:[0-9a-fA-F]{2})*$/).default(''),
   REP_ACK_RSA_PROBE_HEX_CANDIDATES: z.string().default('empty'),
+  REP_ACK_RSA_PROBE_VARIANTS: z.string().default('pkcs1-binary'),
   REP_SECURITY_MODE: z.enum(['discovery', 'verify']).default('discovery'),
   REP_RSA_MODULUS_HEX: z.string().regex(/^[0-9a-fA-F]+$/).optional(),
   REP_RSA_EXPONENT_HEX: z.string().regex(/^[0-9a-fA-F]+$/).default('010001'),
@@ -60,6 +61,7 @@ export type GatewayConfig = {
     mode: 'plain' | 'rsa-pkcs1-probe';
     rsaPlaintextHex: string;
     rsaProbeHexCandidates: string[];
+    rsaProbeVariants: string[];
   };
   security: {
     mode: 'discovery' | 'verify';
@@ -131,6 +133,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
         .map((candidate) => candidate.trim())
         .map((candidate) => (candidate === 'empty' ? '' : candidate))
         .filter((candidate) => /^(?:[0-9a-fA-F]{2})*$/.test(candidate)),
+      rsaProbeVariants: parsed.REP_ACK_RSA_PROBE_VARIANTS.split(',')
+        .map((variant) => variant.trim())
+        .filter(Boolean),
     },
     security: {
       mode: parsed.REP_SECURITY_MODE,

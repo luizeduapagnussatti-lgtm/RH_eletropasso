@@ -77,6 +77,47 @@ export function encryptRsaProbe(
   );
 }
 
+export function encryptRsaProbeVariant(
+  plaintext: Buffer,
+  modulusHex: string,
+  exponentHex: string,
+  variant: string,
+): Buffer {
+  const [scheme, encoding = 'binary'] = variant.split('-');
+  const key = createRsaPublicKey(modulusHex, exponentHex);
+  const modulusBytes = modulusHex.length / 2;
+  let input = plaintext;
+  let options: Parameters<typeof publicEncrypt>[0] = {
+    key,
+    padding: constants.RSA_PKCS1_PADDING,
+  };
+
+  if (scheme === 'oaep1') {
+    options = { key, padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha1' };
+  } else if (scheme === 'oaep256') {
+    options = { key, padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' };
+  } else if (scheme === 'nopadleft') {
+    input = Buffer.concat([Buffer.alloc(modulusBytes - plaintext.length), plaintext]);
+    options = { key, padding: constants.RSA_NO_PADDING };
+  } else if (scheme === 'nopadright') {
+    input = Buffer.concat([
+      Buffer.from([0]),
+      plaintext,
+      Buffer.alloc(modulusBytes - plaintext.length - 1),
+    ]);
+    options = { key, padding: constants.RSA_NO_PADDING };
+  } else if (scheme !== 'pkcs1' && scheme !== 'pkcs1rev') {
+    throw new Error(`Unsupported RSA probe variant: ${variant}`);
+  }
+
+  let ciphertext = publicEncrypt(options, input);
+  if (scheme === 'pkcs1rev') ciphertext = Buffer.from(ciphertext).reverse();
+  if (encoding === 'hex') return Buffer.from(ciphertext.toString('hex'), 'ascii');
+  if (encoding === 'base64') return Buffer.from(ciphertext.toString('base64'), 'ascii');
+  if (encoding !== 'binary') throw new Error(`Unsupported RSA probe encoding: ${encoding}`);
+  return ciphertext;
+}
+
 export function evaluateRequestSignature(
   body: Buffer,
   headers: Record<string, unknown>,

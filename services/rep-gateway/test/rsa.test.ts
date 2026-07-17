@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import {
   createRsaPublicKey,
   encryptRsaProbe,
+  encryptRsaProbeVariant,
   verifyRsaSignature,
 } from '../src/security/rsa.js';
 
@@ -83,5 +84,31 @@ describe('RSA security primitives', () => {
       encrypted,
     );
     assert.equal(decrypted.length, 0);
+  });
+
+  it('encodes discovery variants without changing the safe command frame', () => {
+    const frame = Buffer.from('f8a170010000d0f0', 'hex');
+    const binary = encryptRsaProbeVariant(
+      frame,
+      ACTIVE_PRINTPOINT_MODULUS,
+      '010001',
+      'pkcs1-binary',
+    );
+    const hex = encryptRsaProbeVariant(
+      frame,
+      ACTIVE_PRINTPOINT_MODULUS,
+      '010001',
+      'pkcs1-hex',
+    );
+    const base64 = encryptRsaProbeVariant(
+      frame,
+      ACTIVE_PRINTPOINT_MODULUS,
+      '010001',
+      'pkcs1-base64',
+    );
+    assert.equal(binary.length, 128);
+    assert.equal(hex.length, 256);
+    assert.equal(base64.length, 172);
+    assert.match(hex.toString('ascii'), /^[0-9a-f]{256}$/);
   });
 });

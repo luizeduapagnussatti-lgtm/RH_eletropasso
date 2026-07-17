@@ -115,6 +115,11 @@ Os resultados da captura controlada de 2026-07-16 estão em
 comprovado; o encaminhamento deve permanecer desligado até obter documentação
 Client Rest/SDK da DIMEP ou uma captura homologada.
 
+A captura também mostrou que Client Rest é um fluxo de polling: o REP chama
+`/v1/identification`, recebe um comando de coleta e só então envia registros.
+Ele não publica diretamente cada batida sem que o servidor domine esse
+handshake proprietário.
+
 ## Encaminhamento ao RH
 
 Depois de comprovado o protocolo:

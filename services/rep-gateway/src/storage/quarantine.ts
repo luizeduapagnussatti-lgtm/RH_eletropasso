@@ -49,8 +49,12 @@ export class FileQuarantineStore implements QuarantineStore {
       for (const file of files) {
         if (!file.isFile() || !file.name.endsWith('.json')) continue;
         const filePath = path.join(dayDir, file.name);
-        const fileStat = await stat(filePath);
-        metadata.push({ path: filePath, mtimeMs: fileStat.mtimeMs });
+        try {
+          const fileStat = await stat(filePath);
+          metadata.push({ path: filePath, mtimeMs: fileStat.mtimeMs });
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
       }
     }
 
