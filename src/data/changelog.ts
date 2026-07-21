@@ -15,11 +15,22 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-21',
+    title: 'Integração DMPREP — importação de batidas (Opção B)',
+    entries: [
+      { type: 'feature', description: 'Novo serviço dmprep-sync: lê MOVIMENT.txt do DMP REP via SMB, parseia linhas de 28 caracteres (PIS 12 dígitos + data/hora) e encaminha lotes para ingest-punches com cursor persistente e idempotência por NSR.' },
+      { type: 'improvement', description: 'ingest-punches resolve funcionário por matrícula ou PIS (11/12 dígitos, zero-padding) para compatibilizar credenciais do relógio DIMEP com profiles.employee_id.' },
+      { type: 'feature', description: 'Script import-dmprep-employees.mjs: importa funcionários do DIMEP.MDB para profiles Supabase (employee_id = PIS 12 dígitos, e-mail rep.{pis}@import.eletropasso.local).' },
+      { type: 'improvement', description: 'Plano PrintPoint III atualizado: produção via dmprep-sync (Opção B); Client Rest congelado até spec DIMEP.' },
+    ],
+  },
+  {
     date: '2026-07-16',
     title: 'PTRP Portaria 671 — jornada, punches, espelho e export',
     entries: [
       { type: 'security', description: 'Isolated PrintPoint III gateway captures raw Client Rest bytes with retention, source controls, sanitized logs, and blocks RSA promotion until the proprietary protocol is proven.' },
       { type: 'feature', description: 'Punch ingestion now binds organization and REP serial, validates employees, rejects replay/duplicates, and queues asynchronous timesheet recalculation.' },
+      { type: 'security', description: 'REP discovery: an RSA probe matrix (PKCS#1, OAEP-SHA1/256, no-padding, hex/base64) and the DIMEP 0x70 frame confirmed the proprietary handshake is still unproven; forwarding and verify stay disabled and a firewall script restricts port 3002 to the clock IP.' },
       { type: 'improvement', description: 'Login database indicator now performs a real Supabase Auth health check on load, every 30 seconds, and on browser online/offline events; shows checking, connected, or unavailable states.' },
       { type: 'feature', description: 'Sprint 1: extended shifts (break, daily/weekly load, night window, overtime-to-bank) and persisted shift_overrides in Supabase (migrations 0017).' },
       { type: 'feature', description: 'Sprint 2: punches table + ingest-punches Edge Function + punch.service; raw punches panel in Attendance Audit.' },

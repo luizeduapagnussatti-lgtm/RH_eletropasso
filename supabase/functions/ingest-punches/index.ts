@@ -97,21 +97,28 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // A clock identifier must resolve to exactly one employee in this tenant.
-  const employeeIds = [...new Set(rows.map((row) => String(row.employee_id)))];
+  // A clock credential must resolve to exactly one employee in this tenant.
+  const incomingIds = [...new Set(rows.map((row) => String(row.employee_id)))];
   const { data: profiles, error: profileError } = await admin
     .from('profiles')
     .select('id,employee_id')
-    .eq('organization_id', organizationId)
-    .in('employee_id', employeeIds);
+    .eq('organization_id', organizationId);
   if (profileError) return json(500, { error: 'Employee validation failed' });
 
-  const profileCounts = new Map<string, number>();
-  for (const profile of profiles ?? []) {
-    const employeeId = String(profile.employee_id || '');
-    profileCounts.set(employeeId, (profileCounts.get(employeeId) ?? 0) + 1);
+  const canonicalByCredential = buildEmployeeCredentialIndex(profiles ?? []);
+  const unresolved: string[] = [];
+  for (const incomingId of incomingIds) {
+    const canonical = resolveEmployeeId(incomingId, canonicalByCredential);
+    if (!canonical) {
+      unresolved.push(incomingId);
+      continue;
+    }
+    for (const row of rows) {
+      if (String(row.employee_id) === incomingId) {
+        row.employee_id = canonical;
+      }
+    }
   }
-  const unresolved = employeeIds.filter((id) => profileCounts.get(id) !== 1);
   if (unresolved.length > 0) {
     return json(422, { error: 'Unknown or ambiguous employee identifier', employeeIds: unresolved });
   }
@@ -200,6 +207,49 @@ function saoPauloDate(timestamp: string): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date(timestamp));
+}
+
+function buildEmployeeCredentialIndex(
+  profiles: Array<{ employee_id: string | null }>,
+): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const profile of profiles) {
+    const canonical = String(profile.employee_id || '').trim();
+    if (!canonical) continue;
+    for (const key of credentialLookupKeys(canonical)) {
+      const existing = index.get(key);
+      if (existing && existing !== canonical) {
+        index.set(key, '__AMBIGUOUS__');
+      } else {
+        index.set(key, canonical);
+      }
+    }
+  }
+  return index;
+}
+
+function resolveEmployeeId(
+  incomingId: string,
+  index: Map<string, string>,
+): string | null {
+  const matches = new Set<string>();
+  for (const key of credentialLookupKeys(incomingId)) {
+    const canonical = index.get(key);
+    if (!canonical || canonical === '__AMBIGUOUS__') continue;
+    matches.add(canonical);
+  }
+  return matches.size === 1 ? [...matches][0]! : null;
+}
+
+function credentialLookupKeys(value: string): string[] {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return [value.trim()];
+  const keys = new Set<string>([value.trim(), digits]);
+  keys.add(digits.padStart(11, '0'));
+  keys.add(digits.padStart(12, '0'));
+  if (digits.length === 12 && digits.startsWith('0')) keys.add(digits.slice(1));
+  if (digits.length === 11) keys.add(`0${digits}`);
+  return [...keys];
 }
 
 function sanitizeRawPayload(raw: unknown): Record<string, unknown> | null {

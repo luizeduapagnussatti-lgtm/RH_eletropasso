@@ -90,6 +90,20 @@ só o aceita quando a URL também contém o serial esperado. Como o NAT elimina
 o IP original dentro do container, a regra do Firewall do Windows por
 `remoteip=192.168.15.201` continua obrigatória para bloquear outros hosts LAN.
 
+## Firewall (executar como Administrador)
+
+A restrição de borda por IP exige elevação e não pode ser aplicada pelo
+processo do agente. Rode uma vez, em um PowerShell como Administrador:
+
+```powershell
+cd C:\xampp\htdocs\RH_eletropasso\services\rep-gateway\scripts
+powershell -ExecutionPolicy Bypass -File .\apply-firewall.ps1
+```
+
+O script libera a porta `3002` apenas para `192.168.15.201` e bloqueia os
+demais hosts. É defesa em profundidade: o vínculo por serial no gateway
+permanece ativo mesmo antes de aplicar a regra.
+
 ## RSA
 
 O módulo/expoente é importado como JWK por `src/security/rsa.ts`. A função

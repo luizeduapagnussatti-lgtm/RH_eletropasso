@@ -73,6 +73,32 @@ vazio para a série/identificador de teste, indicando que o equipamento não est
 provisionado numa conta Kairos que permita usar o servidor oficial como
 oráculo controlado.
 
+## Verificação da descrição de protocolo apresentada (2026-07-17)
+
+Foi avaliada uma descrição que afirmava: padding RSA **OAEP com SHA-256**,
+corpo **JSON UTF-8** (`Content-Type: application/json`), comandos como
+`{"cmd":"set_usuario",...}` e ACK HTTP `200` com
+`{"status":"success","message":"ACK_RECEIVED"}`. Confronto com evidência
+primária (manual `Manual_Operacao_SmartPoint_B.pdf` e as capturas reais):
+
+- **OAEP/SHA-256:** não comprovado e contrariado na prática — todas as variantes
+  (PKCS#1 v1.5, OAEP-SHA1, OAEP-SHA256, sem padding, ciphertext invertido, hex e
+  Base64) foram recusadas com `error=1`. O manual (p. 119) descreve RSA para
+  recuperar uma chave de sessão **AES**, sem especificar padding/hash.
+- **JSON UTF-8:** contrariado — o PrintPoint III envia
+  `application/octet-stream` com corpo vazio em `/v1/identification` e
+  `/v1/confirmcommand`.
+- **`{"cmd":...}`:** não comprovado — o manual cita operações de funcionário
+  (pp. 120–121) mas não nomes de comando nem esquema JSON.
+- **ACK `ACK_RECEIVED`:** contrariado como fluxo — a confirmação observada é
+  `POST /v1/confirmcommand?...&command=0&error=1`, corpo vazio.
+
+Ressalva: o PDF é do **SmartPoint/SmartPoint-Pro** (revisão 2019), não do
+PrintPoint III firmware `03.00.0028`. Ele confirma conceitos gerais (existência
+do modo Client Rest, uso de RSA para negociar chave AES) mas não é especificação
+normativa deste firmware. A descrição analisada aparenta texto genérico; tratá-la
+como documentação oficial apresenta alto risco.
+
 ## Conclusão técnica
 
 Ainda faltam evidências do protocolo proprietário:

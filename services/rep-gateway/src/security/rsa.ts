@@ -84,7 +84,11 @@ export function encryptRsaProbeVariant(
   variant: string,
 ): Buffer {
   const [scheme, encoding = 'binary'] = variant.split('-');
-  const key = createRsaPublicKey(modulusHex, exponentHex);
+  const littleEndianModulus = scheme?.includes('le') ?? false;
+  const effectiveModulusHex = littleEndianModulus
+    ? Buffer.from(modulusHex, 'hex').reverse().toString('hex')
+    : modulusHex;
+  const key = createRsaPublicKey(effectiveModulusHex, exponentHex);
   const modulusBytes = modulusHex.length / 2;
   let input = plaintext;
   let options: Parameters<typeof publicEncrypt>[0] = {
@@ -92,9 +96,9 @@ export function encryptRsaProbeVariant(
     padding: constants.RSA_PKCS1_PADDING,
   };
 
-  if (scheme === 'oaep1') {
+  if (scheme === 'oaep1' || scheme === 'oaep1le') {
     options = { key, padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha1' };
-  } else if (scheme === 'oaep256') {
+  } else if (scheme === 'oaep256' || scheme === 'oaep256le') {
     options = { key, padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' };
   } else if (scheme === 'nopadleft') {
     input = Buffer.concat([Buffer.alloc(modulusBytes - plaintext.length), plaintext]);
@@ -106,12 +110,19 @@ export function encryptRsaProbeVariant(
       Buffer.alloc(modulusBytes - plaintext.length - 1),
     ]);
     options = { key, padding: constants.RSA_NO_PADDING };
-  } else if (scheme !== 'pkcs1' && scheme !== 'pkcs1rev') {
+  } else if (
+    scheme !== 'pkcs1'
+    && scheme !== 'pkcs1rev'
+    && scheme !== 'pkcs1le'
+    && scheme !== 'pkcs1lerev'
+  ) {
     throw new Error(`Unsupported RSA probe variant: ${variant}`);
   }
 
   let ciphertext = publicEncrypt(options, input);
-  if (scheme === 'pkcs1rev') ciphertext = Buffer.from(ciphertext).reverse();
+  if (scheme === 'pkcs1rev' || scheme === 'pkcs1lerev') {
+    ciphertext = Buffer.from(ciphertext).reverse();
+  }
   if (encoding === 'hex') return Buffer.from(ciphertext.toString('hex'), 'ascii');
   if (encoding === 'base64') return Buffer.from(ciphertext.toString('base64'), 'ascii');
   if (encoding !== 'binary') throw new Error(`Unsupported RSA probe encoding: ${encoding}`);
