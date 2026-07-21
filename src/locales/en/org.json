@@ -209,5 +209,20 @@
   "quietStartTime": "Start time",
   "quietEndTime": "End time",
   "saveNotificationSettings": "Save notification settings",
-  "notificationSaveFailed": "Failed to save notification config."
+  "notificationSaveFailed": "Failed to save notification config.",
+  "dmprepSync": {
+    "title": "DMPREP sync",
+    "description": "Imports new employees from DIMEP.MDB and recent punches from MOVIMENT.txt into OpenHR. The background service also runs every hour (punches occur at roughly four times per day).",
+    "note": "Imports use email rep.{pis}@import.eletropasso.local. New clock users must still exist in DMPREP; deactivating someone in OpenHR does not remove biometrics from the clock automatically.",
+    "syncAll": "Sync all",
+    "syncEmployees": "Import employees",
+    "syncPunches": "Import punches",
+    "syncing": "Syncing…",
+    "success": "Sync completed.",
+    "failed": "DMPREP sync failed.",
+    "busy": "A sync is already running. Try again shortly.",
+    "readOnly": "Subscription expired: sync is unavailable in read-only mode.",
+    "employeesResult": "Employees: {{created}} created, {{updated}} updated, {{failed}} failed",
+    "punchesResult": "Punches: {{newRecords}} new, {{inserted}} inserted, {{duplicates}} duplicates"
+  }
 }

@@ -5,11 +5,15 @@ import { leaveService } from './leave.service';
 import { organizationService } from './organization.service';
 import { verificationService } from './verification.service';
 import { shiftService } from './shift.service';
+import { punchService } from './punch.service';
+import { timesheetService } from './timesheet.service';
+import { hourBankService } from './hourBank.service';
 import { reviewService } from './review.service';
 import { announcementService } from './announcement.service';
 import { notificationService } from './notification.service';
 import { superAdminService } from './superadmin.service';
 import { apiClient } from './api.client';
+import { dmprepSyncService } from './dmprepSync.service';
 
 export const hrService = {
   subscribe: apiClient.subscribe.bind(apiClient),
@@ -84,6 +88,24 @@ export const hrService = {
   setShiftOverrides: shiftService.setShiftOverrides.bind(shiftService),
   resolveShiftForEmployee: shiftService.resolveShiftForEmployee.bind(shiftService),
 
+  // PTRP — punches / timesheet / hour bank
+  listPunches: punchService.listPunches,
+  createManualPunch: punchService.createManualPunch,
+  deletePunch: punchService.deletePunch,
+  getOrCreateTimesheetPeriod: timesheetService.getOrCreatePeriod,
+  listTimesheetPeriods: timesheetService.listPeriods,
+  setTimesheetPeriodStatus: timesheetService.setPeriodStatus,
+  listTimesheetDays: timesheetService.listDays,
+  recalculateTimesheetDay: timesheetService.recalculateDay,
+  recalculateTimesheetPeriod: timesheetService.recalculatePeriod,
+  acknowledgeTimesheetDay: timesheetService.acknowledgeDay,
+  applyTimesheetAdjustment: timesheetService.applyManualAdjustment,
+  exportTimesheetCsv: timesheetService.exportPeriodCsv,
+  generateEsocialStub: timesheetService.generateEsocialStub,
+  listHourBankEntries: hourBankService.listEntries,
+  getHourBankBalance: hourBankService.getBalance,
+  addHourBankEntry: hourBankService.addEntry,
+
   // Performance Reviews
   getReviewCycles: reviewService.getReviewCycles,
   createReviewCycle: reviewService.createReviewCycle,
@@ -134,4 +156,7 @@ export const hrService = {
   sendBulkEmail: superAdminService.sendBulkEmail.bind(superAdminService),
   getRecentBulkCampaigns: superAdminService.getRecentBulkCampaigns.bind(superAdminService),
   getBulkCampaignDetail: superAdminService.getBulkCampaignDetail.bind(superAdminService),
+
+  // DMPREP integration
+  triggerDmprepSync: dmprepSyncService.triggerSync,
 };

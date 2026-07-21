@@ -1,13 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
-import { Globe, Moon, MapPin, Upload, Building2, Tag } from 'lucide-react';
-import { AppConfig } from '../../types';
+import { useTranslation } from 'react-i18next';
+import { Globe, Moon, MapPin, Building2, Tag, Scale } from 'lucide-react';
+import { AppConfig, PtrpPolicy } from '../../types';
 import { COUNTRIES, getFlagEmoji } from '../../data/countries';
-import { TIMEZONE_OPTIONS } from '../../constants';
+import { TIMEZONE_OPTIONS, DEFAULT_PTRP_POLICY } from '../../constants';
 import { apiClient } from '../../services/api.client';
 import { supabase } from '../../services/supabase';
 import { convertFileToWebP } from '../../utils/imageConvert';
 import { useToast } from '../../context/ToastContext';
+import { DmprepSyncPanel } from './DmprepSyncPanel';
 
 interface Props {
   config: AppConfig;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
+  const { t } = useTranslation('org');
   const { showToast } = useToast();
   const [orgData, setOrgData] = useState({ name: '', country: 'BD', address: '', logo: '' });
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -49,15 +51,21 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
     onSave({ ...config, [key]: value });
   };
 
+  const ptrpPolicy: PtrpPolicy = config.ptrpPolicy ?? DEFAULT_PTRP_POLICY;
+
+  const handlePtrpChange = (key: keyof PtrpPolicy, value: boolean | number) => {
+    handleChange('ptrpPolicy', { ...ptrpPolicy, [key]: value });
+  };
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        showToast("Logo file size must be less than 2MB.", 'error');
+        showToast(t('logoSizeError'), 'error');
         return;
       }
       if (!file.type.startsWith('image/')) {
-        showToast("Logo must be an image file.", 'error');
+        showToast(t('logoTypeError'), 'error');
         return;
       }
       setLogoFile(file);
@@ -89,10 +97,10 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
         .update({ name: orgData.name, country: orgData.country, address: orgData.address, logo: logoPath })
         .eq('id', orgId);
       if (error) throw error;
-      showToast('Organization details updated successfully!', 'success');
+      showToast(t('orgUpdatedSuccess'), 'success');
     } catch (err) {
       console.error('Failed to update organization:', err);
-      showToast('Failed to update organization details.', 'error');
+      showToast(t('orgUpdateFailed'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -103,30 +111,30 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
       {/* Organization Identity Section */}
       <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
          <div className="flex items-center justify-between">
-           <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Building2 size={24} className="text-primary" /> Organization Identity</h3>
+           <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Building2 size={24} className="text-primary" /> {t('organizationIdentity')}</h3>
            <button
              onClick={handleOrgDataSave}
              disabled={isSaving}
              className="px-6 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover transition-all disabled:opacity-50"
            >
-             {isSaving ? 'Saving...' : 'Save Organization'}
+             {isSaving ? t('saving') : t('saveOrganization')}
            </button>
          </div>
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Organization Name</label>
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationName')}</label>
                <input
                  type="text"
                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none"
-                 placeholder="Enter organization name"
+                 placeholder={t('enterOrgName')}
                  value={orgData.name}
                  onChange={e => setOrgData({ ...orgData, name: e.target.value })}
                />
             </div>
 
             <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Country</label>
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('country')}</label>
                <select
                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-50 transition-all appearance-none"
                  value={orgData.country}
@@ -141,7 +149,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
             </div>
 
             <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Organization Logo</label>
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationLogo')}</label>
                <div className="flex gap-4 items-center">
                  <input
                    type="file"
@@ -150,19 +158,19 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
                    className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-blue-50 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
                  />
                  {logoPreview && (
-                   <img src={logoPreview} alt="Logo" className="h-12 w-12 object-contain rounded-xl border-2 border-blue-100" />
+                   <img src={logoPreview} alt={t('logoAlt')} className="h-12 w-12 object-contain rounded-xl border-2 border-blue-100" />
                  )}
                </div>
             </div>
 
             <div className="space-y-1 md:col-span-2">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Address</label>
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('address')}</label>
                <div className="relative">
                  <MapPin className="absolute left-5 top-5 text-slate-300" size={18} />
                  <textarea
                    className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-blue-50 transition-all resize-none"
                    rows={2}
-                   placeholder="Organization address"
+                   placeholder={t('orgAddressPlaceholder')}
                    value={orgData.address}
                    onChange={e => setOrgData({ ...orgData, address: e.target.value })}
                  />
@@ -173,10 +181,10 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
 
       {/* System Configuration Section */}
       <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
-         <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Globe size={24} className="text-primary" /> System Configuration</h3>
+         <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Globe size={24} className="text-primary" /> {t('systemConfiguration')}</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Timezone</label>
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('timezone')}</label>
                <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-50 transition-all" value={config.timezone} onChange={e => handleChange('timezone', e.target.value)}>
                   {TIMEZONE_OPTIONS.map(group => (
                     <optgroup key={group.group} label={group.group}>
@@ -188,7 +196,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
                </select>
             </div>
             <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Currency</label>
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('currency')}</label>
                <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={config.currency} onChange={e => handleChange('currency', e.target.value)} />
             </div>
          </div>
@@ -196,36 +204,67 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
          <div className="pt-8 border-t border-slate-50">
              <div className="grid grid-cols-1 gap-6">
                <div className="space-y-4 p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                   <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2"><Moon size={16} className="text-indigo-500"/> Auto-Absent Automation</h4>
+                   <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2"><Moon size={16} className="text-indigo-500"/> {t('autoAbsentAutomation')}</h4>
                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500">Enable Feature</span>
+                      <span className="text-[10px] font-bold text-slate-500">{t('enableFeature')}</span>
                       <input type="checkbox" className="w-5 h-5 accent-indigo-600 rounded-lg" checked={config.autoAbsentEnabled || false} onChange={e => handleChange('autoAbsentEnabled', e.target.checked)} />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Cutoff Time (End of Day)</label>
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">{t('cutoffTime')}</label>
                       <input type="time" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none" value={config.autoAbsentTime || '23:55'} onChange={e => handleChange('autoAbsentTime', e.target.value)} />
-                      <p className="text-[9px] text-slate-400 mt-1">If no punch found by this time, mark as ABSENT.</p>
+                      <p className="text-[9px] text-slate-400 mt-1">{t('autoAbsentHint')}</p>
                    </div>
                </div>
              </div>
          </div>
       </div>
 
-      {/* Duty Type Labels Section */}
+      {/* PTRP Policy Section */}
       <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
-         <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Tag size={24} className="text-primary" /> Duty Type Labels</h3>
-         <p className="text-xs text-slate-400 -mt-4">Customize the display names for your two duty types. Internal values remain unchanged.</p>
+         <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Scale size={24} className="text-primary" /> {t('ptrpPolicy')}</h3>
+         <p className="text-xs text-slate-400 -mt-4">{t('ptrpPolicyHint')}</p>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Duty Type 1 (e.g. Office, HQ, Remote)</label>
-               <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={config.dutyLabel1 || 'Office'} onChange={e => handleChange('dutyLabel1', e.target.value)} placeholder="Office" />
+            <div className="space-y-4 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 md:col-span-2">
+               <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500">{t('bankEnabled')}</span>
+                  <input type="checkbox" className="w-5 h-5 accent-primary rounded-lg" checked={ptrpPolicy.bankEnabled} onChange={e => handlePtrpChange('bankEnabled', e.target.checked)} />
+               </div>
             </div>
             <div className="space-y-1">
-               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Duty Type 2 (e.g. Factory, Field, On-site)</label>
-               <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={config.dutyLabel2 || 'Factory'} onChange={e => handleChange('dutyLabel2', e.target.value)} placeholder="Factory" />
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('periodStartDay')}</label>
+               <input type="number" min={1} max={28} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={ptrpPolicy.periodStartDay} onChange={e => handlePtrpChange('periodStartDay', Math.min(28, Math.max(1, Number(e.target.value) || 1)))} />
+               <p className="text-[9px] text-slate-400 mt-1 px-1">{t('periodStartDayHint')}</p>
+            </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('weeklyOtThresholdMinutes')}</label>
+               <input type="number" min={0} step={15} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={ptrpPolicy.weeklyOtThresholdMinutes} onChange={e => handlePtrpChange('weeklyOtThresholdMinutes', Math.max(0, Number(e.target.value) || 0))} />
+               <p className="text-[9px] text-slate-400 mt-1 px-1">{t('weeklyOtThresholdHint')}</p>
+            </div>
+            <div className="space-y-1 md:col-span-2">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('defaultBreakMinutes')}</label>
+               <input type="number" min={0} step={5} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={ptrpPolicy.defaultBreakMinutes} onChange={e => handlePtrpChange('defaultBreakMinutes', Math.max(0, Number(e.target.value) || 0))} />
+               <p className="text-[9px] text-slate-400 mt-1 px-1">{t('defaultBreakHint')}</p>
             </div>
          </div>
       </div>
+
+      {/* Duty Type Labels Section */}
+      <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
+         <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Tag size={24} className="text-primary" /> {t('dutyTypeLabels')}</h3>
+         <p className="text-xs text-slate-400 -mt-4">{t('dutyTypeLabelsHint')}</p>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('dutyType1')}</label>
+               <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={config.dutyLabel1 || t('dutyType1Placeholder')} onChange={e => handleChange('dutyLabel1', e.target.value)} placeholder={t('dutyType1Placeholder')} />
+            </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('dutyType2')}</label>
+               <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={config.dutyLabel2 || t('dutyType2Placeholder')} onChange={e => handleChange('dutyLabel2', e.target.value)} placeholder={t('dutyType2Placeholder')} />
+            </div>
+         </div>
+      </div>
+
+      <DmprepSyncPanel />
     </div>
   );
 };

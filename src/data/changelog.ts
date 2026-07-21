@@ -22,6 +22,9 @@ export const changelog: ChangelogRelease[] = [
       { type: 'improvement', description: 'ingest-punches resolve funcionário por matrícula ou PIS (11/12 dígitos, zero-padding) para compatibilizar credenciais do relógio DIMEP com profiles.employee_id.' },
       { type: 'feature', description: 'Script import-dmprep-employees.mjs: importa funcionários do DIMEP.MDB para profiles Supabase (employee_id = PIS 12 dígitos, e-mail rep.{pis}@import.eletropasso.local).' },
       { type: 'improvement', description: 'Plano PrintPoint III atualizado: produção via dmprep-sync (Opção B); Client Rest congelado até spec DIMEP.' },
+      { type: 'feature', description: 'Painel Organização → Sistema: botão “Sincronizar DMPREP” (cadastros + batidas) via Edge Function dmprep-sync e HTTP control plane do serviço dmprep-sync.' },
+      { type: 'improvement', description: 'Poll automático do dmprep-sync alterado para 1 h (batidas em ~4 momentos/dia); botão manual para sync imediato.' },
+      { type: 'feature', description: 'Checklist de admissão/desligamento DMPREP no Diretório da equipe, com cópia de PIS e passos para DMP REP + relógio.' },
     ],
   },
   {

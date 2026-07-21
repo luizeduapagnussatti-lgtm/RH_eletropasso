@@ -47,10 +47,22 @@ describe('sync loop', () => {
       nodeEnv: 'test',
       logLevel: 'silent',
       movimentPath: 'MOVIMENT.txt',
+      mdbPath: null,
       deviceSerial: DEVICE,
       pollIntervalMs: 60_000,
       statePath: path.join(tempDir, 'state.json'),
       batchSize: 100,
+      importTempPassword: 'TestImport123!',
+      http: {
+        enabled: false,
+        host: '127.0.0.1',
+        port: 3099,
+        apiKey: 'x'.repeat(32),
+      },
+      supabase: {
+        url: null,
+        serviceRoleKey: null,
+      },
       ingest: {
         url: 'http://example.test/ingest',
         apiKey: 'x'.repeat(32),

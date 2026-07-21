@@ -4,6 +4,8 @@ import { forwardPunches, toIngestPunch } from './ingest/client.js';
 import { parseMovimentFile } from './moviment.js';
 import { loadSyncState, saveSyncState, type SyncState } from './state.js';
 
+import { withSyncLock } from './syncLock.js';
+
 export interface SyncRunResult {
   scannedLines: number;
   newRecords: number;
@@ -109,31 +111,32 @@ export function startSyncLoop(
   deps: SyncDependencies = defaultDependencies,
 ): { stop: () => void } {
   let stopped = false;
-  let running = false;
 
   const tick = async () => {
-    if (stopped || running) return;
-    running = true;
-    try {
-      const result = await runSyncOnce(config, logger, deps);
-      if (!result.skipped) {
-        logger.info(result, 'DMPREP sync completed');
-      }
-    } catch (error) {
-      logger.error({ err: error }, 'DMPREP sync failed');
+    if (stopped) return;
+    const result = await withSyncLock(async () => {
       try {
-        const state = await loadSyncState(config.statePath);
-        await saveSyncState(config.statePath, {
-          ...state,
-          lastError: error instanceof Error ? error.message : String(error),
-          lastSyncAt: new Date().toISOString(),
-        });
-      } catch (stateError) {
-        logger.error({ err: stateError }, 'Failed to persist DMPREP sync error state');
+        const syncResult = await runSyncOnce(config, logger, deps);
+        if (!syncResult.skipped) {
+          logger.info(syncResult, 'DMPREP sync completed');
+        }
+        return syncResult;
+      } catch (error) {
+        logger.error({ err: error }, 'DMPREP sync failed');
+        try {
+          const state = await loadSyncState(config.statePath);
+          await saveSyncState(config.statePath, {
+            ...state,
+            lastError: error instanceof Error ? error.message : String(error),
+            lastSyncAt: new Date().toISOString(),
+          });
+        } catch (stateError) {
+          logger.error({ err: stateError }, 'Failed to persist DMPREP sync error state');
+        }
+        throw error;
       }
-    } finally {
-      running = false;
-    }
+    });
+    if (result && 'busy' in result && result.busy) return;
   };
 
   void tick();

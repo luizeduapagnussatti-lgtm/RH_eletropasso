@@ -64,7 +64,42 @@ Rodar como **serviço Windows** ou **tarefa agendada** no servidor
 `192.168.15.245` (ou no próprio `192.168.15.69`), com conta que tenha leitura
 SMB no caminho UNC do MOVIMENT.
 
-Intervalo padrão: **90 segundos** (`DMPREP_POLL_INTERVAL_MS=90000`).
+Intervalo padrão: **1 hora** (`DMPREP_POLL_INTERVAL_MS=3600000`).
+
+Como as batidas ocorrem em poucos momentos do dia (entrada, intervalo saída/retorno,
+saída), o poll longo reduz carga no servidor. Use o botão **Sincronizar DMPREP**
+no OpenHR quando precisar de atualização imediata. Máximo configurável: 4 horas.
+
+## Sincronização manual (botão no OpenHR)
+
+O serviço expõe um **control plane HTTP** local:
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/health` | GET | Health check |
+| `/status` | GET | Cursor + último sync |
+| `/sync` | POST | Importa cadastros e/ou batidas |
+
+Autenticação: header `x-dmprep-sync-key` (ou `Authorization: Bearer`).
+
+Corpo JSON opcional: `{ "scope": "all" | "employees" | "punches" }`.
+
+No OpenHR, ADMIN/HR vê o painel **Organização → Sistema → Sincronização DMPREP**.
+A Edge Function `dmprep-sync` faz proxy autenticado para este serviço.
+
+Secrets da Edge Function (`supabase/functions/.env`):
+
+```env
+DMPREP_SYNC_URL=http://127.0.0.1:3099
+DMPREP_SYNC_API_KEY=<same as DMPREP_HTTP_API_KEY>
+DMPREP_SYNC_TIMEOUT_MS=120000
+```
+
+Requisitos adicionais para import de cadastros:
+
+- `DMPREP_MDB_PATH` apontando para o `DIMEP.MDB`
+- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` no `.env` do serviço
+- Python + `pip install access-parser` no servidor do sync
 
 ## Relação com rep-gateway
 
@@ -75,6 +110,9 @@ Intervalo padrão: **90 segundos** (`DMPREP_POLL_INTERVAL_MS=90000`).
 
 Não desligue o DMPREP enquanto o sync estiver em produção; ele é quem coleta
 as batidas do relógio e atualiza o `MOVIMENT.txt`.
+
+Documentação de admissão/desligamento e limites de export DIMEP → relógio:
+`docs/dmprep-lifecycle.md`.
 
 ## Testes
 

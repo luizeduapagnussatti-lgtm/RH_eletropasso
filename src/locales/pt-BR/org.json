@@ -209,5 +209,20 @@
   "quietStartTime": "Horário de início",
   "quietEndTime": "Horário de término",
   "saveNotificationSettings": "Salvar configurações de notificação",
-  "notificationSaveFailed": "Falha ao salvar a configuração de notificações."
+  "notificationSaveFailed": "Falha ao salvar a configuração de notificações.",
+  "dmprepSync": {
+    "title": "Sincronização DMPREP",
+    "description": "Importa cadastros novos do DIMEP.MDB e batidas recentes do MOVIMENT.txt para o OpenHR. O serviço também roda automaticamente a cada 1 hora (batidas ocorrem em ~4 momentos do dia).",
+    "note": "Cadastros criados aqui usam e-mail rep.{pis}@import.eletropasso.local. Funcionários novos no relógio ainda precisam existir no DMPREP; desligamentos no OpenHR não removem biometria do relógio automaticamente.",
+    "syncAll": "Sincronizar tudo",
+    "syncEmployees": "Importar cadastros",
+    "syncPunches": "Importar batidas",
+    "syncing": "Sincronizando…",
+    "success": "Sincronização concluída.",
+    "failed": "Falha na sincronização com o DMPREP.",
+    "busy": "Já existe uma sincronização em andamento. Tente novamente em instantes.",
+    "readOnly": "Assinatura expirada: sincronização indisponível em modo somente leitura.",
+    "employeesResult": "Cadastros: {{created}} novos, {{updated}} atualizados, {{failed}} falhas",
+    "punchesResult": "Batidas: {{newRecords}} novas, {{inserted}} inseridas, {{duplicates}} duplicadas"
+  }
 }

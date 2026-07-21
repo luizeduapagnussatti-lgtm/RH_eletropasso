@@ -2,7 +2,7 @@
   "title": "Diretório da equipe",
   "addEmployee": "Adicionar colaborador",
   "editEmployee": "Editar colaborador",
-  "searchPlaceholder": "Buscar por nome ou e-mail…",
+  "searchPlaceholder": "Buscar por nome, matrícula ou cargo…",
   "status": "Status",
   "active": "Ativo",
   "inactive": "Inativo",
@@ -12,11 +12,118 @@
   "workType": "Tipo de trabalho",
   "joiningDate": "Data de admissão",
   "noEmployees": "Nenhum colaborador encontrado",
-  "deleteConfirm": "Desativar este colaborador?",
+  "deleteConfirm": "Excluir esta conta? Esta ação não pode ser desfeita.",
   "orgDirectory": "Diretório da organização",
   "myTeamReports": "Minha equipe e reports",
   "myTeammates": "Meus colegas",
   "managingCount": "Gerenciando {{count}} contas de colaboradores.",
-  "viewingCount": "Visualizando {{count}} membros no seu escopo."
+  "viewingCount": "Visualizando {{count}} membros no seu escopo.",
+  "provisionNewUser": "Cadastrar colaborador",
+  "newUser": "Novo",
+  "depts": "Deptos",
+  "deptsCount_one": "{{count}} Depto",
+  "deptsCount_other": "{{count}} Deptos",
+  "exportDepartments": "Departamentos para exportação ({{selected}}/{{total}})",
+  "selectAll": "Selecionar todos",
+  "clearAll": "Limpar",
+  "exportFilteredHint": "Exportação limitada a {{count}} departamento(s) selecionado(s).",
+  "team": "Equipe",
+  "department": "Departamento",
+  "staff": "Colaborador",
+  "verifyAccount": "Verificar e ativar conta",
+  "noMatching": "Nenhum colaborador encontrado para esta busca.",
+  "personnelProfile": "Perfil do colaborador",
+  "closeProfile": "Fechar perfil",
+  "employeeId": "Matrícula",
+  "workEmail": "E-mail corporativo",
+  "teamName": "Nome da equipe",
+  "assignedShift": "Turno atribuído",
+  "modifyAccount": "Editar conta",
+  "provisionAccount": "Cadastrar conta",
+  "fullName": "Nome completo",
+  "officialEmployeeId": "Matrícula oficial",
+  "employeeIdPlaceholder": "ex.: 026740847000",
+  "accessLevel": "Nível de acesso",
+  "resetPassword": "Redefinir senha",
+  "initialPassword": "Senha inicial",
+  "leaveBlankPassword": "Deixe em branco para manter a atual",
+  "setLoginPassword": "Defina a senha de acesso",
+  "assignedTeam": "Equipe atribuída",
+  "noTeamAssigned": "Sem equipe",
+  "noShiftAssigned": "Sem turno",
+  "designation": "Cargo",
+  "cancel": "Cancelar",
+  "updateProfile": "Atualizar perfil",
+  "provisionUser": "Cadastrar colaborador",
+  "activated": "{{name}} ativado",
+  "operationFailed": "Falha na operação. Verifique os logs do servidor.",
+  "noTeam": "Sem equipe",
+  "unknownTeam": "Equipe desconhecida",
+  "unknownShift": "Turno desconhecido",
+  "unassigned": "Não atribuído",
+  "newEmployee": "Novo colaborador",
+  "notAvailable": "N/D",
+  "pdfFailed": "Falha ao gerar PDF: {{error}}",
+  "exportDirectoryTitle": "Diretório de colaboradores",
+  "exportSummary": "Resumo",
+  "exportPage": "Página {{current}} de {{total}}",
+  "exportGeneratedBy": "Gerado pelo RH_Eletropasso em {{date}}",
+  "exportWillExport_one": "{{count}} colaborador será exportado",
+  "exportWillExport_other": "{{count}} colaboradores serão exportados",
+  "employeeIdPisHint": "Use o PIS com 12 dígitos (ex.: 026740847000) — deve ser igual ao cadastro do DMPREP/relógio.",
+  "dmprepChecklist": {
+    "admissionTitle": "Checklist de admissão — DMPREP + relógio",
+    "dischargeTitle": "Checklist de desligamento — DMPREP + relógio",
+    "subtitle": "Colaborador: {{name}}",
+    "warning": "OpenHR e DMPREP não sincronizam automaticamente para o relógio. Siga os passos no software DMP REP (192.168.15.69) antes de considerar o processo concluído.",
+    "copyPis": "Copiar matrícula/PIS",
+    "pisCopied": "Matrícula copiada.",
+    "pisCopyFailed": "Não foi possível copiar a matrícula.",
+    "pullFromDmprep": "Puxar cadastros do DMPREP",
+    "syncing": "Sincronizando…",
+    "syncResult": "Importação: {{created}} novos, {{updated}} atualizados.",
+    "syncFailed": "Falha ao puxar cadastros do DMPREP.",
+    "dmprepHostHint": "DMP REP: 192.168.15.69",
+    "done": "Concluir",
+    "cancelDischarge": "Cancelar",
+    "confirmDischarge": "Excluir no OpenHR",
+    "confirming": "Excluindo…",
+    "dischargeComplete": "{{name}} removido do OpenHR.",
+    "admission": {
+      "step1": {
+        "title": "Cadastro concluído no OpenHR",
+        "detail": "{{name}} foi salvo. Matrícula registrada: {{employeeId}}."
+      },
+      "step2": {
+        "title": "Cadastrar no DMP REP",
+        "detail": "Abra o DMP REP e inclua o funcionário com o mesmo PIS {{employeeId}}."
+      },
+      "step3": {
+        "title": "Enviar ao relógio PrintPoint",
+        "detail": "No DMP REP, execute a operação de envio de cadastro/biometria ao relógio (Operações REP)."
+      },
+      "step4": {
+        "title": "Validar batidas no OpenHR",
+        "detail": "Após a primeira batida, use Organização → Sistema → Sincronizar DMPREP ou aguarde o poll automático (1 h)."
+      }
+    },
+    "discharge": {
+      "step1": {
+        "title": "Desativar no DMP REP",
+        "detail": "Remova ou inative {{name}} no software DMP REP antes de excluir no OpenHR."
+      },
+      "step2": {
+        "title": "Remover biometria do relógio",
+        "detail": "Execute no DMP REP o envio/exclusão de credencial no PrintPoint III."
+      },
+      "step3": {
+        "title": "Sincronizar batidas finais (opcional)",
+        "detail": "Em Organização → Sistema, clique em Importar batidas se houver marcações pendentes."
+      },
+      "step4": {
+        "title": "Excluir conta no OpenHR",
+        "detail": "Confirme abaixo para remover {{name}} do RH_Eletropasso."
+      }
+    }
+  }
 }
-
