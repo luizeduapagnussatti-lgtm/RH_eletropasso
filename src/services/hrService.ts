@@ -96,6 +96,7 @@ export const hrService = {
   listTimesheetPeriods: timesheetService.listPeriods.bind(timesheetService),
   setTimesheetPeriodStatus: timesheetService.setPeriodStatus.bind(timesheetService),
   listTimesheetDays: timesheetService.listDays.bind(timesheetService),
+  listTimesheetDaysInRange: timesheetService.listDaysInRange.bind(timesheetService),
   recalculateTimesheetDay: timesheetService.recalculateDay.bind(timesheetService),
   recalculateTimesheetPeriod: timesheetService.recalculatePeriod.bind(timesheetService),
   acknowledgeTimesheetDay: timesheetService.acknowledgeDay.bind(timesheetService),

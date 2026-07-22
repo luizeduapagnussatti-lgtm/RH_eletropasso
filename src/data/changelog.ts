@@ -16,18 +16,70 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-22',
+    title: 'Relatórios: ponto PTRP e rótulos de ausência',
+    entries: [
+      { type: 'fix', description: 'Reports showed inflated absences because attendance table was empty while punches/timesheet_days held real clock data — now merges PTRP timesheet_days (badge→UUID) with legacy attendance.' },
+      { type: 'improvement', description: 'Report KPI labels clarify person-days: Dias de ausência / Present days (not headcount).' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'PDF de relatórios em pt-BR (marca Eletropasso)',
+    entries: [
+      { type: 'improvement', description: 'Attendance summary PDF/CSV/email refactored: pt-BR copy, chrome + brand-red header (no indigo), metric cards, DD/MM/AAAA dates, % color cues; shared reportPdf helper.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Espelho/folha: período 26→25',
+    entries: [
+      { type: 'fix', description: 'Timesheet competence now uses org ptrpPolicy.periodStartDay (default 26): e.g. July = 26/Jun–25/Jul, matching Eletropasso payroll close on the 25th.' },
+      { type: 'improvement', description: 'OPEN periods auto-realign start/end when cutoff changes; day filter lists dates in the competence range; Reports TIMESHEET export resolves competence correctly.' },
+      { type: 'improvement', description: 'Espelho de ponto toolbar: Ano/Mês/Dia/Colaborador as equal grid fields (same label + h-10 control rhythm); actions on a separate row — fixes Colaborador misalignment.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Agente DMPREP silencioso (PC .69)',
+    entries: [
+      { type: 'feature', description: 'scripts/dmprep-agent: agente PowerShell no PC DMPREP (192.168.15.69) — lê MOVIMENT.txt + fallback Marcacao no MDB, envia ingest-punches, VBS oculto e tarefas agendadas 12h/18h.' },
+      { type: 'fix', description: 'Install-DmprepAgent.ps1: strings ASCII-only (PowerShell 5.1 no .69 quebrava com acentos/em-dash); pula Copy-Item quando origem=destino; fallback Install-FromServer + tarefas RH_DmprepSync_FromServer_1200/1800 no servidor .245 via SMB.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Relatórios: prévia ao vivo e filtros',
+    entries: [
+      { type: 'fix', description: 'Live preview always showed 0 collaborators: calculateEmployeeSummaries still checked employeeFilter against legacy "All Employees" while Reports used "__ALL__".' },
+      { type: 'fix', description: 'Empty department selection (0/N after Limpar) now correctly yields no rows and prompts Select all; Admin/HR/Diretoria excluded from punch absence metrics.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Contas sem ponto (Diretoria/Admin) e checklist DMPREP só para CLT',
+    entries: [
+      { type: 'fix', description: 'DMPREP admission checklist now only opens for EMPLOYEE/MANAGER/TEAM_LEAD — skipped for ADMIN, Auxiliar de RH and Diretoria (MANAGEMENT).' },
+      { type: 'improvement', description: 'Role hints on Equipe form; Diretoria treated as non-punching; MANAGEMENT gets manager-level menus/dashboard without clock-in.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
     title: 'Perfis Admin vs Auxiliar de RH + e-mail de suporte',
     entries: [
+      { type: 'improvement', description: 'Espelho de ponto + shell: sidebar desktop recolhível (só ícones, preferência em localStorage); conteúdo wide (até 1600px) em telas densas; tabela do espelho com min-width, nowrap e rail secundário para banco/marcações — evita colunas cortadas.' },
       { type: 'improvement', description: 'Separated ADMIN (app owner, no punch UX) from HR (Auxiliar de RH): menus, dashboard, leave personal module, attendance route guards.' },
       { type: 'improvement', description: 'HR cannot create/edit/delete Administrator accounts; role label renamed to Auxiliar de RH / HR Assistant.' },
       { type: 'improvement', description: 'PTRP policy, DMPREP sync, upgrade/billing reserved for ADMIN; HR keeps operational org tabs (equipe, turnos, férias, feriados, auditoria, espelho, relatórios).' },
       { type: 'improvement', description: 'Configurações (admin/HR): card explaining that user/manager logins are created in Equipe, with a direct navigation button.' },
       { type: 'fix', description: 'Official support email fixed to suporte@eletropasso.com.br (branding constant); shown on contact support and suspended page.' },
+      { type: 'fix', description: 'Contact support form no longer pre-fills internal login emails (@eletropasso.loja / @import.eletropasso.local); user must enter a real reply address.' },
+      { type: 'improvement', description: 'Espelho de ponto: datas em DD/MM/AAAA, meses por nome, filtro por dia, status traduzidos, coluna HE explicada (horas extras) e avisos quando faltam batidas do relógio DMPREP.' },
       { type: 'improvement', description: 'Employee directory cards: fixed mid-word name wrapping, readable team/dept/email rows, role badge once, admin actions moved below identity, clearer search/empty states; identity band uses reserved height so Equipe/Departamento/email align across the grid.' },
       { type: 'fix', description: 'Espelho de ponto: recalcular período falhava com "getOrCreatePeriod is not a function" — métodos do timesheetService/hourBankService agora vinculados corretamente no hrService.' },
       { type: 'improvement', description: 'Painel Sincronização DMPREP: avisos claros sobre sync automático (só batidas/hora), Importar cadastros vs Importar batidas vs Sincronizar tudo.' },
       { type: 'fix', description: 'Importação DMPREP: batidas de PIS sem cadastro no RH (ex.: demitido Diego 016150617166) são ignoradas em vez de derrubar toda a sincronização com erro 422.' },
       { type: 'feature', description: 'Scripts start-rh.ps1 + start-rh-delayed.ps1 + install-rh-autostart: sobe Docker/Supabase/Edge Functions/dmprep-sync/frontend ~5 min após logon/reboot (Startup + Tarefa Agendada opcional Admin).' },
+      { type: 'improvement', description: 'HTTPS LAN no RH: SSL ativado no NPM para rh.eletropasso.local e api-rh.eletropasso.local; .env e supabase/config.toml apontam para URLs HTTPS.' },
     ],
   },
   {

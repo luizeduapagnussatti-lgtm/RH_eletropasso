@@ -10,9 +10,24 @@ import { hrService } from '../services/hrService';
 import { emailService } from '../services/emailService';
 import { organizationService } from '../services/organization.service';
 import { User, Employee, Attendance, LeaveRequest, AppConfig, Holiday, Shift, EmployeeAttendanceSummary } from '../types';
-import { consolidateAttendance, getDateRangeFromPreset, calculateEmployeeSummaries } from '../utils/attendanceUtils';
+import { consolidateAttendance, getDateRangeFromPreset, calculateEmployeeSummaries, ALL_EMPLOYEES_FILTER, timesheetDaysToAttendance, mergeAttendanceSources } from '../utils/attendanceUtils';
+import { competenceForDate } from '../utils/payrollPeriod';
+import { DEFAULT_PTRP_POLICY } from '../constants';
+import {
+  APP_NAME,
+  drawMetricStrip,
+  drawReportFooters,
+  drawReportHeader,
+  formatGeneratedAt,
+  formatReportPeriod,
+  PDF_COLORS,
+  SUMMARY_TABLE_BODY_STYLES,
+  SUMMARY_TABLE_HEAD_STYLES,
+} from '../utils/reportPdf';
 import HelpButton from '../components/onboarding/HelpButton';
 import { useToast } from '../context/ToastContext';
+import { isNonPunchingStaff } from '../utils/roles';
+import { formatIsoDateBr } from '../i18n/format';
 
 
 const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
@@ -25,8 +40,6 @@ const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: numbe
     img.onerror = () => resolve({ w: maxSize, h: maxSize });
     img.src = dataUrl;
   });
-
-const ALL_EMPLOYEES_FILTER = '__ALL__';
 
 interface ReportsProps {
   user: User;
@@ -112,7 +125,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         yearAgo.setDate(yearAgo.getDate() - 365);
         const sinceYearAgo = yearAgo.toISOString().split('T')[0];
 
-        const [emps, atts, lvs, depts, config, hols, shiftsList, overridesList] = await Promise.all([
+        const [emps, atts, lvs, depts, config, hols, shiftsList, overridesList, timesheetDays] = await Promise.all([
           hrService.getEmployees(),
           hrService.getAttendance({ since: sinceYearAgo, maxRows: 10000 }),
           hrService.getLeaves(),
@@ -120,10 +133,12 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
           hrService.getConfig(),
           hrService.getHolidays(),
           hrService.getShifts(),
-          hrService.getShiftOverrides()
+          hrService.getShiftOverrides(),
+          hrService.listTimesheetDaysInRange(sinceYearAgo, new Date().toISOString().split('T')[0]).catch(() => []),
         ]);
         setEmployees(emps);
-        setAttendance(atts);
+        const fromPtrp = timesheetDaysToAttendance(timesheetDays, emps);
+        setAttendance(mergeAttendanceSources(atts, fromPtrp));
         setLeaves(lvs);
         setDbDepartments(depts);
         setAppConfig(config);
@@ -200,7 +215,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       if (item.date < startDate || item.date > endDate) return false;
       const emp = employees.find(e => e.id === item.employeeId);
       if (!emp) return false;
-      if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department)) return false;
+      if (selectedDepts.length === 0 || !selectedDepts.includes(emp.department)) return false;
       if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
       return true;
     });
@@ -209,7 +224,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       if (item.startDate < startDate || item.startDate > endDate) return false;
       const emp = employees.find(e => e.id === item.employeeId);
       if (!emp) return false;
-      if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department)) return false;
+      if (selectedDepts.length === 0 || !selectedDepts.includes(emp.department)) return false;
       if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
       return true;
     });
@@ -228,7 +243,8 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
 
         const targetEmployees = employees.filter(e => {
           if (e.status !== 'ACTIVE') return false;
-          if (selectedDepts.length > 0 && !selectedDepts.includes(e.department)) return false;
+          if (isNonPunchingStaff(e.role)) return false;
+          if (selectedDepts.length === 0 || !selectedDepts.includes(e.department)) return false;
           if (employeeFilter !== ALL_EMPLOYEES_FILTER && e.id !== employeeFilter) return false;
           return true;
         });
@@ -322,7 +338,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       if (item.date < startDate || item.date > endDate) return false;
       const emp = employees.find(e => e.id === item.employeeId);
       if (!emp) return false;
-      if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department)) return false;
+      if (selectedDepts.length === 0 || !selectedDepts.includes(emp.department)) return false;
       if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
       return true;
     });
@@ -335,8 +351,11 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       return l.startDate <= endDate && l.endDate >= startDate;
     });
 
+    // Clock-facing roles only — Admin / Auxiliar RH / Diretoria skew “absent” metrics
+    const clockEmployees = employees.filter(e => !isNonPunchingStaff(e.role));
+
     return calculateEmployeeSummaries({
-      employees,
+      employees: clockEmployees,
       consolidatedAttendance: consolidated,
       approvedLeaves,
       shifts,
@@ -399,67 +418,29 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       if (autoTableModule.applyPlugin) autoTableModule.applyPlugin(jsPDF);
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
+      const typeLabel = t(`reportTypes.${reportType}`, { defaultValue: reportType });
 
-      // --- Header ---
-      let cursorY = 15;
-      const logoSize = 20;
-      let textStartX = 14;
+      let cursorY = await drawReportHeader(doc, {
+        org: orgInfo,
+        title: t('pdfReportTitle', { type: typeLabel }),
+        subtitle: t('pdfDateRange', { start: formatIsoDateBr(startDate), end: formatIsoDateBr(endDate) }),
+        getScaledLogoDims,
+      });
 
-      if (orgInfo.logoDataUrl) {
-        try {
-          const logoDims = await getScaledLogoDims(orgInfo.logoDataUrl, logoSize);
-          doc.addImage(orgInfo.logoDataUrl, 'PNG', 14, cursorY - 5, logoDims.w, logoDims.h);
-          textStartX = 14 + logoDims.w + 6;
-        } catch { /* skip logo on error */ }
-      }
-
-      if (orgInfo.name) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(orgInfo.name, textStartX, cursorY + 2);
-      }
-      if (orgInfo.address) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(orgInfo.address, textStartX, cursorY + 9);
-      }
-
-      cursorY += Math.max(logoSize, 14) + 6;
-
-      // --- Title & Date Range ---
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text(`${reportType} Report`, 14, cursorY);
-      cursorY += 6;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Date Range: ${startDate} to ${endDate}`, 14, cursorY);
-      cursorY += 10;
-
-      // --- Summary Stats ---
       const totalRecords = reportData.length;
       const presentCount = reportData.filter((r: any) => r.status === 'PRESENT').length;
       const absentCount = reportData.filter((r: any) => r.status === 'ABSENT').length;
       const lateCount = reportData.filter((r: any) => r.status === 'LATE').length;
       const otherCount = totalRecords - presentCount - absentCount - lateCount;
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('Summary', 14, cursorY);
-      cursorY += 5;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      const statsText = `Total: ${totalRecords}    Present: ${presentCount}    Absent: ${absentCount}    Late: ${lateCount}    Other: ${otherCount}`;
-      doc.text(statsText, 14, cursorY);
-      cursorY += 8;
+      cursorY = drawMetricStrip(doc, cursorY, [
+        { label: t('pdf.metrics.total'), value: totalRecords, tone: 'neutral' },
+        { label: t('present'), value: presentCount, tone: 'present' },
+        { label: t('absent'), value: absentCount, tone: 'absent' },
+        { label: t('late'), value: lateCount, tone: 'late' },
+        { label: t('pdf.metrics.other'), value: otherCount, tone: 'neutral' },
+      ], t('summary'));
 
-      // --- Table ---
       const cleanData = getCleanReportData();
       const columns = Object.keys(cleanData[0]);
       const tableHeaders = columns.map(col => {
@@ -473,27 +454,20 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         head: [tableHeaders],
         body: tableRows,
         theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 7 },
-        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
+        headStyles: SUMMARY_TABLE_HEAD_STYLES,
+        bodyStyles: SUMMARY_TABLE_BODY_STYLES,
+        alternateRowStyles: { fillColor: PDF_COLORS.surfaceAlt },
         margin: { left: 14, right: 14 },
-        styles: { cellPadding: 2, overflow: 'linebreak' },
+        styles: { overflow: 'linebreak', lineColor: PDF_COLORS.border, lineWidth: 0.15 },
       });
 
-      // --- Footer on each page ---
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      const now = new Date().toLocaleString();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Generated by RH_Eletropasso on ${now}`, 14, pageHeight - 8);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
-      }
+      drawReportFooters(
+        doc,
+        t('pdfGeneratedBy', { date: formatGeneratedAt() }),
+        (current, total) => t('pdfPage', { current, total })
+      );
 
-      doc.save(`RH_Eletropasso_${reportType}_Export.pdf`);
+      doc.save(`${APP_NAME}_detalhe_${reportType}_${startDate}_${endDate}.pdf`);
     } catch (err: any) {
       console.error("PDF generation failed:", err);
       showToast(t('pdfFailed', { error: err?.message || err }), "error");
@@ -508,16 +482,28 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     if (employeeSummaries.length === 0) { showToast(t('noSummaryData'), "warning"); return; }
     setIsGenerating(true);
     setTimeout(() => {
-      const headers = ['Employee ID', 'Name', 'Department', 'Designation', 'Working Days', 'Present', 'Absent', 'Late', 'Leave', 'Half Days', 'Attendance %'];
+      const headers = [
+        t('pdf.csv.employeeId'),
+        t('pdf.csv.name'),
+        t('pdf.csv.department'),
+        t('pdf.csv.designation'),
+        t('pdf.csv.workDays'),
+        t('pdf.csv.present'),
+        t('pdf.csv.absent'),
+        t('pdf.csv.late'),
+        t('pdf.csv.leave'),
+        t('pdf.csv.half'),
+        t('pdf.csv.pct'),
+      ];
       const rows = employeeSummaries.map(s => [
         s.employeeId, s.employeeName, s.department, s.designation,
         s.totalWorkingDays, s.presentDays, s.absentDays, s.lateDays,
         s.leaveDays, s.halfDays, `${s.attendancePercentage}%`
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
-      const csvContent = 'data:text/csv;charset=utf-8,﻿' + headers.join(',') + '\n' + rows.join('\n');
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
       const link = document.createElement('a');
       link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', `RH_Eletropasso_Employee_Summary_${startDate}_to_${endDate}.csv`);
+      link.setAttribute('download', `${APP_NAME}_resumo_ponto_${startDate}_${endDate}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -535,48 +521,18 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       if (autoTableModule.applyPlugin) autoTableModule.applyPlugin(jsPDF);
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
 
-      // --- Header (reuse same pattern) ---
-      let cursorY = 15;
-      const logoSize = 20;
-      let textStartX = 14;
+      let cursorY = await drawReportHeader(doc, {
+        org: orgInfo,
+        title: t('pdfEmployeeSummaryTitle'),
+        subtitle: t('pdfPeriodEmployees', {
+          start: formatIsoDateBr(startDate),
+          end: formatIsoDateBr(endDate),
+          count: employeeSummaries.length,
+        }),
+        getScaledLogoDims,
+      });
 
-      if (orgInfo.logoDataUrl) {
-        try {
-          const logoDims = await getScaledLogoDims(orgInfo.logoDataUrl, logoSize);
-          doc.addImage(orgInfo.logoDataUrl, 'PNG', 14, cursorY - 5, logoDims.w, logoDims.h);
-          textStartX = 14 + logoDims.w + 6;
-        } catch { /* skip logo on error */ }
-      }
-
-      if (orgInfo.name) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(orgInfo.name, textStartX, cursorY + 2);
-      }
-      if (orgInfo.address) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(orgInfo.address, textStartX, cursorY + 9);
-      }
-
-      cursorY += Math.max(logoSize, 14) + 6;
-
-      // --- Title & Period ---
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('Employee Attendance Summary', 14, cursorY);
-      cursorY += 6;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Period: ${startDate} to ${endDate}  •  ${employeeSummaries.length} Employees`, 14, cursorY);
-      cursorY += 10;
-
-      // --- Summary Stats ---
       const totalPresent = employeeSummaries.reduce((s, e) => s + e.presentDays, 0);
       const totalAbsent = employeeSummaries.reduce((s, e) => s + e.absentDays, 0);
       const totalLate = employeeSummaries.reduce((s, e) => s + e.lateDays, 0);
@@ -585,25 +541,41 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         ? Math.round(employeeSummaries.reduce((s, e) => s + e.attendancePercentage, 0) / employeeSummaries.length)
         : 0;
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('Summary', 14, cursorY);
-      cursorY += 5;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      doc.text(
-        `Total Present: ${totalPresent}    Absent: ${totalAbsent}    Late: ${totalLate}    Leave: ${totalLeave}    Avg. Attendance: ${avgAttendance}%`,
-        14, cursorY
-      );
-      cursorY += 8;
+      cursorY = drawMetricStrip(doc, cursorY, [
+        { label: t('stats.totalPresent'), value: totalPresent, tone: 'present' },
+        { label: t('stats.totalAbsent'), value: totalAbsent, tone: 'absent' },
+        { label: t('stats.totalLate'), value: totalLate, tone: 'late' },
+        { label: t('stats.totalLeave'), value: totalLeave, tone: 'leave' },
+        {
+          label: t('stats.avgAttendance'),
+          value: `${avgAttendance}%`,
+          tone: avgAttendance >= 90 ? 'present' : avgAttendance >= 70 ? 'late' : 'absent',
+        },
+      ], t('summary'));
 
-      // --- Table ---
-      const tableHeaders = ['#', 'Employee', 'Dept', 'Work Days', 'Present', 'Absent', 'Late', 'Leave', 'Half', '%'];
+      const tableHeaders = [
+        '#',
+        t('pdf.table.employee'),
+        t('pdf.table.dept'),
+        t('pdf.table.workDays'),
+        t('pdf.table.present'),
+        t('pdf.table.absent'),
+        t('pdf.table.late'),
+        t('pdf.table.leave'),
+        t('pdf.table.half'),
+        t('pdf.table.pct'),
+      ];
       const tableRows = employeeSummaries.map((s, i) => [
-        i + 1, s.employeeName, s.department, s.totalWorkingDays,
-        s.presentDays, s.absentDays, s.lateDays, s.leaveDays, s.halfDays, `${s.attendancePercentage}%`
+        i + 1,
+        s.employeeName,
+        s.department,
+        s.totalWorkingDays,
+        s.presentDays,
+        s.absentDays,
+        s.lateDays,
+        s.leaveDays,
+        s.halfDays,
+        `${s.attendancePercentage}%`,
       ]);
 
       (doc as any).autoTable({
@@ -611,39 +583,45 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         head: [tableHeaders],
         body: tableRows,
         theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 7 },
-        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
+        headStyles: SUMMARY_TABLE_HEAD_STYLES,
+        bodyStyles: SUMMARY_TABLE_BODY_STYLES,
+        alternateRowStyles: { fillColor: PDF_COLORS.surfaceAlt },
         margin: { left: 14, right: 14 },
-        styles: { cellPadding: 2, overflow: 'linebreak' },
+        styles: { overflow: 'linebreak', lineColor: PDF_COLORS.border, lineWidth: 0.15 },
         columnStyles: {
           0: { cellWidth: 8, halign: 'center' },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 28 },
+          1: { cellWidth: 52 },
+          2: { cellWidth: 32 },
           3: { cellWidth: 18, halign: 'center' },
-          4: { cellWidth: 16, halign: 'center' },
-          5: { cellWidth: 16, halign: 'center' },
+          4: { cellWidth: 18, halign: 'center' },
+          5: { cellWidth: 18, halign: 'center' },
           6: { cellWidth: 16, halign: 'center' },
-          7: { cellWidth: 16, halign: 'center' },
+          7: { cellWidth: 18, halign: 'center' },
           8: { cellWidth: 14, halign: 'center' },
-          9: { cellWidth: 14, halign: 'center' },
+          9: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+        },
+        didParseCell: (data: any) => {
+          if (data.section === 'body' && data.column.index === 9) {
+            const pct = parseInt(String(data.cell.raw).replace('%', ''), 10);
+            if (!Number.isNaN(pct)) {
+              if (pct >= 90) data.cell.styles.textColor = PDF_COLORS.present;
+              else if (pct >= 70) data.cell.styles.textColor = PDF_COLORS.late;
+              else data.cell.styles.textColor = PDF_COLORS.absent;
+            }
+          }
+          if (data.section === 'body' && data.column.index === 5 && Number(data.cell.raw) > 0) {
+            data.cell.styles.textColor = PDF_COLORS.absent;
+          }
         },
       });
 
-      // --- Footer ---
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      const now = new Date().toLocaleString();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Generated by RH_Eletropasso on ${now}`, 14, pageHeight - 8);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
-      }
+      drawReportFooters(
+        doc,
+        t('pdfGeneratedBy', { date: formatGeneratedAt() }),
+        (current, total) => t('pdfPage', { current, total })
+      );
 
-      doc.save(`RH_Eletropasso_Employee_Summary_${startDate}_to_${endDate}.pdf`);
+      doc.save(`${APP_NAME}_resumo_ponto_${startDate}_${endDate}.pdf`);
     } catch (err: any) {
       console.error("Summary PDF generation failed:", err);
       showToast(t('pdfFailed', { error: err?.message || err }), "error");
@@ -661,8 +639,8 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       const targets = rawTarget.split(',').map(addr => addr.trim()).filter(addr => addr.includes('@'));
       if (targets.length === 0) throw new Error(t('emailErrors.noValidEmails'));
 
-      const periodLabel = periodPreset.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      const dateRange = `${startDate} to ${endDate}`;
+      const periodLabel = t(`presets.${periodPreset}`, { defaultValue: periodPreset });
+      const dateRange = formatReportPeriod(startDate, endDate);
 
       for (const target of targets) {
         await emailService.sendEmployeeSummaryReport(target, employeeSummaries, periodLabel, dateRange);
@@ -780,7 +758,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                 <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('employeeScoping')}</label>
                 <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)}>
                   <option value={ALL_EMPLOYEES_FILTER}>{t('allEmployees')}</option>
-                  {employees.filter(e => { if (selectedDepts.length === 0) return true; return selectedDepts.includes(e.department || ''); }).map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
+                  {employees.filter(e => selectedDepts.includes(e.department || '')).map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
                 </select>
               </div>
               <div className="space-y-1">
@@ -805,7 +783,18 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-100">
                 <Users size={40} className="mx-auto text-slate-300 mb-3" />
                 <p className="text-sm font-semibold text-slate-400">{t('noEmployeeData')}</p>
-                <p className="text-xs text-slate-400 mt-1">{t('adjustFilters')}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {selectedDepts.length === 0 ? t('selectDepartmentsHint') : t('adjustFilters')}
+                </p>
+                {selectedDepts.length === 0 && dbDepartments.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDepts(dbDepartments)}
+                    className="mt-4 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-semibold uppercase tracking-wider hover:bg-indigo-700 transition-colors"
+                  >
+                    {t('selectAll')}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -867,8 +856,14 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                 <button
                   onClick={async () => {
                     try {
-                      const d = new Date(startDate);
-                      const period = await hrService.getOrCreateTimesheetPeriod(d.getFullYear(), d.getMonth() + 1);
+                      const d = new Date(startDate + 'T12:00:00');
+                      let startDay = DEFAULT_PTRP_POLICY.periodStartDay;
+                      try {
+                        const cfg = await hrService.getConfig();
+                        startDay = cfg?.ptrpPolicy?.periodStartDay ?? startDay;
+                      } catch { /* use default */ }
+                      const c = competenceForDate(d, startDay);
+                      const period = await hrService.getOrCreateTimesheetPeriod(c.year, c.month);
                       const csv = await hrService.exportTimesheetCsv(period.id);
                       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
                       const url = URL.createObjectURL(blob);
@@ -929,6 +924,9 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
              <div className="flex items-center justify-between"><h3 className="text-xl font-semibold flex items-center gap-3"><Search className="text-indigo-400" /> {t('livePreview')}</h3><div className="p-2 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-all" onClick={fetchLogs} title={t('refreshEmailStatus')}><RefreshCw size={16} /></div></div>
              <div className="p-8 bg-white/5 rounded-xl border border-white/10 text-center space-y-6">
                <div><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">{t('stats.employees')}</p><p className="text-6xl font-semibold text-white">{employeeSummaries.length}</p></div>
+               {selectedDepts.length === 0 ? (
+                 <p className="text-xs text-amber-300/90 leading-relaxed px-2">{t('selectDepartmentsHint')}</p>
+               ) : null}
                <div className="grid grid-cols-2 gap-2">
                  {[
                    { label: t('present'), count: employeeSummaries.reduce((s, e) => s + e.presentDays, 0), color: 'text-emerald-400' },

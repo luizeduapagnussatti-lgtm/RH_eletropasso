@@ -1,5 +1,5 @@
 
-import { Attendance, Employee, Shift, AppConfig, Holiday, LeaveRequest, EmployeeAttendanceSummary } from '../types';
+import { Attendance, Employee, Shift, AppConfig, Holiday, LeaveRequest, EmployeeAttendanceSummary, TimesheetDay } from '../types';
 
 /**
  * Consolidates multiple attendance records into a single daily record per employee.
@@ -205,6 +205,17 @@ export const getWorkingDaysInPeriod = (
  * Calculates per-employee attendance summaries for the given period.
  * Returns an array of EmployeeAttendanceSummary sorted by employee name.
  */
+/** Sentinel used by Reports for “all employees” (legacy label also accepted). */
+export const ALL_EMPLOYEES_FILTER = '__ALL__';
+
+function isAllEmployeesFilter(employeeFilter: string): boolean {
+  return (
+    !employeeFilter ||
+    employeeFilter === ALL_EMPLOYEES_FILTER ||
+    employeeFilter === 'All Employees'
+  );
+}
+
 export const calculateEmployeeSummaries = (params: {
   employees: Employee[];
   consolidatedAttendance: Attendance[];
@@ -224,11 +235,12 @@ export const calculateEmployeeSummaries = (params: {
     selectedDepts, employeeFilter,
   } = params;
 
-  // Filter target employees
+  // Filter target employees — empty dept selection = none (matches UI “0/N”)
   const targetEmployees = employees.filter(e => {
     if (e.status !== 'ACTIVE') return false;
-    if (selectedDepts.length > 0 && !selectedDepts.includes(e.department || '')) return false;
-    if (employeeFilter !== 'All Employees' && e.id !== employeeFilter) return false;
+    if (selectedDepts.length === 0) return false;
+    if (!selectedDepts.includes(e.department || '')) return false;
+    if (!isAllEmployeesFilter(employeeFilter) && e.id !== employeeFilter) return false;
     return true;
   });
 
@@ -277,8 +289,8 @@ export const calculateEmployeeSummaries = (params: {
     if (lv.status !== 'APPROVED') continue;
     const emp = employees.find(e => e.id === lv.employeeId);
     if (!emp || emp.status !== 'ACTIVE') continue;
-    if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department || '')) continue;
-    if (employeeFilter !== 'All Employees' && emp.id !== employeeFilter) continue;
+    if (selectedDepts.length === 0 || !selectedDepts.includes(emp.department || '')) continue;
+    if (!isAllEmployeesFilter(employeeFilter) && emp.id !== employeeFilter) continue;
 
     const lStart = new Date(Math.max(
       new Date(lv.startDate.split(' ')[0]).getTime(),
@@ -400,3 +412,90 @@ export const calculateEmployeeSummaries = (params: {
     return a.employeeName.localeCompare(b.employeeName);
   });
 };
+
+/** HH:mm from ISO / timestamptz string for report tables. */
+function punchClock(iso?: string | null): string {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/**
+ * Map PTRP timesheet_days → Attendance rows used by Reports.
+ * timesheet.employee_id is usually the badge (profiles.employee_id); Reports match on profiles.id.
+ */
+export function timesheetDaysToAttendance(
+  days: TimesheetDay[],
+  employees: Employee[]
+): Attendance[] {
+  const byBadge = new Map<string, Employee>();
+  const byId = new Map<string, Employee>();
+  for (const emp of employees) {
+    byId.set(emp.id, emp);
+    if (emp.employeeId) byBadge.set(emp.employeeId, emp);
+  }
+
+  const out: Attendance[] = [];
+  for (const day of days) {
+    const emp = byBadge.get(day.employeeId) || byId.get(day.employeeId);
+    if (!emp) continue;
+
+    let status: Attendance['status'] | null = null;
+    switch (day.status) {
+      case 'OK':
+      case 'INCOMPLETE':
+      case 'ADJUSTED':
+        status = 'PRESENT';
+        break;
+      case 'LATE':
+        status = 'LATE';
+        break;
+      case 'ABSENT':
+        status = 'ABSENT';
+        break;
+      case 'LEAVE':
+        status = 'LEAVE';
+        break;
+      case 'HOLIDAY':
+      default:
+        status = null;
+        break;
+    }
+    if (!status) continue;
+
+    // Incomplete without any punch should not count as present
+    if (day.status === 'INCOMPLETE' && !day.firstPunchAt) {
+      status = 'ABSENT';
+    }
+
+    out.push({
+      id: day.id,
+      employeeId: emp.id,
+      employeeName: emp.name,
+      date: day.workDate,
+      checkIn: punchClock(day.firstPunchAt),
+      checkOut: punchClock(day.lastPunchAt),
+      status,
+      location: { lat: 0, lng: 0, address: 'PTRP timesheet' },
+      remarks: `PTRP:${day.status}`,
+      organizationId: day.organizationId,
+    });
+  }
+  return out;
+}
+
+/** Merge legacy attendance with PTRP-derived rows; legacy wins on the same employee+date. */
+export function mergeAttendanceSources(
+  legacy: Attendance[],
+  fromTimesheet: Attendance[]
+): Attendance[] {
+  const map = new Map<string, Attendance>();
+  for (const row of fromTimesheet) {
+    map.set(`${row.employeeId}_${row.date}`, row);
+  }
+  for (const row of legacy) {
+    map.set(`${row.employeeId}_${row.date}`, row);
+  }
+  return Array.from(map.values());
+}

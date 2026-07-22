@@ -36,12 +36,13 @@
   "perEmployeeBreakdown": "Detalhamento por colaborador",
   "noEmployeeData": "Sem dados de colaboradores neste período",
   "adjustFilters": "Ajuste o período ou os filtros de departamento.",
+  "selectDepartmentsHint": "Nenhum departamento selecionado. Clique em Selecionar todos para ver as métricas.",
   "stats": {
     "employees": "Colaboradores",
-    "totalPresent": "Total presentes",
-    "totalAbsent": "Total ausentes",
-    "totalLate": "Total atrasos",
-    "totalLeave": "Total licenças",
+    "totalPresent": "Dias presentes",
+    "totalAbsent": "Dias de ausência",
+    "totalLate": "Dias de atraso",
+    "totalLeave": "Dias de licença",
     "avgAttendance": "Méd. presença"
   },
   "csvSummary": "CSV resumo",
@@ -66,10 +67,10 @@
   "emailDetailReport": "Enviar detalhes por e-mail",
   "livePreview": "Prévia ao vivo",
   "refreshEmailStatus": "Atualizar status de e-mail",
-  "present": "Presente",
-  "absent": "Ausente",
-  "late": "Atraso",
-  "leave": "Licença",
+  "present": "Dias presentes",
+  "absent": "Dias de ausência",
+  "late": "Dias de atraso",
+  "leave": "Dias de licença",
   "avgAttendance": "Méd. presença",
   "recentEmailActivity": "Atividade recente de e-mail",
   "noRecentActivity": "Nenhuma atividade recente",
@@ -99,10 +100,40 @@
   "emailQueuedSummary": "Resumo enfileirado para {{count}} destinatário(s).",
   "emailQueuedDetail": "Relatório detalhado enfileirado para {{count}} destinatário(s).",
   "pdfFailed": "Falha ao gerar PDF: {{error}}",
-  "pdfReportTitle": "Relatório {{type}}",
+  "pdfReportTitle": "Relatório — {{type}}",
   "pdfDateRange": "Período: {{start}} a {{end}}",
   "pdfEmployeeSummaryTitle": "Resumo de ponto por colaborador",
-  "pdfPeriodEmployees": "Período: {{start}} a {{end}}  •  {{count}} colaboradores",
+  "pdfPeriodEmployees": "Período: {{start}} a {{end}}  ·  {{count}} colaboradores",
   "pdfGeneratedBy": "Gerado pelo RH_Eletropasso em {{date}}",
-  "pdfPage": "Página {{current}} de {{total}}"
+  "pdfPage": "Página {{current}} de {{total}}",
+  "pdf": {
+    "metrics": {
+      "total": "Total",
+      "other": "Outros"
+    },
+    "table": {
+      "employee": "Colaborador",
+      "dept": "Departamento",
+      "workDays": "Dias úteis",
+      "present": "Presente",
+      "absent": "Ausente",
+      "late": "Atraso",
+      "leave": "Licença",
+      "half": "Meio",
+      "pct": "%"
+    },
+    "csv": {
+      "employeeId": "Matrícula",
+      "name": "Nome",
+      "department": "Departamento",
+      "designation": "Cargo",
+      "workDays": "Dias úteis",
+      "present": "Presente",
+      "absent": "Ausente",
+      "late": "Atraso",
+      "leave": "Licença",
+      "half": "Meio período",
+      "pct": "Assiduidade %"
+    }
+  }
 }

@@ -14,6 +14,13 @@ import { hourBankService } from './hourBank.service';
 import { employeeService } from './employee.service';
 import { leaveService } from './leave.service';
 import { organizationService } from './organization.service';
+import {
+  competenceForDate,
+  eachDateInRange,
+  normalizePeriodStartDay,
+  periodBoundsForCompetence,
+} from '../utils/payrollPeriod';
+import { DEFAULT_PTRP_POLICY } from '../constants';
 
 const mapPeriod = (r: any): TimesheetPeriod => ({
   id: r.id,
@@ -54,22 +61,15 @@ const mapDay = (r: any): TimesheetDay => ({
   remarks: r.remarks || undefined,
 });
 
-function periodBounds(year: number, month: number) {
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const end = new Date(year, month, 0);
-  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
-  return { startDate, endDate };
-}
-
-function eachDate(start: string, end: string): string[] {
-  const out: string[] = [];
-  const cur = new Date(`${start}T12:00:00`);
-  const last = new Date(`${end}T12:00:00`);
-  while (cur <= last) {
-    out.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 1);
+async function resolvePeriodStartDay(): Promise<number> {
+  try {
+    const config = await organizationService.getConfig();
+    return normalizePeriodStartDay(
+      config?.ptrpPolicy?.periodStartDay ?? DEFAULT_PTRP_POLICY.periodStartDay
+    );
+  } catch {
+    return normalizePeriodStartDay(DEFAULT_PTRP_POLICY.periodStartDay);
   }
-  return out;
 }
 
 export const timesheetService = {
@@ -77,6 +77,9 @@ export const timesheetService = {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
     const orgId = apiClient.getOrganizationId();
     if (!orgId) throw new Error('No organization ID');
+
+    const startDay = await resolvePeriodStartDay();
+    const { startDate, endDate } = periodBoundsForCompetence(year, month, startDay);
 
     const { data: existing } = await supabase
       .from('timesheet_periods')
@@ -86,9 +89,28 @@ export const timesheetService = {
       .eq('month', month)
       .maybeSingle();
 
-    if (existing) return mapPeriod(existing);
+    if (existing) {
+      // Re-align OPEN periods if org cutoff changed (e.g. calendar → 26–25)
+      if (
+        existing.status === 'OPEN' &&
+        (existing.start_date !== startDate || existing.end_date !== endDate)
+      ) {
+        const { data: updated, error: updErr } = await supabase
+          .from('timesheet_periods')
+          .update({
+            start_date: startDate,
+            end_date: endDate,
+            updated: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (updErr) throw updErr;
+        return mapPeriod(updated);
+      }
+      return mapPeriod(existing);
+    }
 
-    const { startDate, endDate } = periodBounds(year, month);
     const { data, error } = await supabase
       .from('timesheet_periods')
       .insert({
@@ -140,13 +162,34 @@ export const timesheetService = {
     return (data ?? []).map(mapDay);
   },
 
+  async listDaysInRange(startDate: string, endDate: string): Promise<TimesheetDay[]> {
+    if (!isSupabaseConfigured()) return [];
+    const orgId = apiClient.getOrganizationId();
+    let q = supabase
+      .from('timesheet_days')
+      .select('*')
+      .gte('work_date', startDate)
+      .lte('work_date', endDate)
+      .order('work_date', { ascending: true })
+      .limit(10000);
+    if (orgId) q = q.eq('organization_id', orgId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map(mapDay);
+  },
+
   async recalculateDay(employeeId: string, date: string, period?: TimesheetPeriod): Promise<TimesheetDay> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
     const orgId = apiClient.getOrganizationId();
     if (!orgId) throw new Error('No organization ID');
 
     const d = new Date(`${date}T12:00:00`);
-    const p = period || (await this.getOrCreatePeriod(d.getFullYear(), d.getMonth() + 1));
+    let p = period;
+    if (!p) {
+      const startDay = await resolvePeriodStartDay();
+      const c = competenceForDate(d, startDay);
+      p = await this.getOrCreatePeriod(c.year, c.month);
+    }
     if (p.status === 'LOCKED') throw new Error('Period is locked');
 
     const employees = await employeeService.getEmployees();
@@ -259,7 +302,7 @@ export const timesheetService = {
       ? employees.filter(e => employeeIds.includes(e.id) || employeeIds.includes(e.employeeId || ''))
       : employees.filter(e => e.role !== 'SUPER_ADMIN');
 
-    const dates = eachDate(period.startDate, period.endDate);
+    const dates = eachDateInRange(period.startDate, period.endDate);
     let count = 0;
     for (const emp of targets) {
       for (const date of dates) {
