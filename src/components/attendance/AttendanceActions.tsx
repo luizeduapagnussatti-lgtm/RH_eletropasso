@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, RefreshCw, Fingerprint } from 'lucide-react';
 import { Attendance } from '../../types';
 
@@ -17,18 +18,19 @@ interface Props {
 export const AttendanceActions: React.FC<Props> = ({
   dutyType, dutyLabel, remarks, setRemarks, onSubmit, status, isDisabled, activeRecord
 }) => {
-  const displayLabel = dutyLabel || (dutyType === 'FACTORY' ? 'Factory' : 'Office');
+  const { t } = useTranslation('attendance');
+  const displayLabel = dutyLabel || (dutyType === 'FACTORY' ? t('factory') : t('office'));
 
   return (
     <div className="px-8 pt-4 pb-12 flex flex-col items-center gap-4">
       <div className="w-full max-w-[320px] space-y-2">
         <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-2 flex items-center gap-1.5">
           {dutyType === 'FACTORY' && <AlertCircle size={10} className="text-emerald-500" />}
-          {displayLabel} {dutyType === 'FACTORY' && "(Mandatory)"}
+          {displayLabel} {dutyType === 'FACTORY' && t('mandatory')}
         </p>
         <input
           type="text"
-          placeholder={dutyType === 'FACTORY' ? `${displayLabel} Name & Details...` : "Optional remarks..."}
+          placeholder={dutyType === 'FACTORY' ? t('factoryRemarksPlaceholder', { label: displayLabel }) : t('optionalRemarks')}
           className={`w-full px-6 py-3.5 bg-white border rounded-2xl text-slate-700 text-xs font-bold placeholder:text-slate-300 outline-none shadow-sm transition-all ${dutyType === 'FACTORY' && !remarks ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-100'}`}
           value={remarks}
           onChange={e => setRemarks(e.target.value)}
@@ -36,17 +38,17 @@ export const AttendanceActions: React.FC<Props> = ({
       </div>
 
       <div className="w-full max-w-[320px]">
-        <button 
+        <button
           onClick={onSubmit}
           disabled={isDisabled}
           className={`w-full py-4 rounded-2xl font-semibold uppercase tracking-[0.1em] text-[20px] shadow-xl shadow-primary-light transition-all active:scale-95 flex items-center justify-center gap-3 text-white disabled:opacity-20 bg-primary hover:bg-primary-hover`}
         >
           {status === 'loading' ? (
-            <RefreshCw className="animate-spin" size={18}/> 
+            <RefreshCw className="animate-spin" size={18}/>
           ) : (
             <>
-              <Fingerprint size={18} /> 
-              {activeRecord ? 'Check Out' : 'Check In'}
+              <Fingerprint size={18} />
+              {activeRecord ? t('checkOut') : t('checkIn')}
             </>
           )}
         </button>

@@ -10,7 +10,7 @@
   "logout": "Sign out",
   "actionBlocked": "This action is not available while your subscription is expired.",
   "upgradeTitle": "Upgrade your plan",
-  "upgradeSubtitle": "Unlock full access for your organization",
+  "upgradeSubtitle": "Choose how you'd like to continue using {{appName}}",
   "donation": "Donation",
   "trialExtension": "Trial extension",
   "adSupported": "Continue with ads",
@@ -24,6 +24,87 @@
   "suspendedReasonPayment": "Payment issues or subscription lapse",
   "suspendedReasonTerms": "Terms of service violation",
   "suspendedReasonAdmin": "Administrative action pending review",
-  "suspendedContact": "Contact us to resolve this issue:"
-}
+  "suspendedContact": "Contact us to resolve this issue:",
 
+  "allSetTitle": "You're all set!",
+  "allSetBody": "Your organization has full access to all features.",
+  "backToDashboard": "Back to Dashboard",
+
+  "tabs": {
+    "donate": "Donate",
+    "extend": "Extend Trial",
+    "ads": "Free with Ads"
+  },
+
+  "pendingTitle": "Request pending",
+  "pendingBodyActivation": "You have a pending activation request submitted on {{date}}. We'll notify you once it's processed.",
+  "pendingBodyExtension": "You have a pending extension request submitted on {{date}}. We'll notify you once it's processed.",
+
+  "introTitle": "Support open source HR",
+  "introBody": "{{appName}} is free and open source. Your support helps us maintain and improve the platform for everyone.",
+
+  "donateTitle": "Support with a donation",
+  "donateSubtitle": "Make a one-time donation to get full access. Choose your support level:",
+  "donateVia": "Donate via:",
+  "platformKofi": "Ko-fi",
+  "platformBuyMeACoffee": "Buy Me a Coffee",
+  "platformPaypal": "PayPal",
+
+  "tiers": {
+    "TIER_3MO": "3 months",
+    "TIER_6MO": "6 months",
+    "TIER_1YR": "1 year",
+    "TIER_LIFETIME": "Lifetime"
+  },
+
+  "alreadyDonated": "Already donated? Click here to submit activation request",
+  "activationFormTitle": "Submit activation request",
+  "transactionRef": "Transaction reference *",
+  "transactionRefPlaceholder": "e.g., TXN123456 or PayPal confirmation",
+  "screenshotOptional": "Screenshot (optional)",
+  "chooseFile": "Choose file",
+  "removeFile": "Remove",
+  "cancel": "Cancel",
+  "submitActivation": "Submit request",
+
+  "extendTitle": "Request trial extension",
+  "extendSubtitle": "Need more time? Request an extension and tell us why.",
+  "extendReasonLabel": "Why do you need more time? *",
+  "extendReasonPlaceholder": "Select a reason...",
+  "extendSpecifyLabel": "Please specify *",
+  "extendSpecifyPlaceholder": "Tell us more about your situation...",
+  "extensionPeriod": "Extension period",
+  "daysCount": "{{count}} days",
+  "submitExtension": "Submit extension request",
+
+  "reasons": {
+    "evaluating": "Still evaluating features",
+    "budget": "Waiting for budget approval",
+    "setup": "Setting up organization data",
+    "training": "Training team members",
+    "nonprofit": "Non-profit organization",
+    "education": "Educational institution",
+    "other": "Other"
+  },
+
+  "adsTitle": "Continue free with ads",
+  "adsSubtitle": "Get full access to all features for free. We'll show non-intrusive ads to support development.",
+  "adsExpectTitle": "What to expect:",
+  "adsExpect1": "Full access to all features — no restrictions",
+  "adsExpect2": "Small banner ads in sidebar and dashboard",
+  "adsExpect3": "No ads during attendance punch or critical workflows",
+  "adsExpect4": "Upgrade to ad-free anytime with a donation",
+  "adsNote": "By accepting, you agree to see advertisements. Your data will not be shared with ad networks.",
+  "adsNoteLabel": "Note:",
+  "acceptAds": "Accept & continue free",
+
+  "errors": {
+    "transactionRefRequired": "Please enter your transaction reference",
+    "reasonRequired": "Please select or enter a reason"
+  },
+  "success": {
+    "donationSubmitted": "Request submitted! We'll review it shortly.",
+    "extensionSubmitted": "Extension request submitted!",
+    "adsActivated": "Ad-supported mode activated! Redirecting..."
+  }
+}

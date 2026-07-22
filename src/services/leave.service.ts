@@ -3,6 +3,10 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient, dedupe } from './api.client';
 import { LeaveRequest, LeaveBalance } from '../types';
 import { organizationService } from './organization.service';
+import { convertFileToWebP } from '../utils/imageConvert';
+
+const LEAVE_ATTACHMENTS_BUCKET = 'leave-attachments';
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
 let cachedLeaves: LeaveRequest[] | null = null;
 let leaveCacheTimestamp = 0;
@@ -23,7 +27,43 @@ const mapLeave = (r: any): LeaveRequest => ({
   managerRemarks: r.manager_remarks || '',
   approverRemarks: r.approver_remarks || '',
   organizationId: r.organization_id,
+  attachmentPath: r.attachment_path || undefined,
+  cid: r.cid || undefined,
+  certificateValidUntil: r.certificate_valid_until || undefined,
 });
+
+async function uploadLeaveAttachment(file: File, employeeId: string): Promise<string> {
+  const orgId = apiClient.getOrganizationId();
+  if (!orgId) throw new Error('No organization context');
+  if (file.size > MAX_ATTACHMENT_BYTES) throw new Error('ATTACHMENT_TOO_LARGE');
+
+  const isImage = file.type.startsWith('image/');
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if (!isImage && !isPdf) throw new Error('ATTACHMENT_INVALID_TYPE');
+
+  let uploadBlob: Blob = file;
+  let ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  let contentType = file.type || 'application/octet-stream';
+
+  if (isImage) {
+    uploadBlob = await convertFileToWebP(file);
+    ext = 'webp';
+    contentType = 'image/webp';
+  }
+
+  const path = `${orgId}/${employeeId.trim()}/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(LEAVE_ATTACHMENTS_BUCKET)
+    .upload(path, uploadBlob, { upsert: false, contentType });
+  if (error) throw new Error(`Failed to upload attachment: ${error.message}`);
+  return path;
+}
+
+function applyMedicalCertificateFields(payload: Record<string, unknown>, data: Partial<LeaveRequest>) {
+  if (data.cid) payload.cid = data.cid.trim();
+  if (data.certificateValidUntil) payload.certificate_valid_until = data.certificateValidUntil;
+  if (data.attachmentPath) payload.attachment_path = data.attachmentPath;
+}
 
 export const leaveService = {
   clearCache() {
@@ -68,7 +108,7 @@ export const leaveService = {
     });
   },
 
-  async saveLeaveRequest(data: Partial<LeaveRequest>) {
+  async saveLeaveRequest(data: Partial<LeaveRequest>, attachmentFile?: File) {
     if (!isSupabaseConfigured()) return;
 
     // Fetch employee's department + line_manager_id for workflow routing
@@ -100,6 +140,11 @@ export const leaveService = {
     } catch (e) { console.warn('Workflow check failed, defaulting to Manager'); }
 
     const orgId = apiClient.getOrganizationId();
+    let attachmentPath = data.attachmentPath;
+    if (attachmentFile && data.employeeId) {
+      attachmentPath = await uploadLeaveAttachment(attachmentFile, data.employeeId);
+    }
+
     const payload: any = {
       employee_id: data.employeeId?.trim(),
       employee_name: data.employeeName,
@@ -113,6 +158,7 @@ export const leaveService = {
       applied_date: new Date().toISOString(),
       organization_id: orgId,
     };
+    applyMedicalCertificateFields(payload, { ...data, attachmentPath });
 
     const { error } = await supabase.from('leaves').insert(payload);
     if (error) throw new Error(`Failed to create record: ${error.message}`);
@@ -147,7 +193,10 @@ export const leaveService = {
     reason: string;
     status: string;
     remarks: string;
-  }) {
+    cid?: string;
+    certificateValidUntil?: string;
+    attachmentPath?: string;
+  }, attachmentFile?: File) {
     if (!isSupabaseConfigured()) return;
 
     let lineManagerId: string | null = null;
@@ -161,6 +210,11 @@ export const leaveService = {
     } catch (e) { /* non-fatal */ }
 
     const orgId = apiClient.getOrganizationId();
+    let attachmentPath = data.attachmentPath;
+    if (attachmentFile) {
+      attachmentPath = await uploadLeaveAttachment(attachmentFile, data.employeeId);
+    }
+
     const payload: any = {
       employee_id: data.employeeId.trim(),
       employee_name: data.employeeName,
@@ -175,6 +229,11 @@ export const leaveService = {
       applied_date: new Date().toISOString(),
       organization_id: orgId,
     };
+    applyMedicalCertificateFields(payload, {
+      cid: data.cid,
+      certificateValidUntil: data.certificateValidUntil,
+      attachmentPath,
+    });
 
     const { error } = await supabase.from('leaves').insert(payload);
     if (error) throw new Error('Failed to create leave record');
@@ -191,7 +250,11 @@ export const leaveService = {
     status?: string;
     managerRemarks?: string;
     approverRemarks?: string;
-  }) {
+    cid?: string;
+    certificateValidUntil?: string;
+    attachmentPath?: string;
+    employeeId?: string;
+  }, attachmentFile?: File) {
     if (!isSupabaseConfigured()) return;
     const update: any = {};
     if (data.type !== undefined)           update.type = data.type;
@@ -202,6 +265,14 @@ export const leaveService = {
     if (data.status !== undefined)         update.status = data.status;
     if (data.managerRemarks !== undefined) update.manager_remarks = data.managerRemarks;
     if (data.approverRemarks !== undefined) update.approver_remarks = data.approverRemarks;
+    if (data.cid !== undefined)            update.cid = data.cid || null;
+    if (data.certificateValidUntil !== undefined) update.certificate_valid_until = data.certificateValidUntil || null;
+
+    if (attachmentFile && data.employeeId) {
+      update.attachment_path = await uploadLeaveAttachment(attachmentFile, data.employeeId);
+    } else if (data.attachmentPath !== undefined) {
+      update.attachment_path = data.attachmentPath || null;
+    }
 
     const { error } = await supabase.from('leaves').update(update).eq('id', id.trim());
     if (error) throw new Error('Failed to update leave record');

@@ -1,18 +1,1024 @@
 {
-  "title": "Super admin",
-  "orgs": "Organizações",
-  "upgrades": "Upgrades",
-  "ads": "Anúncios",
-  "storage": "Armazenamento",
-  "notifs": "Notificações",
-  "theme": "Tema",
-  "email": "E-mail",
-  "push": "Push",
-  "blog": "Blog",
-  "tutorials": "Tutoriais",
-  "showcase": "Vitrine",
-  "social": "Redes sociais",
-  "appearance": "Aparência",
-  "createOrg": "Criar organização",
-  "deleteOrg": "Excluir organização"
+  "title": "Painel Super Admin",
+  "subtitle": "Gerencie todas as organizações da plataforma",
+  "newOrganization": "Nova organização",
+  "backToList": "Voltar à lista",
+  "platform": "Plataforma",
+  "content": "Conteúdo",
+  "fillRequired": "Preencha todos os campos obrigatórios",
+  "passwordMinLength": "A senha deve ter pelo menos 8 caracteres",
+  "userVerified": "Usuário verificado com sucesso",
+  "userDeleted": "Usuário excluído com sucesso",
+  "deleteOrgConfirm": "Tem certeza de que deseja excluir \"{{name}}\"?\n\nIsso excluirá permanentemente:\n- Todos os usuários ({{userCount}})\n- Todos os registros de presença\n- Todos os registros de férias\n- Todas as configurações\n\nEsta ação não pode ser desfeita!",
+  "deleteUserConfirm": "Tem certeza de que deseja excluir o usuário \"{{name}}\"? Esta ação não pode ser desfeita.",
+  "upgradeRequests": "Solicitações de upgrade",
+  "filterAll": "Todos",
+  "loading": "Carregando...",
+  "noUpgradeRequests": "Nenhuma solicitação de upgrade encontrada",
+  "donationSummary": "Doação: US$ {{amount}} ({{tier}})",
+  "extensionSummary": "Extensão: {{days}} dias",
+  "adSupportedMode": "Modo com anúncios",
+  "refLabel": "Ref.: {{ref}}",
+  "reasonLabel": "Motivo: {{reason}}",
+  "approve": "Aprovar",
+  "reject": "Rejeitar",
+  "submittedAt": "Enviado em: {{date}}",
+  "allOrganizations": "Todas as organizações",
+  "loadingOrgs": "Carregando organizações...",
+  "noOrgs": "Nenhuma organização encontrada",
+  "trialEnds": "Encerra em: {{date}}",
+  "verified": "Verificado",
+  "pendingVerification": "Verificação pendente",
+  "pending": "Pendente",
+  "viewUsers": "Ver usuários",
+  "edit": "Editar",
+  "delete": "Excluir",
+  "verifyUser": "Verificar usuário",
+  "deleteUser": "Excluir usuário",
+  "createOrgTitle": "Criar nova organização",
+  "editOrgTitle": "Editar: {{name}}",
+  "usersInOrg": "Usuários em {{name}}",
+  "usersCount": "{{count}} usuários",
+  "loadingUsers": "Carregando usuários...",
+  "noUsers": "Nenhum usuário encontrado",
+  "tabs": {
+    "orgs": "Orgs",
+    "upgrades": "Upgrades",
+    "ads": "Anúncios",
+    "storage": "Armazenamento",
+    "notifs": "Notificações",
+    "theme": "Tema",
+    "email": "E-mail",
+    "push": "Push",
+    "blog": "Blog",
+    "tutorials": "Tutoriais",
+    "guides": "Guias",
+    "showcase": "Vitrine",
+    "social": "Redes sociais"
+  },
+  "requestStatus": {
+    "PENDING": "Pendente",
+    "APPROVED": "Aprovado",
+    "REJECTED": "Rejeitado"
+  },
+  "stats": {
+    "totalOrgs": "Total de orgs",
+    "totalUsers": "Total de usuários",
+    "active": "Ativas",
+    "trial": "Trial",
+    "expired": "Expiradas",
+    "last30d": "Últimos 30 dias"
+  },
+  "table": {
+    "organization": "Organização",
+    "status": "Status",
+    "users": "Usuários",
+    "admin": "Admin",
+    "created": "Criado em",
+    "actions": "Ações",
+    "user": "Usuário",
+    "role": "Função",
+    "department": "Departamento"
+  },
+  "form": {
+    "orgName": "Nome da organização *",
+    "orgNamePlaceholder": "ex.: Empresa Exemplo Ltda.",
+    "subscriptionStatus": "Status da assinatura",
+    "trialEndDate": "Data de fim do trial",
+    "trialEndHint": "A organização expirará automaticamente após esta data",
+    "address": "Endereço",
+    "addressPlaceholder": "ex.: Rua Comercial, 123, Cidade",
+    "initialAdmin": "Conta do administrador inicial",
+    "adminName": "Nome do admin *",
+    "adminNamePlaceholder": "ex.: João Silva",
+    "adminEmail": "E-mail do admin *",
+    "adminEmailPlaceholder": "ex.: admin@empresa.com",
+    "adminPassword": "Senha do admin *",
+    "adminPasswordPlaceholder": "Mín. 8 caracteres",
+    "cancel": "Cancelar",
+    "createOrganization": "Criar organização",
+    "saveChanges": "Salvar alterações"
+  },
+  "subscriptionOptions": {
+    "TRIAL": "Trial",
+    "ACTIVE": "Ativa",
+    "EXPIRED": "Expirada",
+    "SUSPENDED": "Suspensa"
+  },
+  "ads": {
+    "title": "Gestão de anúncios",
+    "subtitle": "Configure slots de anúncio para organizações AD_SUPPORTED",
+    "loadError": "Falha ao carregar configurações de anúncios",
+    "saveSuccess": "Slot \"{{slot}}\" atualizado com sucesso",
+    "saveError": "Falha ao salvar configuração",
+    "toggleError": "Falha ao atualizar status.",
+    "toggleEnabled": "Slot \"{{slot}}\" ativado",
+    "toggleDisabled": "Slot \"{{slot}}\" desativado",
+    "size": "Tamanho: {{size}}",
+    "enabled": "Ativado",
+    "disabled": "Desativado",
+    "type": "Tipo:",
+    "adsenseSlot": "(Slot: {{slot}})",
+    "imageConfigured": "(Imagem configurada)",
+    "configure": "Configurar",
+    "previewTitle": "Prévia de posicionamento",
+    "previewSidebar": "Barra lateral",
+    "previewDashboard": "Painel",
+    "previewFooter": "Rodapé",
+    "configureModalTitle": "Configurar anúncio {{slot}}",
+    "adType": "Tipo de anúncio",
+    "adTypes": {
+      "image": "Imagem",
+      "adsense": "AdSense",
+      "custom": "HTML personalizado"
+    },
+    "imageUrl": "URL da imagem *",
+    "imageUrlPlaceholder": "https://example.com/ad-image.png",
+    "linkUrl": "URL do link (opcional)",
+    "linkUrlPlaceholder": "https://example.com/landing-page",
+    "altText": "Texto alternativo",
+    "altTextPlaceholder": "Descrição do anúncio",
+    "adsenseClientId": "ID do cliente AdSense *",
+    "adsenseClientPlaceholder": "ca-pub-XXXXXXXXXXXXXXXX",
+    "adsenseSlotId": "ID do slot *",
+    "adsenseSlotPlaceholder": "1234567890",
+    "adsenseScriptNote": "Certifique-se de adicionar o script do AdSense na seção head do index.html.",
+    "customHtml": "HTML personalizado *",
+    "customHtmlPlaceholder": "<div>Your custom ad HTML...</div>",
+    "customHtmlWarning": "Aviso: use apenas HTML confiável. Scripts maliciosos podem comprometer a segurança.",
+    "cancel": "Cancelar",
+    "saveConfiguration": "Salvar configuração",
+    "slots": {
+      "sidebar": {
+        "name": "Barra lateral",
+        "description": "Parte inferior da navegação lateral"
+      },
+      "dashboard": {
+        "name": "Painel",
+        "description": "Abaixo das estatísticas do painel"
+      },
+      "reports": {
+        "name": "Relatórios",
+        "description": "Barra lateral da página de relatórios"
+      },
+      "footer": {
+        "name": "Rodapé",
+        "description": "Área de rodapé em todas as páginas"
+      },
+      "landing-hero": {
+        "name": "Landing — Hero",
+        "description": "Abaixo da seção hero na landing"
+      },
+      "landing-mid": {
+        "name": "Landing — Meio",
+        "description": "Entre seções na landing"
+      },
+      "blog-header": {
+        "name": "Blog — Cabeçalho",
+        "description": "Topo da listagem do blog"
+      },
+      "blog-feed": {
+        "name": "Blog — Feed",
+        "description": "Abaixo da grade de posts"
+      },
+      "blog-post-top": {
+        "name": "Post — Topo",
+        "description": "Topo da página do post"
+      },
+      "blog-post-content": {
+        "name": "Post — Conteúdo",
+        "description": "Dentro do conteúdo do post"
+      }
+    }
+  },
+  "storagePanel": {
+    "title": "Gestão de armazenamento",
+    "subtitle": "Gerencie a retenção de selfies de presença para otimizar o armazenamento",
+    "errorLoad": "Falha ao carregar estatísticas de armazenamento",
+    "successRetentionUpdated": "Período de retenção atualizado para {{days}} dias",
+    "errorSave": "Falha ao salvar configuração de retenção",
+    "confirmCleanup": "Isso excluirá permanentemente todas as imagens de selfie com mais de {{days}} dias.\n\nEsta ação não pode ser desfeita. Continuar?",
+    "successCleanup": "Limpeza concluída! {{cleaned}} registros limpos",
+    "successCleanupWithErrors": "Limpeza concluída! {{cleaned}} registros limpos, {{errors}} erros",
+    "errorCleanup": "Falha ao executar limpeza: {{message}}",
+    "errorUnknown": "Erro desconhecido",
+    "totalRecords": "Total de registros",
+    "withSelfies": "Com selfies",
+    "estStorage": "Armaz. estimado",
+    "estStorageValue": "~{{mb}} MB",
+    "retention": "Retenção",
+    "retentionValue": "{{days}} dias",
+    "lastCleanupTitle": "Última limpeza automática",
+    "runTime": "Horário de execução",
+    "recordsCleaned": "Registros limpos",
+    "errors": "Erros",
+    "cutoffDate": "Data de corte",
+    "policyTitle": "Política de retenção de selfies",
+    "policyDesc": "Selfies mais antigas que o período de retenção serão excluídas automaticamente diariamente às 2h (horário do servidor). Os registros de presença serão preservados; apenas as imagens são removidas.",
+    "options": {
+      "7": {
+        "label": "7 dias",
+        "desc": "Agressivo — Armazenamento mínimo"
+      },
+      "14": {
+        "label": "14 dias",
+        "desc": "Curto — Baixo armazenamento"
+      },
+      "30": {
+        "label": "30 dias",
+        "desc": "Padrão — Recomendado"
+      },
+      "60": {
+        "label": "60 dias",
+        "desc": "Estendido — Armazenamento moderado"
+      },
+      "90": {
+        "label": "90 dias",
+        "desc": "Longo — Maior armazenamento"
+      }
+    },
+    "savePolicy": "Salvar política de retenção",
+    "runCleanup": "Executar limpeza agora",
+    "notesTitle": "Observações importantes",
+    "notes1": "Selfies excluídas não podem ser recuperadas",
+    "notes2": "A limpeza automática roda diariamente às 2:00 (horário do servidor)",
+    "notes3": "Considere a legislação trabalhista local antes de definir o período de retenção",
+    "notes4": "Estimativas de armazenamento são aproximadas (~150 KB por selfie)"
+  },
+  "appearancePanel": {
+    "title": "Tema global do app",
+    "subtitle": "Defina a cor de destaque para todos os usuários da plataforma.",
+    "accentColor": "Cor de destaque",
+    "active": "Ativo",
+    "successSet": "Tema global definido como \"{{name}}\". Todos os usuários verão na próxima visita.",
+    "errorSave": "Falha ao salvar: {{message}}",
+    "noteLabel": "Nota:",
+    "noteText": "Define a cor de destaque global da plataforma. Todos os usuários verão o tema atualizado. Cada um ainda pode escolher modo claro/escuro.",
+    "themes": {
+      "arctic-frost": "Geada Ártica",
+      "corporate-blue": "Azul Corporativo",
+      "ocean-depths": "Profundezas do Oceano",
+      "modern-minimal": "Minimalista Moderno",
+      "forest-canopy": "Dossel da Floresta",
+      "midnight-galaxy": "Galáxia da Meia-Noite",
+      "tech-innovation": "Inovação Tech",
+      "sunset-orange": "Laranja do Pôr do Sol",
+      "rose-garden": "Jardim de Rosas",
+      "golden-amber": "Âmbar Dourado",
+      "deep-indigo": "Índigo Profundo",
+      "royal-purple": "Roxo Real",
+      "teal-wave": "Onda Verde-Azulada",
+      "charcoal-slate": "Ardósia Carvão"
+    }
+  },
+  "notificationsPanel": {
+    "title": "Retenção de notificações",
+    "subtitle": "Gerencie a retenção de notificações para manter o banco limpo",
+    "errorLoad": "Falha ao carregar estatísticas de notificações",
+    "successRetentionUpdated": "Retenção de notificações atualizada para {{days}} dias",
+    "errorSave": "Falha ao salvar configuração de retenção",
+    "confirmPurge": "Tem certeza de que deseja EXCLUIR TODAS as notificações?\n\nIsso removerá permanentemente cada notificação de TODOS os usuários em TODAS as organizações.\n\nEsta ação não pode ser desfeita.",
+    "successPurge": "Limpeza concluída! {{count}} notificações excluídas",
+    "errorPurge": "Falha ao limpar notificações: {{message}}",
+    "total": "Total",
+    "read": "Lidas",
+    "unread": "Não lidas",
+    "retention": "Retenção",
+    "retentionValue": "{{days}} dias",
+    "purgeTitle": "Limpar todas as notificações",
+    "purgeDesc": "Excluir permanentemente todas as notificações de todos os usuários em todas as organizações.",
+    "purgeButton": "Limpar tudo ({{count}})",
+    "lastCleanupTitle": "Última limpeza automática",
+    "runTime": "Horário de execução",
+    "deleted": "Notificações excluídas",
+    "errors": "Erros",
+    "cutoffDate": "Data de corte",
+    "policyTitle": "Política de retenção de notificações",
+    "policyDesc": "Notificações mais antigas que o período de retenção serão excluídas automaticamente diariamente às 3h (horário do servidor). Aplica-se a todas as organizações.",
+    "options": {
+      "7": {
+        "label": "7 dias",
+        "desc": "Agressivo — Retenção mínima"
+      },
+      "14": {
+        "label": "14 dias",
+        "desc": "Curto — Baixa retenção"
+      },
+      "30": {
+        "label": "30 dias",
+        "desc": "Padrão — Recomendado"
+      },
+      "60": {
+        "label": "60 dias",
+        "desc": "Estendido — Retenção moderada"
+      },
+      "90": {
+        "label": "90 dias",
+        "desc": "Longo — Maior retenção"
+      }
+    },
+    "savePolicy": "Salvar política de retenção",
+    "notesTitle": "Observações importantes",
+    "notes1": "Notificações excluídas não podem ser recuperadas",
+    "notes2": "A limpeza automática roda diariamente às 3:00 (horário do servidor)",
+    "notes3": "Notificações lidas e não lidas serão excluídas após o período de retenção",
+    "notes4": "Isso afeta notificações em todas as organizações da plataforma"
+  },
+  "blog": {
+    "listTitle": "Posts do blog",
+    "newPost": "Novo post",
+    "loading": "Carregando posts...",
+    "emptyTitle": "Nenhum post ainda",
+    "emptyHint": "Crie seu primeiro post para começar",
+    "table": {
+      "title": "Título",
+      "status": "Status",
+      "author": "Autor",
+      "date": "Data",
+      "actions": "Ações"
+    },
+    "actions": {
+      "unpublish": "Despublicar",
+      "publish": "Publicar",
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "validation": {
+      "titleRequired": "Título é obrigatório",
+      "slugRequired": "Slug é obrigatório"
+    },
+    "deleteConfirm": "Tem certeza de que deseja excluir \"{{title}}\"? Esta ação não pode ser desfeita.",
+    "publishedSuccess": "Post publicado com sucesso",
+    "unpublishedSuccess": "Post despublicado com sucesso",
+    "backToList": "Voltar aos posts",
+    "previewView": "Prévia",
+    "previewEdit": "Editar",
+    "createPost": "Criar post",
+    "updatePost": "Atualizar post",
+    "createTitle": "Criar novo post",
+    "editTitle": "Editar: {{title}}",
+    "untitled": "Sem título",
+    "byAuthor": "Por {{name}}",
+    "coverAlt": "Capa",
+    "coverPreviewAlt": "Prévia da capa",
+    "status": {
+      "PUBLISHED": "Publicado"
+    },
+    "form": {
+      "title": "Título *",
+      "titlePlaceholder": "Digite o título do post...",
+      "slug": "Slug *",
+      "slugPrefix": "/blog/",
+      "slugPlaceholder": "url-friendly-slug",
+      "authorName": "Nome do autor",
+      "authorPlaceholder": "Nome do autor...",
+      "excerpt": "Resumo",
+      "excerptPlaceholder": "Breve resumo do post...",
+      "content": "Conteúdo",
+      "contentPlaceholder": "Comece a escrever seu post...",
+      "coverImage": "Imagem de capa",
+      "changeImage": "Alterar imagem",
+      "uploadImage": "Enviar imagem",
+      "status": "Status",
+      "draft": "Rascunho",
+      "published": "Publicado"
+    }
+  },
+  "tutorials": {
+    "listTitle": "Tutoriais",
+    "autoOrder": "Ordem automática",
+    "autoOrderTitle": "Atribuir ordem de exibição automaticamente por categoria",
+    "newTutorial": "Novo tutorial",
+    "loading": "Carregando tutoriais...",
+    "emptyTitle": "Nenhum tutorial ainda",
+    "emptyHint": "Crie seu primeiro tutorial para começar",
+    "table": {
+      "title": "Título",
+      "category": "Categoria",
+      "parent": "Pai",
+      "status": "Status",
+      "order": "Ordem",
+      "actions": "Ações"
+    },
+    "actions": {
+      "unpublish": "Despublicar",
+      "publish": "Publicar",
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "validation": {
+      "titleRequired": "Título é obrigatório",
+      "slugRequired": "Slug é obrigatório"
+    },
+    "deleteConfirm": "Tem certeza de que deseja excluir \"{{title}}\"? Esta ação não pode ser desfeita.",
+    "autoOrderConfirm": "Isso atribuirá automaticamente display_order a todos os tutoriais com base na categoria. Continuar?",
+    "publishedSuccess": "Tutorial publicado com sucesso",
+    "unpublishedSuccess": "Tutorial despublicado com sucesso",
+    "autoOrderSuccess": "Ordem de exibição atribuída automaticamente!",
+    "autoOrderFailed": "Falha ao atribuir ordem automaticamente",
+    "backToList": "Voltar aos tutoriais",
+    "previewView": "Prévia",
+    "previewEdit": "Editar",
+    "createTutorial": "Criar tutorial",
+    "updateTutorial": "Atualizar tutorial",
+    "createTitle": "Criar novo tutorial",
+    "editTitle": "Editar: {{title}}",
+    "untitled": "Sem título",
+    "byAuthor": "Por {{name}}",
+    "coverAlt": "Capa",
+    "coverPreviewAlt": "Prévia da capa",
+    "status": {
+      "PUBLISHED": "Publicado"
+    },
+    "categories": {
+      "gettingStarted": "Primeiros passos",
+      "dashboard": "Painel",
+      "attendance": "Presença",
+      "leave": "Férias e ausências",
+      "employees": "Colaboradores",
+      "organization": "Organização",
+      "performance": "Desempenho",
+      "reports": "Relatórios",
+      "settings": "Configurações",
+      "subscription": "Assinatura",
+      "general": "Geral"
+    },
+    "form": {
+      "title": "Título *",
+      "titlePlaceholder": "Digite o título do tutorial...",
+      "slug": "Slug *",
+      "slugPrefix": "/guides/",
+      "slugPlaceholder": "url-friendly-slug",
+      "category": "Categoria",
+      "categoryPlaceholder": "ex.: Presença, Férias...",
+      "parentTutorial": "Tutorial pai",
+      "parentNone": "Nenhum (nível superior)",
+      "displayOrder": "Ordem de exibição",
+      "authorName": "Nome do autor",
+      "authorPlaceholder": "Nome do autor...",
+      "excerpt": "Resumo",
+      "excerptPlaceholder": "Breve resumo do tutorial...",
+      "content": "Conteúdo",
+      "contentPlaceholder": "Comece a escrever seu tutorial...",
+      "coverImage": "Imagem de capa",
+      "changeImage": "Alterar imagem",
+      "uploadImage": "Enviar imagem",
+      "status": "Status",
+      "draft": "Rascunho",
+      "published": "Publicado"
+    }
+  },
+  "showcase": {
+    "listTitle": "Organizações em destaque",
+    "addOrganization": "Adicionar organização",
+    "loading": "Carregando...",
+    "emptyTitle": "Nenhuma organização em destaque",
+    "emptyHint": "Adicione organizações para exibir na landing page",
+    "table": {
+      "organization": "Organização",
+      "country": "País",
+      "industry": "Setor",
+      "order": "Ordem",
+      "active": "Ativo",
+      "actions": "Ações"
+    },
+    "actions": {
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "activeHide": "Ativo — clique para ocultar",
+    "activeShow": "Oculto — clique para exibir",
+    "deleteConfirm": "Remover \"{{name}}\" da vitrine?",
+    "modal": {
+      "addTitle": "Adicionar à vitrine",
+      "editTitle": "Editar vitrine",
+      "logoLabel": "Logo da organização",
+      "logoHint": "Clique para enviar. PNG ou SVG recomendado.",
+      "logoPreviewAlt": "Prévia do logo",
+      "logoRequired": "* Obrigatório"
+    },
+    "form": {
+      "name": "Nome da organização *",
+      "country": "País",
+      "countryPlaceholder": "ex.: Brasil",
+      "industry": "Setor",
+      "selectIndustry": "Selecionar...",
+      "websiteUrl": "URL do site",
+      "websitePlaceholder": "https://example.com",
+      "tagline": "Slogan",
+      "taglinePlaceholder": "ex.: Soluções de RH líderes",
+      "displayOrder": "Ordem de exibição",
+      "visibility": "Visibilidade",
+      "visibleOnLanding": "Visível na landing page",
+      "hidden": "Oculto",
+      "cancel": "Cancelar",
+      "add": "Adicionar",
+      "update": "Atualizar"
+    },
+    "validation": {
+      "nameRequired": "Nome da organização é obrigatório",
+      "logoRequired": "Logo é obrigatório para novos registros"
+    },
+    "industries": {
+      "technology": "Tecnologia",
+      "manufacturing": "Manufatura",
+      "healthcare": "Saúde",
+      "education": "Educação",
+      "finance": "Finanças",
+      "retail": "Varejo",
+      "construction": "Construção",
+      "logistics": "Logística",
+      "consulting": "Consultoria",
+      "nonProfit": "Sem fins lucrativos",
+      "other": "Outro"
+    }
+  },
+  "socialLinks": {
+    "listTitle": "Links de redes sociais",
+    "addLink": "Adicionar link",
+    "loading": "Carregando...",
+    "emptyTitle": "Nenhum link ainda",
+    "emptyHint": "Adicione links para exibir no rodapé da landing page",
+    "table": {
+      "platform": "Plataforma",
+      "url": "URL",
+      "order": "Ordem",
+      "active": "Ativo",
+      "actions": "Ações"
+    },
+    "actions": {
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "activeHide": "Ativo — clique para ocultar",
+    "activeShow": "Oculto — clique para exibir",
+    "deleteConfirm": "Remover link \"{{platform}}\"?",
+    "modal": {
+      "addTitle": "Adicionar link social",
+      "editTitle": "Editar link social"
+    },
+    "form": {
+      "platform": "Plataforma *",
+      "url": "URL *",
+      "urlPlaceholder": "https://youtube.com/@yourchannel",
+      "displayOrder": "Ordem de exibição",
+      "visibility": "Visibilidade",
+      "visible": "Visível",
+      "hidden": "Oculto",
+      "cancel": "Cancelar",
+      "add": "Adicionar",
+      "update": "Atualizar"
+    },
+    "validation": {
+      "urlRequired": "URL é obrigatória"
+    },
+    "platforms": {
+      "youtube": "YouTube",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "linkedin": "LinkedIn",
+      "x": "X / Twitter",
+      "tiktok": "TikTok",
+      "github": "GitHub"
+    }
+  },
+  "guideLinks": {
+    "title": "Links de ajuda dos guias",
+    "subtitle": "Configure qual tutorial abre quando o usuário clica no botão de ajuda em cada página.",
+    "reset": "Restaurar",
+    "save": "Salvar",
+    "none": "— Nenhum —",
+    "tooltipPreview": "Prévia",
+    "successSaved": "Links de ajuda salvos com sucesso.",
+    "errorSave": "Falha ao salvar links de ajuda.",
+    "sections": {
+      "sidebarMenu": "Menu lateral",
+      "dashboard": "Painel",
+      "attendance": "Presença",
+      "leave": "Férias e ausências",
+      "employees": "Colaboradores",
+      "organization": "Organização",
+      "reports": "Relatórios",
+      "reviews": "Avaliações",
+      "other": "Outros"
+    },
+    "helpPoints": {
+      "sidebar": {
+        "dashboard": {
+          "label": "Menu lateral — Painel"
+        },
+        "profile": {
+          "label": "Menu lateral — Meu perfil"
+        },
+        "attendance-logs": {
+          "label": "Menu lateral — Minha presença"
+        },
+        "attendance-audit": {
+          "label": "Menu lateral — Auditoria de presença"
+        },
+        "leave": {
+          "label": "Menu lateral — Férias e ausências"
+        },
+        "announcements": {
+          "label": "Menu lateral — Comunicados"
+        },
+        "admin-notifications": {
+          "label": "Menu lateral — Notificações"
+        },
+        "employees": {
+          "label": "Menu lateral — Diretório da equipe"
+        },
+        "performance-review": {
+          "label": "Menu lateral — Desempenho"
+        },
+        "organization": {
+          "label": "Menu lateral — Organização"
+        },
+        "reports": {
+          "label": "Menu lateral — Relatórios"
+        },
+        "settings": {
+          "label": "Menu lateral — Configurações"
+        }
+      },
+      "dashboard": {
+        "admin": {
+          "label": "Painel (Administrador)"
+        },
+        "manager": {
+          "label": "Painel (Gestor)"
+        },
+        "employee": {
+          "label": "Painel (Colaborador)"
+        }
+      },
+      "attendance": {
+        "clockin": {
+          "label": "Presença — Registrar entrada"
+        },
+        "logs": {
+          "label": "Histórico de presença"
+        },
+        "audit": {
+          "label": "Auditoria de presença"
+        }
+      },
+      "leave": {
+        "balance": {
+          "label": "Cartões de saldo de férias"
+        },
+        "apply": {
+          "label": "Formulário de solicitação"
+        },
+        "manager": {
+          "label": "Central de aprovação do gestor"
+        },
+        "hr": {
+          "label": "Administração de RH"
+        }
+      },
+      "employees": {
+        "directory": {
+          "label": "Diretório de colaboradores"
+        },
+        "create": {
+          "label": "Formulário de novo colaborador"
+        }
+      },
+      "org": {
+        "structure": {
+          "label": "Organização — Estrutura"
+        },
+        "teams": {
+          "label": "Organização — Equipes"
+        },
+        "placement": {
+          "label": "Organização — Alocação"
+        },
+        "shifts": {
+          "label": "Organização — Turnos"
+        },
+        "workflow": {
+          "label": "Organização — Fluxo de aprovação"
+        },
+        "leaves": {
+          "label": "Organização — Férias"
+        },
+        "holidays": {
+          "label": "Organização — Feriados"
+        },
+        "notifications": {
+          "label": "Organização — Notificações"
+        },
+        "system": {
+          "label": "Organização — Sistema"
+        }
+      },
+      "reports": {
+        "generator": {
+          "label": "Gerador de relatórios"
+        }
+      },
+      "review": {
+        "employee": {
+          "label": "Avaliação de desempenho (Colaborador)"
+        },
+        "manager": {
+          "label": "Avaliação de desempenho (Gestor)"
+        },
+        "hr": {
+          "label": "Avaliação de desempenho (RH)"
+        }
+      },
+      "announcements": {
+        "label": "Comunicados"
+      },
+      "notifications": {
+        "admin": {
+          "label": "Notificações administrativas"
+        }
+      },
+      "settings": {
+        "profile": {
+          "label": "Configurações de perfil"
+        },
+        "theme": {
+          "label": "Personalização de tema"
+        }
+      }
+    }
+  },
+  "bulkEmail": {
+    "title": "E-mail em massa",
+    "subtitle": "Envie comunicados, alertas ou avisos para admins ou usuários das organizações na plataforma.",
+    "compose": "Compor",
+    "history": "Histórico",
+    "audienceTitle": "Público",
+    "audienceAllAdminsLabel": "Todos os admins das orgs",
+    "audienceAllAdminsDesc": "Todo ADMIN em todas as organizações",
+    "audienceAllUsersLabel": "Todos os usuários",
+    "audienceAllUsersDesc": "Todo usuário registrado (exceto Super Admins)",
+    "audienceOrgLabel": "Organização específica",
+    "audienceOrgDesc": "Escolha uma org e direcione admins ou usuários",
+    "audienceBySubLabel": "Por status de assinatura",
+    "audienceBySubDesc": "Direcionar orgs em TRIAL / EXPIRED / etc.",
+    "audienceSummaryAllAdmins": "Todos os admins das organizações (ADMIN + RH)",
+    "audienceSummaryAllUsers": "Todos os usuários registrados (exceto Super Admins)",
+    "audienceSummaryOrg": "{{role}} de {{name}}",
+    "audienceSummaryOrgFallback": "Organização específica",
+    "audienceSummaryBySub": "{{role}} em orgs com status: {{statuses}}",
+    "audienceRoleAdmins": "admins (ADMIN + RH)",
+    "audienceRoleUsers": "usuários",
+    "audienceNote": "Destinatários são todos os usuários registrados que correspondem ao público acima (exceto Super Admins). Status de verificação é ignorado — admins/RH recém-cadastrados que ainda não clicaram no link de verificação ainda recebem. A lista é deduplicada por e-mail.",
+    "messageTitle": "Mensagem",
+    "formTemplate": "Modelo",
+    "formTemplateScratch": "— Começar do zero —",
+    "formClearTemplate": "Limpar modelo",
+    "formTemplateHint": "Selecione um modelo para preencher assunto e corpo. Você pode editar depois. Use {{name}} para o primeiro nome e {{reset_link}} para o link único de redefinição de senha.",
+    "formSubject": "Assunto",
+    "formSubjectPlaceholder": "ex.: Importante: manutenção programada neste fim de semana",
+    "formSubjectCount": "{{count}}/200",
+    "formBody": "Corpo",
+    "formBodyPlaceholder": "Escreva seu comunicado, aviso ou alerta aqui. Formatação e links são suportados.",
+    "formOrganization": "Organização",
+    "formSelectOrg": "Selecione uma organização",
+    "formLoadingOrgs": "Carregando…",
+    "formOrgUsersCount": "{{name}} ({{count}} usuários)",
+    "formSubscriptionStatuses": "Status de assinatura",
+    "formScope": "Escopo:",
+    "formScopeAllUsers": "Todos os usuários",
+    "formScopeAdminsOnly": "Somente admins",
+    "previewTitle": "Prévia de destinatários",
+    "previewAudience": "Público:",
+    "previewButton": "Pré-visualizar destinatários",
+    "previewCounting": "Contando…",
+    "sendButton": "Enviar para {{count}} destinatários",
+    "sendButtonEmpty": "Enviar para — destinatários",
+    "previewRecipients": "{{count}} destinatários",
+    "previewRecipientOne": "{{count}} destinatário",
+    "previewSample": "Amostra: {{emails}}",
+    "previewAndMore": "…e mais {{count}}",
+    "errorCompleteAudience": "Complete a seleção de público primeiro",
+    "errorNoRecipients": "Nenhum destinatário corresponde a este público",
+    "errorPreviewFailed": "Prévia falhou: {{message}}",
+    "errorPreviewFailedGeneric": "Prévia falhou. Verifique o console.",
+    "errorSendFailed": "Envio falhou. Verifique o console.",
+    "historyTitle": "Campanhas recentes",
+    "historyRefresh": "Atualizar",
+    "historyLoading": "Carregando…",
+    "historyEmpty": "Nenhuma campanha em massa ainda.",
+    "historyColSentAt": "Enviado em",
+    "historyColSubject": "Assunto",
+    "historyColTotal": "Total",
+    "historyColSent": "Enviados",
+    "historyColFailed": "Falhas",
+    "historyColPending": "Pendentes",
+    "historyView": "Ver",
+    "confirmTitle": "Confirmar envio em massa",
+    "confirmBody": "Você está prestes a enviar e-mail para {{count}} destinatários ({{audience}}). Isso não pode ser desfeito.",
+    "confirmBodyOne": "Você está prestes a enviar e-mail para {{count}} destinatário ({{audience}}). Isso não pode ser desfeito.",
+    "confirmSubject": "Assunto:",
+    "confirmCancel": "Cancelar",
+    "confirmSend": "Sim, enviar agora",
+    "confirmQueuing": "Enfileirando…",
+    "detailSummary": "{{total}} destinatários · {{sent}} enviados · {{failed}} falhas · {{pending}} pendentes",
+    "detailClose": "Fechar",
+    "detailLoading": "Carregando…",
+    "detailEmpty": "Nenhum registro.",
+    "detailColRecipient": "Destinatário",
+    "detailColStatus": "Status",
+    "detailColSentAt": "Enviado em",
+    "detailColError": "Erro",
+    "templates": {
+      "password_reset": {
+        "label": "Aviso de redefinição de senha"
+      },
+      "newsletter": {
+        "label": "Newsletter"
+      },
+      "maintenance": {
+        "label": "Manutenção do sistema"
+      },
+      "announcement": {
+        "label": "Comunicado geral"
+      },
+      "welcome": {
+        "label": "Boas-vindas / Onboarding"
+      }
+    },
+    "queueStatus": {
+      "PENDING": "Pendente",
+      "SENT": "Enviado",
+      "FAILED": "Falhou"
+    }
+  },
+  "pushBroadcast": {
+    "title": "Broadcast push",
+    "subtitle": "Envie notificação push para usuários inscritos.",
+    "target": "Destino",
+    "targetAll": "Toda a plataforma",
+    "targetOrg": "Organização",
+    "targetRole": "Função",
+    "targetUser": "Usuário único",
+    "targetTypes": {
+      "ALL": "Toda a plataforma",
+      "ORG": "Organização",
+      "ROLE": "Função",
+      "USER": "Usuário único"
+    },
+    "selectOrg": "— Selecione a organização —",
+    "orgUsersCount": "{{name}} ({{count}} usuários)",
+    "userIdPlaceholder": "Cole o UUID do usuário (auth.users.id)",
+    "counting": "Contando destinatários…",
+    "selectToCount": "Selecione o destino para contar destinatários",
+    "subscriptions": "{{count}} inscrições push ativas",
+    "subscriptionOne": "{{count}} inscrição push ativa",
+    "refreshCount": "Atualizar contagem",
+    "formTitle": "Título",
+    "formTitlePlaceholder": "ex.: Manutenção programada hoje à noite",
+    "formBody": "Corpo",
+    "formBodyPlaceholder": "Texto da notificação…",
+    "formClickUrl": "URL ao clicar (opcional)",
+    "formClickUrlPlaceholder": "/dashboard or /announcements",
+    "formClickUrlHint": "Padrão /dashboard se vazio.",
+    "previewLabel": "Prévia",
+    "previewTitleFallback": "Título aqui",
+    "previewBodyFallback": "Texto aqui",
+    "previewAppNow": "{{appName}} · agora",
+    "send": "Enviar broadcast",
+    "sending": "Enviando…",
+    "successSent": "Broadcast enviado. {{delivered}}/{{recipients}} entregues. {{stale}} obsoletos limpos.",
+    "errorSend": "Falha ao enviar broadcast",
+    "historyTitle": "Broadcasts recentes",
+    "historyRefresh": "Atualizar",
+    "historyEmpty": "Nenhum broadcast ainda.",
+    "historyDelivered": "{{count}} entregues",
+    "historyRecipients": "/ {{count}} destinatários",
+    "historyFailed": "{{count}} falhas",
+    "historyStaleCleaned": "{{count}} obsoletos limpos",
+    "historyBy": "por {{name}} · ",
+    "confirmTitle": "Confirmar broadcast",
+    "confirmBody": "Enviando push para {{count}} inscrições.",
+    "confirmBodyOne": "Enviando push para {{count}} inscrição.",
+    "confirmCrossTenant": "Multi-tenant: alcança todas as organizações da plataforma.",
+    "confirmCancel": "Cancelar",
+    "confirmSendNow": "Enviar agora"
+  },
+  "shell": {
+    "title": "Painel Super Admin",
+    "subtitle": "Gerencie todas as organizações da plataforma",
+    "newOrganization": "Nova organização",
+    "backToList": "Voltar à lista",
+    "tabGroup": {
+      "platform": "Plataforma",
+      "content": "Conteúdo"
+    },
+    "tab": {
+      "orgs": "Orgs",
+      "upgrades": "Upgrades",
+      "ads": "Anúncios",
+      "storage": "Armazenamento",
+      "notifs": "Notificações",
+      "theme": "Tema",
+      "email": "E-mail",
+      "push": "Push",
+      "blog": "Blog",
+      "tutorials": "Tutoriais",
+      "guides": "Guias",
+      "showcase": "Vitrine",
+      "social": "Redes sociais"
+    },
+    "errors": {
+      "fillRequired": "Preencha todos os campos obrigatórios",
+      "passwordMin": "A senha deve ter pelo menos 8 caracteres"
+    },
+    "success": {
+      "userVerified": "Usuário verificado com sucesso",
+      "userDeleted": "Usuário excluído com sucesso"
+    },
+    "confirm": {
+      "deleteOrg": "Tem certeza de que deseja excluir \"{{name}}\"?\n\nIsso excluirá permanentemente:\n- Todos os usuários ({{userCount}})\n- Todos os registros de presença\n- Todos os registros de férias\n- Todas as configurações\n\nEsta ação não pode ser desfeita!",
+      "deleteUser": "Tem certeza de que deseja excluir o usuário \"{{name}}\"? Esta ação não pode ser desfeita."
+    },
+    "upgradesPanel": {
+      "title": "Solicitações de upgrade",
+      "filterAll": "Todos",
+      "loading": "Carregando...",
+      "empty": "Nenhuma solicitação de upgrade encontrada",
+      "donation": "Doação: US$ {{amount}} ({{tier}})",
+      "extension": "Extensão: {{days}} dias",
+      "adSupported": "Modo com anúncios",
+      "ref": "Ref.: {{ref}}",
+      "reason": "Motivo: {{reason}}",
+      "approve": "Aprovar",
+      "reject": "Rejeitar",
+      "submitted": "Enviado em: {{date}}",
+      "filterPending": "Pendente",
+      "filterApproved": "Aprovado",
+      "filterRejected": "Rejeitado"
+    },
+    "stats": {
+      "totalOrgs": "Total de orgs",
+      "totalUsers": "Total de usuários",
+      "active": "Ativas",
+      "trial": "Trial",
+      "expired": "Expiradas",
+      "last30d": "Últimos 30 dias"
+    },
+    "orgsPanel": {
+      "title": "Todas as organizações",
+      "loading": "Carregando organizações...",
+      "empty": "Nenhuma organização encontrada",
+      "colOrganization": "Organização",
+      "colStatus": "Status",
+      "colUsers": "Usuários",
+      "colAdmin": "Admin",
+      "colCreated": "Criado em",
+      "colActions": "Ações",
+      "trialEnds": "Encerra em: {{date}}",
+      "verified": "Verificado",
+      "pendingVerification": "Verificação pendente",
+      "tooltipViewUsers": "Ver usuários",
+      "tooltipEdit": "Editar",
+      "tooltipDelete": "Excluir"
+    },
+    "form": {
+      "createTitle": "Criar nova organização",
+      "editTitle": "Editar: {{name}}",
+      "orgName": "Nome da organização *",
+      "orgNamePlaceholder": "ex.: Empresa Exemplo Ltda.",
+      "subscriptionStatus": "Status da assinatura",
+      "statusTrial": "Trial",
+      "statusActive": "Ativa",
+      "statusExpired": "Expirada",
+      "statusSuspended": "Suspensa",
+      "trialEndDate": "Data de fim do trial",
+      "trialEndHint": "A organização expirará automaticamente após esta data",
+      "address": "Endereço",
+      "addressPlaceholder": "ex.: Rua Comercial, 123, Cidade",
+      "adminSection": "Conta do administrador inicial",
+      "adminName": "Nome do admin *",
+      "adminNamePlaceholder": "ex.: João Silva",
+      "adminEmail": "E-mail do admin *",
+      "adminEmailPlaceholder": "ex.: admin@empresa.com",
+      "adminPassword": "Senha do admin *",
+      "adminPasswordPlaceholder": "Mín. 8 caracteres",
+      "cancel": "Cancelar",
+      "create": "Criar organização",
+      "save": "Salvar alterações"
+    },
+    "users": {
+      "title": "Usuários em {{name}}",
+      "count": "{{count}} usuários",
+      "loading": "Carregando usuários...",
+      "empty": "Nenhum usuário encontrado",
+      "colUser": "Usuário",
+      "colRole": "Função",
+      "colDepartment": "Departamento",
+      "verified": "Verificado",
+      "pending": "Pendente",
+      "tooltipVerify": "Verificar usuário",
+      "tooltipDelete": "Excluir usuário"
+    }
+  }
 }

@@ -80,7 +80,14 @@ describe('sync loop', () => {
       }),
       forward: async (punches: Array<{ nsr: string }>) => {
         forwarded.push(...punches.map((punch) => punch.nsr));
-        return { success: true, inserted: punches.length, duplicates: 0, affectedDates: [] };
+        return {
+          success: true,
+          inserted: punches.length,
+          duplicates: 0,
+          skipped: 0,
+          skippedEmployeeIds: [],
+          affectedDates: [],
+        };
       },
       now: () => new Date('2026-07-21T12:00:00.000Z'),
     };

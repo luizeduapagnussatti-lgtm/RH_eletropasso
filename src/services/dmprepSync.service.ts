@@ -19,6 +19,8 @@ export interface DmprepPunchSyncSummary {
   newRecords: number;
   inserted: number;
   duplicates: number;
+  skippedPunches?: number;
+  skippedEmployeeIds?: string[];
   skipped: boolean;
   resetCursor: boolean;
 }

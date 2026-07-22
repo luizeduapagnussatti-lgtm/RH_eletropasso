@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { blogService } from '../services/blog.service';
 import { BlogPost } from '../types';
 import { PublicAdBanner } from '../components/ads';
@@ -8,6 +9,7 @@ import BlogSidebar from '../components/blog/BlogSidebar';
 import BlogFooter from '../components/blog/BlogFooter';
 import { sanitizeHtml } from '../utils/sanitize';
 import { navigateTo, updatePageMeta, setJsonLd } from '../utils/seo';
+import { APP_NAME } from '../config/branding';
 
 const BlogPostSkeleton = () => (
   <div className="animate-pulse">
@@ -41,6 +43,7 @@ interface BlogPostPageProps {
 }
 
 const BlogPostPage: React.FC<BlogPostPageProps> = ({ slug, onBack }) => {
+  const { t } = useTranslation('marketing');
   const [post, setPost] = useState<BlogPost | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -63,9 +66,9 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ slug, onBack }) => {
     if (data) {
       setPost(data);
       updatePageMeta(
-        `${data.title} | OpenHR Blog`,
-        data.excerpt || `Read ${data.title} on the OpenHR Blog.`,
-        `https://openhrapp.com/blog/${slug}`,
+        `${data.title} | ${t('blog')}`,
+        data.excerpt || data.title,
+        `${window.location.origin}/blog/${slug}`,
         data.coverImage || undefined
       );
       setJsonLd({
@@ -75,32 +78,32 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ slug, onBack }) => {
             '@type': 'Article',
             headline: data.title,
             description: data.excerpt || '',
-            image: data.coverImage || 'https://openhrapp.com/img/screenshot-wide.png',
+            image: data.coverImage || `${window.location.origin}/img/screenshot-wide.png`,
             datePublished: data.publishedAt || data.created,
             dateModified: data.updated || data.publishedAt || data.created,
             author: {
               '@type': 'Person',
-              name: data.authorName || 'OpenHR Team',
+              name: data.authorName || APP_NAME,
             },
             publisher: {
               '@type': 'Organization',
-              name: 'OpenHRApp',
+              name: APP_NAME,
               logo: {
                 '@type': 'ImageObject',
-                url: 'https://openhrapp.com/img/logo.webp',
+                url: `${window.location.origin}/img/logo.webp`,
               },
             },
             mainEntityOfPage: {
               '@type': 'WebPage',
-              '@id': `https://openhrapp.com/blog/${slug}`,
+              '@id': `${window.location.origin}/blog/${slug}`,
             },
           },
           {
             '@type': 'BreadcrumbList',
             itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-              { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://openhrapp.com/blog' },
-              { '@type': 'ListItem', position: 3, name: data.title, item: `https://openhrapp.com/blog/${slug}` },
+              { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+              { '@type': 'ListItem', position: 2, name: t('blog'), item: window.location.origin + '/blog' },
+              { '@type': 'ListItem', position: 3, name: data.title, item: `${window.location.origin}/blog/${slug}` },
             ],
           },
         ],
@@ -133,13 +136,13 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ slug, onBack }) => {
           </div>
         ) : notFound ? (
           <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Post Not Found</h2>
-            <p className="text-slate-500 mb-6">The blog post you're looking for doesn't exist or has been unpublished.</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('blogPage.postNotFound')}</h2>
+            <p className="text-slate-500 mb-6">{t('blogPage.postNotFoundBody')}</p>
             <button
               onClick={goToBlog}
               className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-hover transition-all"
             >
-              Back to Blog
+              {t('blogPage.backToBlog')}
             </button>
           </div>
         ) : post && (
@@ -178,8 +181,8 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ slug, onBack }) => {
                     <span className="flex items-center gap-1.5">
                       <Calendar size={16} />
                       {post.publishedAt
-                        ? new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                        : new Date(post.created).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        ? new Date(post.publishedAt).toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                        : new Date(post.created).toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                     </span>
                   </div>
 
@@ -213,7 +216,7 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ slug, onBack }) => {
                       onClick={goToBlog}
                       className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary transition-colors"
                     >
-                      <ArrowLeft size={16} /> Back to all posts
+                      <ArrowLeft size={16} /> {t('blogPage.backToBlog')}
                     </button>
                   </div>
                 </article>

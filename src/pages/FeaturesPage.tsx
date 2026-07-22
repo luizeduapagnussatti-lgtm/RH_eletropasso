@@ -1,51 +1,34 @@
 import React, { useEffect } from 'react';
 import { Shield, Smartphone, Globe, Bell, Settings, Check, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BlogNavbar from '../components/blog/BlogNavbar';
 import BlogFooter from '../components/blog/BlogFooter';
 import { navigateTo, updatePageMeta, setJsonLd } from '../utils/seo';
 import { features } from '../data/features';
+import { APP_NAME } from '../config/branding';
 
-const platformFeatures = [
-  {
-    icon: Smartphone,
-    title: 'Works on Any Device',
-    description: 'Progressive Web App that works on phones, tablets, and desktops. Install it like a native app — no app store needed.',
-  },
-  {
-    icon: Globe,
-    title: 'Cloud-Based & Always Available',
-    description: 'Access your HR system from anywhere. All data is securely stored in the cloud with automatic backups.',
-  },
-  {
-    icon: Bell,
-    title: 'Real-Time Notifications',
-    description: 'Email and in-app notifications for leave requests, approvals, attendance alerts, and announcements.',
-  },
-  {
-    icon: Shield,
-    title: 'Secure & Private',
-    description: 'Role-based access control ensures employees only see what they should. All data is encrypted and protected.',
-  },
-  {
-    icon: Settings,
-    title: 'Customizable',
-    description: 'Configure departments, designations, leave types, review cycles, themes, and more to match your organization.',
-  },
-];
+const platformMeta = [
+  { icon: Smartphone, key: 'anyDevice' },
+  { icon: Globe, key: 'cloud' },
+  { icon: Bell, key: 'notifications' },
+  { icon: Shield, key: 'secure' },
+  { icon: Settings, key: 'customizable' },
+] as const;
 
-const comparisonRows = [
-  { feature: 'Attendance tracking', openhr: true, typical: true },
-  { feature: 'Selfie + GPS verification', openhr: true, typical: false },
-  { feature: 'Leave management', openhr: true, typical: true },
-  { feature: 'Custom leave types', openhr: true, typical: 'Paid add-on' },
-  { feature: 'Employee directory', openhr: true, typical: true },
-  { feature: 'Performance reviews', openhr: true, typical: 'Paid add-on' },
-  { feature: 'Reports & analytics', openhr: true, typical: true },
-  { feature: 'Email notifications', openhr: true, typical: true },
-  { feature: 'Mobile app (PWA)', openhr: true, typical: 'Paid add-on' },
-  { feature: 'Open source', openhr: true, typical: false },
-  { feature: 'Free tier available', openhr: true, typical: false },
-  { feature: 'No per-user pricing', openhr: true, typical: false },
+// openhr / typical pattern: true | false | 'paid'
+const comparisonPattern: Array<{ openhr: true; typical: true | false | 'paid' }> = [
+  { openhr: true, typical: true },
+  { openhr: true, typical: false },
+  { openhr: true, typical: true },
+  { openhr: true, typical: 'paid' },
+  { openhr: true, typical: true },
+  { openhr: true, typical: 'paid' },
+  { openhr: true, typical: true },
+  { openhr: true, typical: true },
+  { openhr: true, typical: 'paid' },
+  { openhr: true, typical: false },
+  { openhr: true, typical: false },
+  { openhr: true, typical: false },
 ];
 
 interface FeaturesPageProps {
@@ -54,237 +37,235 @@ interface FeaturesPageProps {
 }
 
 const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBack, onRegisterClick }) => {
+  const { t, i18n } = useTranslation('marketing');
+  const comparisonRows = t('featuresPage.comparisonRows', { returnObjects: true }) as string[];
+  const paidAddon = t('featuresPage.paidAddon');
+
   useEffect(() => {
     updatePageMeta(
-      'Features | OpenHR - Open Source HRMS',
-      'Explore all OpenHR features: selfie-based attendance with GPS, leave management, employee directory, performance reviews, reports, and more. Free and open-source.',
-      'https://openhrapp.com/features',
-      'https://openhrapp.com/img/screenshot-wide.webp'
+      t('featuresPage.seoTitle'),
+      t('featuresPage.seoDescription'),
+      window.location.origin + '/features',
+      window.location.origin + '/img/screenshot-wide.webp'
     );
     setJsonLd({
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'CollectionPage',
-          name: 'OpenHR Features',
-          description: 'Complete list of OpenHR HRMS features including attendance management, leave management, employee directory, performance reviews, and analytics.',
-          url: 'https://openhrapp.com/features',
-          isPartOf: { '@type': 'WebSite', name: 'OpenHRApp', url: 'https://openhrapp.com' },
+          name: t('featuresPage.title'),
+          description: t('featuresPage.seoDescription'),
+          url: window.location.origin + '/features',
+          isPartOf: { '@type': 'WebSite', name: APP_NAME, url: window.location.origin },
         },
         {
           '@type': 'ItemList',
-          name: 'OpenHR Feature List',
-          url: 'https://openhrapp.com/features',
+          name: t('featuresPage.title'),
+          url: window.location.origin + '/features',
           numberOfItems: features.length,
           itemListElement: features.map((f, i) => ({
             '@type': 'ListItem',
             position: i + 1,
-            name: f.title,
-            url: `https://openhrapp.com/features/${f.slug}`,
+            name: t(`featuresPage.catalog.${f.slug}.title`, { defaultValue: f.title }),
+            url: `${window.location.origin}/features/${f.slug}`,
           })),
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-            { '@type': 'ListItem', position: 2, name: 'Features', item: 'https://openhrapp.com/features' },
+            { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+            { '@type': 'ListItem', position: 2, name: t('features'), item: window.location.origin + '/features' },
           ],
         },
       ],
     });
     return () => { setJsonLd(null); };
-  }, []);
+  }, [t, i18n.language]);
 
   const handleGetStarted = () => {
-    if (onRegisterClick) {
-      onRegisterClick();
-    } else {
-      navigateTo('/');
-    }
+    if (onRegisterClick) onRegisterClick();
+    else navigateTo('/');
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <BlogNavbar onBack={onBack} />
 
-      {/* Hero */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 text-center">
-          <span className="text-xs font-bold text-primary uppercase tracking-widest">Features</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-widest">{t('featuresPage.eyebrow')}</span>
           <h1 className="text-4xl md:text-5xl font-semibold text-slate-900 tracking-tight mt-4 mb-6">
-            All-in-One HR Management
+            {t('featuresPage.title')}
           </h1>
           <p className="text-lg md:text-xl text-slate-500 max-w-3xl mx-auto leading-relaxed">
-            Everything you need to manage attendance, leave, employees, performance reviews, and reports — in one free, open-source platform.
+            {t('featuresPage.subtitle')}
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={handleGetStarted}
               className="px-8 py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-sm text-sm"
             >
-              Get Started Free
+              {t('getStarted')}
             </button>
             <button
               onClick={() => navigateTo('/how-to-use')}
               className="px-8 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-sm border border-slate-200"
             >
-              View Guides
+              {t('featuresPage.viewGuides')}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Feature Sections */}
       <div className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="space-y-24">
-            {features.map((feature, index) => (
-              <section key={feature.title} id={feature.title.toLowerCase().replace(/\s+/g, '-')}>
-                <div className={`flex flex-col ${index % 2 === 1 ? 'lg:flex-row-reverse' : 'lg:flex-row'} gap-12 items-start`}>
-                  {/* Text Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-12 h-12 ${feature.bg} rounded-xl flex items-center justify-center`}>
-                        <feature.icon size={22} className={feature.color} />
+            {features.map((feature, index) => {
+              const title = t(`featuresPage.catalog.${feature.slug}.title`, { defaultValue: feature.title });
+              const subtitle = t(`featuresPage.catalog.${feature.slug}.subtitle`, { defaultValue: feature.subtitle });
+              const description = t(`featuresPage.catalog.${feature.slug}.description`, { defaultValue: feature.description });
+              const subFeatures = t(`featuresPage.catalog.${feature.slug}.subFeatures`, {
+                returnObjects: true,
+                defaultValue: feature.subFeatures,
+              }) as string[];
+
+              return (
+                <section key={feature.slug} id={feature.slug}>
+                  <div className={`flex flex-col ${index % 2 === 1 ? 'lg:flex-row-reverse' : 'lg:flex-row'} gap-12 items-start`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`w-12 h-12 ${feature.bg} rounded-xl flex items-center justify-center`}>
+                          <feature.icon size={22} className={feature.color} />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl md:text-3xl font-bold text-slate-900">{title}</h2>
+                        </div>
                       </div>
-                      <div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-slate-900">{feature.title}</h2>
+                      <p className="text-sm font-semibold text-primary mb-4">{subtitle}</p>
+                      <p className="text-slate-600 text-base leading-relaxed mb-8">{description}</p>
+
+                      <ul className="space-y-3">
+                        {Array.isArray(subFeatures) && subFeatures.map(sub => (
+                          <li key={sub} className="flex items-start gap-3">
+                            <Check size={18} className={`${feature.color} mt-0.5 flex-shrink-0`} />
+                            <span className="text-sm text-slate-700">{sub}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <button
+                        onClick={() => navigateTo(`/features/${feature.slug}`)}
+                        className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-hover transition-colors"
+                      >
+                        {t('featuresPage.learnMoreAbout', { feature: title.toLowerCase() })} <ArrowRight size={14} />
+                      </button>
+                    </div>
+
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className={`${feature.bg} ${feature.border} border rounded-2xl p-8 md:p-12 flex flex-col items-center justify-center min-h-[320px]`}>
+                        <feature.icon size={64} className={`${feature.color} opacity-20 mb-4`} />
+                        <p className="text-sm font-semibold text-slate-400">{title}</p>
                       </div>
                     </div>
-                    <p className="text-sm font-semibold text-primary mb-4">{feature.subtitle}</p>
-                    <p className="text-slate-600 text-base leading-relaxed mb-8">
-                      {feature.description}
-                    </p>
-
-                    {/* Sub-features list */}
-                    <ul className="space-y-3">
-                      {feature.subFeatures.map(sub => (
-                        <li key={sub} className="flex items-start gap-3">
-                          <Check size={18} className={`${feature.color} mt-0.5 flex-shrink-0`} />
-                          <span className="text-sm text-slate-700">{sub}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <button
-                      onClick={() => navigateTo(`/features/${feature.slug}`)}
-                      className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-hover transition-colors"
-                    >
-                      Learn more about {feature.title.toLowerCase()} <ArrowRight size={14} />
-                    </button>
                   </div>
-
-                  {/* Visual Placeholder */}
-                  <div className="flex-1 min-w-0 w-full">
-                    <div className={`${feature.bg} ${feature.border} border rounded-2xl p-8 md:p-12 flex flex-col items-center justify-center min-h-[320px]`}>
-                      <feature.icon size={64} className={`${feature.color} opacity-20 mb-4`} />
-                      <p className="text-sm font-semibold text-slate-400">{feature.title}</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            ))}
+                </section>
+              );
+            })}
           </div>
         </div>
 
-        {/* Platform Features */}
         <div className="bg-white border-y border-slate-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
             <div className="text-center max-w-2xl mx-auto mb-16">
-              <span className="text-xs font-bold text-primary uppercase tracking-widest">Platform</span>
+              <span className="text-xs font-bold text-primary uppercase tracking-widest">{t('featuresPage.platformEyebrow')}</span>
               <h2 className="text-3xl md:text-4xl font-semibold text-slate-900 mt-3 mb-4">
-                Built for Modern Teams
+                {t('featuresPage.platformTitle')}
               </h2>
               <p className="text-slate-500 text-lg">
-                Beyond core HR features, OpenHR is designed to be fast, accessible, and customizable.
+                {t('featuresPage.platformSubtitle')}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {platformFeatures.map(pf => (
+              {platformMeta.map(pf => (
                 <div
-                  key={pf.title}
+                  key={pf.key}
                   className="p-6 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-white dark:hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-100 dark:hover:shadow-black/30 hover:border-slate-200 dark:hover:border-slate-600 transition-all duration-300"
                 >
                   <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-5">
                     <pf.icon size={22} className="text-primary" />
                   </div>
-                  <h3 className="text-base font-bold text-slate-900 mb-2">{pf.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{pf.description}</p>
+                  <h3 className="text-base font-bold text-slate-900 mb-2">{t(`featuresPage.platform.${pf.key}.title`)}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">{t(`featuresPage.platform.${pf.key}.description`)}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Comparison Table */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-xs font-bold text-primary uppercase tracking-widest">Comparison</span>
+            <span className="text-xs font-bold text-primary uppercase tracking-widest">{t('featuresPage.comparisonEyebrow')}</span>
             <h2 className="text-3xl md:text-4xl font-semibold text-slate-900 mt-3 mb-4">
-              OpenHR vs Typical Paid HRMS
+              {t('featuresPage.comparisonTitle')}
             </h2>
             <p className="text-slate-500 text-lg">
-              Get more features out of the box — without the per-user pricing.
+              {t('featuresPage.comparisonSubtitle')}
             </p>
           </div>
           <div className="max-w-3xl mx-auto">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              {/* Table Header */}
               <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-100">
-                <div className="px-6 py-4 text-sm font-bold text-slate-900">Feature</div>
-                <div className="px-6 py-4 text-sm font-bold text-primary text-center">OpenHR</div>
-                <div className="px-6 py-4 text-sm font-bold text-slate-500 text-center">Typical Paid HRMS</div>
+                <div className="px-6 py-4 text-sm font-bold text-slate-900">{t('featuresPage.comparisonFeatureCol')}</div>
+                <div className="px-6 py-4 text-sm font-bold text-primary text-center">{t('featuresPage.comparisonUsCol')}</div>
+                <div className="px-6 py-4 text-sm font-bold text-slate-500 text-center">{t('featuresPage.comparisonTypicalCol')}</div>
               </div>
-              {/* Table Rows */}
-              {comparisonRows.map((row, i) => (
-                <div
-                  key={row.feature}
-                  className={`grid grid-cols-3 ${i < comparisonRows.length - 1 ? 'border-b border-slate-50' : ''} hover:bg-slate-50/50 transition-colors`}
-                >
-                  <div className="px-6 py-3.5 text-sm text-slate-700">{row.feature}</div>
-                  <div className="px-6 py-3.5 flex justify-center">
-                    {row.openhr === true ? (
+              {Array.isArray(comparisonRows) && comparisonRows.map((label, i) => {
+                const row = comparisonPattern[i] || { openhr: true as const, typical: false as const };
+                return (
+                  <div
+                    key={label}
+                    className={`grid grid-cols-3 ${i < comparisonRows.length - 1 ? 'border-b border-slate-50' : ''} hover:bg-slate-50/50 transition-colors`}
+                  >
+                    <div className="px-6 py-3.5 text-sm text-slate-700">{label}</div>
+                    <div className="px-6 py-3.5 flex justify-center">
                       <Check size={18} className="text-emerald-500" />
-                    ) : (
-                      <span className="text-sm text-slate-400">{String(row.openhr)}</span>
-                    )}
+                    </div>
+                    <div className="px-6 py-3.5 flex justify-center">
+                      {row.typical === true ? (
+                        <Check size={18} className="text-slate-400" />
+                      ) : row.typical === false ? (
+                        <span className="text-sm text-slate-300">-</span>
+                      ) : (
+                        <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full">{paidAddon}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="px-6 py-3.5 flex justify-center">
-                    {row.typical === true ? (
-                      <Check size={18} className="text-slate-400" />
-                    ) : row.typical === false ? (
-                      <span className="text-sm text-slate-300">-</span>
-                    ) : (
-                      <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full">{String(row.typical)}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* CTA */}
         <div className="bg-primary/5 border-y border-primary/10">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 text-center">
             <h2 className="text-3xl md:text-4xl font-semibold text-slate-900 mb-4">
-              Ready to simplify your HR?
+              {t('featuresPage.ctaTitle')}
             </h2>
             <p className="text-lg text-slate-500 mb-8 max-w-2xl mx-auto">
-              Join organizations already using OpenHR. Free to start, no credit card required.
+              {t('featuresPage.ctaBody')}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 onClick={handleGetStarted}
                 className="px-8 py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-sm text-sm flex items-center gap-2"
               >
-                Get Started Free <ArrowRight size={16} />
+                {t('getStarted')} <ArrowRight size={16} />
               </button>
               <button
                 onClick={() => navigateTo('/blog')}
                 className="px-8 py-3.5 bg-white text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors text-sm border border-slate-200"
               >
-                Read Our Blog
+                {t('featuresPage.readBlog')}
               </button>
             </div>
           </div>

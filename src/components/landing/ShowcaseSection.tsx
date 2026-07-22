@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { showcaseService } from '../../services/showcase.service';
 import { ShowcaseOrganization } from '../../types';
 
 const CAROUSEL_THRESHOLD = 10;
 
 const ShowcaseSection: React.FC = () => {
+  const { t } = useTranslation('marketing');
   const [orgs, setOrgs] = useState<ShowcaseOrganization[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -27,10 +29,10 @@ const ShowcaseSection: React.FC = () => {
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center mb-12">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 mb-3">
-            Trusted by organizations worldwide
+            {t('showcase.eyebrow')}
           </p>
           <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 tracking-tight">
-            Teams that rely on OpenHR
+            {t('showcase.title')}
           </h2>
         </div>
 

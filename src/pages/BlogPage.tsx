@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { blogService } from '../services/blog.service';
 import { BlogPost } from '../types';
 import { PublicAdBanner } from '../components/ads';
@@ -7,6 +8,7 @@ import BlogNavbar from '../components/blog/BlogNavbar';
 import BlogSidebar from '../components/blog/BlogSidebar';
 import BlogFooter from '../components/blog/BlogFooter';
 import { navigateTo, updatePageMeta, setJsonLd } from '../utils/seo';
+import { APP_NAME } from '../config/branding';
 
 const BlogCardSkeleton = () => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-pulse">
@@ -29,6 +31,7 @@ interface BlogPageProps {
 }
 
 const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
+  const { t, i18n } = useTranslation('marketing');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,35 +42,35 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
 
   useEffect(() => {
     updatePageMeta(
-      'Blog | OpenHR - Open Source HRMS',
-      'Latest news, updates, and insights about HR management, employee engagement, and OpenHR product updates.',
-      'https://openhrapp.com/blog'
+      t('blogPage.seoTitle'),
+      t('blogPage.seoDescription'),
+      window.location.origin + '/blog'
     );
     setJsonLd({
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'CollectionPage',
-          name: 'OpenHR Blog',
-          description: 'Latest news, updates, and insights about HR management, employee engagement, and OpenHR product updates.',
-          url: 'https://openhrapp.com/blog',
+          name: t('blogPage.title'),
+          description: t('blogPage.seoDescription'),
+          url: window.location.origin + '/blog',
           isPartOf: {
             '@type': 'WebSite',
-            name: 'OpenHRApp',
-            url: 'https://openhrapp.com',
+            name: APP_NAME,
+            url: window.location.origin,
           },
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-            { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://openhrapp.com/blog' },
+            { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+            { '@type': 'ListItem', position: 2, name: t('blog'), item: window.location.origin + '/blog' },
           ],
         },
       ],
     });
     return () => { setJsonLd(null); };
-  }, []);
+  }, [t, i18n.language]);
 
   useEffect(() => {
     loadPosts();
@@ -89,35 +92,34 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
         '@graph': [
           {
             '@type': 'CollectionPage',
-            name: 'OpenHR Blog',
-            description: 'Latest news, updates, and insights about HR management, employee engagement, and OpenHR product updates.',
-            url: 'https://openhrapp.com/blog',
-            isPartOf: { '@type': 'WebSite', name: 'OpenHRApp', url: 'https://openhrapp.com' },
+            name: t('blogPage.title'),
+            description: t('blogPage.seoDescription'),
+            url: window.location.origin + '/blog',
+            isPartOf: { '@type': 'WebSite', name: APP_NAME, url: window.location.origin },
           },
           {
             '@type': 'ItemList',
-            name: 'OpenHR Blog Posts',
-            url: 'https://openhrapp.com/blog',
+            name: t('blogPage.title'),
+            url: window.location.origin + '/blog',
             numberOfItems: data.posts.length,
             itemListElement: data.posts.map((post, i) => ({
               '@type': 'ListItem',
               position: i + 1,
-              url: `https://openhrapp.com/blog/${post.slug}`,
+              url: `${window.location.origin}/blog/${post.slug}`,
               name: post.title,
             })),
           },
           {
             '@type': 'BreadcrumbList',
             itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-              { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://openhrapp.com/blog' },
+              { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+              { '@type': 'ListItem', position: 2, name: t('blog'), item: window.location.origin + '/blog' },
             ],
           },
         ],
       });
     }
   };
-
   const applyFilters = () => {
     let result = [...posts];
 
@@ -157,8 +159,8 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
       {/* Header */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
-          <h1 className="text-4xl font-semibold text-slate-900 tracking-tight">Blog</h1>
-          <p className="text-slate-500 mt-3 text-lg">Latest news, updates, and insights</p>
+          <h1 className="text-4xl font-semibold text-slate-900 tracking-tight">{t('blogPage.title')}</h1>
+          <p className="text-slate-500 mt-3 text-lg">{t('blogPage.subtitle')}</p>
         </div>
       </div>
 
@@ -172,10 +174,10 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-3 flex items-center justify-between">
             <p className="text-sm text-primary font-semibold">
-              Filtering by:{' '}
+              {t('blogPage.filteringBy')}{' '}
               {selectedArchive && (
                 <span className="inline-flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full text-xs mr-2">
-                  {new Date(selectedArchive.year, selectedArchive.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  {new Date(selectedArchive.year, selectedArchive.month).toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
                 </span>
               )}
               {selectedCategory && (
@@ -188,7 +190,7 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
               onClick={() => { setSelectedArchive(null); setSelectedCategory(null); }}
               className="text-xs font-bold text-primary hover:text-primary-hover transition-colors"
             >
-              Clear all
+              {t('blogPage.clearAll')}
             </button>
           </div>
         </div>
@@ -211,15 +213,15 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
                 <div className="text-center py-20">
                   <p className="text-slate-500 text-lg">
                     {selectedArchive || selectedCategory
-                      ? 'No posts found for this filter. Try a different selection.'
-                      : 'No posts published yet. Check back soon!'}
+                      ? t('blogPage.noPostsFilter')
+                      : t('blogPage.noPosts')}
                   </p>
                   {(selectedArchive || selectedCategory) && (
                     <button
                       onClick={() => { setSelectedArchive(null); setSelectedCategory(null); }}
                       className="mt-4 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover transition-all"
                     >
-                      Clear Filters
+                      {t('blogPage.clearFilters')}
                     </button>
                   )}
                 </div>
@@ -257,8 +259,8 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
                             <span className="flex items-center gap-1">
                               <Calendar size={12} />
                               {post.publishedAt
-                                ? new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                : new Date(post.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                ? new Date(post.publishedAt).toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                : new Date(post.created).toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
                           </div>
                         </div>
@@ -279,17 +281,17 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onRegisterClick }) => {
                         disabled={page === 1}
                         className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
-                        Previous
+                        {t('blogPage.previous')}
                       </button>
                       <span className="text-sm text-slate-500">
-                        Page {page} of {totalPages}
+                        {t('blogPage.pageOf', { page, total: totalPages })}
                       </span>
                       <button
                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
                         className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
-                        Next
+                        {t('blogPage.next')}
                       </button>
                     </div>
                   )}

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Youtube, Facebook, Instagram, Linkedin, Twitter, Github, Share2
 } from 'lucide-react';
 import { socialLinksService } from '../../services/sociallinks.service';
 import { SocialLink } from '../../types';
 import { navigateTo } from '../../utils/seo';
+import { APP_NAME } from '../../config/branding';
 
 const PLATFORM_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
   youtube: Youtube,
@@ -17,6 +19,7 @@ const PLATFORM_ICONS: Record<string, React.FC<{ size?: number; className?: strin
 };
 
 const Footer: React.FC = () => {
+  const { t } = useTranslation('marketing');
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
 
   useEffect(() => {
@@ -29,29 +32,29 @@ const Footer: React.FC = () => {
 
   const columns = [
     {
-      title: 'Product',
+      title: t('footer.product'),
       links: [
-        { label: 'Features', href: '/features', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/features'); } },
-        { label: 'How It Works', href: '#how-it-works', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('how-it-works'); } },
-        { label: 'FAQ', href: '#faq', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('faq'); } },
-        { label: 'Blog', href: '/blog', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/blog'); } },
-        { label: 'Changelog', href: '/changelog', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/changelog'); } },
+        { label: t('features'), href: '/features', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/features'); } },
+        { label: t('nav.howItWorks'), href: '#how-it-works', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('how-it-works'); } },
+        { label: t('nav.faq'), href: '#faq', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('faq'); } },
+        { label: t('blog'), href: '/blog', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/blog'); } },
+        { label: t('changelog'), href: '/changelog', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/changelog'); } },
       ],
     },
     {
-      title: 'Resources',
+      title: t('footer.resources'),
       links: [
-        { label: 'Guides', href: '/how-to-use', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/how-to-use'); } },
-        { label: 'GitHub', href: 'https://github.com/mimnets/openhrapp', onClick: () => {} },
+        { label: t('guides'), href: '/how-to-use', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/how-to-use'); } },
+        { label: t('github'), href: 'https://github.com/mimnets/openhrapp', onClick: () => {} },
       ],
     },
     {
-      title: 'Company',
+      title: t('footer.company'),
       links: [
-        { label: 'About', href: '/about', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/about'); } },
-        { label: 'Contact', href: '#contact', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('contact'); } },
-        { label: 'Privacy Policy', href: '/privacy', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/privacy'); } },
-        { label: 'Terms of Service', href: '/terms', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/terms'); } },
+        { label: t('about'), href: '/about', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/about'); } },
+        { label: t('nav.contact'), href: '#contact', onClick: (e: React.MouseEvent) => { e.preventDefault(); scrollTo('contact'); } },
+        { label: t('privacy'), href: '/privacy', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/privacy'); } },
+        { label: t('terms'), href: '/terms', onClick: (e: React.MouseEvent) => { e.preventDefault(); navigateTo('/terms'); } },
       ],
     },
   ];
@@ -60,24 +63,18 @@ const Footer: React.FC = () => {
     <footer className="bg-slate-900 text-white pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-sm overflow-hidden">
-                <img src="/img/logo.webp" className="w-full h-full object-contain" alt="OpenHRApp" width="44" height="44" />
+                <img src="/img/logo.webp" className="w-full h-full object-contain" alt={APP_NAME} width="44" height="44" />
               </div>
-              <span className="text-base font-semibold tracking-tight">
-                <span className="text-primary">Open</span>
-                <span className="text-[#f59e0b]">HR</span>
-                <span className="text-[#10b981]">App</span>
-              </span>
+              <span className="text-base font-semibold tracking-tight text-white">{APP_NAME}</span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Modern HR management for growing teams. Open-source and free to get started.
+              {t('footer.tagline')}
             </p>
           </div>
 
-          {/* Link Columns */}
           {columns.map((col) => (
             <div key={col.title}>
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wide mb-4">{col.title}</h4>
@@ -98,13 +95,11 @@ const Footer: React.FC = () => {
           ))}
         </div>
 
-        {/* Bottom Bar */}
         <div className="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-500">
-            &copy; {new Date().getFullYear()} OpenHRApp. All rights reserved.
+            {t('copyright', { year: new Date().getFullYear() })}
           </p>
 
-          {/* Social Links */}
           {socialLinks.length > 0 && (
             <div className="flex items-center gap-3">
               {socialLinks.map(link => {
@@ -129,7 +124,7 @@ const Footer: React.FC = () => {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="text-xs text-slate-500 hover:text-white transition-colors"
           >
-            Back to top
+            {t('backToTop')}
           </button>
         </div>
       </div>

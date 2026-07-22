@@ -51,6 +51,7 @@ const Upgrade = lazyWithReload(() => import('./pages/Upgrade'));
 const PerformanceReview = lazyWithReload(() => import('./pages/PerformanceReview'));
 const Announcements = lazyWithReload(() => import('./pages/Announcements'));
 const AdminNotifications = lazyWithReload(() => import('./pages/AdminNotifications'));
+const Timesheet = lazyWithReload(() => import('./pages/Timesheet'));
 
 import { navigateTo } from './utils/seo';
 import { PushPermissionPrompt } from './components/PushPermissionPrompt';
@@ -450,13 +451,16 @@ const AppContent: React.FC = () => {
       case 'dashboard': return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'super-admin': return <SuperAdmin user={user} onNavigate={handleNavigate} />;
       case 'upgrade':
-        if (user.role === 'ADMIN' || user.role === 'HR') {
+        if (user.role === 'ADMIN') {
           return <Upgrade onBack={() => handleNavigate('dashboard')} />;
         }
         return <Dashboard user={user} onNavigate={handleNavigate} />;
-      case 'profile': return <Settings user={user} onBack={() => handleNavigate('dashboard')} />;
+      case 'profile': return <Settings user={user} onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} />;
       case 'employees': return <EmployeeDirectory user={user} />;
       case 'attendance':
+        if (user.role === 'ADMIN' || user.role === 'HR') {
+          return <Dashboard user={user} onNavigate={handleNavigate} />;
+        }
         return (
           <ErrorBoundary>
             <Attendance
@@ -466,13 +470,22 @@ const AppContent: React.FC = () => {
             />
           </ErrorBoundary>
         );
-      case 'attendance-logs': return <AttendanceLogs user={user} viewMode="MY" />;
+      case 'attendance-logs':
+        if (user.role === 'ADMIN' || user.role === 'HR') {
+          return <AttendanceLogs user={user} viewMode="AUDIT" />;
+        }
+        return <AttendanceLogs user={user} viewMode="MY" />;
       case 'attendance-audit': return <AttendanceLogs user={user} viewMode="AUDIT" />;
+      case 'timesheet': return <Timesheet user={user} />;
       case 'leave': return <Leave user={user} autoOpen={navParams?.autoOpen} />;
       case 'announcements': return <Announcements user={user} />;
       case 'admin-notifications': return <AdminNotifications user={user} />;
       case 'performance-review': return <PerformanceReview user={user} />;
-      case 'settings': return <Settings user={user} />;
+      case 'settings':
+        if (user.role === 'ADMIN') {
+          return <Settings user={user} onNavigate={handleNavigate} />;
+        }
+        return <Settings user={user} onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} />;
       case 'reports': return <Reports user={user} />;
       case 'organization': return <Organization initialTab={navParams?.tab} />;
       default: return <Dashboard user={user} onNavigate={handleNavigate} />;

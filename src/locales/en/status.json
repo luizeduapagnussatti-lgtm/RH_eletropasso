@@ -31,7 +31,7 @@
   "role": {
     "SUPER_ADMIN": "Super admin",
     "ADMIN": "Admin",
-    "HR": "HR",
+    "HR": "HR Assistant",
     "MANAGER": "Manager",
     "TEAM_LEAD": "Team lead",
     "EMPLOYEE": "Employee",

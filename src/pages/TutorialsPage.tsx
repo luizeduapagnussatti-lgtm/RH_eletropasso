@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, ChevronRight, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { tutorialService } from '../services/tutorial.service';
 import { Tutorial } from '../types';
 import TutorialsNavbar from '../components/tutorials/TutorialsNavbar';
 import TutorialsFooter from '../components/tutorials/TutorialsFooter';
 import { navigateTo, updatePageMeta, setJsonLd } from '../utils/seo';
+import { APP_NAME } from '../config/branding';
 
 // Preferred category display order — categories not listed here appear at the end
 const CATEGORY_ORDER = [
@@ -27,40 +29,41 @@ interface TutorialsPageProps {
 }
 
 const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }) => {
+  const { t, i18n } = useTranslation('marketing');
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     updatePageMeta(
-      'Guides | OpenHR - Open Source HRMS',
-      'Step-by-step guides to help you get the most out of OpenHR. Learn attendance tracking, leave management, employee directory, and more.',
-      'https://openhrapp.com/how-to-use'
+      t('tutorialsPage.seoTitle'),
+      t('tutorialsPage.seoDescription'),
+      window.location.origin + '/how-to-use'
     );
     setJsonLd({
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'CollectionPage',
-          name: 'OpenHR Guides',
-          description: 'Step-by-step guides to help you get the most out of OpenHR. Learn attendance tracking, leave management, employee directory, and more.',
-          url: 'https://openhrapp.com/how-to-use',
+          name: t('tutorialsPage.title'),
+          description: t('tutorialsPage.seoDescription'),
+          url: window.location.origin + '/how-to-use',
           isPartOf: {
             '@type': 'WebSite',
-            name: 'OpenHRApp',
-            url: 'https://openhrapp.com',
+            name: APP_NAME,
+            url: window.location.origin,
           },
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-            { '@type': 'ListItem', position: 2, name: 'Guides', item: 'https://openhrapp.com/how-to-use' },
+            { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+            { '@type': 'ListItem', position: 2, name: t('guides'), item: window.location.origin + '/how-to-use' },
           ],
         },
       ],
     });
     return () => { setJsonLd(null); };
-  }, []);
+  }, [t, i18n.language]);
 
   useEffect(() => {
     loadTutorials();
@@ -114,8 +117,8 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
       {/* Header */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
-          <h1 className="text-4xl font-semibold text-slate-900 tracking-tight">Guides</h1>
-          <p className="text-slate-500 mt-3 text-lg">Step-by-step guides to help you get the most out of OpenHR</p>
+          <h1 className="text-4xl font-semibold text-slate-900 tracking-tight">{t('tutorialsPage.title')}</h1>
+          <p className="text-slate-500 mt-3 text-lg">{t('tutorialsPage.subtitle')}</p>
         </div>
       </div>
 
@@ -125,12 +128,12 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
           {isLoading ? (
             <div className="text-center py-20">
               <Loader2 className="animate-spin mx-auto mb-4 text-primary" size={40} />
-              <p className="text-slate-500">Loading tutorials...</p>
+              <p className="text-slate-500">{t('tutorialsPage.loading')}</p>
             </div>
           ) : tutorials.length === 0 ? (
             <div className="text-center py-20">
               <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500 text-lg">No tutorials published yet. Check back soon!</p>
+              <p className="text-slate-500 text-lg">{t('tutorialsPage.empty')}</p>
             </div>
           ) : (
             <div className="flex flex-col lg:flex-row gap-8">
@@ -196,7 +199,7 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
               <div className="lg:w-72 flex-shrink-0">
                 <div className="lg:sticky lg:top-24">
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Categories</h4>
+                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">{t('blogPage.categories')}</h4>
                     <nav className="space-y-2">
                       {categories.map(cat => (
                         <button

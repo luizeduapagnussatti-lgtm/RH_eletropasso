@@ -18,24 +18,25 @@ import { OfficeLocation } from '../../types';
  *   retry with `enableHighAccuracy: false` for network-based location.
  */
 
+/** Returns attendance.json error keys for LocationDisplay to translate. */
 const getLocationErrorMessage = (err: any): string => {
   const code = err?.code ?? err?.PERMISSION_DENIED;
 
   switch (code) {
     case 1: // PERMISSION_DENIED
       if (window.matchMedia?.('(display-mode: standalone)')?.matches) {
-        return 'Location blocked. Open your device Settings > Apps > find this app > Permissions > Location > Allow.';
+        return 'errors.locationDeniedPwa';
       }
-      return 'Location permission denied. Please tap the lock icon in your browser address bar and allow Location access, then retry.';
+      return 'errors.locationDeniedBrowser';
 
     case 2: // POSITION_UNAVAILABLE
-      return 'Location unavailable. Please ensure Location/GPS is turned ON in your device Settings and you are not in airplane mode.';
+      return 'errors.locationUnavailableDetail';
 
     case 3: // TIMEOUT
-      return 'Location timed out. Please move to an area with better GPS signal or turn on Wi-Fi for faster location detection, then retry.';
+      return 'errors.locationTimeout';
 
     default:
-      return 'Could not detect location. Please check that Location is enabled in your device Settings and try again.';
+      return 'errors.locationGeneric';
   }
 };
 

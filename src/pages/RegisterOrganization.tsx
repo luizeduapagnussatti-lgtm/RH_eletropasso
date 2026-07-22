@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Building2, User, Mail, Lock, ArrowRight, Loader2, ArrowLeft, CheckCircle2, Globe, MapPin, Upload } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { RegistrationVerificationPage } from '../components/registration/RegistrationVerificationPage';
@@ -11,6 +11,7 @@ interface Props {
 }
 
 const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
+  const { t } = useTranslation('auth');
   const [formData, setFormData] = useState({
     orgName: '',
     adminName: '',
@@ -30,11 +31,11 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        setError("Logo file size must be less than 2MB.");
+        setError(t('logoTooLarge'));
         return;
       }
       if (!file.type.startsWith('image/')) {
-        setError("Logo must be an image file.");
+        setError(t('logoMustBeImage'));
         return;
       }
       setFormData({ ...formData, logo: file });
@@ -50,11 +51,11 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t('passwordsDoNotMatch'));
       return;
     }
     if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t('passwordMinLength'));
       return;
     }
 
@@ -74,7 +75,7 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
     if (result.success) {
       setIsSuccess(true);
     } else {
-      setError(result.error || "Registration failed.");
+      setError(result.error || t('registrationFailed'));
       setIsSubmitting(false);
     }
   };
@@ -97,8 +98,8 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
         <div className="bg-slate-900 p-8 text-white relative">
           <button onClick={onBack} className="absolute left-8 top-8 p-2 bg-white/10 rounded-xl hover:bg-white/20 transition-all"><ArrowLeft size={20}/></button>
           <div className="mt-8">
-            <h2 className="text-2xl font-semibold uppercase tracking-tight">Create Organization</h2>
-            <p className="text-slate-400 font-medium mt-1">Start your 14-day free trial</p>
+            <h2 className="text-2xl font-semibold uppercase tracking-tight">{t('registerTitle')}</h2>
+            <p className="text-slate-400 font-medium mt-1">{t('registerTrialSubtitle')}</p>
           </div>
         </div>
 
@@ -111,20 +112,20 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
 
           <div className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Organization Name</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationName')}</label>
               <div className="relative">
                 <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <input name="organization" autoComplete="organization" required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder="e.g. Acme Corp" value={formData.orgName} onChange={e => setFormData({...formData, orgName: e.target.value})} />
+                <input name="organization" autoComplete="organization" required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder={t('orgNamePlaceholder')} value={formData.orgName} onChange={e => setFormData({...formData, orgName: e.target.value})} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Country</label>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('country')}</label>
                 <div className="relative">
                   <Globe className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                   <select required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all appearance-none" value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})}>
-                    <option value="" disabled>Select country...</option>
+                    <option value="" disabled>{t('selectCountry')}</option>
                     {COUNTRIES.map(country => (
                       <option key={country.code} value={country.code}>
                         {getFlagEmoji(country.code)} {country.name}
@@ -135,53 +136,53 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Logo (Optional)</label>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('logoOptional')}</label>
                 <div className="relative">
                   <Upload className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                   <input type="file" accept="image/*" className="w-full min-w-0 pl-14 pr-2 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all file:mr-2 file:py-1 file:px-2 sm:file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200" onChange={handleLogoChange} />
                 </div>
                 {logoPreview && (
                   <div className="mt-2 flex justify-center">
-                    <img src={logoPreview} alt="Logo preview" className="h-16 w-16 object-contain rounded-xl border-2 border-indigo-100" />
+                    <img src={logoPreview} alt={t('logoPreviewAlt')} className="h-16 w-16 object-contain rounded-xl border-2 border-indigo-100" />
                   </div>
                 )}
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Address (Optional)</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('addressOptional')}</label>
               <div className="relative">
                 <MapPin className="absolute left-5 top-5 text-slate-300" size={18} />
-                <textarea className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all resize-none" rows={2} placeholder="e.g. 123 Main Street, City, State, ZIP" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                <textarea className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all resize-none" rows={2} placeholder={t('addressPlaceholder')} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Admin Full Name</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('adminFullName')}</label>
               <div className="relative">
                 <User className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <input name="name" autoComplete="name" required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder="e.g. John Doe" value={formData.adminName} onChange={e => setFormData({...formData, adminName: e.target.value})} />
+                <input name="name" autoComplete="name" required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder={t('adminNamePlaceholder')} value={formData.adminName} onChange={e => setFormData({...formData, adminName: e.target.value})} />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Work Email</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('workEmail')}</label>
               <div className="relative">
                 <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <input type="email" name="email" autoComplete="email" required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder="name@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input type="email" name="email" autoComplete="email" required className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder={t('emailPlaceholder')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Password</label>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('password')}</label>
                 <div className="relative">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                   <input type="password" name="new-password" autoComplete="new-password" required className="w-full pl-14 pr-2 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder="********" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Confirm</label>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('confirmShort')}</label>
                 <div className="relative">
                   <input type="password" name="confirm-password" autoComplete="new-password" required className="w-full pl-5 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder="********" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} />
                 </div>
@@ -190,7 +191,7 @@ const RegisterOrganization: React.FC<Props> = ({ onBack }) => {
           </div>
 
           <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-primary text-white rounded-xl font-semibold uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-primary-hover transition-all disabled:opacity-50">
-            {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <>Complete Registration <ArrowRight size={20}/></>}
+            {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <>{t('completeRegistration')} <ArrowRight size={20}/></>}
           </button>
         </form>
       </div>

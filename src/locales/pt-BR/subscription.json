@@ -10,7 +10,7 @@
   "logout": "Sair",
   "actionBlocked": "Esta ação não está disponível com a assinatura expirada.",
   "upgradeTitle": "Faça upgrade do plano",
-  "upgradeSubtitle": "Libere o acesso completo da sua organização",
+  "upgradeSubtitle": "Escolha como deseja continuar usando o {{appName}}",
   "donation": "Doação",
   "trialExtension": "Extensão do trial",
   "adSupported": "Continuar com anúncios",
@@ -24,6 +24,87 @@
   "suspendedReasonPayment": "Problemas de pagamento ou assinatura vencida",
   "suspendedReasonTerms": "Violação dos termos de serviço",
   "suspendedReasonAdmin": "Ação administrativa em análise",
-  "suspendedContact": "Entre em contato para resolver:"
-}
+  "suspendedContact": "Entre em contato para resolver:",
 
+  "allSetTitle": "Tudo pronto!",
+  "allSetBody": "Sua organização tem acesso completo a todos os recursos.",
+  "backToDashboard": "Voltar ao painel",
+
+  "tabs": {
+    "donate": "Doar",
+    "extend": "Estender trial",
+    "ads": "Grátis com anúncios"
+  },
+
+  "pendingTitle": "Solicitação pendente",
+  "pendingBodyActivation": "Você tem uma solicitação de ativação pendente enviada em {{date}}. Avisaremos quando for processada.",
+  "pendingBodyExtension": "Você tem uma solicitação de extensão pendente enviada em {{date}}. Avisaremos quando for processada.",
+
+  "introTitle": "Apoie o RH open source",
+  "introBody": "O {{appName}} é gratuito e open source. Seu apoio nos ajuda a manter e melhorar a plataforma para todos.",
+
+  "donateTitle": "Apoie com uma doação",
+  "donateSubtitle": "Faça uma doação única para obter acesso completo. Escolha o nível de apoio:",
+  "donateVia": "Doar via:",
+  "platformKofi": "Ko-fi",
+  "platformBuyMeACoffee": "Buy Me a Coffee",
+  "platformPaypal": "PayPal",
+
+  "tiers": {
+    "TIER_3MO": "3 meses",
+    "TIER_6MO": "6 meses",
+    "TIER_1YR": "1 ano",
+    "TIER_LIFETIME": "Vitalício"
+  },
+
+  "alreadyDonated": "Já doou? Clique aqui para enviar a solicitação de ativação",
+  "activationFormTitle": "Enviar solicitação de ativação",
+  "transactionRef": "Referência da transação *",
+  "transactionRefPlaceholder": "ex.: TXN123456 ou confirmação do PayPal",
+  "screenshotOptional": "Captura de tela (opcional)",
+  "chooseFile": "Escolher arquivo",
+  "removeFile": "Remover",
+  "cancel": "Cancelar",
+  "submitActivation": "Enviar solicitação",
+
+  "extendTitle": "Solicitar extensão do trial",
+  "extendSubtitle": "Precisa de mais tempo? Solicite uma extensão e diga o motivo.",
+  "extendReasonLabel": "Por que você precisa de mais tempo? *",
+  "extendReasonPlaceholder": "Selecione um motivo...",
+  "extendSpecifyLabel": "Especifique *",
+  "extendSpecifyPlaceholder": "Conte mais sobre a sua situação...",
+  "extensionPeriod": "Período de extensão",
+  "daysCount": "{{count}} dias",
+  "submitExtension": "Enviar solicitação de extensão",
+
+  "reasons": {
+    "evaluating": "Ainda avaliando os recursos",
+    "budget": "Aguardando aprovação de orçamento",
+    "setup": "Configurando dados da organização",
+    "training": "Treinando a equipe",
+    "nonprofit": "Organização sem fins lucrativos",
+    "education": "Instituição de ensino",
+    "other": "Outro"
+  },
+
+  "adsTitle": "Continuar grátis com anúncios",
+  "adsSubtitle": "Tenha acesso completo a todos os recursos gratuitamente. Exibiremos anúncios discretos para apoiar o desenvolvimento.",
+  "adsExpectTitle": "O que esperar:",
+  "adsExpect1": "Acesso completo a todos os recursos — sem restrições",
+  "adsExpect2": "Pequenos banners na barra lateral e no painel",
+  "adsExpect3": "Sem anúncios no ponto ou em fluxos críticos",
+  "adsExpect4": "Passe para sem anúncios a qualquer momento com uma doação",
+  "adsNote": "Ao aceitar, você concorda em ver anúncios. Seus dados não serão compartilhados com redes de anúncios.",
+  "adsNoteLabel": "Nota:",
+  "acceptAds": "Aceitar e continuar grátis",
+
+  "errors": {
+    "transactionRefRequired": "Informe a referência da transação",
+    "reasonRequired": "Selecione ou informe um motivo"
+  },
+  "success": {
+    "donationSubmitted": "Solicitação enviada! Vamos analisá-la em breve.",
+    "extensionSubmitted": "Solicitação de extensão enviada!",
+    "adsActivated": "Modo com anúncios ativado! Redirecionando..."
+  }
+}

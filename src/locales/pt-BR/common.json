@@ -1,5 +1,5 @@
 {
-  "appName": "OpenHRApp",
+  "appName": "RH_Eletropasso",
   "loading": "Carregando…",
   "save": "Salvar",
   "cancel": "Cancelar",
@@ -10,6 +10,12 @@
   "create": "Criar",
   "update": "Atualizar",
   "search": "Buscar",
+  "searchTypes": {
+    "feature": "Recursos",
+    "blog": "Blog",
+    "guide": "Guias",
+    "faq": "FAQ"
+  },
   "filter": "Filtrar",
   "export": "Exportar",
   "close": "Fechar",
@@ -66,6 +72,15 @@
     "saturday": "Sábado",
     "sunday": "Domingo"
   },
+  "weekdaysShort": {
+    "monday": "Seg",
+    "tuesday": "Ter",
+    "wednesday": "Qua",
+    "thursday": "Qui",
+    "friday": "Sex",
+    "saturday": "Sáb",
+    "sunday": "Dom"
+  },
   "errorBoundary": {
     "title": "Algo deu errado",
     "body": "Esta seção falhou ao carregar. Você pode tentar de novo ou voltar.",
@@ -87,7 +102,7 @@
     "later": "Depois",
     "dismiss": "Dispensar",
     "install": "Instalar app",
-    "installBody": "Instale o OpenHR no seu dispositivo para acesso rápido."
+    "installBody": "Instale o RH_Eletropasso no seu dispositivo para acesso rápido."
   },
   "push": {
     "title": "Ativar lembretes de ponto",

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { Search, X, Layers, FileText, BookOpen, HelpCircle } from 'lucide-react';
 import { useSearch } from '../../context/SearchContext';
 import { navigateTo } from '../../utils/seo';
 import { blogService } from '../../services/blog.service';
 import { tutorialService } from '../../services/tutorial.service';
 import { features } from '../../data/features';
-import { faqs } from '../../data/faqs';
 
 interface SearchItem {
   type: 'feature' | 'blog' | 'guide' | 'faq';
@@ -17,12 +17,6 @@ interface SearchItem {
 }
 
 const TYPE_ORDER: SearchItem['type'][] = ['feature', 'blog', 'guide', 'faq'];
-const TYPE_LABELS: Record<SearchItem['type'], string> = {
-  feature: 'Features',
-  blog: 'Blog Posts',
-  guide: 'Guides',
-  faq: 'FAQ',
-};
 const TYPE_ICONS: Record<SearchItem['type'], React.FC<{ size?: number; className?: string }>> = {
   feature: Layers,
   blog: FileText,
@@ -35,7 +29,6 @@ const MAX_PER_CATEGORY = 5;
 function buildStaticItems(): SearchItem[] {
   const items: SearchItem[] = [];
 
-  // Features
   for (const f of features) {
     items.push({
       type: 'feature',
@@ -45,34 +38,43 @@ function buildStaticItems(): SearchItem[] {
     });
   }
 
-  // FAQs
-  for (const group of faqs) {
-    for (const item of group.items) {
-      items.push({
-        type: 'faq',
-        title: item.q,
-        description: item.a,
-        url: '/#faq',
-        category: group.category,
-      });
+  const faqGroups = i18n.t('faq.groups', { ns: 'marketing', returnObjects: true }) as Array<{
+    category: string;
+    items: Array<{ q: string; a: string }>;
+  }>;
+  if (Array.isArray(faqGroups)) {
+    for (const group of faqGroups) {
+      for (const item of group.items) {
+        items.push({
+          type: 'faq',
+          title: item.q,
+          description: item.a,
+          url: '/#faq',
+          category: group.category,
+        });
+      }
     }
   }
 
   return items;
 }
 
-const STATIC_ITEMS = buildStaticItems();
-
 const SearchDialog: React.FC = () => {
   const { t } = useTranslation('common');
+  const { i18n } = useTranslation('marketing');
   const { isSearchOpen, setSearchOpen } = useSearch();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [allItems, setAllItems] = useState<SearchItem[]>(STATIC_ITEMS);
+  const [allItems, setAllItems] = useState<SearchItem[]>(() => buildStaticItems());
   const [highlightIndex, setHighlightIndex] = useState(0);
   const dataLoaded = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAllItems(buildStaticItems());
+    dataLoaded.current = false;
+  }, [i18n.language]);
 
   // Lazy-load blog + tutorial data on first open
   useEffect(() => {
@@ -80,7 +82,7 @@ const SearchDialog: React.FC = () => {
     dataLoaded.current = true;
 
     const loadData = async () => {
-      const dynamicItems: SearchItem[] = [...STATIC_ITEMS];
+      const dynamicItems: SearchItem[] = [...buildStaticItems()];
       try {
         const { posts } = await blogService.getPublishedPosts(1, 100);
         for (const p of posts) {
@@ -94,13 +96,13 @@ const SearchDialog: React.FC = () => {
       } catch { /* PocketBase may be unavailable */ }
       try {
         const { tutorials } = await tutorialService.getPublishedTutorials(1, 100);
-        for (const t of tutorials) {
+        for (const tut of tutorials) {
           dynamicItems.push({
             type: 'guide',
-            title: t.title,
-            description: t.excerpt || '',
-            url: `/how-to-use/${t.slug}`,
-            category: t.category,
+            title: tut.title,
+            description: tut.excerpt || '',
+            url: `/how-to-use/${tut.slug}`,
+            category: tut.category,
           });
         }
       } catch { /* PocketBase may be unavailable */ }
@@ -277,7 +279,7 @@ const SearchDialog: React.FC = () => {
                 <div className="flex items-center gap-2 px-4 py-2">
                   <Icon size={14} className="text-slate-400 dark:text-slate-500" />
                   <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
-                    {TYPE_LABELS[type]}
+                    {t(`searchTypes.${type}`)}
                   </span>
                 </div>
                 {items.map((item) => {

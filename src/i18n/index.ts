@@ -21,6 +21,7 @@ import onboardingEn from '../locales/en/onboarding.json';
 import superadminEn from '../locales/en/superadmin.json';
 import marketingEn from '../locales/en/marketing.json';
 import emailsEn from '../locales/en/emails.json';
+import ptrpEn from '../locales/en/ptrp.json';
 
 import commonPt from '../locales/pt-BR/common.json';
 import navPt from '../locales/pt-BR/nav.json';
@@ -41,6 +42,7 @@ import onboardingPt from '../locales/pt-BR/onboarding.json';
 import superadminPt from '../locales/pt-BR/superadmin.json';
 import marketingPt from '../locales/pt-BR/marketing.json';
 import emailsPt from '../locales/pt-BR/emails.json';
+import ptrpPt from '../locales/pt-BR/ptrp.json';
 
 export const NAMESPACES = [
   'common',
@@ -62,6 +64,7 @@ export const NAMESPACES = [
   'superadmin',
   'marketing',
   'emails',
+  'ptrp',
 ] as const;
 
 void i18n
@@ -89,6 +92,7 @@ void i18n
         superadmin: superadminEn,
         marketing: marketingEn,
         emails: emailsEn,
+        ptrp: ptrpEn,
       },
       'pt-BR': {
         common: commonPt,
@@ -110,6 +114,7 @@ void i18n
         superadmin: superadminPt,
         marketing: marketingPt,
         emails: emailsPt,
+        ptrp: ptrpPt,
       },
     },
     fallbackLng: 'pt-BR',

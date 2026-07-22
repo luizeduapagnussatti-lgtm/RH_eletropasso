@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useSubscription } from '../context/SubscriptionContext';
 import { usePerformanceReview } from '../hooks/review/usePerformanceReview';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 const PerformanceReview: React.FC<Props> = ({ user }) => {
+  const { t } = useTranslation('review');
   const isAdmin = user.role === 'ADMIN' || user.role === 'HR' || user.role === 'SUPER_ADMIN';
   const isManager = user.role === 'MANAGER' || user.role === 'TEAM_LEAD' || user.role === 'MANAGEMENT';
 
@@ -67,8 +69,8 @@ const PerformanceReview: React.FC<Props> = ({ user }) => {
           <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span className="text-sm">
             {subscription?.status === 'EXPIRED'
-              ? 'Your trial has expired. Review submissions are disabled. You can still view existing reviews.'
-              : 'Your account is suspended. Please contact support.'}
+              ? t('trialExpiredReadOnly')
+              : t('accountSuspended')}
           </span>
         </div>
       )}

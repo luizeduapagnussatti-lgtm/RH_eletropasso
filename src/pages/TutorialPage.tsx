@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { tutorialService } from '../services/tutorial.service';
 import { Tutorial } from '../types';
@@ -6,6 +7,7 @@ import TutorialsNavbar from '../components/tutorials/TutorialsNavbar';
 import TutorialsFooter from '../components/tutorials/TutorialsFooter';
 import { sanitizeHtml } from '../utils/sanitize';
 import { navigateTo, updatePageMeta, setJsonLd } from '../utils/seo';
+import { APP_NAME } from '../config/branding';
 
 interface TutorialPageProps {
   slug: string;
@@ -13,6 +15,7 @@ interface TutorialPageProps {
 }
 
 const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
+  const { t } = useTranslation('marketing');
   const [tutorial, setTutorial] = useState<Tutorial | null>(null);
   const [allTutorials, setAllTutorials] = useState<Tutorial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,15 +44,15 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
       setTutorial(tutorialData);
       setAllTutorials(allData.tutorials);
       updatePageMeta(
-        `${tutorialData.title} | OpenHR Guides`,
-        tutorialData.excerpt || `Learn how to ${tutorialData.title.toLowerCase()} with OpenHR.`,
-        `https://openhrapp.com/how-to-use/${slug}`,
+        `${tutorialData.title} | ${t('guides')}`,
+        tutorialData.excerpt || tutorialData.title,
+        `${window.location.origin}/how-to-use/${slug}`,
         tutorialData.coverImage || undefined
       );
       // Build breadcrumb items
       const breadcrumbItems: any[] = [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-        { '@type': 'ListItem', position: 2, name: 'Guides', item: 'https://openhrapp.com/how-to-use' },
+        { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+        { '@type': 'ListItem', position: 2, name: t('guides'), item: window.location.origin + '/how-to-use' },
       ];
       let pos = 3;
       if (tutorialData.category) {
@@ -59,30 +62,30 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
         ? allData.tutorials.find(t => t.id === tutorialData.parentId)
         : null;
       if (parent) {
-        breadcrumbItems.push({ '@type': 'ListItem', position: pos++, name: parent.title, item: `https://openhrapp.com/how-to-use/${parent.slug}` });
+        breadcrumbItems.push({ '@type': 'ListItem', position: pos++, name: parent.title, item: `${window.location.origin}/how-to-use/${parent.slug}` });
       }
-      breadcrumbItems.push({ '@type': 'ListItem', position: pos, name: tutorialData.title, item: `https://openhrapp.com/how-to-use/${slug}` });
+      breadcrumbItems.push({ '@type': 'ListItem', position: pos, name: tutorialData.title, item: `${window.location.origin}/how-to-use/${slug}` });
 
       const graph: any[] = [
         {
           '@type': 'Article',
           headline: tutorialData.title,
           description: tutorialData.excerpt || '',
-          image: tutorialData.coverImage || 'https://openhrapp.com/img/screenshot-wide.webp',
+          image: tutorialData.coverImage || window.location.origin + '/img/screenshot-wide.webp',
           datePublished: tutorialData.created,
           dateModified: tutorialData.updated || tutorialData.created,
           author: {
             '@type': 'Person',
-            name: tutorialData.authorName || 'OpenHR Team',
+            name: tutorialData.authorName || APP_NAME,
           },
           publisher: {
             '@type': 'Organization',
-            name: 'OpenHRApp',
-            logo: { '@type': 'ImageObject', url: 'https://openhrapp.com/img/logo.webp' },
+            name: APP_NAME,
+            logo: { '@type': 'ImageObject', url: window.location.origin + '/img/logo.webp' },
           },
           mainEntityOfPage: {
             '@type': 'WebPage',
-            '@id': `https://openhrapp.com/how-to-use/${slug}`,
+            '@id': `${window.location.origin}/how-to-use/${slug}`,
           },
         },
         {
@@ -155,17 +158,17 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
         {isLoading ? (
           <div className="text-center py-20">
             <Loader2 className="animate-spin mx-auto mb-4 text-primary" size={40} />
-            <p className="text-slate-500">Loading tutorial...</p>
+            <p className="text-slate-500">{t('tutorialsPage.loadingTutorial')}</p>
           </div>
         ) : notFound ? (
           <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Tutorial Not Found</h2>
-            <p className="text-slate-500 mb-6">The tutorial you're looking for doesn't exist or has been unpublished.</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('notFound')}</h2>
+            <p className="text-slate-500 mb-6">{t('tutorialsPage.empty')}</p>
             <button
               onClick={goToTutorials}
               className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-hover transition-all"
             >
-              Back to Tutorials
+              {t('tutorialsPage.backToGuides')}
             </button>
           </div>
         ) : tutorial && (
@@ -175,7 +178,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <nav className="flex items-center gap-2 text-sm text-slate-500 flex-wrap">
                   <button onClick={goToTutorials} className="hover:text-primary transition-colors font-medium">
-                    Guides
+                    {t('guides')}
                   </button>
                   {tutorial.category && (
                     <>
@@ -247,7 +250,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
                         >
                           <ArrowLeft size={16} className="text-slate-400 flex-shrink-0" />
                           <div className="min-w-0">
-                            <p className="text-xs text-slate-400 font-medium">Previous</p>
+                            <p className="text-xs text-slate-400 font-medium">{t('previous')}</p>
                             <p className="text-sm font-bold text-slate-900 truncate">{prevTutorial.title}</p>
                           </div>
                         </button>
@@ -258,7 +261,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
                           className="flex items-center justify-end gap-3 p-4 bg-white border border-slate-200 rounded-xl hover:border-primary hover:shadow-sm transition-all text-right"
                         >
                           <div className="min-w-0">
-                            <p className="text-xs text-slate-400 font-medium">Next</p>
+                            <p className="text-xs text-slate-400 font-medium">{t('next')}</p>
                             <p className="text-sm font-bold text-slate-900 truncate">{nextTutorial.title}</p>
                           </div>
                           <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
@@ -273,7 +276,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
                       onClick={goToTutorials}
                       className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary transition-colors"
                     >
-                      <ArrowLeft size={16} /> Back to Guides
+                      <ArrowLeft size={16} /> {t('tutorialsPage.backToGuides')}
                     </button>
                   </div>
                 </article>
@@ -282,7 +285,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
                 <div className="lg:w-72 flex-shrink-0">
                   <div className="lg:sticky lg:top-24">
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                      <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Tutorials</h4>
+                      <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">{t('guides')}</h4>
                       <nav className="space-y-1">
                         {categories.map(cat => {
                           const catTutorials = topLevel.filter(t => (t.category || 'General') === cat);

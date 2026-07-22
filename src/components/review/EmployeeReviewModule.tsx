@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, FileText, ChevronDown, ChevronUp, Loader2, CheckCircle2, Calendar, Download, RefreshCw } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { organizationService } from '../../services/organization.service';
@@ -34,6 +35,7 @@ interface Props {
 }
 
 const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycle, myReview, pastReviews, onRefresh, readOnly = false, reviewConfig, cycles }) => {
+  const { t } = useTranslation('review');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
@@ -352,11 +354,11 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">My Performance Review</h2><HelpButton helpPointId="review.employee" size={16} /></div>
+          <div className="flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">{t('myPerformanceReview')}</h2><HelpButton helpPointId="review.employee" size={16} /></div>
           <p className="text-sm text-slate-500 mt-0.5">
             {activeCycle
               ? `${activeCycle.name} — ${new Date(activeCycle.startDate).toLocaleDateString()} to ${new Date(activeCycle.endDate).toLocaleDateString()}`
-              : 'No active review cycle'}
+              : t('noCycles')}
           </p>
         </div>
         {myReview && (
@@ -366,7 +368,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
                 onClick={() => generateReviewPdf(myReview, activeCycle?.name)}
                 disabled={generatingPdfId === myReview.id}
                 className="p-2 rounded-xl text-slate-400 hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-50"
-                title="Download PDF"
+                title={t('downloadPdf')}
               >
                 {generatingPdfId === myReview.id ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
               </button>
@@ -380,8 +382,8 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
       {!activeCycle && !upcomingCycle && (
         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 text-center">
           <FileText size={40} className="mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500 font-medium">No active review cycle at this time.</p>
-          <p className="text-xs text-slate-400 mt-1">Your HR team will open a cycle when it's time for reviews.</p>
+          <p className="text-slate-500 font-medium">{t('noActiveCycle')}</p>
+          <p className="text-xs text-slate-400 mt-1">{t('noActiveCycleHint')}</p>
         </div>
       )}
 
@@ -403,14 +405,14 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
       {activeCycle && !myReview && (
         <div className="bg-primary-light/30 border border-primary/10 rounded-2xl p-6 text-center">
           <FileText size={40} className="mx-auto text-primary mb-3" />
-          <p className="text-slate-700 font-medium mb-3">A review cycle is open. Start your self-assessment now.</p>
+          <p className="text-slate-700 font-medium mb-3">{t('cycleOpenStart')}</p>
           <button
             onClick={handleCreateAndOpen}
             disabled={isProcessing || readOnly}
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-50"
           >
             {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-            Begin Self-Assessment
+            {t('startSelfAssessment')}
           </button>
         </div>
       )}
@@ -426,7 +428,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
 
           {/* Self-Assessment Competencies */}
           <div>
-            <h3 className="font-semibold text-slate-800 mb-3">Self-Assessment</h3>
+            <h3 className="font-semibold text-slate-800 mb-3">{t('selfAssessment')}</h3>
             <div className="space-y-3">
               {competencies.map(comp => (
                 <CompetencyRatingCard
@@ -439,7 +441,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
                   onRatingChange={canSubmit ? (v) => updateRating(comp.id, v) : undefined}
                   onCommentChange={canSubmit ? (v) => updateComment(comp.id, v) : undefined}
                   readOnly={!canSubmit}
-                  label="Self"
+                  label={t('selfAssessment')}
                   ratingScale={ratingScale}
                 />
               ))}
@@ -449,7 +451,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
           {/* Manager Ratings (visible after manager review) */}
           {(myReview.status === 'MANAGER_REVIEWED' || myReview.status === 'COMPLETED') && (
             <div>
-              <h3 className="font-semibold text-slate-800 mb-3">Manager Assessment</h3>
+              <h3 className="font-semibold text-slate-800 mb-3">{t('managerAssessment')}</h3>
               <div className="space-y-3">
                 {myReview.managerRatings.filter(r => r.rating > 0).map(mRating => {
                   const comp = resolveCompetency(mRating.competencyId);
@@ -462,7 +464,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
                       rating={mRating.rating}
                       comment={mRating.comment}
                       readOnly
-                      label="Manager"
+                      label={t('manager')}
                       ratingScale={ratingScale}
                     />
                   );
@@ -476,21 +478,21 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
             <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <CheckCircle2 size={18} className="text-green-600" />
-                <h3 className="font-semibold text-green-800">Final Assessment</h3>
+                <h3 className="font-semibold text-green-800">{t('finalAssessment')}</h3>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-green-600 font-medium mb-1">Overall Rating</p>
-                  <p className="font-bold text-green-900">{myReview.hrOverallRating?.replace(/_/g, ' ') || 'N/A'}</p>
+                  <p className="text-xs text-green-600 font-medium mb-1">{t('overallRating')}</p>
+                  <p className="font-bold text-green-900">{myReview.hrOverallRating?.replace(/_/g, ' ') || t('na')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-green-600 font-medium mb-1">Self Average</p>
+                  <p className="text-xs text-green-600 font-medium mb-1">{t('selfAverage')}</p>
                   <p className="font-bold text-green-900">{avgRating(myReview.selfRatings)}</p>
                 </div>
               </div>
               {myReview.hrFinalRemarks && (
                 <div className="mt-3">
-                  <p className="text-xs text-green-600 font-medium mb-1">HR Remarks</p>
+                  <p className="text-xs text-green-600 font-medium mb-1">{t('hrRemarks')}</p>
                   <p className="text-sm text-green-800">{myReview.hrFinalRemarks}</p>
                 </div>
               )}
@@ -506,7 +508,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-50"
               >
                 {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                Submit Self-Assessment
+                {t('submitSelfAssessment')}
               </button>
             </div>
           )}
@@ -545,7 +547,7 @@ const EmployeeReviewModule: React.FC<Props> = ({ user, activeCycle, upcomingCycl
                           onClick={(e) => { e.stopPropagation(); generateReviewPdf(review); }}
                           disabled={generatingPdfId === review.id}
                           className="p-2 rounded-xl text-slate-400 hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-50"
-                          title="Download PDF"
+                          title={t('downloadPdf')}
                         >
                           {generatingPdfId === review.id ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
                         </button>

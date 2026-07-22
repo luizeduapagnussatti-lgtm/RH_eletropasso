@@ -22,12 +22,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
       // Use the helper in hrService to ping the /api/health endpoint
       const result = await hrService.testPocketBaseConnection(url);
       if (result.success) {
-        setTestResult({ success: true, message: 'Server is reachable and healthy!' });
+        setTestResult({ success: true, message: t('setupHealthy') });
       } else {
-        setTestResult({ success: false, message: result.message || 'Connection failed. Check IP and Port.' });
+        setTestResult({ success: false, message: result.message || t('setupConnectionFailed') });
       }
     } catch (e) {
-      setTestResult({ success: false, message: 'Invalid URL or network timeout.' });
+      setTestResult({ success: false, message: t('setupInvalidOrTimeout') });
     } finally {
       setIsTesting(false);
     }
@@ -49,12 +49,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               <Database size={40} />
             </div>
             <h1 className="text-3xl font-semibold tracking-tight mb-2">{t('setupTitle')}</h1>
-            <p className="text-white/80 font-medium">Link OpenHR to your PocketBase instance</p>
+            <p className="text-white/80 font-medium">{t('setupLinkSubtitle')}</p>
           </div>
 
           <div className="p-10 space-y-8">
             <div className="space-y-4">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest px-1">PocketBase IP Address</label>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('setupIpLabel')}</label>
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300">
                   <Server size={20} />
@@ -67,7 +67,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                   onChange={(e) => setUrl(e.target.value)}
                 />
               </div>
-              <p className="text-[10px] text-slate-400 px-2 font-medium italic">Note: The system will automatically remove any trailing "/api" if included.</p>
+              <p className="text-[10px] text-slate-400 px-2 font-medium italic">{t('setupUrlNote')}</p>
             </div>
 
             {testResult && (
@@ -76,7 +76,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               }`}>
                 {testResult.success ? <ShieldCheck className="mt-0.5" /> : <AlertCircle className="mt-0.5" />}
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest">Test Result</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest">{t('setupTestResult')}</p>
                   <p className="text-sm font-bold">{testResult.message}</p>
                 </div>
               </div>
@@ -89,14 +89,14 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-xl font-semibold uppercase text-xs tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
               >
                 {isTesting ? <RefreshCw className="animate-spin" size={18} /> : <Activity size={18} />}
-                Test Connection
+                {t('setupTestConnection')}
               </button>
               <button 
                 onClick={handleSave}
                 disabled={!url || isTesting}
                 className="flex-[1.5] py-5 bg-primary text-white rounded-xl font-semibold uppercase text-xs tracking-widest shadow-xl hover:bg-primary-hover transition-all flex items-center justify-center gap-2"
               >
-                Save & Continue <ArrowRight size={18} />
+                {t('setupSave')} <ArrowRight size={18} />
               </button>
             </div>
           </div>

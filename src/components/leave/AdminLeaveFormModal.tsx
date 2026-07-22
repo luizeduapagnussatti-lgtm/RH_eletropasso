@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Send, RefreshCw, AlertCircle, UserPlus, Edit3 } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { LeaveRequest, CustomLeaveType } from '../../types';
 import { DEFAULT_LEAVE_TYPES } from '../../constants';
+import { tStatus } from '../../i18n/statusMaps';
 
 interface Employee {
   id: string;
@@ -22,6 +24,7 @@ interface Props {
 const STATUS_OPTIONS = ['APPROVED', 'PENDING_MANAGER', 'PENDING_HR', 'REJECTED'];
 
 const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose, onSaved }) => {
+  const { t } = useTranslation('leave');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaveTypes, setLeaveTypes] = useState<CustomLeaveType[]>(DEFAULT_LEAVE_TYPES);
@@ -34,6 +37,11 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
   const [status, setStatus] = useState<string>(leave?.status || 'APPROVED');
   const [remarks, setRemarks] = useState(leave?.approverRemarks || '');
   const [totalDays, setTotalDays] = useState(leave?.totalDays || 0);
+  const [cid, setCid] = useState(leave?.cid || '');
+  const [certificateValidUntil, setCertificateValidUntil] = useState(leave?.certificateValidUntil?.split(' ')[0] || '');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+
+  const isSickLeave = type === 'SICK';
 
   useEffect(() => {
     hrService.getLeaveTypes().then(setLeaveTypes).catch((err) => {
@@ -55,25 +63,52 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
 
   const selectedEmployee = employees.find(e => e.id === employeeId);
 
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAttachmentFile(null);
+      return;
+    }
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isImage && !isPdf) {
+      setError(t('attachmentTypeError'));
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError(t('attachmentTooLarge'));
+      e.target.value = '';
+      return;
+    }
+    setError(null);
+    setAttachmentFile(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (mode === 'create' && !employeeId) {
-      setError('Please select an employee.');
+      setError(t('selectEmployee'));
       return;
     }
     if (!startDate || !endDate) {
-      setError('Please select start and end dates.');
+      setError(t('selectDates'));
       return;
     }
     if (totalDays <= 0) {
-      setError('Total days must be greater than 0.');
+      setError(t('totalDaysMustBePositive'));
       return;
     }
 
     setIsProcessing(true);
     try {
+      const medicalFields = isSickLeave ? {
+        cid: cid || undefined,
+        certificateValidUntil: certificateValidUntil || undefined,
+      } : {};
+
       if (mode === 'create') {
         await hrService.adminCreateLeave({
           employeeId,
@@ -84,8 +119,9 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
           totalDays,
           reason,
           status,
-          remarks
-        });
+          remarks,
+          ...medicalFields,
+        }, isSickLeave ? attachmentFile ?? undefined : undefined);
       } else if (leave) {
         await hrService.adminUpdateLeave(leave.id, {
           type,
@@ -94,12 +130,19 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
           totalDays,
           reason,
           status,
-          approverRemarks: remarks
-        });
+          approverRemarks: remarks,
+          employeeId: leave.employeeId,
+          ...medicalFields,
+        }, isSickLeave ? attachmentFile ?? undefined : undefined);
       }
       onSaved();
     } catch (err: any) {
-      setError(err.message || 'Operation failed');
+      const msg = err.message === 'ATTACHMENT_TOO_LARGE'
+        ? t('attachmentTooLarge')
+        : err.message === 'ATTACHMENT_INVALID_TYPE'
+          ? t('attachmentTypeError')
+          : (err.message || t('operationFailed'));
+      setError(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -107,8 +150,8 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
 
   const headerColor = mode === 'create' ? 'bg-primary' : 'bg-amber-600';
   const HeaderIcon = mode === 'create' ? UserPlus : Edit3;
-  const headerTitle = mode === 'create' ? 'Create Leave (Admin)' : 'Edit Leave (Admin)';
-  const submitLabel = mode === 'create' ? 'Create Leave' : 'Save Changes';
+  const headerTitle = mode === 'create' ? t('createLeaveAdmin') : t('editLeaveAdmin');
+  const submitLabel = mode === 'create' ? t('createLeave') : t('saveChanges');
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -131,14 +174,14 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
           {/* Employee Selector (create only) */}
           {mode === 'create' && (
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Employee</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('employee')}</label>
               <select
                 required
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
                 value={employeeId}
                 onChange={e => setEmployeeId(e.target.value)}
               >
-                <option value="">— Select Employee —</option>
+                <option value="">{t('selectEmployeePlaceholder')}</option>
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
                 ))}
@@ -149,67 +192,102 @@ const AdminLeaveFormModal: React.FC<Props> = ({ mode, leave, employees, onClose,
           {/* Edit mode: show employee name as read-only */}
           {mode === 'edit' && leave && (
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Employee</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('employee')}</p>
               <p className="text-sm font-semibold text-slate-800 mt-1">{leave.employeeName}</p>
             </div>
           )}
 
           {/* Leave Type */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Leave Type</label>
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('type')}</label>
             <select
               className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
               value={type}
               onChange={e => setType(e.target.value)}
             >
-              {leaveTypes.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {leaveTypes.map(lt => (
+                <option key={lt.id} value={lt.id}>{lt.name}</option>
               ))}
             </select>
           </div>
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Start Date</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('startDate')}</label>
               <input type="date" required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all" value={startDate} onChange={e => setStartDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">End Date</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('endDate')}</label>
               <input type="date" required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
           </div>
 
           {/* Total Days (auto-calculated, editable override) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Total Days</label>
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('totalDays')}</label>
             <input type="number" min={0} step={0.5} required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all" value={totalDays} onChange={e => setTotalDays(Number(e.target.value))} />
           </div>
 
           {/* Reason */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Reason</label>
-            <textarea placeholder="Leave reason..." className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm min-h-[80px] outline-none focus:ring-4 focus:ring-primary-light transition-all" value={reason} onChange={e => setReason(e.target.value)} />
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('reason')}</label>
+            <textarea placeholder={t('reasonPlaceholder')} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm min-h-[80px] outline-none focus:ring-4 focus:ring-primary-light transition-all" value={reason} onChange={e => setReason(e.target.value)} />
           </div>
 
-          {/* Status */}
+          {isSickLeave && (
+            <div className="space-y-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{t('medicalCertificateSection')}</p>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('cid')}</label>
+                <input
+                  type="text"
+                  placeholder={t('cidPlaceholder')}
+                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
+                  value={cid}
+                  onChange={e => setCid(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('certificateValidUntil')}</label>
+                <input
+                  type="date"
+                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
+                  value={certificateValidUntil}
+                  onChange={e => setCertificateValidUntil(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('attachment')}</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleAttachmentChange}
+                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary"
+                />
+                <p className="text-[9px] text-slate-400 px-1">{t('attachmentHint')}</p>
+                {mode === 'edit' && leave?.attachmentPath && !attachmentFile && (
+                  <p className="text-[9px] font-bold text-emerald-600 px-1">{t('attachmentOnFile')}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Status</label>
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('statusLabel')}</label>
             <select
               className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
               value={status}
               onChange={e => setStatus(e.target.value)}
             >
               {STATUS_OPTIONS.map(s => (
-                <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                <option key={s} value={s}>{tStatus('leave', s)}</option>
               ))}
             </select>
           </div>
 
-          {/* Remarks */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Admin Remarks</label>
-            <textarea placeholder="Optional admin notes..." className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm min-h-[60px] outline-none focus:ring-4 focus:ring-primary-light transition-all" value={remarks} onChange={e => setRemarks(e.target.value)} />
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('adminRemarksLabel')}</label>
+            <textarea placeholder={t('adminNotesPlaceholder')} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm min-h-[60px] outline-none focus:ring-4 focus:ring-primary-light transition-all" value={remarks} onChange={e => setRemarks(e.target.value)} />
           </div>
 
           {/* Submit */}

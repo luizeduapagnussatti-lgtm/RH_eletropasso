@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
 // Hooks
@@ -22,6 +23,7 @@ interface AttendanceProps {
 }
 
 const Attendance: React.FC<AttendanceProps> = ({ user, autoStart, onFinish }) => {
+  const { t } = useTranslation('attendance');
   const { showToast } = useToast();
 
   // 1. Logic Hooks
@@ -79,15 +81,15 @@ const Attendance: React.FC<AttendanceProps> = ({ user, autoStart, onFinish }) =>
   const handlePunchSubmit = async () => {
     if (!canPunch) {
       if (subscription?.status === 'EXPIRED') {
-        showToast('Your trial has expired. Please upgrade to continue punching attendance.', 'warning');
+        showToast(t('trialExpiredToast'), 'warning');
       } else if (subscription?.status === 'SUSPENDED') {
-        showToast('Your account is suspended. Please contact support.', 'error');
+        showToast(t('accountSuspendedToast'), 'error');
       }
       return;
     }
 
     if (dutyType === 'FACTORY' && !remarks.trim()) {
-      showToast("Mandatory: Please mention the Factory Name and details in remarks.", 'warning');
+      showToast(t('factoryRemarksRequired'), 'warning');
       return;
     }
 
@@ -158,15 +160,15 @@ const Attendance: React.FC<AttendanceProps> = ({ user, autoStart, onFinish }) =>
           <AlertTriangle className="w-5 h-5" />
           <span className="text-sm font-medium">
             {subscription?.status === 'EXPIRED'
-              ? 'Your trial has expired. Attendance punching is disabled.'
-              : 'Your account is suspended. Please contact support.'}
+              ? t('trialExpiredBanner')
+              : t('accountSuspendedBanner')}
           </span>
         </div>
       )}
 
       <AttendanceActions
         dutyType={dutyType}
-        dutyLabel={dutyType === 'FACTORY' ? (appConfig?.dutyLabel2 || 'Factory') : (appConfig?.dutyLabel1 || 'Office')}
+        dutyLabel={dutyType === 'FACTORY' ? (appConfig?.dutyLabel2 || t('factory')) : (appConfig?.dutyLabel1 || t('office'))}
         remarks={remarks}
         setRemarks={setRemarks}
         onSubmit={handlePunchSubmit}

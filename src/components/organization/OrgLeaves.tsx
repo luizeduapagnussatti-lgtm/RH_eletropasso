@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { LeavePolicy, Employee, CustomLeaveType } from '../../types';
 import { DEFAULT_LEAVE_TYPES } from '../../constants';
@@ -14,6 +14,7 @@ interface Props {
 }
 
 export const OrgLeaves: React.FC<Props> = ({ policy, employees, onUpdatePolicy, onAddOverride, onDeleteOverride }) => {
+  const { t } = useTranslation('org');
   const [leaveTypes, setLeaveTypes] = useState<CustomLeaveType[]>(DEFAULT_LEAVE_TYPES);
 
   useEffect(() => {
@@ -32,12 +33,12 @@ export const OrgLeaves: React.FC<Props> = ({ policy, employees, onUpdatePolicy, 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-500">
        <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-           <div className="p-8 bg-primary text-white flex items-center justify-between"><div className="flex items-center gap-4"><div className="p-3 bg-white/10 rounded-2xl"><ShieldCheck size={24}/></div><div><h3 className="text-xl font-semibold uppercase tracking-tight">Global Defaults</h3></div></div></div>
+           <div className="p-8 bg-primary text-white flex items-center justify-between"><div className="flex items-center gap-4"><div className="p-3 bg-white/10 rounded-2xl"><ShieldCheck size={24}/></div><div><h3 className="text-xl font-semibold uppercase tracking-tight">{t('globalDefaults')}</h3></div></div></div>
            <div className="p-8 space-y-6 flex-1">
               <div className={`grid gap-4 ${[,'grid-cols-1','grid-cols-2','grid-cols-3','grid-cols-4'][Math.min(balanceTypes.length, 4)] || 'grid-cols-4'}`}>
                  {balanceTypes.map(lt => (
                    <div key={lt.id} className="space-y-2">
-                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{lt.name.replace(' Leave', '')}</label>
+                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{lt.name}</label>
                      <input type="number" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xl text-center outline-none focus:ring-4 focus:ring-primary-light" value={policy.defaults[lt.id] || 0} onChange={e => handleDefaultChange(lt.id, Number(e.target.value))} />
                    </div>
                  ))}
@@ -47,14 +48,14 @@ export const OrgLeaves: React.FC<Props> = ({ policy, employees, onUpdatePolicy, 
 
        <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
            <div className="p-8 bg-slate-800 text-white flex items-center justify-between">
-              <h3 className="text-lg font-semibold uppercase tracking-wider">Employee Overrides</h3>
-              <button onClick={onAddOverride} className="px-4 py-2 bg-white/10 rounded-xl text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 hover:bg-white/20 transition-all"><Plus size={14}/> Add Custom Policy</button>
+              <h3 className="text-lg font-semibold uppercase tracking-wider">{t('employeeOverrides')}</h3>
+              <button onClick={onAddOverride} className="px-4 py-2 bg-white/10 rounded-xl text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 hover:bg-white/20 transition-all"><Plus size={14}/> {t('addCustomPolicy')}</button>
            </div>
            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(policy.overrides).map(([empId, quota]) => {
-                 const empName = employees.find(e => e.id === empId)?.name || 'Unknown User';
+                 const empName = employees.find(e => e.id === empId)?.name || t('unknownUser');
                  const quotaEntries = quota as Record<string, number>;
-                 const summary = balanceTypes.map(lt => `${lt.name.replace(' Leave', '').charAt(0)}:${quotaEntries[lt.id] || 0}`).join(' • ');
+                 const summary = balanceTypes.map(lt => `${lt.name.charAt(0)}:${quotaEntries[lt.id] || 0}`).join(' • ');
                  return (
                     <div key={empId} className="p-5 bg-slate-50 rounded-[2rem] border border-slate-100 flex justify-between items-center group hover:bg-white transition-all">
                        <div>
@@ -65,7 +66,7 @@ export const OrgLeaves: React.FC<Props> = ({ policy, employees, onUpdatePolicy, 
                     </div>
                  );
               })}
-              {Object.keys(policy.overrides).length === 0 && <p className="col-span-full text-center text-slate-400 py-6 text-xs font-bold uppercase tracking-widest">No individual overrides set.</p>}
+              {Object.keys(policy.overrides).length === 0 && <p className="col-span-full text-center text-slate-400 py-6 text-xs font-bold uppercase tracking-widest">{t('noOverrides')}</p>}
            </div>
        </div>
     </div>

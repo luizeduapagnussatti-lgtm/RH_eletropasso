@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Eye, EyeOff, Save, Loader2, Image, ArrowLeft, ArrowUpDown } from 'lucide-react';
 import { tutorialService } from '../../services/tutorial.service';
 import { Tutorial } from '../../types';
 import RichTextEditor from '../blog/RichTextEditor';
 import { sanitizeHtml } from '../../utils/sanitize';
+import { tStatus } from '../../i18n/statusMaps';
 
 interface TutorialManagementProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
@@ -11,7 +13,19 @@ interface TutorialManagementProps {
 
 type ViewMode = 'list' | 'create' | 'edit';
 
-const CATEGORY_SUGGESTIONS = ['Getting Started', 'Dashboard', 'Attendance', 'Leave', 'Employees', 'Organization', 'Performance', 'Reports', 'Settings', 'Subscription', 'General'];
+const CATEGORY_SUGGESTIONS: { value: string; key: string }[] = [
+  { value: 'Getting Started', key: 'gettingStarted' },
+  { value: 'Dashboard', key: 'dashboard' },
+  { value: 'Attendance', key: 'attendance' },
+  { value: 'Leave', key: 'leave' },
+  { value: 'Employees', key: 'employees' },
+  { value: 'Organization', key: 'organization' },
+  { value: 'Performance', key: 'performance' },
+  { value: 'Reports', key: 'reports' },
+  { value: 'Settings', key: 'settings' },
+  { value: 'Subscription', key: 'subscription' },
+  { value: 'General', key: 'general' },
+];
 
 // Preferred category order for auto-assign
 const CATEGORY_ORDER = [
@@ -29,6 +43,7 @@ const generateSlug = (title: string): string => {
 };
 
 const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,6 +66,9 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
   });
 
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  const formatStatus = (status: 'DRAFT' | 'PUBLISHED') =>
+    status === 'DRAFT' ? tStatus('review', 'DRAFT') : t('tutorials.status.PUBLISHED');
 
   useEffect(() => {
     loadTutorials();
@@ -124,11 +142,11 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      onMessage({ type: 'error', text: 'Title is required' });
+      onMessage({ type: 'error', text: t('tutorials.validation.titleRequired') });
       return;
     }
     if (!formData.slug.trim()) {
-      onMessage({ type: 'error', text: 'Slug is required' });
+      onMessage({ type: 'error', text: t('tutorials.validation.slugRequired') });
       return;
     }
 
@@ -182,7 +200,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
   };
 
   const handleDelete = async (tutorial: Tutorial) => {
-    if (!window.confirm(`Are you sure you want to delete "${tutorial.title}"? This action cannot be undone.`)) {
+    if (!window.confirm(t('tutorials.deleteConfirm', { title: tutorial.title }))) {
       return;
     }
     const result = await tutorialService.deleteTutorial(tutorial.id);
@@ -201,7 +219,10 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
       publishedAt: newStatus === 'PUBLISHED' ? new Date().toISOString() : '',
     });
     if (result.success) {
-      onMessage({ type: 'success', text: `Tutorial ${newStatus === 'PUBLISHED' ? 'published' : 'unpublished'} successfully` });
+      onMessage({
+        type: 'success',
+        text: newStatus === 'PUBLISHED' ? t('tutorials.publishedSuccess') : t('tutorials.unpublishedSuccess'),
+      });
       await loadTutorials();
     } else {
       onMessage({ type: 'error', text: result.message });
@@ -209,7 +230,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
   };
 
   const handleAutoAssignOrder = async () => {
-    if (!window.confirm('This will auto-assign display_order values to all tutorials based on category order. Continue?')) return;
+    if (!window.confirm(t('tutorials.autoOrderConfirm'))) return;
     setIsLoading(true);
     try {
       // Sort tutorials by category order, then alphabetically within each category
@@ -246,10 +267,10 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
           await tutorialService.updateTutorial(tutorial.id, { displayOrder: newOrder });
         }
       }
-      onMessage({ type: 'success', text: 'Display order auto-assigned successfully!' });
+      onMessage({ type: 'success', text: t('tutorials.autoOrderSuccess') });
       await loadTutorials();
     } catch (e: any) {
-      onMessage({ type: 'error', text: e?.message || 'Failed to auto-assign order' });
+      onMessage({ type: 'error', text: e?.message || t('tutorials.autoOrderFailed') });
     }
     setIsLoading(false);
   };
@@ -268,20 +289,20 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-slate-900">Tutorials</h3>
+          <h3 className="text-xl font-bold text-slate-900">{t('tutorials.listTitle')}</h3>
           <div className="flex items-center gap-2">
             <button
               onClick={handleAutoAssignOrder}
               className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-200 transition-all"
-              title="Auto-assign display order based on category"
+              title={t('tutorials.autoOrderTitle')}
             >
-              <ArrowUpDown size={16} /> Auto-Order
+              <ArrowUpDown size={16} /> {t('tutorials.autoOrder')}
             </button>
             <button
               onClick={openCreateMode}
               className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-primary-hover transition-all shadow-lg"
             >
-              <Plus size={18} /> New Tutorial
+              <Plus size={18} /> {t('tutorials.newTutorial')}
             </button>
           </div>
         </div>
@@ -289,13 +310,13 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
         {isLoading ? (
           <div className="text-center py-12 text-slate-400">
             <Loader2 className="animate-spin mx-auto mb-2" size={32} />
-            Loading tutorials...
+            {t('tutorials.loading')}
           </div>
         ) : tutorials.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
             <Edit size={48} className="mx-auto text-slate-300 mb-4" />
-            <p className="text-slate-500 font-medium">No tutorials yet</p>
-            <p className="text-slate-400 text-sm mt-1">Create your first tutorial to get started</p>
+            <p className="text-slate-500 font-medium">{t('tutorials.emptyTitle')}</p>
+            <p className="text-slate-400 text-sm mt-1">{t('tutorials.emptyHint')}</p>
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -303,12 +324,12 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Parent</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Order</th>
-                    <th className="text-right p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('tutorials.table.title')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('tutorials.table.category')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('tutorials.table.parent')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('tutorials.table.status')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('tutorials.table.order')}</th>
+                    <th className="text-right p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('tutorials.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -343,7 +364,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {tutorial.status}
+                          {formatStatus(tutorial.status)}
                         </span>
                       </td>
                       <td className="p-4">
@@ -358,7 +379,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
                                 ? 'hover:bg-amber-100'
                                 : 'hover:bg-emerald-100'
                             }`}
-                            title={tutorial.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+                            title={tutorial.status === 'PUBLISHED' ? t('tutorials.actions.unpublish') : t('tutorials.actions.publish')}
                           >
                             {tutorial.status === 'PUBLISHED' ? (
                               <EyeOff size={18} className="text-amber-600" />
@@ -369,14 +390,14 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
                           <button
                             onClick={() => openEditMode(tutorial)}
                             className="p-2 hover:bg-blue-100 rounded-xl transition-all"
-                            title="Edit"
+                            title={t('tutorials.actions.edit')}
                           >
                             <Edit size={18} className="text-blue-600" />
                           </button>
                           <button
                             onClick={() => handleDelete(tutorial)}
                             className="p-2 hover:bg-red-100 rounded-xl transition-all"
-                            title="Delete"
+                            title={t('tutorials.actions.delete')}
                           >
                             <Trash2 size={18} className="text-red-600" />
                           </button>
@@ -401,14 +422,14 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
           onClick={() => { resetForm(); setViewMode('list'); }}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium transition-colors"
         >
-          <ArrowLeft size={20} /> Back to Tutorials
+          <ArrowLeft size={20} /> {t('tutorials.backToList')}
         </button>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowPreview(!showPreview)}
             className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-200 transition-all"
           >
-            <Eye size={16} /> {showPreview ? 'Edit' : 'Preview'}
+            <Eye size={16} /> {showPreview ? t('tutorials.previewEdit') : t('tutorials.previewView')}
           </button>
           <button
             onClick={handleSave}
@@ -416,23 +437,23 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
             className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-primary-hover transition-all shadow-lg disabled:opacity-50"
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {viewMode === 'create' ? 'Create Tutorial' : 'Update Tutorial'}
+            {viewMode === 'create' ? t('tutorials.createTutorial') : t('tutorials.updateTutorial')}
           </button>
         </div>
       </div>
 
       <h3 className="text-xl font-bold text-slate-900">
-        {viewMode === 'create' ? 'Create New Tutorial' : `Edit: ${editingTutorial?.title}`}
+        {viewMode === 'create' ? t('tutorials.createTitle') : t('tutorials.editTitle', { title: editingTutorial?.title })}
       </h3>
 
       {showPreview ? (
         // PREVIEW MODE
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
           {coverPreview && (
-            <img src={coverPreview} alt="Cover" className="w-full h-64 object-cover rounded-2xl mb-6" />
+            <img src={coverPreview} alt={t('tutorials.coverAlt')} className="w-full h-64 object-cover rounded-2xl mb-6" />
           )}
-          <h1 className="text-3xl font-semibold text-slate-900 mb-2">{formData.title || 'Untitled'}</h1>
-          <p className="text-slate-500 mb-6">{formData.authorName && `By ${formData.authorName}`}</p>
+          <h1 className="text-3xl font-semibold text-slate-900 mb-2">{formData.title || t('tutorials.untitled')}</h1>
+          <p className="text-slate-500 mb-6">{formData.authorName && t('tutorials.byAuthor', { name: formData.authorName })}</p>
           {formData.excerpt && (
             <p className="text-lg text-slate-600 italic mb-6 border-l-4 border-primary pl-4">{formData.excerpt}</p>
           )}
@@ -446,27 +467,27 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6">
           {/* Title */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Title *</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.title')}</label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) => handleTitleChange(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-              placeholder="Enter tutorial title..."
+              placeholder={t('tutorials.form.titlePlaceholder')}
             />
           </div>
 
           {/* Slug */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Slug *</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.slug')}</label>
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 text-sm">/guides/</span>
+              <span className="text-slate-400 text-sm">{t('tutorials.form.slugPrefix')}</span>
               <input
                 type="text"
                 value={formData.slug}
                 onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
                 className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-                placeholder="url-friendly-slug"
+                placeholder={t('tutorials.form.slugPlaceholder')}
               />
             </div>
           </div>
@@ -475,31 +496,31 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Category */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Category</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.category')}</label>
               <input
                 type="text"
                 list="category-suggestions"
                 value={formData.category}
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-                placeholder="e.g. Attendance, Leave..."
+                placeholder={t('tutorials.form.categoryPlaceholder')}
               />
               <datalist id="category-suggestions">
                 {CATEGORY_SUGGESTIONS.map(cat => (
-                  <option key={cat} value={cat} />
+                  <option key={cat.value} value={cat.value}>{t(`tutorials.categories.${cat.key}`)}</option>
                 ))}
               </datalist>
             </div>
 
             {/* Parent Tutorial */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Parent Tutorial</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.parentTutorial')}</label>
               <select
                 value={formData.parentId}
                 onChange={(e) => setFormData(prev => ({ ...prev, parentId: e.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
               >
-                <option value="">None (Top-level)</option>
+                <option value="">{t('tutorials.form.parentNone')}</option>
                 {topLevelTutorials.map(t => (
                   <option key={t.id} value={t.id}>{t.title}</option>
                 ))}
@@ -511,7 +532,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Display Order */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Display Order</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.displayOrder')}</label>
               <input
                 type="number"
                 value={formData.displayOrder}
@@ -523,45 +544,45 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
 
             {/* Author Name */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Author Name</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.authorName')}</label>
               <input
                 type="text"
                 value={formData.authorName}
                 onChange={(e) => setFormData(prev => ({ ...prev, authorName: e.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-                placeholder="Author name..."
+                placeholder={t('tutorials.form.authorPlaceholder')}
               />
             </div>
           </div>
 
           {/* Excerpt */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Excerpt</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.excerpt')}</label>
             <textarea
               value={formData.excerpt}
               onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 resize-vertical"
               rows={3}
-              placeholder="Brief summary of the tutorial..."
+              placeholder={t('tutorials.form.excerptPlaceholder')}
             />
           </div>
 
           {/* Content */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Content</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.content')}</label>
             <RichTextEditor
               value={formData.content}
               onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
-              placeholder="Start writing your tutorial..."
+              placeholder={t('tutorials.form.contentPlaceholder')}
             />
           </div>
 
           {/* Cover Image */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Cover Image</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.coverImage')}</label>
             <div className="flex items-center gap-4">
               {coverPreview && (
-                <img src={coverPreview} alt="Cover preview" className="w-24 h-24 rounded-xl object-cover" />
+                <img src={coverPreview} alt={t('tutorials.coverPreviewAlt')} className="w-24 h-24 rounded-xl object-cover" />
               )}
               <div>
                 <input
@@ -575,7 +596,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-200 transition-all"
                 >
-                  <Image size={16} /> {coverPreview ? 'Change Image' : 'Upload Image'}
+                  <Image size={16} /> {coverPreview ? t('tutorials.form.changeImage') : t('tutorials.form.uploadImage')}
                 </button>
               </div>
             </div>
@@ -583,7 +604,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('tutorials.form.status')}</label>
             <div className="flex gap-3">
               <button
                 onClick={() => setFormData(prev => ({ ...prev, status: 'DRAFT' }))}
@@ -593,7 +614,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Draft
+                {tStatus('review', 'DRAFT')}
               </button>
               <button
                 onClick={() => setFormData(prev => ({ ...prev, status: 'PUBLISHED' }))}
@@ -603,7 +624,7 @@ const TutorialManagement: React.FC<TutorialManagementProps> = ({ onMessage }) =>
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Published
+                {t('tutorials.status.PUBLISHED')}
               </button>
             </div>
           </div>

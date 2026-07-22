@@ -1,84 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Mail, Send, Eye, Users, Building2, AlertTriangle, CheckCircle2, XCircle,
   Clock, RefreshCw, History, Pencil, X, Loader2, Info, FileText,
 } from 'lucide-react';
-
-interface EmailTemplate {
-  id: string;
-  label: string;
-  subject: string;
-  body: string;
-}
-
-const EMAIL_TEMPLATES: EmailTemplate[] = [
-  {
-    id: 'password_reset',
-    label: 'Password Reset Notice',
-    subject: 'Action Required: Reset Your OpenHR Password',
-    body: `<p>Dear {{name}},</p>
-<p>We have recently migrated our platform and your account requires a password reset before you can log in.</p>
-<p>Please click the button below to set a new password. This link is unique to your account and expires in 24 hours.</p>
-<p><a href="{{reset_link}}" style="background:#4f46e5;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">Reset My Password</a></p>
-<p>If you did not request this, you can safely ignore this email.</p>
-<p>Best regards,<br/>The OpenHR Team</p>`,
-  },
-  {
-    id: 'newsletter',
-    label: 'Newsletter',
-    subject: 'OpenHR Monthly Update — [Month Year]',
-    body: `<p>Dear {{name}},</p>
-<h2>What's New This Month</h2>
-<p>Here are the latest updates and improvements we've shipped:</p>
-<ul>
-  <li><strong>Feature:</strong> Describe new feature here.</li>
-  <li><strong>Fix:</strong> Describe fix here.</li>
-  <li><strong>Improvement:</strong> Describe improvement here.</li>
-</ul>
-<h2>Coming Soon</h2>
-<p>Share upcoming features or plans here.</p>
-<p>Thank you for using OpenHR. We're committed to making HR management effortless for your team.</p>
-<p>Best regards,<br/>The OpenHR Team</p>`,
-  },
-  {
-    id: 'maintenance',
-    label: 'System Maintenance',
-    subject: 'Scheduled Maintenance: OpenHR Will Be Unavailable on [Date]',
-    body: `<p>Dear {{name}},</p>
-<p>We want to give you advance notice of scheduled maintenance on the OpenHR platform.</p>
-<p><strong>Date:</strong> [Date]<br/>
-<strong>Time:</strong> [Start Time] – [End Time] ([Timezone])<br/>
-<strong>Expected downtime:</strong> [Duration]</p>
-<p>During this window the platform will be temporarily unavailable. Please plan accordingly and save any in-progress work before the maintenance window begins.</p>
-<p>We apologise for any inconvenience and appreciate your patience.</p>
-<p>Best regards,<br/>The OpenHR Team</p>`,
-  },
-  {
-    id: 'announcement',
-    label: 'General Announcement',
-    subject: 'Important Announcement from OpenHR',
-    body: `<p>Dear {{name}},</p>
-<p>We have an important update to share with you.</p>
-<p>[Write your announcement here.]</p>
-<p>If you have any questions, please reach out to us at <a href="mailto:support@openhrapp.com">support@openhrapp.com</a>.</p>
-<p>Best regards,<br/>The OpenHR Team</p>`,
-  },
-  {
-    id: 'welcome',
-    label: 'Welcome / Onboarding',
-    subject: 'Welcome to OpenHR, {{name}}!',
-    body: `<p>Dear {{name}},</p>
-<p>Welcome to <strong>OpenHR</strong> — your all-in-one HR management platform.</p>
-<p>Here's how to get started:</p>
-<ol>
-  <li><strong>Log in</strong> at <a href="https://app.openhrapp.com">app.openhrapp.com</a></li>
-  <li><strong>Complete your profile</strong> — add your details and photo</li>
-  <li><strong>Explore the dashboard</strong> — check attendance, leaves, and announcements</li>
-</ol>
-<p>If you need help, contact your HR admin or reach us at <a href="mailto:support@openhrapp.com">support@openhrapp.com</a>.</p>
-<p>Best regards,<br/>The OpenHR Team</p>`,
-  },
-];
 import RichTextEditor from '../blog/RichTextEditor';
 import {
   superAdminService,
@@ -87,6 +12,40 @@ import {
   type BulkCampaignDetailRow,
 } from '../../services/superadmin.service';
 import { Organization, SubscriptionStatus } from '../../types';
+import { APP_NAME } from '../../config/branding';
+import { tStatus } from '../../i18n/statusMaps';
+
+interface EmailTemplate {
+  id: string;
+  label: string;
+  subject: string;
+  body: string;
+}
+
+const EMAIL_TEMPLATE_IDS = ['password_reset', 'newsletter', 'maintenance', 'announcement', 'welcome'] as const;
+
+const EMAIL_TEMPLATE_CONTENT: Record<(typeof EMAIL_TEMPLATE_IDS)[number], { subject: string; body: string }> = {
+  password_reset: {
+    subject: `Action Required: Reset Your ${APP_NAME} Password`,
+    body: '<p>Dear {{name}},</p><p>We have recently migrated our platform and your account requires a password reset before you can log in.</p><p>Please click the button below to set a new password. This link is unique to your account and expires in 24 hours.</p><p><a href="{{reset_link}}" style="background:#4f46e5;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">Reset My Password</a></p><p>If you did not request this, you can safely ignore this email.</p><p>Best regards,<br/>The {{appName}} Team</p>'.replace(/\{\{appName\}\}/g, APP_NAME),
+  },
+  newsletter: {
+    subject: `${APP_NAME} Monthly Update — [Month Year]`,
+    body: `<p>Dear {{name}},</p><h2>What's New This Month</h2><p>Here are the latest updates and improvements we've shipped:</p><ul><li><strong>Feature:</strong> Describe new feature here.</li><li><strong>Fix:</strong> Describe fix here.</li><li><strong>Improvement:</strong> Describe improvement here.</li></ul><h2>Coming Soon</h2><p>Share upcoming features or plans here.</p><p>Thank you for using ${APP_NAME}. We're committed to making HR management effortless for your team.</p><p>Best regards,<br/>The ${APP_NAME} Team</p>`,
+  },
+  maintenance: {
+    subject: `Scheduled Maintenance: ${APP_NAME} Will Be Unavailable on [Date]`,
+    body: `<p>Dear {{name}},</p><p>We want to give you advance notice of scheduled maintenance on the ${APP_NAME} platform.</p><p><strong>Date:</strong> [Date]<br/><strong>Time:</strong> [Start Time] – [End Time] ([Timezone])<br/><strong>Expected downtime:</strong> [Duration]</p><p>During this window the platform will be temporarily unavailable. Please plan accordingly and save any in-progress work before the maintenance window begins.</p><p>We apologise for any inconvenience and appreciate your patience.</p><p>Best regards,<br/>The ${APP_NAME} Team</p>`,
+  },
+  announcement: {
+    subject: `Important Announcement from ${APP_NAME}`,
+    body: `<p>Dear {{name}},</p><p>We have an important update to share with you.</p><p>[Write your announcement here.]</p><p>If you have any questions, please reach out to your administrator.</p><p>Best regards,<br/>The ${APP_NAME} Team</p>`,
+  },
+  welcome: {
+    subject: `Welcome to ${APP_NAME}, {{name}}!`,
+    body: `<p>Dear {{name}},</p><p>Welcome to <strong>${APP_NAME}</strong> — your all-in-one HR management platform.</p><p>Here's how to get started:</p><ol><li><strong>Log in</strong> to the platform</li><li><strong>Complete your profile</strong> — add your details and photo</li><li><strong>Explore the dashboard</strong> — check attendance, leaves, and announcements</li></ol><p>If you need help, contact your HR admin.</p><p>Best regards,<br/>The ${APP_NAME} Team</p>`,
+  },
+};
 
 interface BulkEmailManagerProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
@@ -99,6 +58,17 @@ type View = 'compose' | 'history';
 const SUBSCRIPTION_OPTIONS: SubscriptionStatus[] = ['TRIAL', 'ACTIVE', 'EXPIRED', 'SUSPENDED', 'AD_SUPPORTED'];
 
 const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
+  const EMAIL_TEMPLATES: EmailTemplate[] = useMemo(
+    () =>
+      EMAIL_TEMPLATE_IDS.map((id) => ({
+        id,
+        label: t(`bulkEmail.templates.${id}.label`),
+        subject: EMAIL_TEMPLATE_CONTENT[id].subject,
+        body: EMAIL_TEMPLATE_CONTENT[id].body,
+      })),
+    [t]
+  );
   const [view, setView] = useState<View>('compose');
 
   // Compose state
@@ -158,24 +128,25 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
   };
 
   const audienceLabel = useMemo(() => {
-    if (audience === 'ALL_ADMINS') return 'All organization admins (ADMIN + HR roles)';
-    if (audience === 'ALL_USERS') return 'All registered users (excluding Super Admins)';
+    if (audience === 'ALL_ADMINS') return t('bulkEmail.audienceSummaryAllAdmins');
+    if (audience === 'ALL_USERS') return t('bulkEmail.audienceSummaryAllUsers');
     if (audience === 'ORG') {
       const o = orgs.find(x => x.id === selectedOrgId);
-      const role = orgRolesScope === 'ADMINS' ? 'admins (ADMIN + HR)' : 'users';
-      return o ? `${role} of ${o.name}` : 'Specific organization';
+      const role = orgRolesScope === 'ADMINS' ? t('bulkEmail.audienceRoleAdmins') : t('bulkEmail.audienceRoleUsers');
+      return o ? t('bulkEmail.audienceSummaryOrg', { role, name: o.name }) : t('bulkEmail.audienceSummaryOrgFallback');
     }
     if (audience === 'BY_SUBSCRIPTION') {
-      const role = subRolesScope === 'ADMINS' ? 'admins (ADMIN + HR)' : 'users';
-      return `${role} in orgs with status: ${subStatuses.join(', ') || '—'}`;
+      const role = subRolesScope === 'ADMINS' ? t('bulkEmail.audienceRoleAdmins') : t('bulkEmail.audienceRoleUsers');
+      const statuses = subStatuses.map(s => tStatus('subscription', s)).join(', ') || '—';
+      return t('bulkEmail.audienceSummaryBySub', { role, statuses });
     }
     return '';
-  }, [audience, orgs, selectedOrgId, orgRolesScope, subStatuses, subRolesScope]);
+  }, [audience, orgs, selectedOrgId, orgRolesScope, subStatuses, subRolesScope, t]);
 
   const handlePreview = async () => {
     const filter = buildFilter();
     if (!filter) {
-      onMessage({ type: 'error', text: 'Please complete the audience selection first' });
+      onMessage({ type: 'error', text: t('bulkEmail.errorCompleteAudience') });
       return;
     }
     setPreviewing(true);
@@ -183,10 +154,10 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
       const result = await superAdminService.previewBulkRecipients(filter);
       setPreview(result);
       if (result.count === 0) {
-        onMessage({ type: 'error', text: 'No recipients matched this audience' });
+        onMessage({ type: 'error', text: t('bulkEmail.errorNoRecipients') });
       }
     } catch (e: any) {
-      onMessage({ type: 'error', text: e?.message ? `Preview failed: ${e.message}` : 'Preview failed. Check console for details.' });
+      onMessage({ type: 'error', text: e?.message ? t('bulkEmail.errorPreviewFailed', { message: e.message }) : t('bulkEmail.errorPreviewFailedGeneric') });
     } finally {
       setPreviewing(false);
     }
@@ -208,7 +179,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
       }
     } catch (err) {
       console.error('[BulkEmail] sendBulkEmail failed:', err);
-      onMessage({ type: 'error', text: 'Send failed. Check console for details.' });
+      onMessage({ type: 'error', text: t('bulkEmail.errorSendFailed') });
     } finally {
       setSending(false);
       setConfirmOpen(false);
@@ -257,10 +228,10 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
         <div>
           <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <Mail size={22} className="text-primary" />
-            Bulk Email
+            {t('bulkEmail.title')}
           </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Broadcast announcements, alerts, or warnings to organization admins or users across the platform.
+            {t('bulkEmail.subtitle')}
           </p>
         </div>
         <div className="flex gap-2 self-start">
@@ -270,7 +241,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
               view === 'compose' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <Pencil size={16} /> Compose
+            <Pencil size={16} /> {t('bulkEmail.compose')}
           </button>
           <button
             onClick={() => setView('history')}
@@ -278,7 +249,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
               view === 'history' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <History size={16} /> History
+            <History size={16} /> {t('bulkEmail.history')}
           </button>
         </div>
       </div>
@@ -289,15 +260,15 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center gap-2 text-slate-900">
               <Users size={18} />
-              <h4 className="font-bold">Audience</h4>
+              <h4 className="font-bold">{t('bulkEmail.audienceTitle')}</h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {([
-                { v: 'ALL_ADMINS', label: 'All org admins', desc: 'Every ADMIN across all organizations' },
-                { v: 'ALL_USERS', label: 'All users', desc: 'Every registered user (excluding Super Admins)' },
-                { v: 'ORG', label: 'Specific organization', desc: 'Pick one org and target its admins or users' },
-                { v: 'BY_SUBSCRIPTION', label: 'By subscription status', desc: 'Target orgs in TRIAL / EXPIRED / etc.' },
+                { v: 'ALL_ADMINS', label: t('bulkEmail.audienceAllAdminsLabel'), desc: t('bulkEmail.audienceAllAdminsDesc') },
+                { v: 'ALL_USERS', label: t('bulkEmail.audienceAllUsersLabel'), desc: t('bulkEmail.audienceAllUsersDesc') },
+                { v: 'ORG', label: t('bulkEmail.audienceOrgLabel'), desc: t('bulkEmail.audienceOrgDesc') },
+                { v: 'BY_SUBSCRIPTION', label: t('bulkEmail.audienceBySubLabel'), desc: t('bulkEmail.audienceBySubDesc') },
               ] as Array<{ v: Audience; label: string; desc: string }>).map(opt => (
                 <button
                   key={opt.v}
@@ -318,17 +289,17 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
             {audience === 'ORG' && (
               <div className="space-y-3 pt-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Organization</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">{t('bulkEmail.formOrganization')}</label>
                   <select
                     value={selectedOrgId}
                     onChange={e => setSelectedOrgId(e.target.value)}
                     disabled={orgsLoading}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm"
                   >
-                    <option value="">{orgsLoading ? 'Loading…' : 'Select an organization'}</option>
+                    <option value="">{orgsLoading ? t('bulkEmail.formLoadingOrgs') : t('bulkEmail.formSelectOrg')}</option>
                     {orgs.map(o => (
                       <option key={o.id} value={o.id}>
-                        {o.name} {o.userCount ? `(${o.userCount} users)` : ''}
+                        {t('bulkEmail.formOrgUsersCount', { name: o.name, count: o.userCount ?? 0 })}
                       </option>
                     ))}
                   </select>
@@ -340,7 +311,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
             {audience === 'BY_SUBSCRIPTION' && (
               <div className="space-y-3 pt-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-2">Subscription statuses</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-2">{t('bulkEmail.formSubscriptionStatuses')}</label>
                   <div className="flex flex-wrap gap-2">
                     {SUBSCRIPTION_OPTIONS.map(s => {
                       const active = subStatuses.includes(s);
@@ -355,7 +326,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                               : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                           }`}
                         >
-                          {s}
+                          {tStatus('subscription', s)}
                         </button>
                       );
                     })}
@@ -367,9 +338,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
 
             <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 text-amber-800 text-xs">
               <Info size={14} className="mt-0.5 shrink-0" />
-              <span>
-                Recipients are every registered user matching the audience above (excluding Super Admins). Verification status is ignored — newly-registered admins/HR who haven't clicked their verification link are still reachable. The list is de-duplicated by email.
-              </span>
+              <span>{t('bulkEmail.audienceNote')}</span>
             </div>
           </div>
 
@@ -377,10 +346,10 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center gap-2 text-slate-900">
               <Pencil size={18} />
-              <h4 className="font-bold">Message</h4>
+              <h4 className="font-bold">{t('bulkEmail.messageTitle')}</h4>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Template</label>
+              <label className="block text-xs font-bold text-slate-600 mb-1">{t('bulkEmail.formTemplate')}</label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <FileText size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -390,15 +359,15 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                       const id = e.target.value;
                       setSelectedTemplate(id);
                       if (id) {
-                        const tpl = EMAIL_TEMPLATES.find(t => t.id === id);
+                        const tpl = EMAIL_TEMPLATES.find(tplItem => tplItem.id === id);
                         if (tpl) { setSubject(tpl.subject); setBody(tpl.body); }
                       }
                     }}
                     className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-sm appearance-none"
                   >
-                    <option value="">— Start from scratch —</option>
-                    {EMAIL_TEMPLATES.map(t => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
+                    <option value="">{t('bulkEmail.formTemplateScratch')}</option>
+                    {EMAIL_TEMPLATES.map(tpl => (
+                      <option key={tpl.id} value={tpl.id}>{tpl.label}</option>
                     ))}
                   </select>
                 </div>
@@ -406,31 +375,31 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                   <button
                     onClick={() => { setSelectedTemplate(''); setSubject(''); setBody(''); }}
                     className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
-                    title="Clear template"
+                    title={t('bulkEmail.formClearTemplate')}
                   >
                     <X size={14} />
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Select a template to pre-fill subject and body. You can edit freely after. Use <code className="bg-slate-100 px-1 rounded">{"{{name}}"}</code> for the recipient's first name and <code className="bg-slate-100 px-1 rounded">{"{{reset_link}}"}</code> for a unique password reset link.</p>
+              <p className="text-[10px] text-slate-400 mt-1">{t('bulkEmail.formTemplateHint')}</p>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Subject</label>
+              <label className="block text-xs font-bold text-slate-600 mb-1">{t('bulkEmail.formSubject')}</label>
               <input
                 type="text"
                 value={subject}
                 onChange={e => setSubject(e.target.value.slice(0, 200))}
-                placeholder="e.g. Important: scheduled maintenance this weekend"
+                placeholder={t('bulkEmail.formSubjectPlaceholder')}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm"
               />
-              <p className="text-[10px] text-slate-400 mt-1">{subject.length}/200</p>
+              <p className="text-[10px] text-slate-400 mt-1">{t('bulkEmail.formSubjectCount', { count: subject.length })}</p>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Body</label>
+              <label className="block text-xs font-bold text-slate-600 mb-1">{t('bulkEmail.formBody')}</label>
               <RichTextEditor
                 value={body}
                 onChange={setBody}
-                placeholder="Write your announcement, warning, or alert here. Formatting and links are supported."
+                placeholder={t('bulkEmail.formBodyPlaceholder')}
               />
             </div>
           </div>
@@ -439,10 +408,10 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center gap-2 text-slate-900">
               <Eye size={18} />
-              <h4 className="font-bold">Recipients preview</h4>
+              <h4 className="font-bold">{t('bulkEmail.previewTitle')}</h4>
             </div>
             <p className="text-sm text-slate-500">
-              Audience: <span className="font-medium text-slate-700">{audienceLabel}</span>
+              {t('bulkEmail.previewAudience')} <span className="font-medium text-slate-700">{audienceLabel}</span>
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -451,14 +420,14 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                 className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-200 transition-all disabled:opacity-60"
               >
                 {previewing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                {previewing ? 'Counting…' : 'Preview recipients'}
+                {previewing ? t('bulkEmail.previewCounting') : t('bulkEmail.previewButton')}
               </button>
               <button
                 onClick={() => setConfirmOpen(true)}
                 disabled={!canSend}
                 className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send size={16} /> Send to {preview?.count ?? '—'} recipients
+                <Send size={16} /> {preview?.count != null ? t('bulkEmail.sendButton', { count: preview.count }) : t('bulkEmail.sendButtonEmpty')}
               </button>
             </div>
 
@@ -466,12 +435,18 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
               <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-slate-900">{preview.count}</span>
-                  <span className="text-sm text-slate-500">recipient{preview.count === 1 ? '' : 's'}</span>
+                  <span className="text-sm text-slate-500">
+                    {preview.count === 1
+                      ? t('bulkEmail.previewRecipientOne')
+                      : t('bulkEmail.previewRecipients')}
+                  </span>
                 </div>
                 {preview.sampleEmails.length > 0 && (
                   <div className="mt-2 text-xs text-slate-500">
-                    Sample: {preview.sampleEmails.join(', ')}
-                    {preview.count > preview.sampleEmails.length && ` …and ${preview.count - preview.sampleEmails.length} more`}
+                    {t('bulkEmail.previewSample', { emails: preview.sampleEmails.join(', ') })}
+                    {preview.count > preview.sampleEmails.length && (
+                      <> {t('bulkEmail.previewAndMore', { count: preview.count - preview.sampleEmails.length })}</>
+                    )}
                   </div>
                 )}
               </div>
@@ -484,32 +459,32 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-bold text-slate-900 flex items-center gap-2">
-              <History size={18} /> Recent campaigns
+              <History size={18} /> {t('bulkEmail.historyTitle')}
             </h4>
             <button
               onClick={loadHistory}
               disabled={historyLoading}
               className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold flex items-center gap-1 hover:bg-slate-200"
             >
-              {historyLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Refresh
+              {historyLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('bulkEmail.historyRefresh')}
             </button>
           </div>
 
           {historyLoading ? (
-            <div className="text-center py-8 text-slate-400 text-sm">Loading…</div>
+            <div className="text-center py-8 text-slate-400 text-sm">{t('bulkEmail.historyLoading')}</div>
           ) : campaigns.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-sm">No bulk campaigns yet.</div>
+            <div className="text-center py-8 text-slate-400 text-sm">{t('bulkEmail.historyEmpty')}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-slate-400 border-b border-slate-100">
-                    <th className="py-2 pr-3">Sent at</th>
-                    <th className="py-2 pr-3">Subject</th>
-                    <th className="py-2 pr-3">Total</th>
-                    <th className="py-2 pr-3">Sent</th>
-                    <th className="py-2 pr-3">Failed</th>
-                    <th className="py-2 pr-3">Pending</th>
+                    <th className="py-2 pr-3">{t('bulkEmail.historyColSentAt')}</th>
+                    <th className="py-2 pr-3">{t('bulkEmail.historyColSubject')}</th>
+                    <th className="py-2 pr-3">{t('bulkEmail.historyColTotal')}</th>
+                    <th className="py-2 pr-3">{t('bulkEmail.historyColSent')}</th>
+                    <th className="py-2 pr-3">{t('bulkEmail.historyColFailed')}</th>
+                    <th className="py-2 pr-3">{t('bulkEmail.historyColPending')}</th>
                     <th className="py-2"></th>
                   </tr>
                 </thead>
@@ -533,7 +508,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                           onClick={() => openDetail(c)}
                           className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"
                         >
-                          View
+                          {t('bulkEmail.historyView')}
                         </button>
                       </td>
                     </tr>
@@ -551,14 +526,15 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-2 text-amber-700">
               <AlertTriangle size={20} />
-              <h4 className="font-bold text-slate-900">Confirm bulk send</h4>
+              <h4 className="font-bold text-slate-900">{t('bulkEmail.confirmTitle')}</h4>
             </div>
             <p className="text-sm text-slate-600">
-              You are about to send an email to <b>{preview.count}</b> recipient{preview.count === 1 ? '' : 's'} (
-              {audienceLabel}). This cannot be undone.
+              {preview.count === 1
+                ? t('bulkEmail.confirmBodyOne', { count: preview.count, audience: audienceLabel })
+                : t('bulkEmail.confirmBody', { count: preview.count, audience: audienceLabel })}
             </p>
             <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 space-y-1">
-              <div><span className="font-bold text-slate-700">Subject:</span> {subject}</div>
+              <div><span className="font-bold text-slate-700">{t('bulkEmail.confirmSubject')}</span> {subject}</div>
             </div>
             <div className="flex gap-3 pt-2">
               <button
@@ -566,7 +542,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                 disabled={sending}
                 className="flex-1 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all"
               >
-                Cancel
+                {t('bulkEmail.confirmCancel')}
               </button>
               <button
                 onClick={handleSend}
@@ -574,7 +550,7 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
                 className="flex-1 px-4 py-2 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-60"
               >
                 {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sending ? 'Queuing…' : 'Yes, send now'}
+                {sending ? t('bulkEmail.confirmQueuing') : t('bulkEmail.confirmSend')}
               </button>
             </div>
           </div>
@@ -589,27 +565,31 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
               <div>
                 <h4 className="font-bold text-slate-900">{detailCampaign.subject}</h4>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {detailCampaign.totalRows} recipients · {detailCampaign.sentCount} sent ·{' '}
-                  {detailCampaign.failedCount} failed · {detailCampaign.pendingCount} pending
+                  {t('bulkEmail.detailSummary', {
+                    total: detailCampaign.totalRows,
+                    sent: detailCampaign.sentCount,
+                    failed: detailCampaign.failedCount,
+                    pending: detailCampaign.pendingCount,
+                  })}
                 </p>
               </div>
-              <button onClick={closeDetail} className="p-2 rounded-lg hover:bg-slate-100">
+              <button onClick={closeDetail} className="p-2 rounded-lg hover:bg-slate-100" aria-label={t('bulkEmail.detailClose')}>
                 <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
               {detailLoading ? (
-                <div className="text-center py-8 text-slate-400 text-sm">Loading…</div>
+                <div className="text-center py-8 text-slate-400 text-sm">{t('bulkEmail.detailLoading')}</div>
               ) : detailRows.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-sm">No rows.</div>
+                <div className="text-center py-8 text-slate-400 text-sm">{t('bulkEmail.detailEmpty')}</div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase text-slate-400 border-b border-slate-100">
-                      <th className="py-2 pr-3">Recipient</th>
-                      <th className="py-2 pr-3">Status</th>
-                      <th className="py-2 pr-3">Sent at</th>
-                      <th className="py-2">Error</th>
+                      <th className="py-2 pr-3">{t('bulkEmail.detailColRecipient')}</th>
+                      <th className="py-2 pr-3">{t('bulkEmail.detailColStatus')}</th>
+                      <th className="py-2 pr-3">{t('bulkEmail.detailColSentAt')}</th>
+                      <th className="py-2">{t('bulkEmail.detailColError')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -636,24 +616,28 @@ const BulkEmailManager: React.FC<BulkEmailManagerProps> = ({ onMessage }) => {
   );
 };
 
-const ScopeRadio: React.FC<{ value: RolesScope; onChange: (v: RolesScope) => void }> = ({ value, onChange }) => (
-  <div className="flex items-center gap-3 text-sm">
-    <span className="text-xs font-bold text-slate-600">Scope:</span>
-    {(['ALL', 'ADMINS'] as RolesScope[]).map(v => (
-      <label key={v} className="flex items-center gap-1.5 cursor-pointer">
-        <input
-          type="radio"
-          checked={value === v}
-          onChange={() => onChange(v)}
-          className="accent-primary"
-        />
-        <span>{v === 'ALL' ? 'All users' : 'Admins only'}</span>
-      </label>
-    ))}
-  </div>
-);
+const ScopeRadio: React.FC<{ value: RolesScope; onChange: (v: RolesScope) => void }> = ({ value, onChange }) => {
+  const { t } = useTranslation('superadmin');
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="text-xs font-bold text-slate-600">{t('bulkEmail.formScope')}</span>
+      {(['ALL', 'ADMINS'] as RolesScope[]).map(v => (
+        <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="radio"
+            checked={value === v}
+            onChange={() => onChange(v)}
+            className="accent-primary"
+          />
+          <span>{v === 'ALL' ? t('bulkEmail.formScopeAllUsers') : t('bulkEmail.formScopeAdminsOnly')}</span>
+        </label>
+      ))}
+    </div>
+  );
+};
 
 const StatusBadge: React.FC<{ status: 'PENDING' | 'SENT' | 'FAILED' }> = ({ status }) => {
+  const { t } = useTranslation('superadmin');
   const map = {
     SENT: { cls: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle2 size={12} /> },
     FAILED: { cls: 'bg-red-100 text-red-700', icon: <XCircle size={12} /> },
@@ -662,7 +646,7 @@ const StatusBadge: React.FC<{ status: 'PENDING' | 'SENT' | 'FAILED' }> = ({ stat
   const m = map[status];
   return (
     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${m.cls}`}>
-      {m.icon} {status}
+      {m.icon} {t(`bulkEmail.queueStatus.${status}`)}
     </span>
   );
 };

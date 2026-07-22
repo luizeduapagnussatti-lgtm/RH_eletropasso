@@ -1,9 +1,10 @@
-
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Edit3, Trash2, CheckCircle, XCircle, RefreshCw, AlertTriangle, FileCheck, Search } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { LeaveRequest } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { tStatus } from '../../i18n/statusMaps';
 
 interface Props {
   requests: LeaveRequest[];
@@ -31,6 +32,8 @@ const statusBar = (status: string) => {
 };
 
 const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly = false }) => {
+  const { t } = useTranslation('leave');
+  const { t: tCommon } = useTranslation('common');
   const { showToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<LeaveRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -51,7 +54,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
     try {
       await hrService.adminDeleteLeave(deleteTarget.id);
       onRefresh();
-    } catch { showToast('Delete failed', 'error'); }
+    } catch { showToast(t('deleteFailed'), 'error'); }
     finally {
       setIsDeleting(false);
       setDeleteTarget(null);
@@ -66,7 +69,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
       onRefresh();
       setApproveTarget(null);
       setApproveRemarks('');
-    } catch { showToast('Action failed', 'error'); }
+    } catch { showToast(t('actionFailed'), 'error'); }
     finally { setIsApproving(false); }
   };
 
@@ -79,7 +82,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
         <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
         <input
           type="text"
-          placeholder="Search by name, type, or status..."
+          placeholder={t('searchByNameTypeStatus')}
           className="w-full pl-12 pr-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
@@ -99,7 +102,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
                   <span className="text-[10px] font-bold text-slate-300">|</span>
                   <span className="text-[10px] font-bold text-slate-400">{req.startDate?.split(' ')[0]} — {req.endDate?.split(' ')[0]}</span>
                   <span className="text-[10px] font-bold text-slate-300">|</span>
-                  <span className="text-[10px] font-bold text-slate-400">{req.totalDays}d</span>
+                  <span className="text-[10px] font-bold text-slate-400">{t('dayCountShort', { count: req.totalDays })}</span>
                 </div>
                 {req.reason && (
                   <p className="text-[10px] font-bold text-slate-400 mt-1 truncate max-w-xs" title={req.reason}>"{req.reason}"</p>
@@ -109,7 +112,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <span className={`px-3 py-1 rounded-lg text-[9px] font-semibold uppercase whitespace-nowrap ${statusBadge(req.status)}`}>
-                {req.status.replace('_', ' ')}
+                {tStatus('leave', req.status)}
               </span>
 
               {/* Approve/Reject for any pending */}
@@ -118,7 +121,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
                   onClick={() => setApproveTarget(req)}
                   className="px-3 py-2 bg-primary text-white rounded-xl text-[9px] font-semibold uppercase tracking-widest hover:bg-primary-hover transition-colors"
                 >
-                  Review
+                  {t('review')}
                 </button>
               )}
 
@@ -127,7 +130,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
                 <button
                   onClick={() => onEdit(req)}
                   className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-amber-600 hover:border-amber-200 transition-colors"
-                  title="Edit"
+                  title={t('edit')}
                 >
                   <Edit3 size={14} />
                 </button>
@@ -138,7 +141,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
                 <button
                   onClick={() => setDeleteTarget(req)}
                   className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-colors"
-                  title="Delete"
+                  title={t('delete')}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -149,7 +152,7 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
         {filtered.length === 0 && (
           <div className="text-center py-16">
             <FileCheck size={48} className="text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-semibold uppercase text-xs tracking-widest">No Leaves Found</p>
+            <p className="text-slate-400 font-semibold uppercase text-xs tracking-widest">{t('noLeavesFound')}</p>
           </div>
         )}
       </div>
@@ -159,20 +162,20 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in">
             <div className="p-8 bg-rose-600 text-white flex justify-between items-center">
-              <div className="flex items-center gap-3"><AlertTriangle size={20} /><h3 className="text-lg font-semibold uppercase tracking-tight">Confirm Delete</h3></div>
-              <button onClick={() => setDeleteTarget(null)} className="hover:bg-white/10 p-2 rounded-lg transition-colors"><span className="sr-only">Close</span>✕</button>
+              <div className="flex items-center gap-3"><AlertTriangle size={20} /><h3 className="text-lg font-semibold uppercase tracking-tight">{t('confirmDelete')}</h3></div>
+              <button onClick={() => setDeleteTarget(null)} className="hover:bg-white/10 p-2 rounded-lg transition-colors"><span className="sr-only">{t('close')}</span>✕</button>
             </div>
             <div className="p-8 space-y-6">
               <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
                 <p className="text-sm font-semibold text-slate-800">{deleteTarget.employeeName}</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{deleteTarget.type} — {deleteTarget.startDate?.split(' ')[0]} to {deleteTarget.endDate?.split(' ')[0]}</p>
-                <p className="text-[10px] font-bold text-slate-400">Status: {deleteTarget.status.replace('_', ' ')}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{deleteTarget.type} — {deleteTarget.startDate?.split(' ')[0]} {t('to')} {deleteTarget.endDate?.split(' ')[0]}</p>
+                <p className="text-[10px] font-bold text-slate-400">{t('statusLabel')}: {tStatus('leave', deleteTarget.status)}</p>
               </div>
-              <p className="text-xs font-bold text-slate-500 text-center">This action cannot be undone. The leave record will be permanently removed.</p>
+              <p className="text-xs font-bold text-slate-500 text-center">{t('deleteLeaveWarning')}</p>
               <div className="flex gap-4">
-                <button onClick={() => setDeleteTarget(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-semibold uppercase text-[10px] hover:bg-slate-200 transition-colors">Cancel</button>
+                <button onClick={() => setDeleteTarget(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-semibold uppercase text-[10px] hover:bg-slate-200 transition-colors">{tCommon('cancel')}</button>
                 <button disabled={isDeleting} onClick={handleDelete} className="flex-1 py-4 bg-rose-600 text-white rounded-xl font-semibold uppercase text-[10px] shadow-xl flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors">
-                  {isDeleting ? <RefreshCw className="animate-spin" size={16} /> : <Trash2 size={16} />} Delete
+                  {isDeleting ? <RefreshCw className="animate-spin" size={16} /> : <Trash2 size={16} />} {t('delete')}
                 </button>
               </div>
             </div>
@@ -185,47 +188,47 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in">
             <div className="p-8 bg-emerald-600 text-white flex justify-between items-center">
-              <div className="flex items-center gap-3"><CheckCircle size={20} /><h3 className="text-lg font-semibold uppercase tracking-tight">Admin Review</h3></div>
-              <button onClick={() => { setApproveTarget(null); setApproveRemarks(''); }} className="hover:bg-white/10 p-2 rounded-lg transition-colors"><span className="sr-only">Close</span>✕</button>
+              <div className="flex items-center gap-3"><CheckCircle size={20} /><h3 className="text-lg font-semibold uppercase tracking-tight">{t('adminReview')}</h3></div>
+              <button onClick={() => { setApproveTarget(null); setApproveRemarks(''); }} className="hover:bg-white/10 p-2 rounded-lg transition-colors"><span className="sr-only">{t('close')}</span>✕</button>
             </div>
             <div className="p-8 space-y-6">
               <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Employee</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('employee')}</p>
                   <p className="text-sm font-semibold text-slate-800">{approveTarget.employeeName}</p>
                 </div>
                 <div className="w-full h-px bg-slate-200" />
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Type</p>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('type')}</p>
                     <p className="text-xs font-bold text-slate-700">{approveTarget.type}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Duration</p>
-                    <p className="text-xs font-bold text-slate-700">{approveTarget.totalDays} Day(s)</p>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('duration')}</p>
+                    <p className="text-xs font-bold text-slate-700">{t('dayCount', { count: approveTarget.totalDays })}</p>
                   </div>
                 </div>
                 <div className="w-full h-px bg-slate-200" />
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Dates</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('dates')}</p>
                   <p className="text-xs font-bold text-slate-700">{approveTarget.startDate?.split(' ')[0]} — {approveTarget.endDate?.split(' ')[0]}</p>
                 </div>
                 <div className="w-full h-px bg-slate-200" />
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Reason</p>
-                  <p className="text-xs font-bold text-slate-700">"{approveTarget.reason || 'No reason provided'}"</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('reason')}</p>
+                  <p className="text-xs font-bold text-slate-700">"{approveTarget.reason || t('noReasonProvided')}"</p>
                 </div>
                 <div className="w-full h-px bg-slate-200" />
                 <div>
-                  <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-widest">Current Status</p>
-                  <p className="text-xs font-bold text-slate-700">{approveTarget.status.replace('_', ' ')}</p>
+                  <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-widest">{t('currentStatus')}</p>
+                  <p className="text-xs font-bold text-slate-700">{tStatus('leave', approveTarget.status)}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Admin Remarks (Optional)</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('adminRemarksOptional')}</p>
                 <textarea
-                  placeholder="Add approval or rejection notes..."
+                  placeholder={t('adminRemarksPlaceholder')}
                   className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold min-h-[80px] outline-none focus:ring-4 focus:ring-emerald-50 transition-all"
                   value={approveRemarks}
                   onChange={e => setApproveRemarks(e.target.value)}
@@ -234,10 +237,10 @@ const AdminAllLeaves: React.FC<Props> = ({ requests, onEdit, onRefresh, readOnly
 
               <div className="flex gap-4 pt-2">
                 <button disabled={isApproving} onClick={() => handleQuickApprove('REJECTED')} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-xl font-semibold uppercase text-[10px] flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
-                  <XCircle size={16} /> Reject
+                  <XCircle size={16} /> {t('reject')}
                 </button>
                 <button disabled={isApproving} onClick={() => handleQuickApprove('APPROVED')} className="flex-[1.5] py-4 bg-primary text-white rounded-xl font-semibold uppercase text-[10px] shadow-xl flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors">
-                  {isApproving ? <RefreshCw className="animate-spin" size={16} /> : <CheckCircle size={16} />} Approve
+                  {isApproving ? <RefreshCw className="animate-spin" size={16} /> : <CheckCircle size={16} />} {t('approve')}
                 </button>
               </div>
             </div>

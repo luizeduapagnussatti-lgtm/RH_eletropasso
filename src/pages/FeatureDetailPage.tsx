@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
 import { Check, ArrowLeft, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BlogNavbar from '../components/blog/BlogNavbar';
 import BlogFooter from '../components/blog/BlogFooter';
 import { navigateTo, updatePageMeta, setJsonLd } from '../utils/seo';
 import { FEATURES } from '../data/features';
+import { APP_NAME } from '../config/branding';
 
 const FEATURE_SLUGS = FEATURES.map(f => f.slug);
 
@@ -14,56 +16,65 @@ interface FeatureDetailPageProps {
 }
 
 const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onRegisterClick }) => {
+  const { t, i18n } = useTranslation('marketing');
   const feature = FEATURES.find(f => f.slug === slug);
 
   const currentIndex = FEATURE_SLUGS.indexOf(slug);
   const prevFeature = currentIndex > 0 ? FEATURES[currentIndex - 1] : null;
   const nextFeature = currentIndex < FEATURES.length - 1 ? FEATURES[currentIndex + 1] : null;
 
+  const title = feature
+    ? t(`featuresPage.catalog.${feature.slug}.title`, { defaultValue: feature.title })
+    : '';
+  const heroDescription = feature
+    ? t(`featuresPage.catalog.${feature.slug}.description`, { defaultValue: feature.heroDescription })
+    : '';
+
   useEffect(() => {
     window.scrollTo(0, 0);
     if (feature) {
+      const origin = window.location.origin;
       updatePageMeta(
-        feature.metaTitle,
-        feature.metaDescription,
-        `https://openhrapp.com/features/${feature.slug}`
+        `${title} | ${APP_NAME}`,
+        heroDescription,
+        `${origin}/features/${feature.slug}`
       );
       setJsonLd({
         '@context': 'https://schema.org',
         '@graph': [
           {
             '@type': 'SoftwareApplication',
-            name: `OpenHRApp — ${feature.title}`,
+            name: `${APP_NAME} — ${title}`,
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web, Android, iOS',
-            description: feature.metaDescription,
-            url: `https://openhrapp.com/features/${feature.slug}`,
-            image: 'https://openhrapp.com/img/screenshot-wide.webp',
+            description: heroDescription,
+            url: `${origin}/features/${feature.slug}`,
+            image: `${origin}/img/screenshot-wide.webp`,
             offers: {
               '@type': 'Offer',
               price: '0',
-              priceCurrency: 'USD',
+              priceCurrency: 'BRL',
             },
             featureList: feature.sections.flatMap(s => s.bullets).join(', '),
             isPartOf: {
               '@type': 'SoftwareApplication',
-              name: 'OpenHRApp',
-              url: 'https://openhrapp.com',
+              name: APP_NAME,
+              url: origin,
             },
           },
           {
             '@type': 'BreadcrumbList',
             itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-              { '@type': 'ListItem', position: 2, name: 'Features', item: 'https://openhrapp.com/features' },
-              { '@type': 'ListItem', position: 3, name: feature.title, item: `https://openhrapp.com/features/${feature.slug}` },
+              { '@type': 'ListItem', position: 1, name: t('home'), item: origin + '/' },
+              { '@type': 'ListItem', position: 2, name: t('features'), item: origin + '/features' },
+              { '@type': 'ListItem', position: 3, name: title, item: `${origin}/features/${feature.slug}` },
             ],
           },
         ],
       });
     }
     return () => { setJsonLd(null); };
-  }, [slug, feature]);
+  }, [slug, feature, title, heroDescription, t, i18n.language]);
 
   if (!feature) {
     return (
@@ -71,13 +82,13 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
         <BlogNavbar onBack={onBack} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Feature Not Found</h2>
-            <p className="text-slate-500 mb-6">The feature page you're looking for doesn't exist.</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('featureDetail.notFoundTitle')}</h2>
+            <p className="text-slate-500 mb-6">{t('featureDetail.notFoundBody')}</p>
             <button
               onClick={() => navigateTo('/features')}
               className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-hover transition-all"
             >
-              View All Features
+              {t('viewAllFeatures')}
             </button>
           </div>
         </div>
@@ -87,25 +98,29 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
   }
 
   const FeatureIcon = feature.icon;
+  const prevTitle = prevFeature
+    ? t(`featuresPage.catalog.${prevFeature.slug}.title`, { defaultValue: prevFeature.title })
+    : '';
+  const nextTitle = nextFeature
+    ? t(`featuresPage.catalog.${nextFeature.slug}.title`, { defaultValue: nextFeature.title })
+    : '';
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <BlogNavbar onBack={onBack} />
 
-      {/* Breadcrumb */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <nav className="flex items-center gap-2 text-sm text-slate-500">
-            <button onClick={() => navigateTo('/')} className="hover:text-primary transition-colors font-medium">Home</button>
+            <button onClick={() => navigateTo('/')} className="hover:text-primary transition-colors font-medium">{t('home')}</button>
             <span>/</span>
-            <button onClick={() => navigateTo('/features')} className="hover:text-primary transition-colors font-medium">Features</button>
+            <button onClick={() => navigateTo('/features')} className="hover:text-primary transition-colors font-medium">{t('features')}</button>
             <span>/</span>
-            <span className="text-slate-900 font-semibold">{feature.title}</span>
+            <span className="text-slate-900 font-semibold">{title}</span>
           </nav>
         </div>
       </div>
 
-      {/* Hero */}
       <div className={`${feature.bg} border-b ${feature.border}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="max-w-3xl">
@@ -113,24 +128,23 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
               <FeatureIcon size={32} className={feature.color} />
             </div>
             <h1 className="text-4xl md:text-5xl font-semibold text-slate-900 tracking-tight mb-6">
-              {feature.title}
+              {title}
             </h1>
             <p className="text-lg md:text-xl text-slate-600 leading-relaxed">
-              {feature.heroDescription}
+              {heroDescription}
             </p>
             <div className="mt-8">
               <button
                 onClick={() => onRegisterClick ? onRegisterClick() : navigateTo('/')}
                 className="px-8 py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-sm text-sm"
               >
-                Get Started Free
+                {t('getStarted')}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Detailed Sections */}
       <div className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="space-y-20">
@@ -161,12 +175,11 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
           </div>
         </div>
 
-        {/* Use Cases */}
         <div className="bg-white border-y border-slate-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-semibold text-slate-900">Who Is This For?</h2>
-              <p className="text-slate-500 mt-3">Common use cases for {feature.title.toLowerCase()}</p>
+              <h2 className="text-3xl font-semibold text-slate-900">{t('featureDetail.whoFor')}</h2>
+              <p className="text-slate-500 mt-3">{t('featureDetail.useCasesFor', { feature: title.toLowerCase() })}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
               {feature.useCases.map(uc => (
@@ -182,7 +195,6 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
           </div>
         </div>
 
-        {/* Prev / Next Navigation */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {prevFeature ? (
@@ -192,8 +204,8 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
               >
                 <ArrowLeft size={18} className="text-slate-400 flex-shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-400 font-medium">Previous Feature</p>
-                  <p className="text-sm font-bold text-slate-900">{prevFeature.title}</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('featureDetail.previousFeature')}</p>
+                  <p className="text-sm font-bold text-slate-900">{prevTitle}</p>
                 </div>
               </button>
             ) : <div />}
@@ -203,39 +215,37 @@ const FeatureDetailPage: React.FC<FeatureDetailPageProps> = ({ slug, onBack, onR
                 className="flex items-center justify-end gap-3 p-5 bg-white border border-slate-200 rounded-xl hover:border-primary hover:shadow-sm transition-all text-right"
               >
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-400 font-medium">Next Feature</p>
-                  <p className="text-sm font-bold text-slate-900">{nextFeature.title}</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('featureDetail.nextFeature')}</p>
+                  <p className="text-sm font-bold text-slate-900">{nextTitle}</p>
                 </div>
                 <ArrowRight size={18} className="text-slate-400 flex-shrink-0" />
               </button>
             )}
           </div>
 
-          {/* Back to all features */}
           <div className="mt-8 pt-8 border-t border-slate-200">
             <button
               onClick={() => navigateTo('/features')}
               className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary transition-colors"
             >
-              <ArrowLeft size={16} /> View all features
+              <ArrowLeft size={16} /> {t('featureDetail.viewAll')}
             </button>
           </div>
         </div>
 
-        {/* CTA */}
         <div className="bg-primary/5 border-y border-primary/10">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
             <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-4">
-              Ready to try {feature.title.toLowerCase()}?
+              {t('featureDetail.readyToTry', { feature: title.toLowerCase() })}
             </h2>
             <p className="text-lg text-slate-500 mb-8">
-              Get started for free. No credit card required.
+              {t('featureDetail.readyBody')}
             </p>
             <button
               onClick={() => onRegisterClick ? onRegisterClick() : navigateTo('/')}
               className="px-8 py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-sm text-sm"
             >
-              Get Started Free
+              {t('getStarted')}
             </button>
           </div>
         </div>

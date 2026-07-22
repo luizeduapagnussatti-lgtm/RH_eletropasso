@@ -1,50 +1,52 @@
-
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Shield, ArrowLeft } from 'lucide-react';
 import BlogNavbar from '../components/blog/BlogNavbar';
 import BlogFooter from '../components/blog/BlogFooter';
 import { updatePageMeta, setJsonLd } from '../utils/seo';
+import { APP_NAME } from '../config/branding';
 
 interface PrivacyPolicyPageProps {
   onBack: () => void;
 }
 
 const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) => {
-  const { t } = useTranslation('marketing');
+  const { t, i18n } = useTranslation('marketing');
+  const s = (key: string) => t(`privacyPage.sections.${key}`);
+  const items = (key: string) => {
+    const v = t(`privacyPage.sections.${key}`, { returnObjects: true });
+    return Array.isArray(v) ? (v as string[]) : [];
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
     updatePageMeta(
-      'Privacy Policy — OpenHRApp',
-      'Learn how OpenHRApp collects, uses, and protects your personal data. Read our full privacy policy covering cookies, data retention, and your rights.',
-      'https://openhrapp.com/privacy'
+      t('privacyPage.seoTitle'),
+      t('privacyPage.seoDescription'),
+      window.location.origin + '/privacy'
     );
     setJsonLd({
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'WebPage',
-          name: 'Privacy Policy — OpenHRApp',
-          description: 'Learn how OpenHRApp collects, uses, and protects your personal data. Read our full privacy policy covering cookies, data retention, and your rights.',
-          url: 'https://openhrapp.com/privacy',
+          name: t('privacyPage.seoTitle'),
+          description: t('privacyPage.seoDescription'),
+          url: window.location.origin + '/privacy',
           lastReviewed: '2026-04-21',
-          isPartOf: {
-            '@type': 'WebSite',
-            name: 'OpenHRApp',
-            url: 'https://openhrapp.com',
-          },
+          isPartOf: { '@type': 'WebSite', name: APP_NAME, url: window.location.origin },
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://openhrapp.com/' },
-            { '@type': 'ListItem', position: 2, name: 'Privacy Policy', item: 'https://openhrapp.com/privacy' },
+            { '@type': 'ListItem', position: 1, name: t('home'), item: window.location.origin + '/' },
+            { '@type': 'ListItem', position: 2, name: t('privacy'), item: window.location.origin + '/privacy' },
           ],
         },
       ],
     });
     return () => { setJsonLd(null); };
-  }, []);
+  }, [t, i18n.language]);
 
   const handleBack = () => {
     window.history.pushState(null, '', '/');
@@ -55,158 +57,102 @@ const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <BlogNavbar onBack={handleBack} />
 
-      {/* Header */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-4">
             <Shield className="text-primary" size={28} />
           </div>
           <h1 className="text-3xl sm:text-4xl font-semibold text-slate-900 mb-3">{t('privacy')}</h1>
-          <p className="text-slate-500 text-sm">Last updated: February 2026</p>
+          <p className="text-slate-500 text-sm">{t('privacyPage.lastUpdated')}</p>
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
-
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">1. Introduction</h2>
-              <p className="text-slate-600 leading-relaxed">
-                Welcome to OpenHRApp ("we", "our", "us"). We are committed to protecting your personal information and your right to privacy.
-                This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our HR management platform
-                at <strong>openhrapp.com</strong> (the "Service").
-              </p>
-              <p className="text-slate-600 leading-relaxed mt-3">
-                By using the Service, you agree to the collection and use of information in accordance with this policy.
-                If you do not agree with the terms of this policy, please do not access the Service.
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s1Title')}</h2>
+              <p className="text-slate-600 leading-relaxed">{s('s1P1')}</p>
+              <p className="text-slate-600 leading-relaxed mt-3">{s('s1P2')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">2. Information We Collect</h2>
-              <p className="text-slate-600 leading-relaxed mb-3">We collect information that you provide directly to us, including:</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s2Title')}</h2>
+              <p className="text-slate-600 leading-relaxed mb-3">{s('s2Intro')}</p>
               <ul className="list-disc list-inside text-slate-600 space-y-2 ml-2">
-                <li><strong>Account Information:</strong> Name, email address, organization name, and role when you register.</li>
-                <li><strong>Employee Data:</strong> Employee profiles, attendance records, leave applications, and related HR data entered by your organization.</li>
-                <li><strong>Usage Data:</strong> Information about how you interact with the Service, including pages visited, features used, and actions taken.</li>
-                <li><strong>Device Information:</strong> Browser type, operating system, device type, and IP address.</li>
-                <li><strong>Location Data:</strong> Approximate location data used for attendance tracking features, only when explicitly enabled by your organization.</li>
-                <li><strong>Camera Data:</strong> Camera images used for attendance verification, processed locally on your device and stored securely.</li>
+                {items('s2Items').map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">3. Cookies and Analytics</h2>
-              <p className="text-slate-600 leading-relaxed mb-3">
-                We use cookies and similar tracking technologies to enhance your experience:
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s3Title')}</h2>
+              <p className="text-slate-600 leading-relaxed mb-3">{s('s3Intro')}</p>
               <ul className="list-disc list-inside text-slate-600 space-y-2 ml-2">
-                <li><strong>Essential Cookies:</strong> Required for the Service to function properly (authentication, session management).</li>
-                <li><strong>Analytics Cookies:</strong> We use Google Analytics to understand how visitors interact with our website. These cookies are only loaded after you provide consent through our cookie banner.</li>
-                <li><strong>Vercel Analytics:</strong> We use Vercel Analytics for performance monitoring and usage insights.</li>
+                {items('s3Items').map((item) => <li key={item}>{item}</li>)}
               </ul>
-              <p className="text-slate-600 leading-relaxed mt-3">
-                You can choose to accept or decline analytics cookies through the consent banner shown on your first visit.
-                You can change your preference at any time by clearing your browser's local storage for this site.
-              </p>
+              <p className="text-slate-600 leading-relaxed mt-3">{s('s3P2')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">4. How We Use Your Information</h2>
-              <p className="text-slate-600 leading-relaxed mb-3">We use the information we collect to:</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s4Title')}</h2>
+              <p className="text-slate-600 leading-relaxed mb-3">{s('s4Intro')}</p>
               <ul className="list-disc list-inside text-slate-600 space-y-2 ml-2">
-                <li>Provide, operate, and maintain the Service.</li>
-                <li>Process attendance records, leave applications, and other HR functions.</li>
-                <li>Send you account-related notifications and verification emails.</li>
-                <li>Improve and optimize the Service through analytics.</li>
-                <li>Detect and prevent fraud, abuse, and security issues.</li>
-                <li>Comply with legal obligations.</li>
+                {items('s4Items').map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">5. Data Storage and Security</h2>
-              <p className="text-slate-600 leading-relaxed">
-                Your data is stored securely using PocketBase as our backend database. We implement appropriate technical and
-                organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
-                However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s5Title')}</h2>
+              <p className="text-slate-600 leading-relaxed">{s('s5Body')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">6. Data Sharing and Disclosure</h2>
-              <p className="text-slate-600 leading-relaxed mb-3">We do not sell your personal information. We may share your data only in these circumstances:</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s6Title')}</h2>
+              <p className="text-slate-600 leading-relaxed mb-3">{s('s6Intro')}</p>
               <ul className="list-disc list-inside text-slate-600 space-y-2 ml-2">
-                <li><strong>Within Your Organization:</strong> HR administrators and managers within your organization can access relevant employee data as permitted by their role.</li>
-                <li><strong>Service Providers:</strong> We use third-party services (hosting, analytics) that may process data on our behalf.</li>
-                <li><strong>Legal Requirements:</strong> When required by law, regulation, or legal process.</li>
+                {items('s6Items').map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">7. Your Rights</h2>
-              <p className="text-slate-600 leading-relaxed mb-3">Depending on your location, you may have the following rights:</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s7Title')}</h2>
+              <p className="text-slate-600 leading-relaxed mb-3">{s('s7Intro')}</p>
               <ul className="list-disc list-inside text-slate-600 space-y-2 ml-2">
-                <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
-                <li><strong>Correction:</strong> Request correction of inaccurate or incomplete data.</li>
-                <li><strong>Deletion:</strong> Request deletion of your personal data, subject to legal obligations.</li>
-                <li><strong>Portability:</strong> Request a copy of your data in a structured, machine-readable format.</li>
-                <li><strong>Withdraw Consent:</strong> Withdraw consent for analytics tracking at any time via the cookie settings.</li>
+                {items('s7Items').map((item) => <li key={item}>{item}</li>)}
               </ul>
-              <p className="text-slate-600 leading-relaxed mt-3">
-                Organization administrators can manage and export their organization's data through the Service's built-in tools.
-              </p>
+              <p className="text-slate-600 leading-relaxed mt-3">{s('s7P2')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">8. Data Retention</h2>
-              <p className="text-slate-600 leading-relaxed">
-                We retain your personal information for as long as your account is active or as needed to provide you the Service.
-                If you or your organization administrator requests account deletion, we will delete your data within 30 days,
-                except where we are required to retain it for legal or compliance purposes.
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s8Title')}</h2>
+              <p className="text-slate-600 leading-relaxed">{s('s8Body')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">9. Children's Privacy</h2>
-              <p className="text-slate-600 leading-relaxed">
-                The Service is not intended for individuals under the age of 16. We do not knowingly collect personal information
-                from children. If you become aware that a child has provided us with personal data, please contact us and we will
-                take steps to delete such information.
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s9Title')}</h2>
+              <p className="text-slate-600 leading-relaxed">{s('s9Body')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">10. Changes to This Policy</h2>
-              <p className="text-slate-600 leading-relaxed">
-                We may update this Privacy Policy from time to time. We will notify you of any changes by updating the "Last updated"
-                date at the top of this page. We encourage you to review this Privacy Policy periodically for any changes.
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s10Title')}</h2>
+              <p className="text-slate-600 leading-relaxed">{s('s10Body')}</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">11. Contact Us</h2>
-              <p className="text-slate-600 leading-relaxed">
-                If you have any questions about this Privacy Policy or our data practices, please contact us at:
-              </p>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">{s('s11Title')}</h2>
+              <p className="text-slate-600 leading-relaxed">{s('s11Intro')}</p>
               <div className="mt-3 p-4 bg-slate-50 rounded-xl text-slate-600">
-                <p><strong>OpenHRApp</strong></p>
-                <p>Email: support@openhrapp.com</p>
-                <p>Website: <a href="https://openhrapp.com" className="text-primary hover:underline">openhrapp.com</a></p>
+                <p><strong>{s('contactName')}</strong></p>
               </div>
             </section>
-
           </div>
 
-          {/* Back Link */}
           <div className="mt-8 text-center">
             <button
               onClick={handleBack}
               className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
             >
-              <ArrowLeft size={16} /> Back to Home
+              <ArrowLeft size={16} /> {t('backToHome')}
             </button>
           </div>
         </div>

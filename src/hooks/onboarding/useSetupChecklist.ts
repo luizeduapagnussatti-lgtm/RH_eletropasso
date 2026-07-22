@@ -1,5 +1,6 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { hrService } from '../../services/hrService';
 import { AppConfig, Holiday, Team, Shift } from '../../types';
 
@@ -25,8 +26,8 @@ interface SetupCheckData {
 const STEPS_CONFIG = [
   {
     id: 1,
-    title: 'Set Company Info',
-    description: 'Add your company name, logo, country, and address',
+    titleKey: 'steps.companyInfo.title',
+    descriptionKey: 'steps.companyInfo.description',
     navigateTo: 'organization',
     navigateTab: 'SYSTEM',
     tutorialSlug: 'setting-up-organization',
@@ -34,8 +35,8 @@ const STEPS_CONFIG = [
   },
   {
     id: 2,
-    title: 'Add Departments',
-    description: 'Create departments like Engineering, HR, Finance, etc.',
+    titleKey: 'steps.departments.title',
+    descriptionKey: 'steps.departments.description',
     navigateTo: 'organization',
     navigateTab: 'STRUCTURE',
     tutorialSlug: 'setting-up-organization',
@@ -43,8 +44,8 @@ const STEPS_CONFIG = [
   },
   {
     id: 3,
-    title: 'Configure Shifts',
-    description: 'Set up work shifts with start/end times and grace periods',
+    titleKey: 'steps.shifts.title',
+    descriptionKey: 'steps.shifts.description',
     navigateTo: 'organization',
     navigateTab: 'SHIFTS',
     tutorialSlug: 'setting-up-organization',
@@ -52,8 +53,8 @@ const STEPS_CONFIG = [
   },
   {
     id: 4,
-    title: 'Add Office Locations',
-    description: 'Add GPS coordinates for your offices for attendance verification',
+    titleKey: 'steps.locations.title',
+    descriptionKey: 'steps.locations.description',
     navigateTo: 'organization',
     navigateTab: 'PLACEMENT',
     tutorialSlug: 'setting-up-organization',
@@ -61,8 +62,8 @@ const STEPS_CONFIG = [
   },
   {
     id: 5,
-    title: 'Create Teams',
-    description: 'Organize employees into teams with team leaders',
+    titleKey: 'steps.teams.title',
+    descriptionKey: 'steps.teams.description',
     navigateTo: 'organization',
     navigateTab: 'TEAMS',
     tutorialSlug: 'setting-up-organization',
@@ -70,20 +71,17 @@ const STEPS_CONFIG = [
   },
   {
     id: 6,
-    title: 'Set Leave Policy',
-    description: 'Configure default leave allocations (Annual, Casual, Sick)',
+    titleKey: 'steps.leavePolicy.title',
+    descriptionKey: 'steps.leavePolicy.description',
     navigateTo: 'organization',
     navigateTab: 'LEAVES',
     tutorialSlug: 'understanding-leave-policies',
-    check: (d: SetupCheckData) => {
-      // Always considered done if departments exist (leave policy has defaults)
-      return d.departments.length > 0;
-    },
+    check: (d: SetupCheckData) => d.departments.length > 0,
   },
   {
     id: 7,
-    title: 'Add Holidays',
-    description: 'Set up your organization\'s holiday calendar',
+    titleKey: 'steps.holidays.title',
+    descriptionKey: 'steps.holidays.description',
     navigateTo: 'organization',
     navigateTab: 'HOLIDAYS',
     tutorialSlug: 'setting-up-organization',
@@ -91,8 +89,8 @@ const STEPS_CONFIG = [
   },
   {
     id: 8,
-    title: 'Add Employees',
-    description: 'Invite your team members to start using OpenHR',
+    titleKey: 'steps.employees.title',
+    descriptionKey: 'steps.employees.description',
     navigateTo: 'employees',
     tutorialSlug: 'managing-employees',
     check: (d: SetupCheckData) => d.employeeCount > 1,
@@ -100,7 +98,8 @@ const STEPS_CONFIG = [
 ];
 
 export function useSetupChecklist(userRole: string) {
-  const [steps, setSteps] = useState<SetupStep[]>([]);
+  const { t } = useTranslation('onboarding');
+  const [completedByStepId, setCompletedByStepId] = useState<Record<number, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -141,17 +140,11 @@ export function useSetupChecklist(userRole: string) {
         employeeCount: employees.length,
       };
 
-      const evaluatedSteps: SetupStep[] = STEPS_CONFIG.map(s => ({
-        id: s.id,
-        title: s.title,
-        description: s.description,
-        navigateTo: s.navigateTo,
-        navigateTab: s.navigateTab,
-        tutorialSlug: s.tutorialSlug,
-        completed: s.check(checkData),
-      }));
-
-      setSteps(evaluatedSteps);
+      const completion: Record<number, boolean> = {};
+      STEPS_CONFIG.forEach(s => {
+        completion[s.id] = s.check(checkData);
+      });
+      setCompletedByStepId(completion);
     } catch (e) {
       console.warn('[SetupChecklist] Failed to load:', e);
     } finally {
@@ -181,6 +174,20 @@ export function useSetupChecklist(userRole: string) {
       console.warn('[SetupChecklist] Failed to re-enable:', e);
     }
   }, [loadStatus]);
+
+  const steps: SetupStep[] = useMemo(
+    () =>
+      STEPS_CONFIG.map(s => ({
+        id: s.id,
+        title: t(s.titleKey),
+        description: t(s.descriptionKey),
+        navigateTo: s.navigateTo,
+        navigateTab: s.navigateTab,
+        tutorialSlug: s.tutorialSlug,
+        completed: completedByStepId[s.id] ?? false,
+      })),
+    [t, completedByStepId]
+  );
 
   const completedCount = steps.filter(s => s.completed).length;
   const totalCount = steps.length;

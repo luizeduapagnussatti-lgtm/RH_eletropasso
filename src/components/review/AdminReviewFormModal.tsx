@@ -1,8 +1,9 @@
-
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Send, RefreshCw, AlertCircle, UserPlus, Edit3 } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { PerformanceReview, ReviewCycle, ReviewStatus } from '../../types';
+import { tStatus } from '../../i18n/statusMaps';
 
 interface Employee {
   id: string;
@@ -19,14 +20,15 @@ interface Props {
   onSaved: () => void;
 }
 
-const REVIEW_STATUSES: { value: ReviewStatus; label: string }[] = [
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'SELF_REVIEW_SUBMITTED', label: 'Self Review Submitted' },
-  { value: 'MANAGER_REVIEWED', label: 'Manager Reviewed' },
-  { value: 'COMPLETED', label: 'Completed' },
+const REVIEW_STATUS_VALUES: ReviewStatus[] = [
+  'DRAFT',
+  'SELF_REVIEW_SUBMITTED',
+  'MANAGER_REVIEWED',
+  'COMPLETED',
 ];
 
 const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles, onClose, onSaved }) => {
+  const { t } = useTranslation('review');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,8 +45,8 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
     setError(null);
 
     if (mode === 'create') {
-      if (!employeeId) { setError('Please select an employee.'); return; }
-      if (!cycleId) { setError('Please select a review cycle.'); return; }
+      if (!employeeId) { setError(t('selectEmployeeError')); return; }
+      if (!cycleId) { setError(t('selectCycleError')); return; }
     }
 
     setIsProcessing(true);
@@ -66,7 +68,7 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
       }
       onSaved();
     } catch (err: any) {
-      setError(err.message || 'Operation failed');
+      setError(err.message || t('operationFailed'));
     } finally {
       setIsProcessing(false);
     }
@@ -74,8 +76,8 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
 
   const headerColor = mode === 'create' ? 'bg-primary' : 'bg-amber-600';
   const HeaderIcon = mode === 'create' ? UserPlus : Edit3;
-  const headerTitle = mode === 'create' ? 'Create Review (Admin)' : 'Edit Review (Admin)';
-  const submitLabel = mode === 'create' ? 'Create Review' : 'Save Changes';
+  const headerTitle = mode === 'create' ? t('createReviewAdmin') : t('editReviewAdmin');
+  const submitLabel = mode === 'create' ? t('createReview') : t('saveChanges');
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -98,14 +100,14 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
           {/* Employee Selector (create only) */}
           {mode === 'create' && (
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Employee</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('employee')}</label>
               <select
                 required
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
                 value={employeeId}
                 onChange={e => setEmployeeId(e.target.value)}
               >
-                <option value="">— Select Employee —</option>
+                <option value="">{t('selectEmployeePlaceholder')}</option>
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
                 ))}
@@ -116,7 +118,7 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
           {/* Edit mode: show employee name as read-only */}
           {mode === 'edit' && review && (
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Employee</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('employee')}</p>
               <p className="text-sm font-semibold text-slate-800 mt-1">{review.employeeName}</p>
             </div>
           )}
@@ -124,14 +126,14 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
           {/* Review Cycle (create only) */}
           {mode === 'create' && (
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Review Cycle</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('reviewCycle')}</label>
               <select
                 required
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
                 value={cycleId}
                 onChange={e => setCycleId(e.target.value)}
               >
-                <option value="">— Select Cycle —</option>
+                <option value="">{t('selectCyclePlaceholder')}</option>
                 {cycles.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -141,13 +143,13 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
 
           {/* Line Manager */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Line Manager</label>
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('lineManager')}</label>
             <select
               className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
               value={lineManagerId}
               onChange={e => setLineManagerId(e.target.value)}
             >
-              <option value="">— No Manager —</option>
+              <option value="">{t('noManagerPlaceholder')}</option>
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
               ))}
@@ -157,14 +159,14 @@ const AdminReviewFormModal: React.FC<Props> = ({ mode, review, employees, cycles
           {/* Status (edit only) */}
           {mode === 'edit' && (
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Status</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('status')}</label>
               <select
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-sm outline-none focus:ring-4 focus:ring-primary-light transition-all"
                 value={status}
                 onChange={e => setStatus(e.target.value as ReviewStatus)}
               >
-                {REVIEW_STATUSES.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                {REVIEW_STATUS_VALUES.map(s => (
+                  <option key={s} value={s}>{tStatus('review', s)}</option>
                 ))}
               </select>
             </div>

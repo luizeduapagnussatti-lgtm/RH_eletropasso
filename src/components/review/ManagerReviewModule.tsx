@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Users, Send, Loader2 } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { PerformanceReview, CompetencyRating, OrgReviewConfig } from '../../types';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 const ManagerReviewModule: React.FC<Props> = ({ user: _user, directReportReviews, onRefresh, readOnly = false, reviewConfig }) => {
+  const { t } = useTranslation('review');
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -95,15 +97,15 @@ const ManagerReviewModule: React.FC<Props> = ({ user: _user, directReportReviews
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Users size={20} className="text-primary" />
-          <div className="flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">Team Reviews</h2><HelpButton helpPointId="review.manager" size={16} /></div>
+          <div className="flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">{t('teamReviews')}</h2><HelpButton helpPointId="review.manager" size={16} /></div>
         </div>
-        <p className="text-sm text-slate-500">Review and rate your direct reports' performance assessments.</p>
+        <p className="text-sm text-slate-500">{t('teamReviewsHint')}</p>
       </div>
 
       {directReportReviews.length === 0 && (
         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 text-center">
           <Users size={40} className="mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500 font-medium">No reviews from your direct reports yet.</p>
+          <p className="text-slate-500 font-medium">{t('noDirectReportReviews')}</p>
         </div>
       )}
 
@@ -159,7 +161,7 @@ const ManagerReviewModule: React.FC<Props> = ({ user: _user, directReportReviews
                     rating={selfRating?.rating || 0}
                     comment={selfRating?.comment || ''}
                     readOnly
-                    label="Employee Self"
+                    label={t('employeeSelf')}
                     ratingScale={ratingScale}
                   />
                   {/* Manager's rating */}
@@ -172,7 +174,7 @@ const ManagerReviewModule: React.FC<Props> = ({ user: _user, directReportReviews
                     onRatingChange={canRate ? (v) => updateRating(comp.id, v) : undefined}
                     onCommentChange={canRate ? (v) => updateComment(comp.id, v) : undefined}
                     readOnly={!canRate}
-                    label="Your Rating"
+                    label={t('yourRating')}
                     ratingScale={ratingScale}
                   />
                 </div>

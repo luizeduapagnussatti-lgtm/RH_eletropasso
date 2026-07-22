@@ -15,10 +15,11 @@ export const DmprepSyncPanel: React.FC = () => {
   const [loadingScope, setLoadingScope] = useState<DmprepSyncScope | null>(null);
 
   const canManage = Boolean(
-    user && ['ADMIN', 'HR', 'SUPER_ADMIN'].includes(String(user.role)),
+    user && ['ADMIN', 'SUPER_ADMIN'].includes(String(user.role)),
   );
   const canWrite = canPerformAction('write');
 
+  // Double-gate: even if rendered, only org admin may sync
   if (!canManage) return null;
 
   const runSync = async (scope: DmprepSyncScope) => {
@@ -53,6 +54,14 @@ export const DmprepSyncPanel: React.FC = () => {
             duplicates: result.punches.duplicates,
           }),
         );
+        if ((result.punches.skippedPunches ?? 0) > 0) {
+          parts.push(
+            t('dmprepSync.punchesSkippedWarning', {
+              count: result.punches.skippedPunches,
+              ids: (result.punches.skippedEmployeeIds ?? []).join(', '),
+            }),
+          );
+        }
       }
 
       showToast(parts.join(' · ') || t('dmprepSync.success'), 'success');
@@ -84,40 +93,54 @@ export const DmprepSyncPanel: React.FC = () => {
         </div>
       </div>
 
+      <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-950 space-y-1">
+        <p className="font-semibold">{t('dmprepSync.autoSyncTitle')}</p>
+        <p className="text-sky-900/90 leading-relaxed">{t('dmprepSync.autoSyncDetail')}</p>
+      </div>
+
       <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         {t('dmprepSync.note')}
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => runSync('all')}
-          disabled={isLoading || !canWrite}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover transition-all disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={loadingScope === 'all' ? 'animate-spin' : ''} />
-          {loadingScope === 'all' ? t('dmprepSync.syncing') : t('dmprepSync.syncAll')}
-        </button>
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => runSync('all')}
+            disabled={isLoading || !canWrite}
+            className="inline-flex w-full items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loadingScope === 'all' ? 'animate-spin' : ''} />
+            {loadingScope === 'all' ? t('dmprepSync.syncing') : t('dmprepSync.syncAll')}
+          </button>
+          <p className="text-xs text-slate-600 leading-relaxed">{t('dmprepSync.syncAllHint')}</p>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => runSync('employees')}
-          disabled={isLoading || !canWrite}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-800 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all disabled:opacity-50"
-        >
-          <Users size={16} className={loadingScope === 'employees' ? 'animate-spin' : ''} />
-          {loadingScope === 'employees' ? t('dmprepSync.syncing') : t('dmprepSync.syncEmployees')}
-        </button>
+        <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => runSync('employees')}
+            disabled={isLoading || !canWrite}
+            className="inline-flex w-full items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-800 border border-slate-200 rounded-xl font-bold text-sm hover:bg-slate-100 transition-all disabled:opacity-50"
+          >
+            <Users size={16} className={loadingScope === 'employees' ? 'animate-spin' : ''} />
+            {loadingScope === 'employees' ? t('dmprepSync.syncing') : t('dmprepSync.syncEmployees')}
+          </button>
+          <p className="text-xs text-slate-600 leading-relaxed">{t('dmprepSync.syncEmployeesHint')}</p>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => runSync('punches')}
-          disabled={isLoading || !canWrite}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-800 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all disabled:opacity-50"
-        >
-          <Clock3 size={16} className={loadingScope === 'punches' ? 'animate-spin' : ''} />
-          {loadingScope === 'punches' ? t('dmprepSync.syncing') : t('dmprepSync.syncPunches')}
-        </button>
+        <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => runSync('punches')}
+            disabled={isLoading || !canWrite}
+            className="inline-flex w-full items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-800 border border-slate-200 rounded-xl font-bold text-sm hover:bg-slate-100 transition-all disabled:opacity-50"
+          >
+            <Clock3 size={16} className={loadingScope === 'punches' ? 'animate-spin' : ''} />
+            {loadingScope === 'punches' ? t('dmprepSync.syncing') : t('dmprepSync.syncPunches')}
+          </button>
+          <p className="text-xs text-slate-600 leading-relaxed">{t('dmprepSync.syncPunchesHint')}</p>
+        </div>
       </div>
     </div>
   );

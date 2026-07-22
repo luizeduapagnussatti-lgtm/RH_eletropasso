@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, X, Code, Image, Globe } from 'lucide-react';
 import { organizationService } from '../../services/organization.service';
 import { AdConfig, AdSlot, AdPlaceholder } from '../ads';
 
-const AD_SLOTS: { id: AdSlot; name: string; description: string; size: string }[] = [
-  { id: 'sidebar', name: 'Sidebar', description: 'Bottom of sidebar navigation', size: '300x250' },
-  { id: 'dashboard', name: 'Dashboard', description: 'Below dashboard stats', size: '728x90' },
-  { id: 'reports', name: 'Reports', description: 'Reports page sidebar', size: '300x250' },
-  { id: 'footer', name: 'Footer', description: 'Footer area on all pages', size: '728x90' },
-  { id: 'landing-hero', name: 'Landing Hero', description: 'Below hero section on landing page', size: '728x90' },
-  { id: 'landing-mid', name: 'Landing Mid', description: 'Between sections on landing page', size: '728x90' },
-  { id: 'blog-header', name: 'Blog Header', description: 'Top of blog listing page', size: '728x90' },
-  { id: 'blog-feed', name: 'Blog Feed', description: 'Below blog post grid', size: '728x90' },
-  { id: 'blog-post-top', name: 'Blog Post Top', description: 'Top of blog post page', size: '728x90' },
-  { id: 'blog-post-content', name: 'Blog Post Content', description: 'Inside blog post content area', size: '300x250' }
+const AD_SLOTS: { id: AdSlot; size: string }[] = [
+  { id: 'sidebar', size: '300x250' },
+  { id: 'dashboard', size: '728x90' },
+  { id: 'reports', size: '300x250' },
+  { id: 'footer', size: '728x90' },
+  { id: 'landing-hero', size: '728x90' },
+  { id: 'landing-mid', size: '728x90' },
+  { id: 'blog-header', size: '728x90' },
+  { id: 'blog-feed', size: '728x90' },
+  { id: 'blog-post-top', size: '728x90' },
+  { id: 'blog-post-content', size: '300x250' }
 ];
 
 const DEFAULT_CONFIG: Omit<AdConfig, 'id' | 'slot'> = {
@@ -32,6 +33,7 @@ interface AdManagementProps {
 }
 
 const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const [configs, setConfigs] = useState<Record<AdSlot, AdConfig>>({} as Record<AdSlot, AdConfig>);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,7 +59,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
       setConfigs(loadedConfigs);
     } catch (e) {
       console.error('[AdManagement] Load error:', e);
-      onMessage({ type: 'error', text: 'Failed to load ad configurations' });
+      onMessage({ type: 'error', text: t('ads.loadError') });
     } finally {
       setIsLoading(false);
     }
@@ -79,11 +81,11 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
     try {
       await organizationService.setSetting(`ad_config_${editingSlot}`, editForm);
       setConfigs(prev => ({ ...prev, [editingSlot]: editForm }));
-      onMessage({ type: 'success', text: `Ad slot "${editingSlot}" updated successfully` });
+      onMessage({ type: 'success', text: t('ads.saveSuccess', { slot: editingSlot }) });
       closeEditModal();
     } catch (e: any) {
       console.error('[AdManagement] Save error:', e);
-      onMessage({ type: 'error', text: e?.message || 'Failed to save configuration' });
+      onMessage({ type: 'error', text: e?.message || t('ads.saveError') });
     } finally {
       setIsSaving(false);
     }
@@ -95,11 +97,14 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
     setConfigs(prev => ({ ...prev, [slot]: updated }));
     try {
       await organizationService.setSetting(`ad_config_${slot}`, updated);
-      onMessage({ type: 'success', text: `Ad slot "${slot}" ${updated.enabled ? 'enabled' : 'disabled'}` });
+      onMessage({
+        type: 'success',
+        text: t(updated.enabled ? 'ads.toggleEnabled' : 'ads.toggleDisabled', { slot }),
+      });
     } catch (e: any) {
       console.error('[AdManagement] Toggle error:', e);
       setConfigs(prev => ({ ...prev, [slot]: config }));
-      onMessage({ type: 'error', text: 'Failed to update status.' });
+      onMessage({ type: 'error', text: t('ads.toggleError') });
     }
   };
 
@@ -115,8 +120,8 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-slate-900">Ad Management</h3>
-          <p className="text-sm text-slate-500 mt-1">Configure ad slots for AD_SUPPORTED organizations</p>
+          <h3 className="text-xl font-bold text-slate-900">{t('ads.title')}</h3>
+          <p className="text-sm text-slate-500 mt-1">{t('ads.subtitle')}</p>
         </div>
       </div>
 
@@ -131,9 +136,9 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h4 className="font-bold text-slate-900">{slot.name}</h4>
-                  <p className="text-xs text-slate-500">{slot.description}</p>
-                  <p className="text-xs text-slate-400 mt-1">Size: {slot.size}</p>
+                  <h4 className="font-bold text-slate-900">{t(`ads.slots.${slot.id}.name`)}</h4>
+                  <p className="text-xs text-slate-500">{t(`ads.slots.${slot.id}.description`)}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t('ads.size', { size: slot.size })}</p>
                 </div>
                 <button
                   onClick={() => toggleEnabled(slot.id)}
@@ -143,19 +148,19 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {config?.enabled ? 'Enabled' : 'Disabled'}
+                  {config?.enabled ? t('ads.enabled') : t('ads.disabled')}
                 </button>
               </div>
 
               {config?.enabled && (
                 <div className="mb-4 p-3 bg-slate-50 rounded-lg text-xs">
-                  <span className="font-medium text-slate-600">Type: </span>
-                  <span className="text-slate-800 capitalize">{config.adType}</span>
+                  <span className="font-medium text-slate-600">{t('ads.type')} </span>
+                  <span className="text-slate-800 capitalize">{t(`ads.adTypes.${config.adType}`)}</span>
                   {config.adType === 'adsense' && config.adsenseSlot && (
-                    <span className="text-slate-500 ml-2">(Slot: {config.adsenseSlot})</span>
+                    <span className="text-slate-500 ml-2">{t('ads.adsenseSlot', { slot: config.adsenseSlot })}</span>
                   )}
                   {config.adType === 'image' && config.imageUrl && (
-                    <span className="text-slate-500 ml-2">(Image configured)</span>
+                    <span className="text-slate-500 ml-2">{t('ads.imageConfigured')}</span>
                   )}
                 </div>
               )}
@@ -164,7 +169,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                 onClick={() => openEditModal(slot.id)}
                 className="w-full py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all"
               >
-                Configure
+                {t('ads.configure')}
               </button>
             </div>
           );
@@ -173,19 +178,19 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
 
       {/* Preview Section */}
       <div className="bg-slate-50 rounded-2xl p-6">
-        <h4 className="font-bold text-slate-700 mb-4">Ad Placement Preview</h4>
+        <h4 className="font-bold text-slate-700 mb-4">{t('ads.previewTitle')}</h4>
         <div className="grid grid-cols-4 gap-4 items-start">
           <div className="col-span-1 space-y-2">
-            <div className="text-xs font-bold text-slate-500 uppercase">Sidebar</div>
+            <div className="text-xs font-bold text-slate-500 uppercase">{t('ads.previewSidebar')}</div>
             <AdPlaceholder slot="sidebar" />
           </div>
           <div className="col-span-3 space-y-4">
             <div>
-              <div className="text-xs font-bold text-slate-500 uppercase mb-2">Dashboard</div>
+              <div className="text-xs font-bold text-slate-500 uppercase mb-2">{t('ads.previewDashboard')}</div>
               <AdPlaceholder slot="dashboard" />
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-500 uppercase mb-2">Footer</div>
+              <div className="text-xs font-bold text-slate-500 uppercase mb-2">{t('ads.previewFooter')}</div>
               <AdPlaceholder slot="footer" />
             </div>
           </div>
@@ -197,7 +202,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-lg text-slate-900">Configure {editingSlot} Ad</h3>
+              <h3 className="font-bold text-lg text-slate-900">{t('ads.configureModalTitle', { slot: editingSlot })}</h3>
               <button onClick={closeEditModal} className="p-2 hover:bg-slate-100 rounded-lg">
                 <X size={20} />
               </button>
@@ -206,7 +211,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
             <div className="p-6 space-y-4">
               {/* Ad Type Selection */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Ad Type</label>
+                <label className="text-sm font-medium text-slate-600">{t('ads.adType')}</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setEditForm({ ...editForm, adType: 'image' })}
@@ -215,7 +220,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                     }`}
                   >
                     <Image size={20} />
-                    <span className="text-xs font-medium">Image</span>
+                    <span className="text-xs font-medium">{t('ads.adTypes.image')}</span>
                   </button>
                   <button
                     onClick={() => setEditForm({ ...editForm, adType: 'adsense' })}
@@ -224,7 +229,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                     }`}
                   >
                     <Globe size={20} />
-                    <span className="text-xs font-medium">AdSense</span>
+                    <span className="text-xs font-medium">{t('ads.adTypes.adsense')}</span>
                   </button>
                   <button
                     onClick={() => setEditForm({ ...editForm, adType: 'custom' })}
@@ -233,7 +238,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                     }`}
                   >
                     <Code size={20} />
-                    <span className="text-xs font-medium">Custom HTML</span>
+                    <span className="text-xs font-medium">{t('ads.adTypes.custom')}</span>
                   </button>
                 </div>
               </div>
@@ -242,32 +247,32 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
               {editForm.adType === 'image' && (
                 <>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600">Image URL *</label>
+                    <label className="text-sm font-medium text-slate-600">{t('ads.imageUrl')}</label>
                     <input
                       type="url"
                       value={editForm.imageUrl || ''}
                       onChange={(e) => setEditForm({ ...editForm, imageUrl: e.target.value })}
-                      placeholder="https://example.com/ad-image.png"
+                      placeholder={t('ads.imageUrlPlaceholder')}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-light outline-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600">Link URL (optional)</label>
+                    <label className="text-sm font-medium text-slate-600">{t('ads.linkUrl')}</label>
                     <input
                       type="url"
                       value={editForm.linkUrl || ''}
                       onChange={(e) => setEditForm({ ...editForm, linkUrl: e.target.value })}
-                      placeholder="https://example.com/landing-page"
+                      placeholder={t('ads.linkUrlPlaceholder')}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-light outline-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600">Alt Text</label>
+                    <label className="text-sm font-medium text-slate-600">{t('ads.altText')}</label>
                     <input
                       type="text"
                       value={editForm.altText || ''}
                       onChange={(e) => setEditForm({ ...editForm, altText: e.target.value })}
-                      placeholder="Advertisement description"
+                      placeholder={t('ads.altTextPlaceholder')}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-light outline-none"
                     />
                   </div>
@@ -278,27 +283,27 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
               {editForm.adType === 'adsense' && (
                 <>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600">AdSense Client ID *</label>
+                    <label className="text-sm font-medium text-slate-600">{t('ads.adsenseClientId')}</label>
                     <input
                       type="text"
                       value={editForm.adsenseClient || ''}
                       onChange={(e) => setEditForm({ ...editForm, adsenseClient: e.target.value })}
-                      placeholder="ca-pub-XXXXXXXXXXXXXXXX"
+                      placeholder={t('ads.adsenseClientPlaceholder')}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-light outline-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600">Ad Slot ID *</label>
+                    <label className="text-sm font-medium text-slate-600">{t('ads.adsenseSlotId')}</label>
                     <input
                       type="text"
                       value={editForm.adsenseSlot || ''}
                       onChange={(e) => setEditForm({ ...editForm, adsenseSlot: e.target.value })}
-                      placeholder="1234567890"
+                      placeholder={t('ads.adsenseSlotPlaceholder')}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-light outline-none"
                     />
                   </div>
                   <div className="p-3 bg-amber-50 rounded-lg text-xs text-amber-700">
-                    Make sure to add the AdSense script to your index.html head section.
+                    {t('ads.adsenseScriptNote')}
                   </div>
                 </>
               )}
@@ -306,16 +311,16 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
               {/* Custom HTML Fields */}
               {editForm.adType === 'custom' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Custom HTML *</label>
+                  <label className="text-sm font-medium text-slate-600">{t('ads.customHtml')}</label>
                   <textarea
                     value={editForm.customHtml || ''}
                     onChange={(e) => setEditForm({ ...editForm, customHtml: e.target.value })}
-                    placeholder="<div>Your custom ad HTML...</div>"
+                    placeholder={t('ads.customHtmlPlaceholder')}
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-light outline-none font-mono text-sm"
                     rows={6}
                   />
                   <div className="p-3 bg-red-50 rounded-lg text-xs text-red-700">
-                    Warning: Only use trusted HTML. Malicious scripts can compromise security.
+                    {t('ads.customHtmlWarning')}
                   </div>
                 </div>
               )}
@@ -326,7 +331,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                 onClick={closeEditModal}
                 className="flex-1 py-3 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-all"
               >
-                Cancel
+                {t('ads.cancel')}
               </button>
               <button
                 onClick={handleSave}
@@ -334,7 +339,7 @@ const AdManagement: React.FC<AdManagementProps> = ({ onMessage }) => {
                 className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-hover transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSaving && <Loader2 size={18} className="animate-spin" />}
-                Save Configuration
+                {t('ads.saveConfiguration')}
               </button>
             </div>
           </div>

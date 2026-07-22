@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Users, Globe, Building2, UserCheck, User as UserIcon, Bell, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { pushBroadcastService, type BroadcastTargetType, type BroadcastHistoryRow } from '../../services/pushBroadcast.service';
 import { superAdminService } from '../../services/superadmin.service';
 import { Organization } from '../../types';
+import { APP_NAME } from '../../config/branding';
+import { tRole } from '../../i18n/statusMaps';
 
 interface PushBroadcastProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string } | null) => void;
@@ -11,6 +14,7 @@ interface PushBroadcastProps {
 const ROLE_OPTIONS = ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] as const;
 
 const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('');
@@ -67,6 +71,13 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
     && (targetType !== 'ORG' || !!targetOrgId)
     && (targetType !== 'USER' || !!targetUserId);
 
+  const formatHistoryTarget = (row: BroadcastHistoryRow) => {
+    const typeLabel = t(`pushBroadcast.targetTypes.${row.target_type}`);
+    if (!row.target_value) return typeLabel;
+    if (row.target_type === 'ROLE') return `${typeLabel}: ${tRole(row.target_value)}`;
+    return `${typeLabel}: ${row.target_value.slice(0, 8)}`;
+  };
+
   const handleSendClick = () => {
     if (!canSend) return;
     setConfirmOpen(true);
@@ -90,7 +101,11 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
     if (result.success) {
       onMessage({
         type: 'success',
-        text: `Broadcast sent. ${result.deliveredCount ?? 0}/${result.recipientCount ?? 0} delivered. ${result.staleCleaned ?? 0} stale cleaned.`,
+        text: t('pushBroadcast.successSent', {
+          delivered: result.deliveredCount ?? 0,
+          recipients: result.recipientCount ?? 0,
+          stale: result.staleCleaned ?? 0,
+        }),
       });
       setTitle('');
       setBody('');
@@ -98,7 +113,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
       await loadHistory();
       await refreshRecipientCount();
     } else {
-      onMessage({ type: 'error', text: result.message || 'Failed to send broadcast' });
+      onMessage({ type: 'error', text: result.message || t('pushBroadcast.errorSend') });
     }
   };
 
@@ -110,14 +125,14 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
             <Bell size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Push Broadcast</h2>
-            <p className="text-sm text-slate-500">Send a push notification to subscribed users.</p>
+            <h2 className="text-lg font-bold text-slate-900">{t('pushBroadcast.title')}</h2>
+            <p className="text-sm text-slate-500">{t('pushBroadcast.subtitle')}</p>
           </div>
         </div>
 
         {/* Target selector */}
         <div className="space-y-2 mb-6">
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Target</label>
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('pushBroadcast.target')}</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <button
               type="button"
@@ -126,7 +141,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
                 targetType === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <Globe size={16} /> All platform
+              <Globe size={16} /> {t('pushBroadcast.targetAll')}
             </button>
             <button
               type="button"
@@ -135,7 +150,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
                 targetType === 'ORG' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <Building2 size={16} /> Organization
+              <Building2 size={16} /> {t('pushBroadcast.targetOrg')}
             </button>
             <button
               type="button"
@@ -144,7 +159,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
                 targetType === 'ROLE' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <UserCheck size={16} /> Role
+              <UserCheck size={16} /> {t('pushBroadcast.targetRole')}
             </button>
             <button
               type="button"
@@ -153,7 +168,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
                 targetType === 'USER' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <UserIcon size={16} /> Single user
+              <UserIcon size={16} /> {t('pushBroadcast.targetUser')}
             </button>
           </div>
 
@@ -163,9 +178,9 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
               onChange={(e) => setTargetOrgId(e.target.value)}
               className="mt-2 w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
             >
-              <option value="">— Select organization —</option>
+              <option value="">{t('pushBroadcast.selectOrg')}</option>
               {organizations.map((o) => (
-                <option key={o.id} value={o.id}>{o.name} ({o.userCount ?? 0} users)</option>
+                <option key={o.id} value={o.id}>{t('pushBroadcast.orgUsersCount', { name: o.name, count: o.userCount ?? 0 })}</option>
               ))}
             </select>
           )}
@@ -177,7 +192,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
               className="mt-2 w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
             >
               {ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>{tRole(r)}</option>
               ))}
             </select>
           )}
@@ -187,7 +202,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
               type="text"
               value={targetUserId}
               onChange={(e) => setTargetUserId(e.target.value.trim())}
-              placeholder="Paste user UUID (auth.users.id)"
+              placeholder={t('pushBroadcast.userIdPlaceholder')}
               className="mt-2 w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none font-mono text-sm"
             />
           )}
@@ -196,17 +211,21 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
           <div className="mt-3 flex items-center gap-2 text-sm">
             <Users size={16} className="text-slate-400" />
             {isPreviewLoading ? (
-              <span className="text-slate-400">Counting recipients…</span>
+              <span className="text-slate-400">{t('pushBroadcast.counting')}</span>
             ) : recipientCount === null ? (
-              <span className="text-slate-400">Select target to count recipients</span>
+              <span className="text-slate-400">{t('pushBroadcast.selectToCount')}</span>
             ) : (
-              <span className="font-bold text-slate-700">{recipientCount} active push subscription{recipientCount === 1 ? '' : 's'}</span>
+              <span className="font-bold text-slate-700">
+                {recipientCount === 1
+                  ? t('pushBroadcast.subscriptionOne', { count: recipientCount })
+                  : t('pushBroadcast.subscriptions', { count: recipientCount })}
+              </span>
             )}
             <button
               type="button"
               onClick={refreshRecipientCount}
               className="ml-auto p-1.5 hover:bg-slate-100 rounded-lg transition"
-              title="Refresh count"
+              title={t('pushBroadcast.refreshCount')}
             >
               <RefreshCw size={14} className={`text-slate-500 ${isPreviewLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -217,7 +236,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Title</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('pushBroadcast.formTitle')}</label>
               <span className={`text-xs ${titleCount > 100 ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
                 {titleCount}/100
               </span>
@@ -226,7 +245,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., 📢 Scheduled maintenance tonight"
+              placeholder={t('pushBroadcast.formTitlePlaceholder')}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
               maxLength={120}
             />
@@ -234,7 +253,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Body</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('pushBroadcast.formBody')}</label>
               <span className={`text-xs ${bodyCount > 300 ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
                 {bodyCount}/300
               </span>
@@ -243,37 +262,37 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
-              placeholder="Notification body text…"
+              placeholder={t('pushBroadcast.formBodyPlaceholder')}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none resize-none"
               maxLength={350}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Click URL (optional)</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('pushBroadcast.formClickUrl')}</label>
             <input
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="/dashboard or /announcements"
+              placeholder={t('pushBroadcast.formClickUrlPlaceholder')}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none font-mono text-sm"
             />
-            <p className="text-xs text-slate-400">Defaults to /dashboard if blank.</p>
+            <p className="text-xs text-slate-400">{t('pushBroadcast.formClickUrlHint')}</p>
           </div>
         </div>
 
         {/* Preview card */}
         {(title || body) && (
           <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Preview</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('pushBroadcast.previewLabel')}</p>
             <div className="flex items-start gap-3 p-3 bg-white rounded-xl shadow-sm border border-slate-100">
               <div className="w-10 h-10 bg-primary-light rounded-lg flex items-center justify-center shrink-0">
                 <Bell size={18} className="text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900 truncate">{title || 'Title here'}</p>
-                <p className="text-sm text-slate-600 line-clamp-2">{body || 'Body text here'}</p>
-                <p className="text-xs text-slate-400 mt-1">OpenHR · now</p>
+                <p className="font-bold text-slate-900 truncate">{title || t('pushBroadcast.previewTitleFallback')}</p>
+                <p className="text-sm text-slate-600 line-clamp-2">{body || t('pushBroadcast.previewBodyFallback')}</p>
+                <p className="text-xs text-slate-400 mt-1">{t('pushBroadcast.previewAppNow', { appName: APP_NAME })}</p>
               </div>
             </div>
           </div>
@@ -287,7 +306,7 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
             className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send size={18} />
-            {isSending ? 'Sending…' : 'Send broadcast'}
+            {isSending ? t('pushBroadcast.sending') : t('pushBroadcast.send')}
           </button>
         </div>
       </div>
@@ -295,14 +314,19 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
       {/* History */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900">Recent broadcasts</h3>
-          <button onClick={loadHistory} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+          <h3 className="text-lg font-bold text-slate-900">{t('pushBroadcast.historyTitle')}</h3>
+          <button
+            onClick={loadHistory}
+            className="p-2 hover:bg-slate-100 rounded-xl transition-all"
+            title={t('pushBroadcast.historyRefresh')}
+            aria-label={t('pushBroadcast.historyRefresh')}
+          >
             <RefreshCw size={18} className="text-slate-500" />
           </button>
         </div>
 
         {history.length === 0 ? (
-          <p className="text-center py-12 text-slate-400">No broadcasts yet.</p>
+          <p className="text-center py-12 text-slate-400">{t('pushBroadcast.historyEmpty')}</p>
         ) : (
           <div className="space-y-2">
             {history.map((row) => (
@@ -313,16 +337,16 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
                     <p className="text-sm text-slate-600 line-clamp-2">{row.body}</p>
                   </div>
                   <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold whitespace-nowrap">
-                    {row.target_type}{row.target_value ? `: ${row.target_value.slice(0, 8)}` : ''}
+                    {formatHistoryTarget(row)}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                  <span><strong className="text-emerald-600">{row.delivered_count}</strong> delivered</span>
-                  <span>/ {row.recipient_count} recipients</span>
-                  {row.failed_count > 0 && <span className="text-red-600"><strong>{row.failed_count}</strong> failed</span>}
-                  {row.stale_cleaned > 0 && <span>{row.stale_cleaned} stale cleaned</span>}
+                  <span>{t('pushBroadcast.historyDelivered', { count: row.delivered_count })}</span>
+                  <span>{t('pushBroadcast.historyRecipients', { count: row.recipient_count })}</span>
+                  {row.failed_count > 0 && <span className="text-red-600">{t('pushBroadcast.historyFailed', { count: row.failed_count })}</span>}
+                  {row.stale_cleaned > 0 && <span>{t('pushBroadcast.historyStaleCleaned', { count: row.stale_cleaned })}</span>}
                   <span className="ml-auto">
-                    {row.sent_by_name ? `by ${row.sent_by_name} · ` : ''}
+                    {row.sent_by_name ? t('pushBroadcast.historyBy', { name: row.sent_by_name }) : ''}
                     {new Date(row.created).toLocaleString()}
                   </span>
                 </div>
@@ -340,14 +364,16 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
               <div className="p-2 bg-amber-100 rounded-xl">
                 <AlertTriangle size={20} className="text-amber-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Confirm broadcast</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('pushBroadcast.confirmTitle')}</h3>
             </div>
             <p className="text-sm text-slate-600 mb-2">
-              Sending push to <strong>{recipientCount ?? '?'}</strong> subscription{recipientCount === 1 ? '' : 's'}.
+              {recipientCount === 1
+                ? t('pushBroadcast.confirmBodyOne', { count: recipientCount ?? 0 })
+                : t('pushBroadcast.confirmBody', { count: recipientCount ?? '?' })}
             </p>
             {targetType === 'ALL' && (
               <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-xl mb-2">
-                <strong>Cross-tenant:</strong> this reaches every organization on the platform.
+                {t('pushBroadcast.confirmCrossTenant')}
               </p>
             )}
             <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-200">
@@ -359,13 +385,13 @@ const PushBroadcast: React.FC<PushBroadcastProps> = ({ onMessage }) => {
                 onClick={() => setConfirmOpen(false)}
                 className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition"
               >
-                Cancel
+                {t('pushBroadcast.confirmCancel')}
               </button>
               <button
                 onClick={handleConfirmSend}
                 className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-hover transition flex items-center justify-center gap-2"
               >
-                <CheckCircle2 size={18} /> Send now
+                <CheckCircle2 size={18} /> {t('pushBroadcast.confirmSendNow')}
               </button>
             </div>
           </div>

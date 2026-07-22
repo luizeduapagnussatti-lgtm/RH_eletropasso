@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShieldCheck, RefreshCw, X, ArrowRight, FileCheck, Ban, Plus, List, Clock } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { LeaveRequest } from '../../types';
@@ -18,6 +19,7 @@ interface Props {
 type Tab = 'pending' | 'all';
 
 export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly = false }) => {
+  const { t } = useTranslation('leave');
   const { showToast } = useToast();
   const [showVerify, setShowVerify] = useState<LeaveRequest | null>(null);
   const [remarks, setRemarks] = useState('');
@@ -50,7 +52,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
       onRefresh();
       setShowVerify(null);
       setRemarks('');
-    } catch (e) { showToast('Verification failed', 'error'); }
+    } catch (e) { showToast(t('verificationFailed'), 'error'); }
     finally { setIsProcessing(false); }
   };
 
@@ -65,8 +67,8 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2"><h3 className="text-xl font-semibold text-slate-900">HR Administration</h3><HelpButton helpPointId="leave.hr" size={16} /></div>
-          <p className="text-xs font-bold text-slate-400 mt-1">Manage, verify, and administrate all leave records</p>
+          <div className="flex items-center gap-2"><h3 className="text-xl font-semibold text-slate-900">{t('hrAdministration')}</h3><HelpButton helpPointId="leave.hr" size={16} /></div>
+          <p className="text-xs font-bold text-slate-400 mt-1">{t('hrAdministrationHint')}</p>
         </div>
         <div className="flex items-center gap-3">
           {!readOnly && (
@@ -74,7 +76,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-semibold uppercase tracking-widest text-[10px] shadow-xl hover:bg-primary-hover transition-all"
             >
-              <Plus size={16} /> Create Leave
+              <Plus size={16} /> {t('createLeave')}
             </button>
           )}
           <button onClick={onRefresh} className="p-3 bg-white border border-slate-100 rounded-2xl shadow-sm text-slate-400 hover:text-primary transition-colors">
@@ -93,7 +95,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
               : 'bg-white border border-slate-100 text-slate-400 hover:text-slate-600'
           }`}
         >
-          <Clock size={14} /> Pending Approval
+          <Clock size={14} /> {t('pendingApproval')}
           {pendingCount > 0 && (
             <span className={`ml-1 px-2 py-0.5 rounded-full text-[9px] font-semibold ${
               activeTab === 'pending' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
@@ -108,7 +110,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
               : 'bg-white border border-slate-100 text-slate-400 hover:text-slate-600'
           }`}
         >
-          <List size={14} /> All Leaves
+          <List size={14} /> {t('allLeaves')}
           <span className={`ml-1 px-2 py-0.5 rounded-full text-[9px] font-semibold ${
             activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
           }`}>{requests.length}</span>
@@ -128,7 +130,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
                   <div>
                     <h4 className="font-semibold text-slate-900 uppercase tracking-tighter text-lg">{req.employeeName}</h4>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-semibold uppercase tracking-widest flex items-center gap-1"><ShieldCheck size={10} /> Manager Approved</span>
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-semibold uppercase tracking-widest flex items-center gap-1"><ShieldCheck size={10} /> {t('managerApproved')}</span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{req.type}</span>
                     </div>
                   </div>
@@ -142,7 +144,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
                       : 'bg-emerald-600 text-white hover:bg-emerald-700'
                   }`}
                 >
-                  Verify <ArrowRight size={14}/>
+                  {t('verify')} <ArrowRight size={14}/>
                 </button>
               </div>
             ))}
@@ -157,7 +159,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
                   <div>
                     <h4 className="font-semibold text-slate-900 uppercase tracking-tighter text-lg">{req.employeeName}</h4>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-md text-[9px] font-semibold uppercase tracking-widest flex items-center gap-1"><Clock size={10} /> Awaiting Manager</span>
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-md text-[9px] font-semibold uppercase tracking-widest flex items-center gap-1"><Clock size={10} /> {t('awaitingManager')}</span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{req.type}</span>
                     </div>
                   </div>
@@ -171,7 +173,7 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
                       : 'bg-orange-500 text-white hover:bg-orange-600'
                   }`}
                 >
-                  Review <ArrowRight size={14}/>
+                  {t('review')} <ArrowRight size={14}/>
                 </button>
               </div>
             ))}
@@ -179,8 +181,8 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
             {pendingCount === 0 && (
               <div className="text-center py-16">
                 <FileCheck size={48} className="text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-semibold uppercase text-xs tracking-widest">All Clear</p>
-                <p className="text-slate-300 text-[10px] font-bold mt-1">No requests waiting for approval.</p>
+                <p className="text-slate-400 font-semibold uppercase text-xs tracking-widest">{t('allClear')}</p>
+                <p className="text-slate-300 text-[10px] font-bold mt-1">{t('noPendingApproval')}</p>
               </div>
             )}
           </div>
@@ -204,42 +206,42 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in">
             <div className={`p-8 ${showVerify.status === 'PENDING_MANAGER' ? 'bg-orange-500' : 'bg-emerald-600'} text-white flex justify-between items-center`}>
-              <div className="flex items-center gap-3"><ShieldCheck size={20}/><h3 className="text-lg font-semibold uppercase tracking-tight">{showVerify.status === 'PENDING_MANAGER' ? 'Admin Override' : 'Final Verification'}</h3></div>
+              <div className="flex items-center gap-3"><ShieldCheck size={20}/><h3 className="text-lg font-semibold uppercase tracking-tight">{showVerify.status === 'PENDING_MANAGER' ? t('adminOverride') : t('finalVerification')}</h3></div>
               <button onClick={() => setShowVerify(null)} className="hover:bg-white/10 p-2 rounded-lg transition-colors"><X size={24} /></button>
             </div>
             <div className="p-8 space-y-6">
               <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Employee</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('employee')}</p>
                   <p className="text-sm font-semibold text-slate-800">{showVerify.employeeName}</p>
                 </div>
                 <div className="w-full h-px bg-slate-200"></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Type</p>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('type')}</p>
                     <p className="text-xs font-bold text-slate-700">{showVerify.type}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Duration</p>
-                    <p className="text-xs font-bold text-slate-700">{showVerify.totalDays} Day(s)</p>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('duration')}</p>
+                    <p className="text-xs font-bold text-slate-700">{t('dayCount', { count: showVerify.totalDays })}</p>
                   </div>
                 </div>
                 <div className="w-full h-px bg-slate-200"></div>
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Dates</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('dates')}</p>
                   <p className="text-xs font-bold text-slate-700">{showVerify.startDate?.split(' ')[0]} — {showVerify.endDate?.split(' ')[0]}</p>
                 </div>
                 <div className="w-full h-px bg-slate-200"></div>
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">User Reason</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t('userReason')}</p>
                   <p className="text-xs font-bold text-slate-700">"{showVerify.reason}"</p>
                 </div>
                 {showVerify.status === 'PENDING_HR' && (
                   <>
                     <div className="w-full h-px bg-slate-200"></div>
                     <div>
-                      <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">Manager's Evaluation</p>
-                      <p className="text-xs font-bold text-slate-700">"{showVerify.managerRemarks || "Approved without remarks"}"</p>
+                      <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">{t('managerEvaluation')}</p>
+                      <p className="text-xs font-bold text-slate-700">"{showVerify.managerRemarks || t('approvedWithoutRemarks')}"</p>
                     </div>
                   </>
                 )}
@@ -247,24 +249,24 @@ export const HRLeaveModule: React.FC<Props> = ({ requests, onRefresh, readOnly =
                   <>
                     <div className="w-full h-px bg-slate-200"></div>
                     <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
-                      <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-widest">Skipping Manager Workflow</p>
-                      <p className="text-[10px] font-bold text-orange-500 mt-0.5">This leave will be directly approved/rejected by admin.</p>
+                      <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-widest">{t('skippingManagerWorkflow')}</p>
+                      <p className="text-[10px] font-bold text-orange-500 mt-0.5">{t('skippingManagerHint')}</p>
                     </div>
                   </>
                 )}
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">Admin Remarks (Optional)</p>
-                <textarea placeholder="Document any adjustments or compliance notes..." className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold min-h-[100px] outline-none focus:ring-4 focus:ring-emerald-50 transition-all" value={remarks} onChange={e => setRemarks(e.target.value)} />
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('adminRemarksOptional')}</p>
+                <textarea placeholder={t('adminRemarksPlaceholder')} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold min-h-[100px] outline-none focus:ring-4 focus:ring-emerald-50 transition-all" value={remarks} onChange={e => setRemarks(e.target.value)} />
               </div>
 
               <div className="flex gap-4 pt-2">
                 <button disabled={isProcessing} onClick={() => handleVerify('REJECTED')} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-xl font-semibold uppercase text-[10px] flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
-                  <Ban size={16}/> Decline
+                  <Ban size={16}/> {t('decline')}
                 </button>
                 <button disabled={isProcessing} onClick={() => handleVerify('APPROVED')} className="flex-[1.5] py-4 bg-primary text-white rounded-xl font-semibold uppercase text-[10px] shadow-xl flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors">
-                  {isProcessing ? <RefreshCw className="animate-spin" size={16} /> : <FileCheck size={16} />} Approve
+                  {isProcessing ? <RefreshCw className="animate-spin" size={16} /> : <FileCheck size={16} />} {t('approve')}
                 </button>
               </div>
             </div>

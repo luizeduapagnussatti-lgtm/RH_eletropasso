@@ -108,7 +108,7 @@ const HelpButton: React.FC<HelpButtonProps> = ({ helpPointId, className = '', si
   // Variant-specific styles
   const variantStyles: Record<HelpButtonVariant, string> = {
     default: 'text-primary/60 hover:text-primary hover:bg-primary-light shadow-sm border border-primary/10 hover:border-primary/30',
-    sidebar: 'text-slate-300 hover:text-primary hover:bg-primary-light/50 opacity-0 group-hover:opacity-100 transition-all duration-300',
+    sidebar: 'text-[#e23d42]/50 hover:text-[#e23d42] hover:bg-[#c41e24]/15 opacity-0 group-hover:opacity-100 transition-all duration-300',
     inline: 'text-primary/50 hover:text-primary hover:bg-primary-light',
   };
 

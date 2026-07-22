@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Settings, Plus, Trash2, Edit3, Loader2, X, CheckCircle2, ChevronDown, ChevronUp,
   Calendar, BarChart3, Sliders,
@@ -13,6 +14,8 @@ import ReviewStatusBadge from './ReviewStatusBadge';
 import HelpButton from '../onboarding/HelpButton';
 import AttendanceLeaveCard from './AttendanceLeaveCard';
 import AdminReviewFormModal from './AdminReviewFormModal';
+
+import { tStatus } from '../../i18n/statusMaps';
 
 interface Employee {
   id: string;
@@ -30,19 +33,11 @@ interface Props {
   reviewConfig: OrgReviewConfig;
 }
 
-const CYCLE_TYPES: { value: ReviewCycleType; label: string }[] = [
-  { value: 'MID_YEAR', label: 'Mid-Year' },
-  { value: 'YEAR_END', label: 'Year-End' },
-];
-
-const CYCLE_STATUSES: { value: ReviewCycleStatus; label: string }[] = [
-  { value: 'UPCOMING', label: 'Upcoming' },
-  { value: 'OPEN', label: 'Open' },
-  { value: 'CLOSED', label: 'Closed' },
-  { value: 'ARCHIVED', label: 'Archived' },
-];
+const CYCLE_TYPE_VALUES: ReviewCycleType[] = ['MID_YEAR', 'YEAR_END'];
+const CYCLE_STATUS_VALUES: ReviewCycleStatus[] = ['UPCOMING', 'OPEN', 'CLOSED', 'ARCHIVED'];
 
 const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees = [], onRefresh, readOnly = false, reviewConfig }) => {
+  const { t } = useTranslation('review');
   const [showCycleForm, setShowCycleForm] = useState(false);
   const [editingCycle, setEditingCycle] = useState<ReviewCycle | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -143,7 +138,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
   };
 
   const handleDeleteCycle = async (id: string) => {
-    if (!confirm('Delete this review cycle? This cannot be undone.')) return;
+    if (!confirm(t('deleteCycleConfirm'))) return;
     setIsProcessing(true);
     try {
       await hrService.deleteReviewCycle(id);
@@ -172,7 +167,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
   };
 
   const handleDeleteReview = async (id: string) => {
-    if (!confirm('Delete this performance review? This cannot be undone.')) return;
+    if (!confirm(t('deleteReviewConfirm'))) return;
     setIsProcessing(true);
     try {
       await hrService.deleteReview(id);
@@ -254,7 +249,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
     const labels: { value: number; label: string; color: string }[] = [];
     for (let i = 1; i <= max; i++) {
       const existing = editConfig.ratingScale.labels.find(l => l.value === i);
-      labels.push(existing || { value: i, label: `Level ${i}`, color: 'bg-slate-500' });
+      labels.push(existing || { value: i, label: t('levelLabel', { level: i }), color: 'bg-slate-500' });
     }
     setEditConfig(prev => ({ ...prev, ratingScale: { min: 1, max, labels } }));
   };
@@ -268,7 +263,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
   const addOverallRating = () => {
     setEditConfig(prev => ({
       ...prev,
-      overallRatings: [...prev.overallRatings, { value: `CUSTOM_${Date.now()}`, label: 'New Rating', color: 'bg-slate-500' }],
+      overallRatings: [...prev.overallRatings, { value: `CUSTOM_${Date.now()}`, label: t('newRating'), color: 'bg-slate-500' }],
     }));
   };
 
@@ -327,14 +322,14 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Settings size={20} className="text-primary" />
-          <div className="flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">HR Review Management</h2><HelpButton helpPointId="review.hr" size={16} /></div>
+          <div className="flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">{t('hrReviewManagement')}</h2><HelpButton helpPointId="review.hr" size={16} /></div>
         </div>
         {!readOnly && (
           <button
             onClick={openSettings}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-primary bg-primary-light/50 rounded-xl hover:bg-primary-light transition-colors"
           >
-            <Sliders size={14} /> Review Settings
+            <Sliders size={14} /> {t('reviewSettingsBtn')}
           </button>
         )}
       </div>
@@ -343,11 +338,11 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
       {allReviews.length > 0 && (
         <div className="grid grid-cols-5 gap-3">
           {[
-            { label: 'Total', value: stats.total, color: 'text-slate-900' },
-            { label: 'Draft', value: stats.draft, color: 'text-slate-500' },
-            { label: 'Submitted', value: stats.submitted, color: 'text-blue-600' },
-            { label: 'Reviewed', value: stats.reviewed, color: 'text-orange-600' },
-            { label: 'Completed', value: stats.completed, color: 'text-green-600' },
+            { label: t('statTotal'), value: stats.total, color: 'text-slate-900' },
+            { label: t('statDraft'), value: stats.draft, color: 'text-slate-500' },
+            { label: t('statSubmitted'), value: stats.submitted, color: 'text-blue-600' },
+            { label: t('statReviewed'), value: stats.reviewed, color: 'text-orange-600' },
+            { label: t('statCompleted'), value: stats.completed, color: 'text-green-600' },
           ].map(s => (
             <div key={s.label} className="bg-white border border-slate-100 rounded-xl p-3 text-center">
               <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
@@ -365,7 +360,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
         >
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-primary" />
-            <h3 className="font-semibold text-slate-900">Review Cycles ({cycles.length})</h3>
+            <h3 className="font-semibold text-slate-900">{t('reviewCyclesCount', { count: cycles.length })}</h3>
           </div>
           {showCycles ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
         </button>
@@ -378,7 +373,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                   <p className="font-medium text-sm text-slate-900">{cycle.name}</p>
                   <p className="text-xs text-slate-400">
                     {cycle.startDate?.split(' ')[0]} — {cycle.endDate?.split(' ')[0]}
-                    {cycle.isActive && <span className="ml-2 text-green-600 font-semibold">Active</span>}
+                    {cycle.isActive && <span className="ml-2 text-green-600 font-semibold">{t('active')}</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -387,7 +382,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                     cycle.status === 'UPCOMING' ? 'bg-blue-100 text-blue-700' :
                     cycle.status === 'CLOSED' ? 'bg-slate-200 text-slate-600' :
                     'bg-slate-100 text-slate-400'
-                  }`}>{cycle.status}</span>
+                  }`}>{t(`cycleStatuses.${cycle.status}`, { defaultValue: cycle.status })}</span>
                   {!readOnly && (
                     <>
                       <button onClick={() => openEditCycle(cycle)} className="p-1.5 text-slate-400 hover:text-primary">
@@ -407,20 +402,20 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 onClick={() => { resetCycleForm(); setShowCycleForm(true); }}
                 className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-500 hover:border-primary/30 hover:text-primary transition-colors"
               >
-                <Plus size={16} /> Create Review Cycle
+                <Plus size={16} /> {t('createReviewCycle')}
               </button>
             )}
 
             {showCycleForm && (
               <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm text-slate-900">{editingCycle ? 'Edit' : 'New'} Review Cycle</h4>
+                  <h4 className="font-semibold text-sm text-slate-900">{editingCycle ? t('editReviewCycle') : t('newReviewCycle')}</h4>
                   <button onClick={resetCycleForm} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
                 </div>
 
                 <input
                   type="text"
-                  placeholder="Cycle name (e.g., Mid-Year 2025)"
+                  placeholder={t('cycleNamePlaceholder')}
                   value={cycleForm.name}
                   onChange={e => setCycleForm(f => ({ ...f, name: e.target.value }))}
                   className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -432,25 +427,25 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                     onChange={e => setCycleForm(f => ({ ...f, cycleType: e.target.value as ReviewCycleType }))}
                     className="text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    {CYCLE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {CYCLE_TYPE_VALUES.map(ct => <option key={ct} value={ct}>{t(`cycleTypes.${ct}`)}</option>)}
                   </select>
                   <select
                     value={cycleForm.status}
                     onChange={e => setCycleForm(f => ({ ...f, status: e.target.value as ReviewCycleStatus }))}
                     className="text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    {CYCLE_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    {CYCLE_STATUS_VALUES.map(cs => <option key={cs} value={cs}>{t(`cycleStatuses.${cs}`)}</option>)}
                   </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Period Start</label>
+                    <label className="text-xs text-slate-500 mb-1 block">{t('periodStart')}</label>
                     <input type="date" value={cycleForm.startDate} onChange={e => setCycleForm(f => ({ ...f, startDate: e.target.value }))}
                       className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Period End</label>
+                    <label className="text-xs text-slate-500 mb-1 block">{t('periodEnd')}</label>
                     <input type="date" value={cycleForm.endDate} onChange={e => setCycleForm(f => ({ ...f, endDate: e.target.value }))}
                       className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
@@ -458,12 +453,12 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Review Opens</label>
+                    <label className="text-xs text-slate-500 mb-1 block">{t('reviewOpens')}</label>
                     <input type="date" value={cycleForm.reviewStartDate} onChange={e => setCycleForm(f => ({ ...f, reviewStartDate: e.target.value }))}
                       className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Review Deadline</label>
+                    <label className="text-xs text-slate-500 mb-1 block">{t('reviewDeadline')}</label>
                     <input type="date" value={cycleForm.reviewEndDate} onChange={e => setCycleForm(f => ({ ...f, reviewEndDate: e.target.value }))}
                       className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
@@ -472,18 +467,18 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input type="checkbox" checked={cycleForm.isActive} onChange={e => setCycleForm(f => ({ ...f, isActive: e.target.checked }))}
                     className="rounded border-slate-300" />
-                  Set as active cycle
+                  {t('setAsActiveCycle')}
                 </label>
 
                 <div className="flex justify-end gap-2 pt-1">
-                  <button onClick={resetCycleForm} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">Cancel</button>
+                  <button onClick={resetCycleForm} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">{t('cancel')}</button>
                   <button
                     onClick={handleSaveCycle}
                     disabled={isProcessing || !cycleForm.name || !cycleForm.startDate || !cycleForm.endDate}
                     className="inline-flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 disabled:opacity-50"
                   >
                     {isProcessing ? <Loader2 size={14} className="animate-spin" /> : null}
-                    {editingCycle ? 'Update' : 'Create'}
+                    {editingCycle ? t('update') : t('create')}
                   </button>
                 </div>
               </div>
@@ -497,7 +492,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BarChart3 size={16} className="text-primary" />
-            <h3 className="font-semibold text-slate-900">All Reviews</h3>
+            <h3 className="font-semibold text-slate-900">{t('allReviews')}</h3>
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && (
@@ -505,7 +500,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 onClick={openCreateReview}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary rounded-lg hover:opacity-90 transition-colors"
               >
-                <Plus size={14} /> Create Review
+                <Plus size={14} /> {t('createReview')}
               </button>
             )}
             <select
@@ -513,18 +508,18 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
               onChange={e => setFilterStatus(e.target.value)}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none"
             >
-              <option value="ALL">All Status</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SELF_REVIEW_SUBMITTED">Submitted</option>
-              <option value="MANAGER_REVIEWED">Manager Reviewed</option>
-              <option value="COMPLETED">Completed</option>
+              <option value="ALL">{t('allStatus')}</option>
+              <option value="DRAFT">{tStatus('review', 'DRAFT')}</option>
+              <option value="SELF_REVIEW_SUBMITTED">{tStatus('review', 'SELF_REVIEW_SUBMITTED')}</option>
+              <option value="MANAGER_REVIEWED">{tStatus('review', 'MANAGER_REVIEWED')}</option>
+              <option value="COMPLETED">{tStatus('review', 'COMPLETED')}</option>
             </select>
           </div>
         </div>
 
         {filteredReviews.length === 0 && (
           <div className="bg-slate-50 rounded-xl p-6 text-center">
-            <p className="text-sm text-slate-400">No reviews found.</p>
+            <p className="text-sm text-slate-400">{t('noReviewsFound')}</p>
           </div>
         )}
 
@@ -544,8 +539,8 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
               <div>
                 <p className="font-semibold text-sm text-slate-900">{review.employeeName}</p>
                 <p className="text-xs text-slate-400">
-                  Manager: {review.managerName || 'None'} | Self Avg: {avgRating(review.selfRatings)}
-                  {review.managerRatings.some(r => r.rating > 0) && ` | Mgr Avg: ${avgRating(review.managerRatings)}`}
+                  {t('managerLabel', { name: review.managerName || t('none') })} | {t('selfAvg', { avg: avgRating(review.selfRatings) })}
+                  {review.managerRatings.some(r => r.rating > 0) && ` | ${t('mgrAvg', { avg: avgRating(review.managerRatings) })}`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -554,14 +549,14 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                     <button
                       onClick={e => { e.stopPropagation(); openEditReview(review); }}
                       className="p-1.5 text-slate-400 hover:text-primary transition-colors"
-                      title="Edit review"
+                      title={t('editReview')}
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); handleDeleteReview(review.id); }}
                       className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
-                      title="Delete review"
+                      title={t('deleteReview')}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -579,7 +574,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 {/* Self Ratings Summary */}
                 {review.selfRatings.some(r => r.rating > 0) && (
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wider">Self-Assessment</h4>
+                    <h4 className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wider">{t('selfAssessment')}</h4>
                     <div className="grid grid-cols-2 gap-2">
                       {review.selfRatings.filter(r => r.rating > 0).map(r => {
                         const comp = resolveCompetency(r.competencyId);
@@ -598,7 +593,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 {/* Manager Ratings Summary */}
                 {review.managerRatings.some(r => r.rating > 0) && (
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wider">Manager Assessment</h4>
+                    <h4 className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wider">{t('managerAssessment')}</h4>
                     <div className="grid grid-cols-2 gap-2">
                       {review.managerRatings.filter(r => r.rating > 0).map(r => {
                         const comp = resolveCompetency(r.competencyId);
@@ -617,16 +612,16 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 {/* Finalization Form (for MANAGER_REVIEWED status) */}
                 {review.status === 'MANAGER_REVIEWED' && !readOnly && (
                   <div className="bg-green-50 border border-green-100 rounded-xl p-4 space-y-3">
-                    <h4 className="font-semibold text-sm text-green-800">Finalize Review</h4>
+                    <h4 className="font-semibold text-sm text-green-800">{t('finalizeReview')}</h4>
 
                     <div>
-                      <label className="text-xs text-green-700 font-medium mb-1 block">Overall Rating</label>
+                      <label className="text-xs text-green-700 font-medium mb-1 block">{t('overallRating')}</label>
                       <select
                         value={overallRating}
                         onChange={e => setOverallRating(e.target.value)}
                         className="w-full text-sm border border-green-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 bg-white"
                       >
-                        <option value="">Select rating...</option>
+                        <option value="">{t('selectRating')}</option>
                         {overallRatings.map(r => (
                           <option key={r.value} value={r.value}>{r.label}</option>
                         ))}
@@ -634,11 +629,11 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                     </div>
 
                     <div>
-                      <label className="text-xs text-green-700 font-medium mb-1 block">Final Remarks</label>
+                      <label className="text-xs text-green-700 font-medium mb-1 block">{t('finalRemarks')}</label>
                       <textarea
                         value={finalRemarks}
                         onChange={e => setFinalRemarks(e.target.value)}
-                        placeholder="Add final HR remarks..."
+                        placeholder={t('finalRemarksPlaceholder')}
                         className="w-full text-sm border border-green-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-green-200 bg-white"
                         rows={3}
                       />
@@ -651,7 +646,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                         className="inline-flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-xl font-semibold text-sm hover:bg-green-700 disabled:opacity-50"
                       >
                         {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                        Finalize
+                        {t('finalize')}
                       </button>
                     </div>
                   </div>
@@ -662,21 +657,21 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                   <div className="bg-green-50 border border-green-100 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <CheckCircle2 size={16} className="text-green-600" />
-                      <h4 className="font-semibold text-sm text-green-800">Finalized</h4>
+                      <h4 className="font-semibold text-sm text-green-800">{t('finalized')}</h4>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <p className="text-xs text-green-600 font-medium">Overall Rating</p>
-                        <p className="font-bold text-green-900">{review.hrOverallRating?.replace(/_/g, ' ') || 'N/A'}</p>
+                        <p className="text-xs text-green-600 font-medium">{t('overallRating')}</p>
+                        <p className="font-bold text-green-900">{review.hrOverallRating?.replace(/_/g, ' ') || t('na')}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-green-600 font-medium">Completed</p>
+                        <p className="text-xs text-green-600 font-medium">{t('completed')}</p>
                         <p className="font-bold text-green-900">{review.completedAt ? new Date(review.completedAt).toLocaleDateString() : '—'}</p>
                       </div>
                     </div>
                     {review.hrFinalRemarks && (
                       <div className="mt-2">
-                        <p className="text-xs text-green-600 font-medium">HR Remarks</p>
+                        <p className="text-xs text-green-600 font-medium">{t('hrRemarks')}</p>
                         <p className="text-sm text-green-800">{review.hrFinalRemarks}</p>
                       </div>
                     )}
@@ -707,7 +702,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
             <div className="p-6 bg-primary text-white flex justify-between items-center flex-shrink-0">
               <div className="flex items-center gap-3">
                 <Sliders size={20} />
-                <h3 className="text-lg font-semibold uppercase tracking-tight">Review Settings</h3>
+                <h3 className="text-lg font-semibold uppercase tracking-tight">{t('reviewSettings')}</h3>
               </div>
               <button onClick={() => setShowSettings(false)} className="hover:bg-white/10 p-2 rounded-lg"><X size={24} /></button>
             </div>
@@ -715,7 +710,7 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {/* Competencies Section */}
               <div>
-                <h4 className="font-semibold text-sm text-slate-900 mb-3">Competencies ({editConfig.competencies.length})</h4>
+                <h4 className="font-semibold text-sm text-slate-900 mb-3">{t('competenciesCount', { count: editConfig.competencies.length })}</h4>
                 <div className="space-y-2">
                   {editConfig.competencies.map((comp, idx) => (
                     <div key={comp.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
@@ -734,11 +729,11 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                 {/* Competency Form */}
                 {showCompForm ? (
                   <div className="mt-3 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-                    <h5 className="font-semibold text-xs text-slate-700">{editingCompetencyIdx !== null ? 'Edit' : 'Add'} Competency</h5>
-                    <input placeholder="Name" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2" value={compForm.name} onChange={e => setCompForm(p => ({ ...p, name: e.target.value }))} />
-                    <textarea placeholder="Description" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2" rows={2} value={compForm.description} onChange={e => setCompForm(p => ({ ...p, description: e.target.value }))} />
+                    <h5 className="font-semibold text-xs text-slate-700">{editingCompetencyIdx !== null ? t('editCompetency') : t('addCompetency')}</h5>
+                    <input placeholder={t('namePlaceholder')} className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2" value={compForm.name} onChange={e => setCompForm(p => ({ ...p, name: e.target.value }))} />
+                    <textarea placeholder={t('descriptionPlaceholder')} className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2" rows={2} value={compForm.description} onChange={e => setCompForm(p => ({ ...p, description: e.target.value }))} />
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Behaviors</p>
+                      <p className="text-xs text-slate-500 mb-1">{t('behaviors')}</p>
                       <div className="flex flex-wrap gap-1 mb-2">
                         {compForm.behaviors.map((b, i) => (
                           <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -747,13 +742,13 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                         ))}
                       </div>
                       <div className="flex gap-2">
-                        <input placeholder="Add behavior..." className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5" value={compBehaviorInput} onChange={e => setCompBehaviorInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addBehavior())} />
-                        <button type="button" onClick={addBehavior} className="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-semibold hover:bg-slate-200">Add</button>
+                        <input placeholder={t('addBehaviorPlaceholder')} className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5" value={compBehaviorInput} onChange={e => setCompBehaviorInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addBehavior())} />
+                        <button type="button" onClick={addBehavior} className="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-semibold hover:bg-slate-200">{t('add')}</button>
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => { setEditingCompetencyIdx(null); setShowCompForm(false); }} className="px-3 py-1.5 text-xs text-slate-500">Cancel</button>
-                      <button onClick={saveCompetency} className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold">Save</button>
+                      <button onClick={() => { setEditingCompetencyIdx(null); setShowCompForm(false); }} className="px-3 py-1.5 text-xs text-slate-500">{t('cancel')}</button>
+                      <button onClick={saveCompetency} className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold">{t('save')}</button>
                     </div>
                   </div>
                 ) : (
@@ -761,16 +756,16 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                     onClick={() => openCompetencyForm(null)}
                     className="mt-3 w-full flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-500 hover:border-primary/30 hover:text-primary"
                   >
-                    <Plus size={14} /> Add Competency
+                    <Plus size={14} /> {t('addCompetency')}
                   </button>
                 )}
               </div>
 
               {/* Rating Scale Section */}
               <div>
-                <h4 className="font-semibold text-sm text-slate-900 mb-3">Rating Scale (1—{editConfig.ratingScale.max})</h4>
+                <h4 className="font-semibold text-sm text-slate-900 mb-3">{t('ratingScaleTitle', { max: editConfig.ratingScale.max })}</h4>
                 <div className="flex items-center gap-3 mb-3">
-                  <label className="text-xs text-slate-500">Max Rating:</label>
+                  <label className="text-xs text-slate-500">{t('maxRating')}</label>
                   <input type="number" min={2} max={10} className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-center font-bold" value={editConfig.ratingScale.max} onChange={e => updateRatingScaleMax(Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
@@ -785,11 +780,11 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
 
               {/* Overall Ratings Section */}
               <div>
-                <h4 className="font-semibold text-sm text-slate-900 mb-3">Overall HR Ratings</h4>
+                <h4 className="font-semibold text-sm text-slate-900 mb-3">{t('overallHrRatings')}</h4>
                 <div className="space-y-2">
                   {editConfig.overallRatings.map((rating, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <input className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5" value={rating.label} onChange={e => updateOverallRating(idx, 'label', e.target.value)} placeholder="Label" />
+                      <input className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5" value={rating.label} onChange={e => updateOverallRating(idx, 'label', e.target.value)} placeholder={t('label')} />
                       <button onClick={() => deleteOverallRating(idx)} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   ))}
@@ -798,20 +793,20 @@ const HRReviewModule: React.FC<Props> = ({ user, cycles, allReviews, employees =
                   onClick={addOverallRating}
                   className="mt-2 w-full flex items-center justify-center gap-2 p-2 border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-500 hover:border-primary/30 hover:text-primary"
                 >
-                  <Plus size={14} /> Add Rating Option
+                  <Plus size={14} /> {t('addRatingOption')}
                 </button>
               </div>
             </div>
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3 flex-shrink-0">
-              <button onClick={() => setShowSettings(false)} className="px-5 py-2.5 text-sm text-slate-600 hover:text-slate-900">Cancel</button>
+              <button onClick={() => setShowSettings(false)} className="px-5 py-2.5 text-sm text-slate-600 hover:text-slate-900">{t('cancel')}</button>
               <button
                 onClick={handleSaveSettings}
                 disabled={isProcessing}
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 disabled:opacity-50"
               >
                 {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                Save Settings
+                {t('saveSettings')}
               </button>
             </div>
           </div>

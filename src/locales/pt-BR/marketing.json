@@ -1,18 +1,705 @@
 {
+  "brandName": "RH_Eletropasso",
   "getStarted": "Começar grátis",
   "login": "Entrar",
+  "loginToAccount": "Entrar na sua conta",
   "features": "Recursos",
-  "howItWorks": "Como funciona",
-  "faq": "FAQ",
-  "contact": "Contato",
+  "howItWorks": {
+    "eyebrow": "Como funciona",
+    "title": "Comece em 3 passos",
+    "subtitle": "Do cadastro à operação em poucos minutos. Sem instalação, sem cartão, sem compromisso.",
+    "steps": {
+      "01": {
+        "title": "Cadastre a organização",
+        "description": "Crie a conta da organização em segundos. Nome, e-mail e dados da empresa."
+      },
+      "02": {
+        "title": "Adicione colaboradores",
+        "description": "Convide a equipe e configure departamentos, cargos e políticas de licença."
+      },
+      "03": {
+        "title": "Comece a gerenciar",
+        "description": "Controle ponto, licenças, avaliações e relatórios — desde o primeiro dia."
+      }
+    }
+  },
+  "faq": {
+    "groups": [
+      {
+        "category": "Geral",
+        "items": [
+          {
+            "q": "O que é o RH_Eletropasso?",
+            "a": "RH_Eletropasso é uma plataforma moderna de gestão de RH open-source que ajuda organizações a gerenciar ponto, licenças e cadastro de colaboradores em um só lugar. Funciona como Progressive Web App (PWA) em qualquer dispositivo."
+          },
+          {
+            "q": "O RH_Eletropasso é realmente grátis?",
+            "a": "Sim — totalmente grátis. É software open-source sem paywalls, sem limite de usuários e sem cartão de crédito. O app é sustentado por anúncios. Para remover anúncios da sua organização, você pode fazer uma pequena doação."
+          }
+        ]
+      },
+      {
+        "category": "Conta e configuração",
+        "items": [
+          {
+            "q": "Como registro minha organização?",
+            "a": "Clique em \"Começar grátis\", preencha o nome da organização, e-mail do administrador e senha. Você receberá um e-mail de verificação. A configuração leva menos de 5 minutos."
+          },
+          {
+            "q": "Posso gerenciar vários departamentos?",
+            "a": "Sim. Você pode criar departamentos e cargos ilimitados, atribuir colaboradores e acompanhar ponto e licenças por departamento."
+          }
+        ]
+      },
+      {
+        "category": "Ponto",
+        "items": [
+          {
+            "q": "Como funciona o ponto com selfie?",
+            "a": "Os colaboradores fazem check-in tirando uma selfie pelo app. O sistema captura a foto com coordenadas GPS e horário, garantindo registros autênticos e verificáveis."
+          },
+          {
+            "q": "Quais modos de ponto estão disponíveis?",
+            "a": "RH_Eletropasso oferece modo Escritório (entrada/saída padrão) e modo Fábrica (turnos). Administradores configuram quais modos estão disponíveis."
+          }
+        ]
+      },
+      {
+        "category": "Gestão de licenças",
+        "items": [
+          {
+            "q": "Como os colaboradores solicitam licença?",
+            "a": "Selecionam o tipo, as datas e um motivo opcional. Gestores recebem notificação e podem aprovar ou rejeitar com um clique."
+          },
+          {
+            "q": "Posso configurar tipos de licença personalizados?",
+            "a": "Sim. Administradores criam tipos com cotas anuais, regras de saldo e fluxos de aprovação configuráveis."
+          }
+        ]
+      },
+      {
+        "category": "Avaliações de desempenho",
+        "items": [
+          {
+            "q": "Como funcionam as avaliações de desempenho?",
+            "a": "Fluxo em 3 etapas: autoavaliação do colaborador, avaliação do gestor e finalização do RH. Cada etapa inclui competências e escala de notas configuráveis."
+          },
+          {
+            "q": "Posso personalizar competências e escala de notas?",
+            "a": "Sim. Nas configurações da organização você define competências, comportamentos e rótulos da escala para alinhar às valores da empresa."
+          }
+        ]
+      },
+      {
+        "category": "PWA e mobile",
+        "items": [
+          {
+            "q": "Preciso baixar o app na loja?",
+            "a": "Não! RH_Eletropasso é um Progressive Web App (PWA). Acesse a URL no navegador e instale na tela inicial — sem loja de aplicativos."
+          },
+          {
+            "q": "Funciona offline?",
+            "a": "O app armazena recursos essenciais da interface para carregar rápido. Recursos em tempo real, como o ponto, exigem conexão com a internet."
+          }
+        ]
+      },
+      {
+        "category": "Preço e suporte",
+        "items": [
+          {
+            "q": "Há período de teste ou prazo?",
+            "a": "Não há trial porque o RH_Eletropasso é permanentemente grátis. Sem prazos, sem bloqueio de recursos e sem limite de colaboradores."
+          },
+          {
+            "q": "Como remover anúncios da organização?",
+            "a": "Faça uma doação pelo GitHub Sponsors. Após a confirmação do patrocínio, os anúncios são desativados para a sua organização."
+          },
+          {
+            "q": "Quais recursos procurar em um software de RH?",
+            "a": "Um bom HRMS deve incluir ponto, licenças, diretório e relatórios. O RH_Eletropasso oferece tudo isso, além de avaliações e geofencing por GPS — de forma gratuita e open-source."
+          },
+          {
+            "q": "Pequenas empresas podem usar o RH_Eletropasso de graça?",
+            "a": "Com certeza. Sem limite de usuários, sem teto de colaboradores e sem restrição de recursos — pequenas e grandes empresas têm a mesma experiência completa."
+          }
+        ]
+      },
+      {
+        "category": "Comparações",
+        "items": [
+          {
+            "q": "Como o RH_Eletropasso se diferencia de outras plataformas?",
+            "a": "Diferente de softwares proprietários, o RH_Eletropasso é open-source — você pode inspecionar o código, hospedar ou personalizar. Também funciona como PWA, sem precisar baixar um app."
+          },
+          {
+            "q": "O RH_Eletropasso oferece ponto em várias localidades?",
+            "a": "Sim. Com geofencing por GPS você define locais autorizados e verifica se o check-in ocorre nesses endereços."
+          }
+        ]
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contato",
+    "title": "Fale conosco",
+    "subtitle": "Tem uma dúvida ou feedback? Adoraríamos ouvir você.",
+    "name": "Nome",
+    "email": "E-mail",
+    "subject": "Assunto",
+    "message": "Mensagem",
+    "namePlaceholder": "Seu nome",
+    "emailPlaceholder": "voce@exemplo.com",
+    "subjectPlaceholder": "Sobre o que é?",
+    "messagePlaceholder": "Conte o que está pensando…",
+    "requiredFields": "Preencha todos os campos obrigatórios.",
+    "genericError": "Algo deu errado. Tente novamente mais tarde.",
+    "sending": "Enviando…",
+    "sendMessage": "Enviar mensagem"
+  },
   "blog": "Blog",
   "guides": "Guias",
   "about": "Sobre",
   "privacy": "Política de privacidade",
   "terms": "Termos de serviço",
   "changelog": "Changelog",
+  "home": "Início",
   "back": "Voltar",
-  "heroTitle": "Gestão de RH moderna e simples",
-  "heroSubtitle": "Plataforma open-source gratuita para ponto, licenças e cadastro de colaboradores.",
-  "notFound": "Página não encontrada"
+  "backToHome": "Voltar ao início",
+  "backToTop": "Voltar ao topo",
+  "search": "Buscar…",
+  "searchAria": "Buscar (Ctrl+K)",
+  "lightMode": "Alternar para modo claro",
+  "darkMode": "Alternar para modo escuro",
+  "openMenu": "Abrir menu",
+  "closeMenu": "Fechar menu",
+  "skipToContent": "Ir para o conteúdo",
+  "learnMore": "Saiba mais",
+  "viewAllFeatures": "Ver todos os recursos",
+  "github": "GitHub",
+  "notFound": "Página não encontrada",
+  "allRightsReserved": "Todos os direitos reservados.",
+  "copyright": "© {{year}} RH_Eletropasso. Todos os direitos reservados.",
+  "seo": {
+    "landingTitle": "RH_Eletropasso — Software de gestão de RH gratuito e open-source",
+    "landingDescription": "RH_Eletropasso é uma plataforma de RH gratuita e open-source com ponto, licenças e diretório de colaboradores. Comece hoje — sem cartão de crédito.",
+    "softwareDescription": "Sistema de gestão de RH gratuito e open-source com ponto, licenças, diretório de colaboradores e ferramentas de conformidade."
+  },
+  "nav": {
+    "features": "Recursos",
+    "howItWorks": "Como funciona",
+    "faq": "FAQ",
+    "contact": "Contato",
+    "blog": "Blog",
+    "guides": "Guias"
+  },
+  "hero": {
+    "badge": "Plataforma de RH gratuita e open-source",
+    "title": "Gestão de RH moderna",
+    "titleHighlight": "e simples",
+    "subtitle": "RH_Eletropasso é uma plataforma de RH gratuita e open-source confiada por equipes em crescimento. Registre o ponto com selfie, gerencie licenças com um clique e mantenha o cadastro organizado — tudo em um painel intuitivo. Sem downloads, sem cartão — comece em minutos.",
+    "freeForever": "Grátis para sempre",
+    "noCreditCard": "Sem cartão de crédito",
+    "setupMinutes": "Configuração em 5 minutos",
+    "videoTitle": "Veja o RH_Eletropasso em ação",
+    "videoIframeTitle": "Introdução ao RH_Eletropasso",
+    "installGuide": "Guia de instalação",
+    "installIosIntro": "Instale o RH_Eletropasso no iPhone ou iPad:",
+    "installIosStep1": "1. Toque no botão Compartilhar no Safari",
+    "installIosStep2": "2. Selecione Adicionar à Tela de Início",
+    "installIosStep3": "3. Toque em Adicionar para confirmar",
+    "installAndroidIntro": "Instale o RH_Eletropasso pelo navegador:",
+    "installAndroidStep1": "1. Toque no botão Menu (⋮ ou ⋯)",
+    "installAndroidStep2": "2. Selecione Instalar app ou Adicionar à tela inicial",
+    "gotIt": "Entendi"
+  },
+  "featuresSection": {
+    "eyebrow": "Recursos",
+    "title": "Tudo o que você precisa",
+    "subtitle": "Uma plataforma para gerenciar todo o fluxo de RH — do ponto às avaliações de desempenho. Seja uma pequena empresa ou uma equipe em crescimento, o RH_Eletropasso se adapta às suas necessidades.",
+    "items": {
+      "attendance-tracking": {
+        "title": "Controle de ponto",
+        "description": "Check-in com selfie, geofencing por GPS e monitoramento em tempo real. Modos escritório e fábrica com verificação biométrica."
+      },
+      "leave-management": {
+        "title": "Gestão de licenças",
+        "description": "Tipos de licença personalizados, cálculo automático de saldo e fluxos de aprovação. Colaboradores solicitam em segundos; gestores aprovam com um clique."
+      },
+      "employee-directory": {
+        "title": "Diretório de colaboradores",
+        "description": "Perfis completos com departamento, cargo e acesso por perfil. Portal de autoatendimento para atualização de dados."
+      },
+      "reports-analytics": {
+        "title": "Relatórios e análises",
+        "description": "Resumos de ponto, relatórios de licenças e insights. Exportação CSV para folha e auditorias."
+      },
+      "performance-reviews": {
+        "title": "Avaliações de desempenho",
+        "description": "Ciclos estruturados com autoavaliação, avaliação do gestor e finalização do RH. Competências e escalas configuráveis."
+      }
+    }
+  },
+  "pricing": {
+    "eyebrow": "Grátis e open source",
+    "title": "Completamente grátis. Sem pegadinhas.",
+    "subtitle": "RH_Eletropasso é software livre e open-source. Todos os recursos para todas as organizações — sem paywalls, sem limite de usuários, sem cartão.",
+    "communityBadge": "Impulsionado pela comunidade",
+    "priceForever": "— para sempre",
+    "priceBlurb": "Todos os recursos incluídos. Sem taxas ocultas. Sem planos premium. RH open-source gratuito para todos.",
+    "supportTitle": "Apoie o projeto",
+    "supportBody": "RH_Eletropasso é mantido de forma independente e financiado pela comunidade. Se quiser remover anúncios da sua organização, faça uma doação — qualquer valor ajuda a manter o projeto.",
+    "sponsorGithub": "Patrocinar no GitHub",
+    "featureLabels": [
+      "Ponto com selfie e GPS",
+      "Licenças e saldos",
+      "Diretório e perfis",
+      "Relatórios e exportação",
+      "Avaliações de desempenho",
+      "PWA — funciona em qualquer dispositivo",
+      "Open source — audite o código",
+      "Sem limite de usuários"
+    ]
+  },
+  "testimonials": {
+    "eyebrow": "Depoimentos",
+    "title": "Confiado por equipes em crescimento",
+    "subtitle": "Veja por que organizações escolhem o RH_Eletropasso para gestão de RH.",
+    "stats": {
+      "organizations": "Organizações",
+      "employees": "Colaboradores gerenciados",
+      "uptime": "Disponibilidade"
+    },
+    "items": [
+      {
+        "quote": "O RH_Eletropasso transformou a forma como gerenciamos a equipe. O ponto saiu das planilhas para o check-in com selfie. O RH economiza horas toda semana.",
+        "name": "Rajesh Kumar",
+        "role": "Gerente de RH, TechCorp Solutions"
+      },
+      {
+        "quote": "Avaliamos 5 plataformas de RH antes de escolher o RH_Eletropasso. O ponto com selfie e GPS eliminou o buddy punching da noite para o dia. Recomendo para qualquer empresa em crescimento.",
+        "name": "Sarah Chen",
+        "role": "Diretora de Operações, Nexus Labs"
+      },
+      {
+        "quote": "Como ONG, precisávamos de uma solução gratuita sem abrir mão de recursos. Licenças e diretório do RH_Eletropasso são exatamente o que precisávamos. O PWA funciona bem nos celulares da equipe de campo.",
+        "name": "David Okafor",
+        "role": "Diretor Executivo, GreenPath Initiative"
+      }
+    ]
+  },
+  "showcase": {
+    "eyebrow": "Confiado por organizações no mundo todo",
+    "title": "Equipes que confiam no RH_Eletropasso"
+  },
+  "cta": {
+    "title": "Pronto para transformar seu RH?",
+    "subtitle": "Comece hoje — totalmente grátis. Sem cartão, sem prazo, sem pegadinhas.",
+    "footnote": "Grátis e open-source — para sempre"
+  },
+  "faqSection": {
+    "eyebrow": "FAQ",
+    "title": "Perguntas frequentes",
+    "subtitle": "Tudo o que você precisa saber sobre o RH_Eletropasso."
+  },
+  "footer": {
+    "tagline": "Gestão de RH moderna para equipes em crescimento. Open-source e gratuito para começar.",
+    "product": "Produto",
+    "resources": "Recursos",
+    "company": "Empresa"
+  },
+  "aboutPage": {
+    "seoTitle": "Sobre o RH_Eletropasso — Plataforma de RH gratuita e open-source",
+    "seoDescription": "Conheça a equipe, a missão e os valores por trás do RH_Eletropasso. Uma plataforma de RH gratuita e open-source acessível a organizações de todos os portes.",
+    "title": "Sobre o RH_Eletropasso",
+    "intro": "Nossa missão é tornar a gestão de RH acessível, transparente e gratuita para organizações em todo lugar. O RH_Eletropasso é uma plataforma comunitária e open-source para o ambiente de trabalho moderno.",
+    "storyTitle": "Nossa história",
+    "storyP1": "RH_Eletropasso nasceu de uma frustração simples: softwares de RH são caros e complexos demais para a maioria das organizações. Pequenas empresas, startups, ONGs e equipes em crescimento ficavam de fora — entre plataformas caras e planilhas cheias de erros.",
+    "storyP2": "Perguntamos: e se as ferramentas essenciais de RH fossem gratuitas, open-source e fáceis de usar?",
+    "storyP3": "A partir de 2024, começamos a construir o RH_Eletropasso como projeto open-source — um Progressive Web App que funciona em qualquer dispositivo, sem downloads, sem preço por usuário e sem custos ocultos. Ponto com selfie. Licenças com aprovação em um clique. Diretório. Avaliações. Relatórios. Tudo o que uma equipe em crescimento precisa, de graça.",
+    "storyP4": "Hoje, o RH_Eletropasso é usado por organizações em vários países, ajudando o RH a economizar horas e oferecendo uma experiência moderna aos colaboradores. E como é open-source, a comunidade continua melhorando o produto.",
+    "missionTitle": "Nossa missão",
+    "missionText": "Democratizar a tecnologia de RH construindo a plataforma mais acessível, transparente e comunitária — disponível gratuitamente para toda organização, em qualquer lugar.",
+    "valuesTitle": "Nossos valores",
+    "values": {
+      "freeForever": {
+        "title": "Grátis para sempre",
+        "description": "Acreditamos que ferramentas essenciais de RH devem ser acessíveis a toda organização, independentemente do orçamento. A plataforma principal é e sempre será gratuita."
+      },
+      "openSource": {
+        "title": "Open source",
+        "description": "Transparência gera confiança. Nosso código é público, o roadmap é aberto e qualquer pessoa pode contribuir. Sem vendor lock-in, sem taxas ocultas."
+      },
+      "community": {
+        "title": "Orientado pela comunidade",
+        "description": "O RH_Eletropasso é moldado por quem usa. Pedidos de recursos, relatos de bugs e contribuições influenciam nossas prioridades."
+      },
+      "scale": {
+        "title": "Feito para escalar",
+        "description": "Seja com 5 ou 500 colaboradores, o RH_Eletropasso cresce com você. Controle de acesso por perfil, múltiplos departamentos e fluxos configuráveis."
+      }
+    },
+    "statsTitle": "RH_Eletropasso em números",
+    "stats": {
+      "orgs": "Organizações usando o RH_Eletropasso",
+      "openSource": "Open source (licença MIT)",
+      "pwa": "Funciona em qualquer dispositivo"
+    },
+    "openSourceTitle": "Orgulhosamente open source",
+    "openSourceBody": "RH_Eletropasso é licenciado sob MIT. Todo o código está no GitHub. Você pode inspecionar, sugerir melhorias, reportar problemas ou hospedar sua própria instância.",
+    "viewGithub": "Ver no GitHub",
+    "ctaTitle": "Pronto para começar?",
+    "ctaBody": "Junte-se a organizações que usam o RH_Eletropasso para gerenciar o RH. Grátis para sempre, sem cartão de crédito.",
+    "exploreFeatures": "Explorar recursos"
+  },
+  "featuresPage": {
+    "seoTitle": "Recursos | RH_Eletropasso - HRMS open-source",
+    "seoDescription": "Conheça os recursos do RH_Eletropasso: ponto com selfie e GPS, licenças, diretório, avaliações, relatórios e mais. Grátis e open-source.",
+    "eyebrow": "Recursos",
+    "title": "Gestão de RH tudo-em-um",
+    "subtitle": "Tudo o que você precisa para ponto, licenças, colaboradores, avaliações e relatórios — em uma plataforma gratuita e open-source.",
+    "viewGuides": "Ver guias",
+    "learnMoreAbout": "Saiba mais sobre {{feature}}",
+    "platformEyebrow": "Plataforma",
+    "platformTitle": "Feito para equipes modernas",
+    "platformSubtitle": "Além dos recursos essenciais de RH, o RH_Eletropasso é rápido, acessível e personalizável.",
+    "platform": {
+      "anyDevice": {
+        "title": "Funciona em qualquer dispositivo",
+        "description": "Progressive Web App para celular, tablet e desktop. Instale como app nativo — sem loja."
+      },
+      "cloud": {
+        "title": "Na nuvem e sempre disponível",
+        "description": "Acesse o sistema de qualquer lugar. Dados armazenados com segurança e backups automáticos."
+      },
+      "notifications": {
+        "title": "Notificações em tempo real",
+        "description": "E-mail e notificações no app para licenças, aprovações, alertas de ponto e comunicados."
+      },
+      "secure": {
+        "title": "Seguro e privado",
+        "description": "Controle de acesso por perfil garante que cada pessoa veja apenas o necessário. Dados protegidos."
+      },
+      "customizable": {
+        "title": "Personalizável",
+        "description": "Configure departamentos, cargos, tipos de licença, ciclos de avaliação, temas e mais."
+      }
+    },
+    "comparisonEyebrow": "Comparação",
+    "comparisonTitle": "RH_Eletropasso vs HRMS pago típico",
+    "comparisonSubtitle": "Mais recursos de cara — sem preço por usuário.",
+    "comparisonFeatureCol": "Recurso",
+    "comparisonUsCol": "RH_Eletropasso",
+    "comparisonTypicalCol": "HRMS pago típico",
+    "paidAddon": "Add-on pago",
+    "comparisonRows": [
+      "Controle de ponto",
+      "Verificação com selfie + GPS",
+      "Gestão de licenças",
+      "Tipos de licença personalizados",
+      "Diretório de colaboradores",
+      "Avaliações de desempenho",
+      "Relatórios e análises",
+      "Notificações por e-mail",
+      "App mobile (PWA)",
+      "Open source",
+      "Plano gratuito disponível",
+      "Sem preço por usuário"
+    ],
+    "ctaTitle": "Pronto para simplificar o RH?",
+    "ctaBody": "Junte-se a organizações que já usam o RH_Eletropasso. Grátis para começar, sem cartão.",
+    "readBlog": "Ler o blog",
+    "catalog": {
+      "attendance-tracking": {
+        "title": "Gestão de ponto",
+        "subtitle": "Check-in com selfie e rastreamento GPS",
+        "description": "Elimine buddy punching e planilhas manuais com ponto verificado por foto. O colaborador faz check-in com selfie; o app captura foto, GPS e horário.",
+        "subFeatures": [
+          "Check-in com selfie e captura automática",
+          "Rastreamento GPS para verificação no local",
+          "Modo escritório e modo fábrica (turnos)",
+          "Painel de ponto em tempo real",
+          "Logs com filtros, busca e auditoria",
+          "Atraso e saída antecipada",
+          "Ajuste manual e override administrativo"
+        ]
+      },
+      "leave-management": {
+        "title": "Gestão de licenças",
+        "subtitle": "Ciclo completo da solicitação à aprovação",
+        "description": "Simplifique todo o processo de licenças. Solicitação em segundos, notificação instantânea ao gestor e visão completa de saldos para o RH.",
+        "subFeatures": [
+          "Solicitação com seletor de datas",
+          "Tipos configuráveis (anual, atestado, etc.)",
+          "Cota anual e saldo por colaborador",
+          "Fluxo de aprovação com e-mail",
+          "Calendário de disponibilidade da equipe",
+          "Meio período e vários dias",
+          "Cálculo automático de saldo e regras de transferência"
+        ]
+      },
+      "employee-directory": {
+        "title": "Diretório de colaboradores",
+        "subtitle": "Perfis centralizados e estrutura organizacional",
+        "description": "Mantenha o registro digital completo de cada pessoa — dados pessoais, cargo, departamento e hierarquia.",
+        "subFeatures": [
+          "Perfis completos com dados pessoais e de cargo",
+          "Gestão de departamentos e cargos",
+          "Controle de acesso por perfil (Admin, RH, Gestor, Colaborador)",
+          "Busca rápida e filtros avançados",
+          "Fluxos de admissão e desligamento",
+          "Importação e exportação em lote",
+          "Gestão de foto de perfil"
+        ]
+      },
+      "reports-analytics": {
+        "title": "Relatórios e análises",
+        "subtitle": "Insights para melhores decisões de RH",
+        "description": "Transforme dados de RH em insights acionáveis. Relatórios de ponto, utilização de licenças e desempenho da equipe.",
+        "subFeatures": [
+          "Resumos de ponto por pessoa, departamento ou período",
+          "Relatórios de utilização e saldo de licenças",
+          "Tendências de atraso e absenteísmo",
+          "Gráficos e painéis visuais",
+          "Exportação CSV para folha",
+          "Filtro por intervalo de datas",
+          "Análises e comparações por departamento"
+        ]
+      },
+      "performance-reviews": {
+        "title": "Avaliações de desempenho",
+        "subtitle": "Ciclos estruturados com avaliação em múltiplos níveis",
+        "description": "Conduza avaliações justas e transparentes. Defina competências, escalas e ciclos com autoavaliação, gestor e RH.",
+        "subFeatures": [
+          "Ciclos configuráveis com períodos personalizados",
+          "Autoavaliação do colaborador",
+          "Avaliação do gestor com competências",
+          "Etapa de revisão e finalização do RH",
+          "Frameworks e escalas personalizáveis",
+          "Integração de ponto e licenças nos cards",
+          "Histórico e acompanhamento de progresso"
+        ]
+      },
+      "gps-geofencing": {
+        "title": "GPS e verificação de localização",
+        "subtitle": "Confirme a localização no check-in",
+        "description": "Cada check-in captura coordenadas GPS junto com a selfie, para equipes remotas, de campo e multiunidade.",
+        "subFeatures": [
+          "Captura automática de GPS no check-in",
+          "Mapa com locais de check-in",
+          "Suporte a múltiplas unidades",
+          "Rastreamento de equipes de campo",
+          "Dados de localização em relatórios exportáveis"
+        ]
+      },
+      "biometric-selfie-verification": {
+        "title": "Verificação biométrica por selfie",
+        "subtitle": "Ponto verificado por foto, sem hardware",
+        "description": "Sem leitores de digital. O RH_Eletropasso usa a câmera de qualquer smartphone para verificar a identidade no check-in.",
+        "subFeatures": [
+          "Selfie pela câmera frontal no check-in",
+          "Trilha visual de auditoria para gestores",
+          "Elimina buddy punching",
+          "Sem hardware biométrico",
+          "Respeita a privacidade: sem reconhecimento facial"
+        ]
+      }
+    }
+  },
+  "featureDetail": {
+    "notFoundTitle": "Recurso não encontrado",
+    "notFoundBody": "A página deste recurso não existe.",
+    "whoFor": "Para quem é?",
+    "useCasesFor": "Casos de uso comuns de {{feature}}",
+    "previousFeature": "Recurso anterior",
+    "nextFeature": "Próximo recurso",
+    "viewAll": "Ver todos os recursos",
+    "readyToTry": "Pronto para experimentar {{feature}}?",
+    "readyBody": "Comece grátis. Sem cartão de crédito."
+  },
+  "blogPage": {
+    "seoTitle": "Blog | RH_Eletropasso - HRMS open-source",
+    "seoDescription": "Notícias, atualizações e insights sobre gestão de RH, engajamento e o RH_Eletropasso.",
+    "title": "Blog",
+    "subtitle": "Notícias, atualizações e insights",
+    "filteringBy": "Filtrando por:",
+    "clearAll": "Limpar tudo",
+    "clearFilters": "Limpar filtros",
+    "noPostsFilter": "Nenhum post encontrado para este filtro. Tente outra seleção.",
+    "noPosts": "Nenhum post publicado ainda. Volte em breve!",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "pageOf": "Página {{page}} de {{total}}",
+    "backToBlog": "Voltar ao blog",
+    "backToAllPosts": "Voltar a todos os posts",
+    "postTitleSuffix": "{{title}} | Blog RH_Eletropasso",
+    "postFallbackDescription": "Leia {{title}} no Blog do RH_Eletropasso.",
+    "teamName": "Equipe RH_Eletropasso",
+    "postNotFound": "Post não encontrado",
+    "postNotFoundBody": "O post que você procura não existe ou foi despublicado.",
+    "recentPosts": "Posts recentes",
+    "archive": "Arquivo",
+    "categories": "Categorias",
+    "clearFilter": "Limpar filtro"
+  },
+  "tutorialsPage": {
+    "seoTitle": "Guias | RH_Eletropasso - HRMS open-source",
+    "seoDescription": "Guias passo a passo para aproveitar ao máximo o RH_Eletropasso. Ponto, licenças, diretório e mais.",
+    "title": "Guias",
+    "subtitle": "Guias passo a passo para aproveitar ao máximo o RH_Eletropasso",
+    "loading": "Carregando tutoriais…",
+    "empty": "Nenhum tutorial publicado ainda. Volte em breve!",
+    "loadingTutorial": "Carregando tutorial…",
+    "backToTutorials": "Voltar aos tutoriais",
+    "backToGuides": "Voltar aos guias",
+    "postTitleSuffix": "{{title}} | Guias RH_Eletropasso",
+    "postFallbackDescription": "Aprenda a {{title}} com o RH_Eletropasso.",
+    "teamName": "Equipe RH_Eletropasso"
+  },
+  "changelogPage": {
+    "seoTitle": "Changelog — Novidades do RH_Eletropasso",
+    "seoDescription": "Veja atualizações, novos recursos, correções e melhorias do RH_Eletropasso. Acompanhe o progresso do desenvolvimento.",
+    "title": "Changelog",
+    "subtitle": "Todas as atualizações, recursos e correções do RH_Eletropasso. Lançamos melhorias regularmente para facilitar a gestão de RH da sua equipe.",
+    "types": {
+      "feature": "Recurso",
+      "fix": "Correção",
+      "improvement": "Melhoria",
+      "security": "Segurança",
+      "breaking": "Breaking"
+    }
+  },
+  "privacyPage": {
+    "seoTitle": "Política de Privacidade — RH_Eletropasso",
+    "seoDescription": "Saiba como o RH_Eletropasso coleta, usa e protege seus dados pessoais. Cookies, retenção e seus direitos.",
+    "lastUpdated": "Última atualização: fevereiro de 2026",
+    "sections": {
+      "s1Title": "1. Introdução",
+      "s1P1": "Bem-vindo ao RH_Eletropasso (\"nós\", \"nosso\"). Estamos comprometidos em proteger suas informações pessoais e seu direito à privacidade. Esta Política explica como coletamos, usamos, divulgamos e protegemos suas informações ao usar nossa plataforma de gestão de RH (o \"Serviço\").",
+      "s1P2": "Ao usar o Serviço, você concorda com a coleta e o uso das informações conforme esta política. Se não concordar, não acesse o Serviço.",
+      "s2Title": "2. Informações que coletamos",
+      "s2Intro": "Coletamos informações que você nos fornece diretamente, incluindo:",
+      "s2Items": [
+        "Informações da conta: nome, e-mail, nome da organização e perfil no cadastro.",
+        "Dados de colaboradores: perfis, registros de ponto, solicitações de licença e dados de RH inseridos pela organização.",
+        "Dados de uso: páginas visitadas, recursos usados e ações realizadas.",
+        "Informações do dispositivo: navegador, sistema operacional, tipo de dispositivo e endereço IP.",
+        "Dados de localização: localização aproximada para recursos de ponto, somente quando habilitado pela organização.",
+        "Dados de câmera: imagens para verificação de ponto, processadas no dispositivo e armazenadas com segurança."
+      ],
+      "s3Title": "3. Cookies e analytics",
+      "s3Intro": "Usamos cookies e tecnologias semelhantes para melhorar a experiência:",
+      "s3Items": [
+        "Cookies essenciais: necessários para o funcionamento (autenticação, sessão).",
+        "Cookies de analytics: podem ser usados para entender o uso do site, somente após consentimento.",
+        "Monitoramento de desempenho: ferramentas de desempenho para insights de uso."
+      ],
+      "s3P2": "Você pode aceitar ou recusar cookies de analytics pelo banner de consentimento. Altere a preferência limpando o armazenamento local do navegador neste site.",
+      "s4Title": "4. Como usamos suas informações",
+      "s4Intro": "Usamos as informações coletadas para:",
+      "s4Items": [
+        "Fornecer, operar e manter o Serviço.",
+        "Processar ponto, licenças e demais funções de RH.",
+        "Enviar notificações e e-mails de verificação relacionados à conta.",
+        "Melhorar e otimizar o Serviço com analytics.",
+        "Detectar e prevenir fraude, abuso e problemas de segurança.",
+        "Cumprir obrigações legais."
+      ],
+      "s5Title": "5. Armazenamento e segurança dos dados",
+      "s5Body": "Seus dados são armazenados com segurança usando PocketBase. Implementamos medidas técnicas e organizacionais adequadas contra acesso não autorizado, alteração, divulgação ou destruição. Nenhum método de transmissão pela Internet é 100% seguro.",
+      "s6Title": "6. Compartilhamento e divulgação",
+      "s6Intro": "Não vendemos suas informações pessoais. Podemos compartilhar dados apenas nestas circunstâncias:",
+      "s6Items": [
+        "Dentro da sua organização: administradores e gestores acessam dados conforme o perfil.",
+        "Prestadores de serviço: hospedagem e analytics que processam dados em nosso nome.",
+        "Exigências legais: quando exigido por lei, regulamento ou processo legal."
+      ],
+      "s7Title": "7. Seus direitos",
+      "s7Intro": "Dependendo da sua localização, você pode ter os seguintes direitos:",
+      "s7Items": [
+        "Acesso: solicitar cópia dos dados pessoais que mantemos.",
+        "Correção: solicitar correção de dados inexatos ou incompletos.",
+        "Exclusão: solicitar exclusão, sujeita a obrigações legais.",
+        "Portabilidade: solicitar cópia em formato estruturado e legível por máquina.",
+        "Retirar consentimento: retirar consentimento de analytics a qualquer momento."
+      ],
+      "s7P2": "Administradores da organização podem gerenciar e exportar os dados pelo próprio Serviço.",
+      "s8Title": "8. Retenção de dados",
+      "s8Body": "Retemos informações enquanto a conta estiver ativa ou for necessário para prestar o Serviço. Em caso de exclusão solicitada, excluiremos os dados em até 30 dias, salvo retenção legal obrigatória.",
+      "s9Title": "9. Privacidade de menores",
+      "s9Body": "O Serviço não se destina a menores de 16 anos. Não coletamos dados de crianças de forma consciente. Se souber que um menor nos forneceu dados, entre em contato para exclusão.",
+      "s10Title": "10. Alterações nesta política",
+      "s10Body": "Podemos atualizar esta Política periodicamente. Avisaremos alterando a data de \"Última atualização\" no topo desta página. Recomendamos revisá-la periodicamente.",
+      "s11Title": "11. Fale conosco",
+      "s11Intro": "Em caso de dúvidas sobre esta Política ou nossas práticas de dados, contate o administrador da sua organização ou o operador do sistema.",
+      "contactName": "RH_Eletropasso"
+    }
+  },
+  "termsPage": {
+    "seoTitle": "Termos de Serviço — RH_Eletropasso",
+    "seoDescription": "Leia os Termos de Serviço do RH_Eletropasso. Direitos, responsabilidades e regras de uso da plataforma de RH open-source.",
+    "lastUpdated": "Última atualização: fevereiro de 2026",
+    "sections": {
+      "s1Title": "1. Aceitação dos Termos",
+      "s1Body": "Ao acessar ou usar o RH_Eletropasso (o \"Serviço\"), você concorda com estes Termos de Serviço (\"Termos\"). Se não concordar, não acesse nem use o Serviço. Estes Termos se aplicam a visitantes, usuários e demais pessoas que acessam o Serviço.",
+      "s2Title": "2. Descrição do Serviço",
+      "s2Body": "RH_Eletropasso é uma plataforma de RH open-source com ferramentas de ponto, licenças, diretório, relatórios e outras funções de recursos humanos. O Serviço é fornecido \"como está\" e \"conforme disponível\" para organizações e usuários autorizados.",
+      "s3Title": "3. Contas de usuário",
+      "s3Items": [
+        "É necessário registrar uma conta de organização. Você é responsável pela confidencialidade das credenciais.",
+        "Forneça informações precisas e completas no cadastro e mantenha-as atualizadas.",
+        "Você é responsável por todas as atividades sob sua conta.",
+        "Administradores são responsáveis por gerenciar acessos e permissões na organização.",
+        "Notifique-nos imediatamente sobre uso não autorizado ou violação de segurança."
+      ],
+      "s4Title": "4. Uso aceitável",
+      "s4Intro": "Você concorda em não usar o Serviço para:",
+      "s4Items": [
+        "Violar leis, regulamentos ou direitos de terceiros.",
+        "Enviar vírus, malware ou código malicioso.",
+        "Tentar acesso não autorizado ao Serviço, contas ou sistemas relacionados.",
+        "Usar o Serviço para fins que não sejam gestão legítima de RH.",
+        "Interfere na integridade ou desempenho do Serviço.",
+        "Armazenar ou processar dados sensíveis além do necessário para RH.",
+        "Enviar spam, comunicações não solicitadas ou phishing."
+      ],
+      "s5Title": "5. Dados da organização",
+      "s5Body": "Sua organização mantém a propriedade de todos os dados inseridos (\"Dados da Organização\"). Não reivindicamos propriedade sobre eles. Você nos concede licença limitada para hospedar, armazenar e processar esses dados apenas para prestar o Serviço. Administradores podem exportar e excluir dados a qualquer momento.",
+      "s6Title": "6. Assinatura e cobrança",
+      "s6Body": "O Serviço oferece planos gratuitos e pagos. Planos pagos podem incluir recursos adicionais. Termos de pagamento e preços são exibidos no Serviço. Podemos alterar preços com aviso razoável.",
+      "s7Title": "7. Licença open source",
+      "s7Body": "RH_Eletropasso é um projeto open-source. O código está disponível sob a respectiva licença no GitHub. Estes Termos regem o uso do Serviço hospedado. Em auto-hospedagem, aplica-se a licença open-source e estes Termos não se aplicam.",
+      "s8Title": "8. Disponibilidade do Serviço",
+      "s8Body": "Buscamos manter disponibilidade e confiabilidade, mas não garantimos operação ininterrupta ou sem erros. Podemos suspender temporariamente o Serviço para manutenção ou atualizações.",
+      "s9Title": "9. Limitação de responsabilidade",
+      "s9Body": "Na máxima extensão permitida por lei, o RH_Eletropasso e seus contribuidores não serão responsáveis por danos indiretos, incidentais, especiais, consequenciais ou punitivos, incluindo perda de lucros, dados, uso ou goodwill, decorrentes do uso do Serviço.",
+      "s10Title": "10. Isenção de garantias",
+      "s10Body": "O Serviço é fornecido \"COMO ESTÁ\" e \"CONFORME DISPONÍVEL\", sem garantias de qualquer tipo, expressas ou implícitas, incluindo comercialização, adequação a um propósito específico e não violação.",
+      "s11Title": "11. Rescisão",
+      "s11Body": "Reservamo-nos o direito de suspender ou encerrar seu acesso a qualquer momento, com ou sem causa e com ou sem aviso. Após o encerramento, o direito de uso cessa imediatamente. Você também pode encerrar a conta a qualquer momento.",
+      "s12Title": "12. Alterações nestes Termos",
+      "s12Body": "Podemos modificar estes Termos a qualquer momento. Avisaremos alterações materiais atualizando a data de \"Última atualização\". O uso continuado após as mudanças constitui aceitação dos novos Termos.",
+      "s13Title": "13. Lei aplicável",
+      "s13Body": "Estes Termos são regidos pelas leis aplicáveis à sua jurisdição, sem considerar conflitos de leis. Controvérsias devem ser resolvidas por negociação de boa-fé antes de ação formal.",
+      "s14Title": "14. Fale conosco",
+      "s14Intro": "Em caso de dúvidas sobre estes Termos, contate o administrador da sua organização ou o operador do sistema.",
+      "contactName": "RH_Eletropasso"
+    }
+  },
+  "guidesPage": {
+    "seoTitle": "Guias | RH_Eletropasso - HRMS open-source",
+    "seoDescription": "Guias passo a passo para aproveitar ao máximo o RH_Eletropasso. Ponto, licenças, diretório e mais.",
+    "title": "Guias",
+    "subtitle": "Guias passo a passo para aproveitar ao máximo o RH_Eletropasso",
+    "loading": "Carregando tutoriais…",
+    "empty": "Nenhum tutorial publicado ainda. Volte em breve!",
+    "loadingTutorial": "Carregando tutorial…",
+    "backToTutorials": "Voltar aos tutoriais",
+    "backToGuides": "Voltar aos guias",
+    "postTitleSuffix": "{{title}} | Guias RH_Eletropasso",
+    "postFallbackDescription": "Aprenda a {{title}} com o RH_Eletropasso.",
+    "teamName": "Equipe RH_Eletropasso"
+  },
+  "previous": "Anterior",
+  "next": "Próximo",
+  "pageOf": "Página {{page}} de {{total}}"
 }

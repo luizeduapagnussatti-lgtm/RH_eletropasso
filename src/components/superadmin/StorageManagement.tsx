@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, HardDrive, Trash2, Clock, AlertTriangle, CheckCircle2, RefreshCw, Camera } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { organizationService } from '../../services/organization.service';
@@ -20,15 +21,10 @@ interface StorageManagementProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
 }
 
-const RETENTION_OPTIONS = [
-  { value: 7, label: '7 days', description: 'Aggressive - Minimal storage' },
-  { value: 14, label: '14 days', description: 'Short - Low storage' },
-  { value: 30, label: '30 days', description: 'Standard - Recommended' },
-  { value: 60, label: '60 days', description: 'Extended - Moderate storage' },
-  { value: 90, label: '90 days', description: 'Long - Higher storage' },
-];
+const RETENTION_OPTION_VALUES = [7, 14, 30, 60, 90] as const;
 
 const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -76,7 +72,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
       });
     } catch (e) {
       console.error('[Storage] Load error:', e);
-      onMessage({ type: 'error', text: 'Failed to load storage statistics' });
+      onMessage({ type: 'error', text: t('storagePanel.errorLoad') });
     } finally {
       setIsLoading(false);
     }
@@ -86,18 +82,18 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
     setIsSaving(true);
     try {
       await organizationService.setSetting('selfie_retention_days', retentionDays);
-      onMessage({ type: 'success', text: `Retention period updated to ${retentionDays} days` });
+      onMessage({ type: 'success', text: t('storagePanel.successRetentionUpdated', { days: retentionDays }) });
       await loadStats();
     } catch (e: any) {
       console.error('[Storage] Save error:', e);
-      onMessage({ type: 'error', text: 'Failed to save retention setting' });
+      onMessage({ type: 'error', text: t('storagePanel.errorSave') });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleManualCleanup = async () => {
-    if (!confirm(`This will permanently delete all selfie images older than ${retentionDays} days.\n\nThis action cannot be undone. Continue?`)) {
+    if (!confirm(t('storagePanel.confirmCleanup', { days: retentionDays }))) {
       return;
     }
 
@@ -136,12 +132,14 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
 
       onMessage({
         type: 'success',
-        text: `Cleanup complete! Cleaned ${cleaned} records${errors > 0 ? `, ${errors} errors` : ''}`,
+        text: errors > 0
+          ? t('storagePanel.successCleanupWithErrors', { cleaned, errors })
+          : t('storagePanel.successCleanup', { cleaned }),
       });
       await loadStats();
     } catch (e: any) {
       console.error('[Storage] Cleanup error:', e);
-      onMessage({ type: 'error', text: 'Failed to run cleanup: ' + (e.message || 'Unknown error') });
+      onMessage({ type: 'error', text: t('storagePanel.errorCleanup', { message: e.message || t('storagePanel.errorUnknown') }) });
     } finally {
       setIsRunningCleanup(false);
     }
@@ -159,8 +157,8 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-slate-900">Storage Management</h3>
-          <p className="text-sm text-slate-500 mt-1">Manage attendance selfie retention to optimize storage</p>
+          <h3 className="text-xl font-bold text-slate-900">{t('storagePanel.title')}</h3>
+          <p className="text-sm text-slate-500 mt-1">{t('storagePanel.subtitle')}</p>
         </div>
         <button
           onClick={loadStats}
@@ -180,7 +178,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{stats?.totalAttendanceRecords || 0}</p>
-              <p className="text-xs text-slate-500 font-medium">Total Records</p>
+              <p className="text-xs text-slate-500 font-medium">{t('storagePanel.totalRecords')}</p>
             </div>
           </div>
         </div>
@@ -192,7 +190,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{stats?.recordsWithSelfies || 0}</p>
-              <p className="text-xs text-slate-500 font-medium">With Selfies</p>
+              <p className="text-xs text-slate-500 font-medium">{t('storagePanel.withSelfies')}</p>
             </div>
           </div>
         </div>
@@ -203,8 +201,8 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
               <HardDrive size={20} className="text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">~{stats?.estimatedStorageMB || 0} MB</p>
-              <p className="text-xs text-slate-500 font-medium">Est. Storage</p>
+              <p className="text-2xl font-semibold text-slate-900">{t('storagePanel.estStorageValue', { mb: stats?.estimatedStorageMB || 0 })}</p>
+              <p className="text-xs text-slate-500 font-medium">{t('storagePanel.estStorage')}</p>
             </div>
           </div>
         </div>
@@ -215,8 +213,8 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
               <Clock size={20} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">{stats?.retentionDays || 30} days</p>
-              <p className="text-xs text-slate-500 font-medium">Retention</p>
+              <p className="text-2xl font-semibold text-slate-900">{t('storagePanel.retentionValue', { days: stats?.retentionDays || 30 })}</p>
+              <p className="text-xs text-slate-500 font-medium">{t('storagePanel.retention')}</p>
             </div>
           </div>
         </div>
@@ -227,27 +225,27 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
           <div className="flex items-center gap-2 text-slate-600 mb-2">
             <CheckCircle2 size={16} className="text-emerald-500" />
-            <span className="font-bold text-sm">Last Automatic Cleanup</span>
+            <span className="font-bold text-sm">{t('storagePanel.lastCleanupTitle')}</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-slate-400 text-xs">Run Time</p>
+              <p className="text-slate-400 text-xs">{t('storagePanel.runTime')}</p>
               <p className="font-medium text-slate-700">
                 {new Date(stats.lastCleanup.lastRun).toLocaleString()}
               </p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Records Cleaned</p>
+              <p className="text-slate-400 text-xs">{t('storagePanel.recordsCleaned')}</p>
               <p className="font-medium text-slate-700">{stats.lastCleanup.recordsCleaned}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Errors</p>
+              <p className="text-slate-400 text-xs">{t('storagePanel.errors')}</p>
               <p className={`font-medium ${stats.lastCleanup.errors > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                 {stats.lastCleanup.errors}
               </p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Cutoff Date</p>
+              <p className="text-slate-400 text-xs">{t('storagePanel.cutoffDate')}</p>
               <p className="font-medium text-slate-700">{stats.lastCleanup.cutoffDate}</p>
             </div>
           </div>
@@ -256,27 +254,26 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
 
       {/* Retention Settings */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h4 className="font-bold text-slate-900 mb-4">Selfie Retention Policy</h4>
+        <h4 className="font-bold text-slate-900 mb-4">{t('storagePanel.policyTitle')}</h4>
         <p className="text-sm text-slate-500 mb-4">
-          Selfies older than the retention period will be automatically deleted daily at 2 AM server time.
-          Attendance records will be preserved, only the selfie images are removed.
+          {t('storagePanel.policyDesc')}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
-          {RETENTION_OPTIONS.map(option => (
+          {RETENTION_OPTION_VALUES.map(value => (
             <button
-              key={option.value}
-              onClick={() => setRetentionDays(option.value)}
+              key={value}
+              onClick={() => setRetentionDays(value)}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
-                retentionDays === option.value
+                retentionDays === value
                   ? 'border-primary bg-primary-light/30'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
             >
-              <p className={`font-bold ${retentionDays === option.value ? 'text-primary' : 'text-slate-900'}`}>
-                {option.label}
+              <p className={`font-bold ${retentionDays === value ? 'text-primary' : 'text-slate-900'}`}>
+                {t(`storagePanel.options.${value}.label`)}
               </p>
-              <p className="text-xs text-slate-500 mt-1">{option.description}</p>
+              <p className="text-xs text-slate-500 mt-1">{t(`storagePanel.options.${value}.desc`)}</p>
             </button>
           ))}
         </div>
@@ -288,7 +285,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
             className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            Save Retention Policy
+            {t('storagePanel.savePolicy')}
           </button>
 
           <button
@@ -297,7 +294,7 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
             className="px-6 py-3 bg-red-50 text-red-700 rounded-xl font-bold flex items-center gap-2 hover:bg-red-100 transition-all disabled:opacity-50"
           >
             {isRunningCleanup ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-            Run Cleanup Now
+            {t('storagePanel.runCleanup')}
           </button>
         </div>
 
@@ -305,12 +302,12 @@ const StorageManagement: React.FC<StorageManagementProps> = ({ onMessage }) => {
         <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
           <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold text-amber-800 text-sm">Important Notes</p>
+            <p className="font-bold text-amber-800 text-sm">{t('storagePanel.notesTitle')}</p>
             <ul className="text-xs text-amber-700 mt-1 space-y-1">
-              <li>- Deleted selfies cannot be recovered</li>
-              <li>- Automatic cleanup runs daily at 2:00 AM server time</li>
-              <li>- Consider local labor laws before setting retention period</li>
-              <li>- Storage estimates are approximate (~150KB per selfie)</li>
+              <li>{t('storagePanel.notes1')}</li>
+              <li>{t('storagePanel.notes2')}</li>
+              <li>{t('storagePanel.notes3')}</li>
+              <li>{t('storagePanel.notes4')}</li>
             </ul>
           </div>
         </div>

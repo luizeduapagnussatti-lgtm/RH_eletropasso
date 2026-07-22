@@ -7,6 +7,8 @@ import { AppNotification, NotificationType } from '../types';
 import AdminNotificationFormModal from '../components/notifications/AdminNotificationFormModal';
 import HelpButton from '../components/onboarding/HelpButton';
 import { useToast } from '../context/ToastContext';
+import { tStatus } from '../i18n/statusMaps';
+import { formatDate } from '../i18n/format';
 
 interface Employee {
   id: string;
@@ -19,13 +21,7 @@ interface Props {
   user: any;
 }
 
-const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
-  ANNOUNCEMENT: 'Announcements',
-  LEAVE: 'Leave Requests',
-  ATTENDANCE: 'Attendance',
-  REVIEW: 'Performance Reviews',
-  SYSTEM: 'System',
-};
+const NOTIFICATION_TYPES: NotificationType[] = ['ANNOUNCEMENT', 'LEAVE', 'ATTENDANCE', 'REVIEW', 'SYSTEM'];
 
 const TYPE_COLORS: Record<string, string> = {
   ANNOUNCEMENT: 'bg-blue-100 text-blue-700',
@@ -73,7 +69,6 @@ const AdminNotifications: React.FC<Props> = (_props) => {
     init();
   }, [loadNotifications, loadEmployees]);
 
-  // Subscribe for real-time updates
   useEffect(() => {
     const unsub = hrService.subscribe(() => {
       loadNotifications();
@@ -82,24 +77,24 @@ const AdminNotifications: React.FC<Props> = (_props) => {
   }, [loadNotifications]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this notification?')) return;
+    if (!confirm(t('confirmDelete'))) return;
     try {
       await hrService.deleteNotification(id);
       setNotifications(prev => prev.filter(n => n.id !== id));
     } catch {
-      showToast('Failed to delete notification.', 'error');
+      showToast(t('deleteFailed'), 'error');
     }
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm('Are you sure you want to delete ALL notifications?\n\nThis will permanently remove all notifications (read and unread) for the entire organization.\n\nThis action cannot be undone.')) return;
+    if (!confirm(t('confirmDeleteAll'))) return;
     setIsDeletingAll(true);
     try {
       const deleted = await hrService.deleteAllNotifications();
       setNotifications([]);
-      showToast(`Successfully deleted ${deleted} notifications.`, 'success');
+      showToast(t('deleteAllSuccess', { count: deleted }), 'success');
     } catch {
-      showToast('Failed to delete all notifications.', 'error');
+      showToast(t('deleteAllFailed'), 'error');
     } finally {
       setIsDeletingAll(false);
     }
@@ -115,7 +110,6 @@ const AdminNotifications: React.FC<Props> = (_props) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-primary/10 rounded-2xl">
@@ -123,7 +117,7 @@ const AdminNotifications: React.FC<Props> = (_props) => {
           </div>
           <div>
             <div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-slate-900">{t('title')}</h1><HelpButton helpPointId="notifications.admin" size={16} /></div>
-            <p className="text-xs text-slate-400 font-medium">Send and manage notifications for your organization</p>
+            <p className="text-xs text-slate-400 font-medium">{t('subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -133,25 +127,24 @@ const AdminNotifications: React.FC<Props> = (_props) => {
             className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-red-700 bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isDeletingAll ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-            Delete All
+            {t('deleteAll')}
           </button>
           <button
             onClick={() => setShowSendModal(true)}
             className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-primary rounded-xl hover:opacity-90 transition-colors shadow-sm"
           >
-            <Send size={16} /> Send Notification
+            <Send size={16} /> {t('compose')}
           </button>
         </div>
       </div>
 
-      {/* Search & Filter */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search notifications..."
+              placeholder={t('searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -162,19 +155,18 @@ const AdminNotifications: React.FC<Props> = (_props) => {
             onChange={e => setTypeFilter(e.target.value)}
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none"
           >
-            <option value="ALL">All Types</option>
-            {(Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[]).map(type => (
-              <option key={type} value={type}>{NOTIFICATION_TYPE_LABELS[type]}</option>
+            <option value="ALL">{t('allTypes')}</option>
+            {NOTIFICATION_TYPES.map(type => (
+              <option key={type} value={type}>{tStatus('notification', type)}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Notification List */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-800">
-            All Notifications {!isLoading && <span className="text-slate-400 font-medium">({filtered.length})</span>}
+            {t('allNotifications')} {!isLoading && <span className="text-slate-400 font-medium">({filtered.length})</span>}
           </h3>
         </div>
 
@@ -186,7 +178,7 @@ const AdminNotifications: React.FC<Props> = (_props) => {
           ) : filtered.length === 0 ? (
             <div className="text-center py-12">
               <Bell size={32} className="mx-auto text-slate-200 mb-3" />
-              <p className="text-sm text-slate-400">No notifications found.</p>
+              <p className="text-sm text-slate-400">{t('empty')}</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
@@ -195,22 +187,22 @@ const AdminNotifications: React.FC<Props> = (_props) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${TYPE_COLORS[notif.type] || TYPE_COLORS.SYSTEM}`}>
-                        {notif.type}
+                        {tStatus('notification', notif.type)}
                       </span>
                       {notif.priority === 'URGENT' && (
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-700">URGENT</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-700">{t('urgent')}</span>
                       )}
                       <p className="font-medium text-sm text-slate-900 truncate">{notif.title}</p>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      To: {notif.userId?.slice(0, 8)}... | {notif.created ? new Date(notif.created).toLocaleDateString() : '—'}
-                      {notif.isRead && ' | Read'}
+                      {t('toRecipient', { id: notif.userId?.slice(0, 8) || '—' })} | {notif.created ? formatDate(notif.created) : '—'}
+                      {notif.isRead && ` | ${t('read')}`}
                     </p>
                   </div>
                   <button
                     onClick={() => handleDelete(notif.id)}
                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                    title="Delete notification"
+                    title={t('deleteNotification')}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -221,7 +213,6 @@ const AdminNotifications: React.FC<Props> = (_props) => {
         </div>
       </div>
 
-      {/* Send Notification Modal */}
       {showSendModal && (
         <AdminNotificationFormModal
           employees={employees}

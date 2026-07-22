@@ -90,9 +90,21 @@ A Edge Function `dmprep-sync` faz proxy autenticado para este serviço.
 Secrets da Edge Function (`supabase/functions/.env`):
 
 ```env
-DMPREP_SYNC_URL=http://127.0.0.1:3099
+# Edge runtime roda em Docker — use host.docker.internal (Windows/macOS Docker Desktop)
+DMPREP_SYNC_URL=http://host.docker.internal:3099
 DMPREP_SYNC_API_KEY=<same as DMPREP_HTTP_API_KEY>
 DMPREP_SYNC_TIMEOUT_MS=120000
+```
+
+O serviço local deve escutar em **`DMPREP_HTTP_HOST=0.0.0.0`** (não `127.0.0.1`)
+para o container da Edge Function alcançar a porta `3099`.
+
+Com o stack Supabase local, suba também as Edge Functions (o runtime embutido
+fica parado por padrão):
+
+```powershell
+cd C:\xampp\htdocs\RH_eletropasso
+npx supabase functions serve --env-file supabase/functions/.env
 ```
 
 Requisitos adicionais para import de cadastros:

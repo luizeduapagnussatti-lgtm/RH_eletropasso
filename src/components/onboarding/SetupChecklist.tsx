@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, CheckCircle2, ArrowRight, HelpCircle, PartyPopper, RotateCcw, BookOpen } from 'lucide-react';
 import { useSetupChecklist, SetupStep } from '../../hooks/onboarding/useSetupChecklist';
 
@@ -14,6 +14,8 @@ const StepItem: React.FC<{
   isLast: boolean;
   onGo: () => void;
 }> = ({ step, status, isLast, onGo }) => {
+  const { t } = useTranslation('onboarding');
+
   const handleHelp = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.open(`/how-to-use/${step.tutorialSlug}`, '_blank');
@@ -21,9 +23,7 @@ const StepItem: React.FC<{
 
   return (
     <div className="flex gap-3 items-start">
-      {/* Timeline column */}
       <div className="flex flex-col items-center flex-shrink-0">
-        {/* Number bubble */}
         {status === 'completed' ? (
           <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
             <CheckCircle2 size={16} className="text-white" />
@@ -37,14 +37,12 @@ const StepItem: React.FC<{
             <span className="text-xs font-semibold text-slate-400">{step.id}</span>
           </div>
         )}
-        {/* Connecting line */}
         {!isLast && (
           <div className={`w-0.5 flex-1 min-h-[16px] mt-1 ${status === 'completed' ? 'bg-emerald-300' : 'bg-slate-200'}`} />
         )}
       </div>
 
-      {/* Content column */}
-      <div className={`flex-1 pb-3`}>
+      <div className="flex-1 pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0">
             <p className={`text-sm font-semibold leading-tight ${status === 'completed' ? 'text-emerald-700 line-through' : status === 'current' ? 'text-slate-900' : 'text-slate-400'}`}>
@@ -56,19 +54,19 @@ const StepItem: React.FC<{
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {status === 'completed' && (
-              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Done</span>
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{t('markDone')}</span>
             )}
             {status === 'current' && (
               <button
                 onClick={onGo}
                 className="flex items-center gap-1 px-2.5 py-1 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-all active:scale-95"
               >
-                Go <ArrowRight size={12} />
+                {t('go')} <ArrowRight size={12} />
               </button>
             )}
             <button
               onClick={handleHelp}
-              title="View Guide"
+              title={t('viewGuide')}
               className="p-1 rounded-full text-primary/40 hover:text-primary hover:bg-primary-light transition-all"
             >
               <HelpCircle size={14} />
@@ -81,6 +79,7 @@ const StepItem: React.FC<{
 };
 
 const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
+  const { t } = useTranslation('onboarding');
   const {
     steps, isLoading, isDismissed, completedCount, totalCount, allComplete, dismiss, reEnable, isAdminOrHR
   } = useSetupChecklist(user.role);
@@ -90,7 +89,6 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
   if (!isAdminOrHR) return null;
   if (isLoading) return null;
 
-  // When dismissed, show a compact "bring back" button on the dashboard
   if (isDismissed) {
     return (
       <button
@@ -101,8 +99,8 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
           <BookOpen size={16} className="text-primary" />
         </div>
         <div className="text-left flex-1">
-          <p className="text-sm font-semibold text-slate-600 group-hover:text-primary transition-colors">Show Setup Guide</p>
-          <p className="text-[10px] text-slate-400">Reopen the step-by-step organization setup checklist</p>
+          <p className="text-sm font-semibold text-slate-600 group-hover:text-primary transition-colors">{t('showSetupGuide')}</p>
+          <p className="text-[10px] text-slate-400">{t('showSetupGuideHint')}</p>
         </div>
         <RotateCcw size={14} className="text-slate-300 group-hover:text-primary transition-colors" />
       </button>
@@ -128,7 +126,6 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-top-4 duration-500">
-      {/* Header */}
       <div
         className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -143,10 +140,10 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              {allComplete ? 'Setup Complete!' : 'Set Up Your Organization'}
+              {allComplete ? t('setupComplete') : t('setupTitle')}
             </h3>
             <p className="text-xs text-slate-500">
-              {allComplete ? 'Your organization is fully configured.' : 'Complete these steps to get your team started'}
+              {allComplete ? t('setupCompleteSubtitle') : t('setupSubtitle')}
             </p>
           </div>
         </div>
@@ -155,7 +152,6 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="px-5">
         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
@@ -165,19 +161,18 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       </div>
 
-      {/* Steps */}
       {!isCollapsed && (
         <div className="px-5 pt-4 pb-3">
           {allComplete ? (
             <div className="text-center py-4">
               <p className="text-sm text-emerald-700 font-medium mb-3">
-                All {totalCount} steps completed. Your organization is ready to go!
+                {t('allStepsComplete', { count: totalCount })}
               </p>
               <button
                 onClick={dismiss}
                 className="text-xs text-slate-400 hover:text-slate-600 underline transition-colors"
               >
-                Hide this checklist
+                {t('hideChecklist')}
               </button>
             </div>
           ) : (
@@ -193,13 +188,13 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
               ))}
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {completedCount} of {totalCount} complete
+                  {t('progressComplete', { completed: completedCount, total: totalCount })}
                 </p>
                 <button
                   onClick={dismiss}
                   className="text-[10px] text-slate-400 hover:text-slate-600 underline transition-colors"
                 >
-                  Don't show this again
+                  {t('dismiss')}
                 </button>
               </div>
             </>
@@ -212,8 +207,8 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
 
 export default SetupChecklist;
 
-// Re-enable button for use in Settings page
 export const ReEnableSetupGuide: React.FC<{ userRole: string }> = ({ userRole }) => {
+  const { t } = useTranslation('onboarding');
   const { isDismissed, reEnable, isAdminOrHR } = useSetupChecklist(userRole);
 
   if (!isAdminOrHR || !isDismissed) return null;
@@ -224,7 +219,7 @@ export const ReEnableSetupGuide: React.FC<{ userRole: string }> = ({ userRole })
       className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all"
     >
       <RotateCcw size={14} />
-      Re-enable Setup Guide
+      {t('reEnableSetupGuide')}
     </button>
   );
 };

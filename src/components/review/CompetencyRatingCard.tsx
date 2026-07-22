@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { DEFAULT_RATING_SCALE } from '../../constants';
 
 interface Props {
@@ -27,6 +28,7 @@ const CompetencyRatingCard: React.FC<Props> = ({
   label,
   ratingScale,
 }) => {
+  const { t } = useTranslation('review');
   const scale = ratingScale || DEFAULT_RATING_SCALE;
 
   return (
@@ -52,7 +54,7 @@ const CompetencyRatingCard: React.FC<Props> = ({
 
       {/* Rating Selector */}
       <div>
-        <p className="text-xs font-medium text-slate-600 mb-2">Rating</p>
+        <p className="text-xs font-medium text-slate-600 mb-2">{t('rating')}</p>
         <div className="flex gap-2">
           {scale.map(s => (
             <button
@@ -82,16 +84,16 @@ const CompetencyRatingCard: React.FC<Props> = ({
 
       {/* Comment */}
       <div>
-        <p className="text-xs font-medium text-slate-600 mb-1">Comment</p>
+        <p className="text-xs font-medium text-slate-600 mb-1">{t('comment')}</p>
         {readOnly ? (
           <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-3 min-h-[2.5rem]">
-            {comment || <span className="text-slate-400 italic">No comment</span>}
+            {comment || <span className="text-slate-400 italic">{t('noComment')}</span>}
           </p>
         ) : (
           <textarea
             value={comment}
             onChange={e => onCommentChange?.(e.target.value)}
-            placeholder="Add your observations..."
+            placeholder={t('observationsPlaceholder')}
             className="w-full text-sm border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             rows={2}
           />

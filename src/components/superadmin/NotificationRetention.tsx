@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Bell, Clock, AlertTriangle, CheckCircle2, RefreshCw, Mail, MailOpen, Zap } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { organizationService } from '../../services/organization.service';
@@ -20,15 +21,10 @@ interface NotificationRetentionProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
 }
 
-const RETENTION_OPTIONS = [
-  { value: 7, label: '7 days', description: 'Aggressive - Minimal retention' },
-  { value: 14, label: '14 days', description: 'Short - Low retention' },
-  { value: 30, label: '30 days', description: 'Standard - Recommended' },
-  { value: 60, label: '60 days', description: 'Extended - Moderate retention' },
-  { value: 90, label: '90 days', description: 'Long - Higher retention' },
-];
+const RETENTION_OPTION_VALUES = [7, 14, 30, 60, 90] as const;
 
 const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +71,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
       });
     } catch (e) {
       console.error('[NotificationRetention] Load error:', e);
-      onMessage({ type: 'error', text: 'Failed to load notification statistics' });
+      onMessage({ type: 'error', text: t('notificationsPanel.errorLoad') });
     } finally {
       setIsLoading(false);
     }
@@ -85,18 +81,18 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
     setIsSaving(true);
     try {
       await organizationService.setSetting('notification_retention_days', retentionDays);
-      onMessage({ type: 'success', text: `Notification retention updated to ${retentionDays} days` });
+      onMessage({ type: 'success', text: t('notificationsPanel.successRetentionUpdated', { days: retentionDays }) });
       await loadStats();
     } catch (e: any) {
       console.error('[NotificationRetention] Save error:', e);
-      onMessage({ type: 'error', text: 'Failed to save retention setting' });
+      onMessage({ type: 'error', text: t('notificationsPanel.errorSave') });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handlePurgeAll = async () => {
-    if (!confirm('Are you sure you want to DELETE ALL notifications?\n\nThis will permanently remove every notification for ALL users across ALL organizations.\n\nThis action cannot be undone.')) {
+    if (!confirm(t('notificationsPanel.confirmPurge'))) {
       return;
     }
 
@@ -110,11 +106,11 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
       if (error) throw error;
       const deleted = count || 0;
 
-      onMessage({ type: 'success', text: `Purge complete! Deleted ${deleted} notifications` });
+      onMessage({ type: 'success', text: t('notificationsPanel.successPurge', { count: deleted }) });
       await loadStats();
     } catch (e: any) {
       console.error('[NotificationRetention] Purge error:', e);
-      onMessage({ type: 'error', text: 'Failed to purge notifications: ' + (e.message || 'Unknown error') });
+      onMessage({ type: 'error', text: t('notificationsPanel.errorPurge', { message: e.message || t('storagePanel.errorUnknown') }) });
     } finally {
       setIsPurging(false);
     }
@@ -132,8 +128,8 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-slate-900">Notification Retention</h3>
-          <p className="text-sm text-slate-500 mt-1">Manage notification retention to keep the database clean</p>
+          <h3 className="text-xl font-bold text-slate-900">{t('notificationsPanel.title')}</h3>
+          <p className="text-sm text-slate-500 mt-1">{t('notificationsPanel.subtitle')}</p>
         </div>
         <button
           onClick={loadStats}
@@ -153,7 +149,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{stats?.totalNotifications || 0}</p>
-              <p className="text-xs text-slate-500 font-medium">Total</p>
+              <p className="text-xs text-slate-500 font-medium">{t('notificationsPanel.total')}</p>
             </div>
           </div>
         </div>
@@ -165,7 +161,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{stats?.readNotifications || 0}</p>
-              <p className="text-xs text-slate-500 font-medium">Read</p>
+              <p className="text-xs text-slate-500 font-medium">{t('notificationsPanel.read')}</p>
             </div>
           </div>
         </div>
@@ -177,7 +173,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{stats?.unreadNotifications || 0}</p>
-              <p className="text-xs text-slate-500 font-medium">Unread</p>
+              <p className="text-xs text-slate-500 font-medium">{t('notificationsPanel.unread')}</p>
             </div>
           </div>
         </div>
@@ -188,8 +184,8 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
               <Clock size={20} className="text-violet-600" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">{stats?.retentionDays || 30} days</p>
-              <p className="text-xs text-slate-500 font-medium">Retention</p>
+              <p className="text-2xl font-semibold text-slate-900">{t('notificationsPanel.retentionValue', { days: stats?.retentionDays || 30 })}</p>
+              <p className="text-xs text-slate-500 font-medium">{t('notificationsPanel.retention')}</p>
             </div>
           </div>
         </div>
@@ -199,9 +195,9 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
       <div className="bg-red-50 rounded-2xl border border-red-200 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-bold text-red-900">Purge All Notifications</h4>
+            <h4 className="font-bold text-red-900">{t('notificationsPanel.purgeTitle')}</h4>
             <p className="text-sm text-red-700 mt-1">
-              Permanently delete every notification for all users across all organizations.
+              {t('notificationsPanel.purgeDesc')}
             </p>
           </div>
           <button
@@ -210,7 +206,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
             className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPurging ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
-            Purge All ({stats?.totalNotifications || 0})
+            {t('notificationsPanel.purgeButton', { count: stats?.totalNotifications || 0 })}
           </button>
         </div>
       </div>
@@ -220,27 +216,27 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
           <div className="flex items-center gap-2 text-slate-600 mb-2">
             <CheckCircle2 size={16} className="text-emerald-500" />
-            <span className="font-bold text-sm">Last Automatic Cleanup</span>
+            <span className="font-bold text-sm">{t('notificationsPanel.lastCleanupTitle')}</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-slate-400 text-xs">Run Time</p>
+              <p className="text-slate-400 text-xs">{t('notificationsPanel.runTime')}</p>
               <p className="font-medium text-slate-700">
                 {new Date(stats.lastCleanup.lastRun).toLocaleString()}
               </p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Notifications Deleted</p>
+              <p className="text-slate-400 text-xs">{t('notificationsPanel.deleted')}</p>
               <p className="font-medium text-slate-700">{stats.lastCleanup.recordsCleaned}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Errors</p>
+              <p className="text-slate-400 text-xs">{t('notificationsPanel.errors')}</p>
               <p className={`font-medium ${stats.lastCleanup.errors > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                 {stats.lastCleanup.errors}
               </p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Cutoff Date</p>
+              <p className="text-slate-400 text-xs">{t('notificationsPanel.cutoffDate')}</p>
               <p className="font-medium text-slate-700">{stats.lastCleanup.cutoffDate}</p>
             </div>
           </div>
@@ -249,27 +245,26 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
 
       {/* Retention Settings */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h4 className="font-bold text-slate-900 mb-4">Notification Retention Policy</h4>
+        <h4 className="font-bold text-slate-900 mb-4">{t('notificationsPanel.policyTitle')}</h4>
         <p className="text-sm text-slate-500 mb-4">
-          Notifications older than the retention period will be automatically deleted daily at 3 AM server time.
-          This applies to all notifications across all organizations.
+          {t('notificationsPanel.policyDesc')}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
-          {RETENTION_OPTIONS.map(option => (
+          {RETENTION_OPTION_VALUES.map(value => (
             <button
-              key={option.value}
-              onClick={() => setRetentionDays(option.value)}
+              key={value}
+              onClick={() => setRetentionDays(value)}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
-                retentionDays === option.value
+                retentionDays === value
                   ? 'border-primary bg-primary-light/30'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
             >
-              <p className={`font-bold ${retentionDays === option.value ? 'text-primary' : 'text-slate-900'}`}>
-                {option.label}
+              <p className={`font-bold ${retentionDays === value ? 'text-primary' : 'text-slate-900'}`}>
+                {t(`notificationsPanel.options.${value}.label`)}
               </p>
-              <p className="text-xs text-slate-500 mt-1">{option.description}</p>
+              <p className="text-xs text-slate-500 mt-1">{t(`notificationsPanel.options.${value}.desc`)}</p>
             </button>
           ))}
         </div>
@@ -281,7 +276,7 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
             className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            Save Retention Policy
+            {t('notificationsPanel.savePolicy')}
           </button>
         </div>
 
@@ -289,12 +284,12 @@ const NotificationRetention: React.FC<NotificationRetentionProps> = ({ onMessage
         <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
           <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold text-amber-800 text-sm">Important Notes</p>
+            <p className="font-bold text-amber-800 text-sm">{t('notificationsPanel.notesTitle')}</p>
             <ul className="text-xs text-amber-700 mt-1 space-y-1">
-              <li>- Deleted notifications cannot be recovered</li>
-              <li>- Automatic cleanup runs daily at 3:00 AM server time</li>
-              <li>- Both read and unread notifications will be deleted after the retention period</li>
-              <li>- This affects notifications across all organizations on the platform</li>
+              <li>{t('notificationsPanel.notes1')}</li>
+              <li>{t('notificationsPanel.notes2')}</li>
+              <li>{t('notificationsPanel.notes3')}</li>
+              <li>{t('notificationsPanel.notes4')}</li>
             </ul>
           </div>
         </div>

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import HelpButton from '../onboarding/HelpButton';
 
@@ -9,6 +10,9 @@ interface Props {
 }
 
 export const AttendanceHeader: React.FC<Props> = ({ currentTime, onBack }) => {
+  const { i18n } = useTranslation('attendance');
+  const locale = i18n.language?.startsWith('pt') ? 'pt-BR' : 'en-GB';
+
   return (
     <div className="px-6 pt-10 pb-2 flex flex-col items-center relative">
       <button
@@ -22,10 +26,10 @@ export const AttendanceHeader: React.FC<Props> = ({ currentTime, onBack }) => {
       </div>
       <div className="text-center">
          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">
-           {currentTime.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toUpperCase()}
+           {currentTime.toLocaleDateString(locale, { day: 'numeric', month: 'short' }).toUpperCase()}
          </p>
          <p className="text-4xl font-semibold text-[#0f172a] tabular-nums tracking-tighter">
-           {currentTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+           {currentTime.toLocaleTimeString(locale, { hour12: false, hour: '2-digit', minute: '2-digit' })}
          </p>
       </div>
     </div>

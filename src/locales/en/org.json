@@ -212,17 +212,23 @@
   "notificationSaveFailed": "Failed to save notification config.",
   "dmprepSync": {
     "title": "DMPREP sync",
-    "description": "Imports new employees from DIMEP.MDB and recent punches from MOVIMENT.txt into OpenHR. The background service also runs every hour (punches occur at roughly four times per day).",
-    "note": "Imports use email rep.{pis}@import.eletropasso.local. New clock users must still exist in DMPREP; deactivating someone in OpenHR does not remove biometrics from the clock automatically.",
+    "description": "Pulls data from DMP REP software (PC 192.168.15.69) into OpenHR. Use the buttons below depending on what you need to update.",
+    "autoSyncTitle": "Automatic sync (server)",
+    "autoSyncDetail": "Every hour the service imports only new punches from MOVIMENT.txt. Employee records are not imported automatically — use Import employees or Sync all after admitting someone in DMP REP.",
+    "note": "Imported employees use email rep.{pis}@import.eletropasso.local (add department and real email in Team Directory). Clock enrollment and biometrics remain manual in DMP REP; deactivating in OpenHR does not remove clock biometrics.",
     "syncAll": "Sync all",
+    "syncAllHint": "Employees (DIMEP.MDB) + punches (MOVIMENT.txt). Use after full DMP REP admission or when you want both updated at once.",
     "syncEmployees": "Import employees",
+    "syncEmployeesHint": "DIMEP.MDB employees only → Team Directory (PIS, name, role title, hire date). Does not import punches. Use after registering the employee in DMP REP.",
     "syncPunches": "Import punches",
+    "syncPunchesHint": "MOVIMENT.txt punches only → timesheet. Does not create new employees. The background service does this every hour.",
     "syncing": "Syncing…",
     "success": "Sync completed.",
     "failed": "DMPREP sync failed.",
     "busy": "A sync is already running. Try again shortly.",
     "readOnly": "Subscription expired: sync is unavailable in read-only mode.",
     "employeesResult": "Employees: {{created}} created, {{updated}} updated, {{failed}} failed",
-    "punchesResult": "Punches: {{newRecords}} new, {{inserted}} inserted, {{duplicates}} duplicates"
+    "punchesResult": "Punches: {{newRecords}} new, {{inserted}} inserted, {{duplicates}} duplicates",
+    "punchesSkippedWarning": "{{count}} punch(es) skipped — no employee in HR: {{ids}}"
   }
 }

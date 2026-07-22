@@ -1,5 +1,5 @@
 {
-  "appName": "OpenHRApp",
+  "appName": "RH_Eletropasso",
   "loading": "Loading…",
   "save": "Save",
   "cancel": "Cancel",
@@ -10,6 +10,12 @@
   "create": "Create",
   "update": "Update",
   "search": "Search",
+  "searchTypes": {
+    "feature": "Features",
+    "blog": "Blog Posts",
+    "guide": "Guides",
+    "faq": "FAQ"
+  },
   "filter": "Filter",
   "export": "Export",
   "close": "Close",
@@ -66,6 +72,15 @@
     "saturday": "Saturday",
     "sunday": "Sunday"
   },
+  "weekdaysShort": {
+    "monday": "Mon",
+    "tuesday": "Tue",
+    "wednesday": "Wed",
+    "thursday": "Thu",
+    "friday": "Fri",
+    "saturday": "Sat",
+    "sunday": "Sun"
+  },
   "errorBoundary": {
     "title": "Something went wrong",
     "body": "This section failed to load. You can retry or go back.",
@@ -87,7 +102,7 @@
     "later": "Later",
     "dismiss": "Dismiss",
     "install": "Install app",
-    "installBody": "Install OpenHR on your device for quick access."
+    "installBody": "Install RH_Eletropasso on your device for quick access."
   },
   "push": {
     "title": "Enable check-in reminders",

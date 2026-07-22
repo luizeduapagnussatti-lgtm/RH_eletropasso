@@ -138,17 +138,17 @@ self.addEventListener('push', (event: PushEvent) => {
     try {
       payload = event.data.json();
     } catch {
-      payload = { title: 'OpenHR', body: event.data.text() };
+      payload = { title: 'RH_Eletropasso', body: event.data.text() };
     }
   }
   // Empty push (no payload) — show generic notification
 
-  const title = payload.title ?? 'OpenHR';
+  const title = payload.title ?? 'RH_Eletropasso';
   const options = {
     body: payload.body ?? '',
     icon: payload.icon ?? '/img/icon-192.png',
-    badge: '/img/icon-192.png',
-    tag: payload.tag ?? 'openhr-checkin',
+    badge: '/img/favicon-32.png',
+    tag: payload.tag ?? 'rh-eletropasso',
     renotify: true,
     data: { url: payload.url ?? '/dashboard' },
     vibrate: [200, 100, 200],

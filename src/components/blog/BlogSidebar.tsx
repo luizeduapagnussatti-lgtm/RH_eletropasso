@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Archive, Tag, Calendar, ChevronRight } from 'lucide-react';
 import { blogService } from '../../services/blog.service';
 import { BlogPost } from '../../types';
@@ -33,6 +34,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
   selectedArchive,
   selectedCategory,
 }) => {
+  const { t, i18n } = useTranslation('marketing');
   const [archives, setArchives] = useState<ArchiveEntry[]>([]);
   const [recentPosts, setRecentPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +59,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
         archiveMap.get(key)!.count++;
       } else {
         archiveMap.set(key, {
-          label: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          label: date.toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' }),
           year,
           month,
           count: 1,
@@ -108,7 +110,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
       {recentPosts.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-4 flex items-center gap-2">
-            <BookmarkIcon /> Recent Posts
+            <BookmarkIcon /> {t('blogPage.recentPosts')}
           </h3>
           <ul className="space-y-3">
             {recentPosts.map(post => (
@@ -122,7 +124,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
                   </p>
                   <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                     <Calendar size={10} />
-                    {new Date(post.publishedAt || post.created).toLocaleDateString('en-US', {
+                    {new Date(post.publishedAt || post.created).toLocaleDateString(i18n.language === 'pt-BR' ? 'pt-BR' : 'en-US', {
                       month: 'short',
                       day: 'numeric',
                     })}
@@ -138,7 +140,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
       {archives.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-4 flex items-center gap-2">
-            <Archive size={14} className="text-primary" /> Archive
+            <Archive size={14} className="text-primary" /> {t('blogPage.archive')}
           </h3>
           <ul className="space-y-1">
             {archives.map(entry => {
@@ -174,7 +176,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
               onClick={() => onArchiveSelect?.(0, 0)}
               className="mt-3 w-full text-xs text-center text-primary hover:text-primary-hover font-semibold transition-colors"
             >
-              Clear filter
+              {t('blogPage.clearFilter')}
             </button>
           )}
         </div>
@@ -183,7 +185,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
       {/* Categories */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-4 flex items-center gap-2">
-          <Tag size={14} className="text-primary" /> Categories
+          <Tag size={14} className="text-primary" /> {t('blogPage.categories')}
         </h3>
         <div className="flex flex-wrap gap-2">
           {BLOG_CATEGORIES.map(cat => {
@@ -208,7 +210,7 @@ const BlogSidebar: React.FC<BlogSidebarProps> = ({
             onClick={() => onCategorySelect?.('')}
             className="mt-3 w-full text-xs text-center text-primary hover:text-primary-hover font-semibold transition-colors"
           >
-            Clear filter
+            {t('blogPage.clearFilter')}
           </button>
         )}
       </div>

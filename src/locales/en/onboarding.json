@@ -1,7 +1,53 @@
 {
   "help": "Help",
   "setupChecklist": "Setup checklist",
-  "markDone": "Mark as done",
-  "dismiss": "Dismiss",
-  "getStarted": "Get started"
+  "markDone": "Done",
+  "dismiss": "Don't show this again",
+  "getStarted": "Get started",
+  "go": "Go",
+  "viewGuide": "View guide",
+  "setupComplete": "Setup complete!",
+  "setupTitle": "Set up your organization",
+  "setupSubtitle": "Complete these steps to get your team started",
+  "setupCompleteSubtitle": "Your organization is fully configured.",
+  "allStepsComplete": "All {{count}} steps completed. Your organization is ready to go!",
+  "hideChecklist": "Hide this checklist",
+  "progressComplete": "{{completed}} of {{total}} complete",
+  "showSetupGuide": "Show setup guide",
+  "showSetupGuideHint": "Reopen the step-by-step organization setup checklist",
+  "reEnableSetupGuide": "Re-enable setup guide",
+  "steps": {
+    "companyInfo": {
+      "title": "Set company info",
+      "description": "Add your company name, logo, country, and address"
+    },
+    "departments": {
+      "title": "Add departments",
+      "description": "Create departments like Engineering, HR, Finance, etc."
+    },
+    "shifts": {
+      "title": "Configure shifts",
+      "description": "Set up work shifts with start/end times and grace periods"
+    },
+    "locations": {
+      "title": "Add office locations",
+      "description": "Add GPS coordinates for your offices for attendance verification"
+    },
+    "teams": {
+      "title": "Create teams",
+      "description": "Organize employees into teams with team leaders"
+    },
+    "leavePolicy": {
+      "title": "Set leave policy",
+      "description": "Configure default leave allocations (Annual, Casual, Sick)"
+    },
+    "holidays": {
+      "title": "Add holidays",
+      "description": "Set up your organization's holiday calendar"
+    },
+    "employees": {
+      "title": "Add employees",
+      "description": "Invite your team members to start using RH_Eletropasso"
+    }
+  }
 }

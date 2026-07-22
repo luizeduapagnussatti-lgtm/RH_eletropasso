@@ -1,4 +1,4 @@
-import { AppConfig, CustomCompetency, CustomLeaveType, OrgReviewConfig, OrgNotificationConfig, UserNotificationPreferences } from './types';
+import { AppConfig, CustomCompetency, CustomLeaveType, OrgReviewConfig, OrgNotificationConfig, UserNotificationPreferences, PtrpPolicy } from './types';
 
 export const DEPARTMENTS = [
   "Engenharia",
@@ -24,49 +24,48 @@ export const DESIGNATIONS = [
 ];
 
 export const OFFICE_LOCATIONS = [
-  { name: "Dhaka HQ (Gulshan)", lat: 23.7925, lng: 90.4078, radius: 500 },
-  { name: "Chittagong Branch", lat: 22.3569, lng: 91.7832, radius: 500 },
-  { name: "Sylhet Tech Hub", lat: 24.8949, lng: 91.8687, radius: 500 },
-  { name: "Factory Zone", lat: 23.9999, lng: 90.5000, radius: 2000 },
-  { name: "Remote Office", lat: 0, lng: 0, radius: 9999999 }
+  { name: "Matriz", lat: -23.5505, lng: -46.6333, radius: 500 },
+  { name: "Filial", lat: -22.9068, lng: -43.1729, radius: 500 },
+  { name: "Fábrica", lat: -23.9999, lng: -46.5000, radius: 2000 },
+  { name: "Escritório remoto", lat: 0, lng: 0, radius: 9999999 }
 ];
 
 export const DEFAULT_COMPETENCIES: CustomCompetency[] = [
   {
     id: 'AGILITY',
-    name: 'Agility',
-    description: 'Adapts quickly to changing priorities and drives transparent change management.',
-    behaviors: ['Transparency in change', 'Involving others in decisions', 'Building flexible teams', 'Making timely decisions'],
+    name: 'Agilidade',
+    description: 'Adapta-se rapidamente a prioridades em mudança e conduz a gestão transparente da mudança.',
+    behaviors: ['Transparência na mudança', 'Envolver outros nas decisões', 'Construir equipes flexíveis', 'Tomar decisões no tempo certo'],
   },
   {
     id: 'COLLABORATION',
-    name: 'Collaboration',
-    description: 'Works effectively across teams, shares knowledge, and builds trust.',
-    behaviors: ['Knowledge sharing', 'Strengthening networks', 'Welcoming diversity of opinion', 'Building trust'],
+    name: 'Colaboração',
+    description: 'Trabalha bem entre equipes, compartilha conhecimento e constrói confiança.',
+    behaviors: ['Compartilhamento de conhecimento', 'Fortalecer redes', 'Acolher diversidade de opinião', 'Construir confiança'],
   },
   {
     id: 'CUSTOMER_FOCUS',
-    name: 'Customer Focus',
-    description: 'Understands and anticipates customer needs to deliver exceptional value.',
-    behaviors: ['Understanding customer needs', 'Building relationships', 'Engaging in digital dialog', 'Confirming satisfaction'],
+    name: 'Foco no cliente',
+    description: 'Entende e antecipa necessidades do cliente para entregar valor excepcional.',
+    behaviors: ['Entender necessidades do cliente', 'Construir relacionamentos', 'Engajar em diálogo digital', 'Confirmar satisfação'],
   },
   {
     id: 'DEVELOPING_OTHERS',
-    name: 'Developing Others',
-    description: 'Invests in the growth of team members through coaching, feedback, and development opportunities.',
-    behaviors: ['Motivating the team', 'Setting development priorities', 'Providing constructive feedback', 'Assessing capabilities'],
+    name: 'Desenvolvimento de pessoas',
+    description: 'Investe no crescimento da equipe com coaching, feedback e oportunidades de desenvolvimento.',
+    behaviors: ['Motivar a equipe', 'Definir prioridades de desenvolvimento', 'Dar feedback construtivo', 'Avaliar capacidades'],
   },
   {
     id: 'GLOBAL_MINDSET',
-    name: 'Global Mindset',
-    description: 'Thinks broadly about enterprise impact and adapts across cultural contexts.',
-    behaviors: ['Enterprise-wide understanding', 'Awareness of implications', 'Cultural adaptation', 'Cross-functional thinking'],
+    name: 'Visão ampla',
+    description: 'Pensa no impacto organizacional e adapta-se a diferentes contextos.',
+    behaviors: ['Visão da organização', 'Consciência de implicações', 'Adaptação cultural', 'Pensamento interfuncional'],
   },
   {
     id: 'INNOVATION_MINDSET',
-    name: 'Innovation Mindset',
-    description: 'Encourages experimentation, embraces new ideas, and drives creative solutions.',
-    behaviors: ['Rapid prototyping', 'Sharing ideas openly', 'Encouraging experimentation', 'Creative expression'],
+    name: 'Inovação',
+    description: 'Incentiva experimentação, acolhe novas ideias e impulsiona soluções criativas.',
+    behaviors: ['Prototipagem rápida', 'Compartilhar ideias abertamente', 'Incentivar experimentação', 'Expressão criativa'],
   },
 ];
 
@@ -78,11 +77,11 @@ export const DEFAULT_RATING_SCALE: {
   label: string;
   color: string;
 }[] = [
-  { value: 1, label: 'Needs Significant Improvement', color: 'bg-red-500' },
-  { value: 2, label: 'Below Expectations', color: 'bg-orange-500' },
-  { value: 3, label: 'Meets Expectations', color: 'bg-yellow-500' },
-  { value: 4, label: 'Exceeds Expectations', color: 'bg-blue-500' },
-  { value: 5, label: 'Outstanding', color: 'bg-green-500' },
+  { value: 1, label: 'Necessita melhoria significativa', color: 'bg-red-500' },
+  { value: 2, label: 'Abaixo do esperado', color: 'bg-orange-500' },
+  { value: 3, label: 'Atende às expectativas', color: 'bg-yellow-500' },
+  { value: 4, label: 'Supera as expectativas', color: 'bg-blue-500' },
+  { value: 5, label: 'Excepcional', color: 'bg-green-500' },
 ];
 
 export const RATING_SCALE = DEFAULT_RATING_SCALE;
@@ -92,11 +91,11 @@ export const DEFAULT_OVERALL_RATINGS: {
   label: string;
   color: string;
 }[] = [
-  { value: 'EXCELLENT', label: 'Excellent', color: 'bg-green-500' },
-  { value: 'VERY_GOOD', label: 'Very Good', color: 'bg-blue-500' },
-  { value: 'GOOD', label: 'Good', color: 'bg-yellow-500' },
-  { value: 'NEEDS_IMPROVEMENT', label: 'Needs Improvement', color: 'bg-orange-500' },
-  { value: 'UNSATISFACTORY', label: 'Unsatisfactory', color: 'bg-red-500' },
+  { value: 'EXCELLENT', label: 'Excelente', color: 'bg-green-500' },
+  { value: 'VERY_GOOD', label: 'Muito bom', color: 'bg-blue-500' },
+  { value: 'GOOD', label: 'Bom', color: 'bg-yellow-500' },
+  { value: 'NEEDS_IMPROVEMENT', label: 'Necessita melhoria', color: 'bg-orange-500' },
+  { value: 'UNSATISFACTORY', label: 'Insatisfatório', color: 'bg-red-500' },
 ];
 
 export const HR_OVERALL_RATINGS = DEFAULT_OVERALL_RATINGS;
@@ -202,7 +201,7 @@ export const TIMEZONE_OPTIONS = [
 ];
 
 export const DEFAULT_CONFIG: AppConfig = {
-  companyName: "OpenHRApp Solutions Ltd.",
+  companyName: "Eletropasso — Materiais Elétricos e Energia Solar",
   timezone: "UTC",
   currency: "USD",
   dateFormat: "DD/MM/YYYY",
@@ -213,5 +212,18 @@ export const DEFAULT_CONFIG: AppConfig = {
   earlyOutGracePeriod: 15,
   defaultReportRecipient: "",
   dutyLabel1: "Escritório",
-  dutyLabel2: "Fábrica"
+  dutyLabel2: "Fábrica",
+  ptrpPolicy: {
+    bankEnabled: false,
+    periodStartDay: 1,
+    weeklyOtThresholdMinutes: 2400,
+    defaultBreakMinutes: 60,
+  },
+};
+
+export const DEFAULT_PTRP_POLICY: PtrpPolicy = {
+  bankEnabled: false,
+  periodStartDay: 1,
+  weeklyOtThresholdMinutes: 2400,
+  defaultBreakMinutes: 60,
 };

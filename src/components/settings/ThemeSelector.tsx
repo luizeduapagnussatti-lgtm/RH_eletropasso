@@ -1,15 +1,16 @@
-
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme, DarkModePreference } from '../../context/ThemeContext';
 
-const MODE_OPTIONS: { id: DarkModePreference; label: string; icon: React.FC<{ size?: number; className?: string }> }[] = [
-  { id: 'light', label: 'Light', icon: Sun },
-  { id: 'dark', label: 'Dark', icon: Moon },
-  { id: 'system', label: 'System', icon: Monitor },
+const MODE_OPTIONS: { id: DarkModePreference; labelKey: 'lightMode' | 'darkMode' | 'systemMode'; icon: React.FC<{ size?: number; className?: string }> }[] = [
+  { id: 'light', labelKey: 'lightMode', icon: Sun },
+  { id: 'dark', labelKey: 'darkMode', icon: Moon },
+  { id: 'system', labelKey: 'systemMode', icon: Monitor },
 ];
 
 export const ThemeSelector: React.FC = () => {
+  const { t } = useTranslation('settings');
   const { darkModePreference, setDarkModePreference } = useTheme();
 
   return (
@@ -19,12 +20,12 @@ export const ThemeSelector: React.FC = () => {
           {darkModePreference === 'dark' ? <Moon size={20} /> : darkModePreference === 'light' ? <Sun size={20} /> : <Monitor size={20} />}
         </div>
         <div>
-          <h3 className="text-lg sm:text-xl font-semibold text-slate-900">Appearance</h3>
-          <p className="text-[10px] sm:text-xs font-bold text-slate-400">Choose your preferred display mode</p>
+          <h3 className="text-lg sm:text-xl font-semibold text-slate-900">{t('appearance')}</h3>
+          <p className="text-[10px] sm:text-xs font-bold text-slate-400">{t('appearanceHint')}</p>
         </div>
       </div>
 
-      <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Mode</p>
+      <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">{t('mode')}</p>
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {MODE_OPTIONS.map(opt => (
           <button
@@ -37,7 +38,7 @@ export const ThemeSelector: React.FC = () => {
             }`}
           >
             <opt.icon size={16} />
-            <span className="truncate">{opt.label}</span>
+            <span className="truncate">{t(opt.labelKey)}</span>
           </button>
         ))}
       </div>

@@ -98,7 +98,6 @@ Deno.serve(async (req: Request) => {
   }
 
   // A clock credential must resolve to exactly one employee in this tenant.
-  const incomingIds = [...new Set(rows.map((row) => String(row.employee_id)))];
   const { data: profiles, error: profileError } = await admin
     .from('profiles')
     .select('id,employee_id')
@@ -106,26 +105,42 @@ Deno.serve(async (req: Request) => {
   if (profileError) return json(500, { error: 'Employee validation failed' });
 
   const canonicalByCredential = buildEmployeeCredentialIndex(profiles ?? []);
-  const unresolved: string[] = [];
-  for (const incomingId of incomingIds) {
+  const unresolved = new Set<string>();
+  const acceptedRows: Array<Record<string, unknown>> = [];
+
+  for (const row of rows) {
+    const incomingId = String(row.employee_id);
     const canonical = resolveEmployeeId(incomingId, canonicalByCredential);
     if (!canonical) {
-      unresolved.push(incomingId);
+      unresolved.add(incomingId);
       continue;
     }
-    for (const row of rows) {
-      if (String(row.employee_id) === incomingId) {
-        row.employee_id = canonical;
-      }
-    }
+    acceptedRows.push({ ...row, employee_id: canonical });
   }
-  if (unresolved.length > 0) {
-    return json(422, { error: 'Unknown or ambiguous employee identifier', employeeIds: unresolved });
+
+  if (unresolved.size > 0) {
+    console.warn(
+      '[INGEST-PUNCHES] Skipping punches for unknown credentials:',
+      [...unresolved].join(', '),
+    );
+  }
+
+  if (acceptedRows.length === 0) {
+    return json(200, {
+      success: true,
+      inserted: 0,
+      upserted: 0,
+      duplicates: 0,
+      skipped: rows.length,
+      skippedEmployeeIds: [...unresolved],
+      affectedDates: [],
+      recalcQueued: false,
+    });
   }
 
   let inserted = 0;
   let duplicates = 0;
-  for (const row of rows) {
+  for (const row of acceptedRows) {
     const { error } = await admin.from('punches').insert(row);
     if (!error) {
       inserted++;
@@ -140,7 +155,7 @@ Deno.serve(async (req: Request) => {
   // Queue one asynchronous recalculation per employee/local work date.
   const recalcRows = [
     ...new Map(
-      rows.map((row) => {
+      acceptedRows.map((row) => {
         const employeeId = String(row.employee_id);
         const workDate = saoPauloDate(String(row.punched_at));
         return [
@@ -167,11 +182,15 @@ Deno.serve(async (req: Request) => {
 
   const affected = [...new Set(recalcRows.map((row) => row.work_date))];
 
+  const skipped = rows.length - acceptedRows.length;
+
   return json(200, {
     success: true,
     inserted,
     upserted: duplicates,
     duplicates,
+    skipped,
+    skippedEmployeeIds: skipped > 0 ? [...unresolved] : [],
     affectedDates: affected,
     recalcQueued: !queueError,
   });

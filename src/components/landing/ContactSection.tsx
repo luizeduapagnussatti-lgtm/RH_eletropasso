@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { contactService } from '../../services/contact.service';
 
 const ContactSection: React.FC = () => {
+  const { t } = useTranslation('marketing');
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -16,7 +18,7 @@ const ContactSection: React.FC = () => {
     setResult(null);
 
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      setResult({ type: 'error', message: 'Please fill in all required fields.' });
+      setResult({ type: 'error', message: t('contact.requiredFields') });
       return;
     }
 
@@ -30,7 +32,7 @@ const ContactSection: React.FC = () => {
         setResult({ type: 'error', message: response.message });
       }
     } catch {
-      setResult({ type: 'error', message: 'Something went wrong. Please try again later.' });
+      setResult({ type: 'error', message: t('contact.genericError') });
     } finally {
       setIsSubmitting(false);
     }
@@ -39,44 +41,42 @@ const ContactSection: React.FC = () => {
   return (
     <section id="contact" className="py-20 md:py-28 bg-white">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-16">
-          <span className="text-xs font-bold text-primary uppercase tracking-wide">Contact</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-wide">{t('contact.eyebrow')}</span>
           <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 mt-3 mb-4">
-            Get in Touch
+            {t('contact.title')}
           </h2>
           <p className="text-slate-500 text-lg">
-            Have a question or feedback? We'd love to hear from you.
+            {t('contact.subtitle')}
           </p>
         </div>
 
-        {/* Form */}
         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 md:p-10">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide px-1">
-                  Name <span className="text-red-400">*</span>
+                  {t('contact.name')} <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   name="name"
                   value={form.name}
                   onChange={handleChange}
-                  placeholder="Your name"
+                  placeholder={t('contact.namePlaceholder')}
                   className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide px-1">
-                  Email <span className="text-red-400">*</span>
+                  {t('contact.email')} <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="you@example.com"
+                  placeholder={t('contact.emailPlaceholder')}
                   className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
                 />
               </div>
@@ -84,27 +84,27 @@ const ContactSection: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide px-1">
-                Subject
+                {t('contact.subject')}
               </label>
               <input
                 type="text"
                 name="subject"
                 value={form.subject}
                 onChange={handleChange}
-                placeholder="What is this about?"
+                placeholder={t('contact.subjectPlaceholder')}
                 className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide px-1">
-                Message <span className="text-red-400">*</span>
+                {t('contact.message')} <span className="text-red-400">*</span>
               </label>
               <textarea
                 name="message"
                 value={form.message}
                 onChange={handleChange}
-                placeholder="Tell us what's on your mind..."
+                placeholder={t('contact.messagePlaceholder')}
                 rows={5}
                 className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all resize-none"
               />
@@ -130,12 +130,12 @@ const ContactSection: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Sending…
+                    {t('contact.sendMessageing')}
                   </>
                 ) : (
                   <>
                     <Send size={16} />
-                    Send Message
+                    {t('contact.sendMessage')}
                   </>
                 )}
               </button>

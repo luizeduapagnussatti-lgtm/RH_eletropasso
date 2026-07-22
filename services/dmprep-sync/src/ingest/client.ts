@@ -15,6 +15,8 @@ export interface IngestResult {
   success: boolean;
   inserted: number;
   duplicates: number;
+  skipped: number;
+  skippedEmployeeIds: string[];
   affectedDates: string[];
 }
 
@@ -40,7 +42,14 @@ export async function forwardPunches(
   deviceSerial: string,
 ): Promise<IngestResult> {
   if (punches.length === 0) {
-    return { success: true, inserted: 0, duplicates: 0, affectedDates: [] };
+    return {
+      success: true,
+      inserted: 0,
+      duplicates: 0,
+      skipped: 0,
+      skippedEmployeeIds: [],
+      affectedDates: [],
+    };
   }
 
   const response = await fetch(config.url, {
@@ -67,6 +76,8 @@ export async function forwardPunches(
     success: body.success,
     inserted: body.inserted ?? 0,
     duplicates: body.duplicates ?? body.upserted ?? 0,
+    skipped: body.skipped ?? 0,
+    skippedEmployeeIds: body.skippedEmployeeIds ?? [],
     affectedDates: body.affectedDates ?? [],
   };
 }

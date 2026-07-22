@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Eye, EyeOff, Save, Loader2, Image, ArrowLeft } from 'lucide-react';
 import { blogService } from '../../services/blog.service';
 import { BlogPost } from '../../types';
 import RichTextEditor from '../blog/RichTextEditor';
 import { sanitizeHtml } from '../../utils/sanitize';
+import { tStatus } from '../../i18n/statusMaps';
 
 interface BlogManagementProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void;
@@ -21,6 +23,7 @@ const generateSlug = (title: string): string => {
 };
 
 const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +43,9 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
   });
 
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  const formatStatus = (status: 'DRAFT' | 'PUBLISHED') =>
+    status === 'DRAFT' ? tStatus('review', 'DRAFT') : t('blog.status.PUBLISHED');
 
   useEffect(() => {
     loadPosts();
@@ -107,11 +113,11 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      onMessage({ type: 'error', text: 'Title is required' });
+      onMessage({ type: 'error', text: t('blog.validation.titleRequired') });
       return;
     }
     if (!formData.slug.trim()) {
-      onMessage({ type: 'error', text: 'Slug is required' });
+      onMessage({ type: 'error', text: t('blog.validation.slugRequired') });
       return;
     }
 
@@ -159,7 +165,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
   };
 
   const handleDelete = async (post: BlogPost) => {
-    if (!window.confirm(`Are you sure you want to delete "${post.title}"? This action cannot be undone.`)) {
+    if (!window.confirm(t('blog.deleteConfirm', { title: post.title }))) {
       return;
     }
     const result = await blogService.deletePost(post.id);
@@ -178,7 +184,10 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
       publishedAt: newStatus === 'PUBLISHED' ? new Date().toISOString() : '',
     });
     if (result.success) {
-      onMessage({ type: 'success', text: `Post ${newStatus === 'PUBLISHED' ? 'published' : 'unpublished'} successfully` });
+      onMessage({
+        type: 'success',
+        text: newStatus === 'PUBLISHED' ? t('blog.publishedSuccess') : t('blog.unpublishedSuccess'),
+      });
       await loadPosts();
     } else {
       onMessage({ type: 'error', text: result.message });
@@ -190,25 +199,25 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-slate-900">Blog Posts</h3>
+          <h3 className="text-xl font-bold text-slate-900">{t('blog.listTitle')}</h3>
           <button
             onClick={openCreateMode}
             className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-primary-hover transition-all shadow-lg"
           >
-            <Plus size={18} /> New Post
+            <Plus size={18} /> {t('blog.newPost')}
           </button>
         </div>
 
         {isLoading ? (
           <div className="text-center py-12 text-slate-400">
             <Loader2 className="animate-spin mx-auto mb-2" size={32} />
-            Loading posts...
+            {t('blog.loading')}
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
             <Edit size={48} className="mx-auto text-slate-300 mb-4" />
-            <p className="text-slate-500 font-medium">No blog posts yet</p>
-            <p className="text-slate-400 text-sm mt-1">Create your first blog post to get started</p>
+            <p className="text-slate-500 font-medium">{t('blog.emptyTitle')}</p>
+            <p className="text-slate-400 text-sm mt-1">{t('blog.emptyHint')}</p>
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -216,11 +225,11 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Author</th>
-                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="text-right p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('blog.table.title')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('blog.table.status')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('blog.table.author')}</th>
+                    <th className="text-left p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('blog.table.date')}</th>
+                    <th className="text-right p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('blog.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -247,7 +256,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {post.status}
+                          {formatStatus(post.status)}
                         </span>
                       </td>
                       <td className="p-4">
@@ -269,7 +278,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
                                 ? 'hover:bg-amber-100'
                                 : 'hover:bg-emerald-100'
                             }`}
-                            title={post.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+                            title={post.status === 'PUBLISHED' ? t('blog.actions.unpublish') : t('blog.actions.publish')}
                           >
                             {post.status === 'PUBLISHED' ? (
                               <EyeOff size={18} className="text-amber-600" />
@@ -280,14 +289,14 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
                           <button
                             onClick={() => openEditMode(post)}
                             className="p-2 hover:bg-blue-100 rounded-xl transition-all"
-                            title="Edit"
+                            title={t('blog.actions.edit')}
                           >
                             <Edit size={18} className="text-blue-600" />
                           </button>
                           <button
                             onClick={() => handleDelete(post)}
                             className="p-2 hover:bg-red-100 rounded-xl transition-all"
-                            title="Delete"
+                            title={t('blog.actions.delete')}
                           >
                             <Trash2 size={18} className="text-red-600" />
                           </button>
@@ -312,14 +321,14 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
           onClick={() => { resetForm(); setViewMode('list'); }}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium transition-colors"
         >
-          <ArrowLeft size={20} /> Back to Posts
+          <ArrowLeft size={20} /> {t('blog.backToList')}
         </button>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowPreview(!showPreview)}
             className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-200 transition-all"
           >
-            <Eye size={16} /> {showPreview ? 'Edit' : 'Preview'}
+            <Eye size={16} /> {showPreview ? t('blog.previewEdit') : t('blog.previewView')}
           </button>
           <button
             onClick={handleSave}
@@ -327,23 +336,23 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
             className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-primary-hover transition-all shadow-lg disabled:opacity-50"
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {viewMode === 'create' ? 'Create Post' : 'Update Post'}
+            {viewMode === 'create' ? t('blog.createPost') : t('blog.updatePost')}
           </button>
         </div>
       </div>
 
       <h3 className="text-xl font-bold text-slate-900">
-        {viewMode === 'create' ? 'Create New Post' : `Edit: ${editingPost?.title}`}
+        {viewMode === 'create' ? t('blog.createTitle') : t('blog.editTitle', { title: editingPost?.title })}
       </h3>
 
       {showPreview ? (
         // PREVIEW MODE
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
           {coverPreview && (
-            <img src={coverPreview} alt="Cover" className="w-full h-64 object-cover rounded-2xl mb-6" />
+            <img src={coverPreview} alt={t('blog.coverAlt')} className="w-full h-64 object-cover rounded-2xl mb-6" />
           )}
-          <h1 className="text-3xl font-semibold text-slate-900 mb-2">{formData.title || 'Untitled'}</h1>
-          <p className="text-slate-500 mb-6">{formData.authorName && `By ${formData.authorName}`}</p>
+          <h1 className="text-3xl font-semibold text-slate-900 mb-2">{formData.title || t('blog.untitled')}</h1>
+          <p className="text-slate-500 mb-6">{formData.authorName && t('blog.byAuthor', { name: formData.authorName })}</p>
           {formData.excerpt && (
             <p className="text-lg text-slate-600 italic mb-6 border-l-4 border-primary pl-4">{formData.excerpt}</p>
           )}
@@ -357,71 +366,71 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6">
           {/* Title */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Title *</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.title')}</label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) => handleTitleChange(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-              placeholder="Enter post title..."
+              placeholder={t('blog.form.titlePlaceholder')}
             />
           </div>
 
           {/* Slug */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Slug *</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.slug')}</label>
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 text-sm">/blog/</span>
+              <span className="text-slate-400 text-sm">{t('blog.form.slugPrefix')}</span>
               <input
                 type="text"
                 value={formData.slug}
                 onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
                 className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-                placeholder="url-friendly-slug"
+                placeholder={t('blog.form.slugPlaceholder')}
               />
             </div>
           </div>
 
           {/* Author Name */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Author Name</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.authorName')}</label>
             <input
               type="text"
               value={formData.authorName}
               onChange={(e) => setFormData(prev => ({ ...prev, authorName: e.target.value }))}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900"
-              placeholder="Author name..."
+              placeholder={t('blog.form.authorPlaceholder')}
             />
           </div>
 
           {/* Excerpt */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Excerpt</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.excerpt')}</label>
             <textarea
               value={formData.excerpt}
               onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 resize-vertical"
               rows={3}
-              placeholder="Brief summary of the post..."
+              placeholder={t('blog.form.excerptPlaceholder')}
             />
           </div>
 
           {/* Content */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Content</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.content')}</label>
             <RichTextEditor
               value={formData.content}
               onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
-              placeholder="Start writing your blog post..."
+              placeholder={t('blog.form.contentPlaceholder')}
             />
           </div>
 
           {/* Cover Image */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Cover Image</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.coverImage')}</label>
             <div className="flex items-center gap-4">
               {coverPreview && (
-                <img src={coverPreview} alt="Cover preview" className="w-24 h-24 rounded-xl object-cover" />
+                <img src={coverPreview} alt={t('blog.coverPreviewAlt')} className="w-24 h-24 rounded-xl object-cover" />
               )}
               <div>
                 <input
@@ -435,7 +444,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-200 transition-all"
                 >
-                  <Image size={16} /> {coverPreview ? 'Change Image' : 'Upload Image'}
+                  <Image size={16} /> {coverPreview ? t('blog.form.changeImage') : t('blog.form.uploadImage')}
                 </button>
               </div>
             </div>
@@ -443,7 +452,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">{t('blog.form.status')}</label>
             <div className="flex gap-3">
               <button
                 onClick={() => setFormData(prev => ({ ...prev, status: 'DRAFT' }))}
@@ -453,7 +462,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Draft
+                {tStatus('review', 'DRAFT')}
               </button>
               <button
                 onClick={() => setFormData(prev => ({ ...prev, status: 'PUBLISHED' }))}
@@ -463,7 +472,7 @@ const BlogManagement: React.FC<BlogManagementProps> = ({ onMessage }) => {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Published
+                {t('blog.status.PUBLISHED')}
               </button>
             </div>
           </div>

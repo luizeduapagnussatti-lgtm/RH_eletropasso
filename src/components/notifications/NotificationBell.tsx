@@ -9,6 +9,8 @@ import { getDateLocale } from '../../i18n/format';
 
 interface NotificationBellProps {
   onNavigate: (path: string) => void;
+  /** Dark chrome header (sidebar/header shell) — brand-red icon treatment */
+  chrome?: boolean;
 }
 
 const typeIcons: Record<NotificationType, React.ReactNode> = {
@@ -38,7 +40,7 @@ function timeAgo(dateStr: string): string {
   return date.toLocaleDateString(getDateLocale());
 }
 
-const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }) => {
+const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate, chrome = false }) => {
   const { t } = useTranslation('notifications');
   const { notifications, unreadCount, markAsRead, markAllAsRead, userPreferences, updatePreferences } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
@@ -98,7 +100,11 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }) => {
       {/* Bell Button */}
       <button
         onClick={() => { setIsOpen(!isOpen); if (isOpen) setShowPrefs(false); }}
-        className="p-2.5 rounded-xl text-slate-500 hover:text-primary hover:bg-slate-100 transition-all relative"
+        className={
+          chrome
+            ? 'p-2.5 rounded-xl text-[#e23d42]/75 hover:text-[#e23d42] hover:bg-white/5 transition-all relative'
+            : 'p-2.5 rounded-xl text-slate-500 hover:text-primary hover:bg-slate-100 transition-all relative'
+        }
         title={t('title')}
       >
         <Bell size={20} />

@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Check, Palette } from 'lucide-react';
 import { THEMES, useTheme, cacheThemeId } from '../../context/ThemeContext';
 import { organizationService } from '../../services/organization.service';
@@ -9,6 +9,7 @@ interface AppearanceManagementProps {
 }
 
 const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }) => {
+  const { t } = useTranslation('superadmin');
   const { setTheme } = useTheme();
   const [selectedTheme, setSelectedTheme] = useState('arctic-frost');
   const [isLoading, setIsLoading] = useState(true);
@@ -36,10 +37,13 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
       await organizationService.setSetting('default_theme', themeId);
       setTheme(themeId);
       cacheThemeId(themeId);
-      const theme = THEMES.find(t => t.id === themeId);
-      onMessage({ type: 'success', text: `Global theme set to "${theme?.name || themeId}". All users will see this on their next visit.` });
+      const theme = THEMES.find(th => th.id === themeId);
+      const themeName = theme
+        ? t(`appearancePanel.themes.${theme.id}`, { defaultValue: theme.name })
+        : themeId;
+      onMessage({ type: 'success', text: t('appearancePanel.successSet', { name: themeName }) });
     } catch (e: any) {
-      onMessage({ type: 'error', text: `Failed to save: ${e?.message || 'Unknown error'}` });
+      onMessage({ type: 'error', text: t('appearancePanel.errorSave', { message: e?.message || t('storagePanel.errorUnknown') }) });
     }
     setIsSaving(false);
   };
@@ -59,15 +63,15 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
           <Palette size={24} className="text-primary" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-slate-900">Global App Theme</h3>
+          <h3 className="text-xl font-bold text-slate-900">{t('appearancePanel.title')}</h3>
           <p className="text-sm text-slate-500">
-            Set the accent color for all users across the platform.
+            {t('appearancePanel.subtitle')}
           </p>
         </div>
       </div>
 
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm">
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Accent Color</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{t('appearancePanel.accentColor')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {THEMES.map(theme => (
             <button
@@ -88,7 +92,9 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
                   {selectedTheme === theme.id && <Check size={16} strokeWidth={4} />}
                 </div>
               </div>
-              <p className="font-semibold text-slate-800 text-xs uppercase tracking-tight">{theme.name}</p>
+              <p className="font-semibold text-slate-800 text-xs uppercase tracking-tight">
+                {t(`appearancePanel.themes.${theme.id}`, { defaultValue: theme.name })}
+              </p>
               <div className="flex gap-1 mt-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: theme.colors.primary }}></div>
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: theme.colors.hover }}></div>
@@ -96,7 +102,7 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
               </div>
               {selectedTheme === theme.id && (
                 <div className="absolute top-2 right-2">
-                  <span className="text-[9px] font-semibold text-primary bg-primary-light px-2 py-1 rounded-full uppercase">Active</span>
+                  <span className="text-[9px] font-semibold text-primary bg-primary-light px-2 py-1 rounded-full uppercase">{t('appearancePanel.active')}</span>
                 </div>
               )}
             </button>
@@ -105,8 +111,7 @@ const AppearanceManagement: React.FC<AppearanceManagementProps> = ({ onMessage }
 
         <div className="mt-6 p-4 bg-slate-50 rounded-2xl">
           <p className="text-xs text-slate-500">
-            <strong>Note:</strong> This sets the global accent color for the entire platform.
-            All users will see the updated theme. Users can still choose their own light/dark mode preference.
+            <strong>{t('appearancePanel.noteLabel')}</strong> {t('appearancePanel.noteText')}
           </p>
         </div>
       </div>

@@ -8,7 +8,7 @@ export const employeeService = {
     return hrService.getAttendance({ employeeId: userId });
   },
 
-  async applyForLeave(data: Partial<LeaveRequest>, user: any) {
+  async applyForLeave(data: Partial<LeaveRequest>, user: any, attachmentFile?: File) {
     const employees = await hrService.getEmployees();
     const me = employees.find(e => e.id === user.id);
     
@@ -19,6 +19,6 @@ export const employeeService = {
       lineManagerId: me?.lineManagerId,
       status: 'PENDING_MANAGER',
       appliedDate: new Date().toISOString()
-    });
+    }, attachmentFile);
   }
 };

@@ -1,18 +1,705 @@
 {
+  "brandName": "RH_Eletropasso",
   "getStarted": "Get started free",
   "login": "Login",
+  "loginToAccount": "Login to your account",
   "features": "Features",
-  "howItWorks": "How it works",
-  "faq": "FAQ",
-  "contact": "Contact",
+  "howItWorks": {
+    "eyebrow": "How it works",
+    "title": "Get started in 3 steps",
+    "subtitle": "From sign-up to fully operational in just a few minutes. No installation, no credit card, no commitment.",
+    "steps": {
+      "01": {
+        "title": "Register organization",
+        "description": "Create your organization account in seconds. Just your name, email, and company details."
+      },
+      "02": {
+        "title": "Add your employees",
+        "description": "Invite team members and set up departments, designations, and leave policies."
+      },
+      "03": {
+        "title": "Start managing",
+        "description": "Track attendance, manage leave requests, run performance reviews, and generate reports — all from day one."
+      }
+    }
+  },
+  "faq": {
+    "groups": [
+      {
+        "category": "General",
+        "items": [
+          {
+            "q": "What is RH_Eletropasso?",
+            "a": "RH_Eletropasso is a modern, open-source HR management platform that helps organizations manage attendance, leave, and employee records in one place. It works as a Progressive Web App (PWA) on any device."
+          },
+          {
+            "q": "Is RH_Eletropasso really free?",
+            "a": "Yes — completely free. It is open-source software with no paywalls, no user limits, and no credit card required. The app is ad-supported. If you would like to remove ads for your organization, you can make a small donation to support the project."
+          }
+        ]
+      },
+      {
+        "category": "Account & setup",
+        "items": [
+          {
+            "q": "How do I register my organization?",
+            "a": "Click \"Get started free\", fill in your organization name, admin email, and password. You'll receive a verification email to activate your account. Setup takes less than 5 minutes."
+          },
+          {
+            "q": "Can I manage multiple departments?",
+            "a": "Absolutely. You can create unlimited departments and designations, assign employees, and track attendance and leave per department."
+          }
+        ]
+      },
+      {
+        "category": "Attendance",
+        "items": [
+          {
+            "q": "How does selfie-based attendance work?",
+            "a": "Employees check in by taking a selfie through the app. The system captures the photo along with GPS coordinates and timestamp, ensuring authentic and verifiable attendance records."
+          },
+          {
+            "q": "What attendance modes are available?",
+            "a": "RH_Eletropasso supports Office mode (standard check-in/out) and Factory mode (shift-based tracking). Admins can configure which modes are available for their organization."
+          }
+        ]
+      },
+      {
+        "category": "Leave management",
+        "items": [
+          {
+            "q": "How do employees apply for leave?",
+            "a": "Employees select their leave type, dates, and add an optional reason through the app. Managers receive a notification and can approve or reject with one click."
+          },
+          {
+            "q": "Can I configure custom leave types?",
+            "a": "Yes. Admins can create custom leave types with configurable annual allowances, carry-over rules, and approval workflows."
+          }
+        ]
+      },
+      {
+        "category": "Performance reviews",
+        "items": [
+          {
+            "q": "How do performance reviews work?",
+            "a": "Performance reviews follow a 3-step flow: employees complete a self-assessment, their manager provides an evaluation, and HR finalizes the review. Each step includes customizable competencies and a configurable rating scale."
+          },
+          {
+            "q": "Can I customize the review competencies and rating scale?",
+            "a": "Yes. Admins can configure competencies, behaviors, and rating scale labels from organization settings. This lets you tailor reviews to match your company's values and evaluation criteria."
+          }
+        ]
+      },
+      {
+        "category": "PWA & mobile",
+        "items": [
+          {
+            "q": "Do I need to download the app from an app store?",
+            "a": "No! RH_Eletropasso is a Progressive Web App (PWA). Just visit the URL in your browser and install it to your home screen — no app store needed."
+          },
+          {
+            "q": "Does it work offline?",
+            "a": "The app caches essential UI resources for fast loading. However, real-time features like attendance check-in require an internet connection."
+          }
+        ]
+      },
+      {
+        "category": "Pricing & support",
+        "items": [
+          {
+            "q": "Is there a free trial or time limit?",
+            "a": "There is no trial period because RH_Eletropasso is permanently free. There are no time limits, no feature gates, and no employee caps."
+          },
+          {
+            "q": "How do I remove ads from my organization?",
+            "a": "You can remove ads by making a donation to support the project through GitHub Sponsors. Once your sponsorship is confirmed, ads will be disabled for your organization."
+          },
+          {
+            "q": "What features should I look for in HR management software?",
+            "a": "A good HRMS should include attendance tracking, leave management, an employee directory, and reporting tools. RH_Eletropasso provides all of these plus performance reviews and GPS geofencing — free in one open-source platform."
+          },
+          {
+            "q": "Can small businesses use RH_Eletropasso for free?",
+            "a": "Absolutely. RH_Eletropasso has no user limits, no employee caps, and no feature restrictions — small businesses and large enterprises get the same full-featured, free experience."
+          }
+        ]
+      },
+      {
+        "category": "Comparisons",
+        "items": [
+          {
+            "q": "How is RH_Eletropasso different from other HR platforms?",
+            "a": "Unlike proprietary HR software, RH_Eletropasso is completely open-source — you can inspect the code, self-host it, or customize it. It also works as a PWA, so employees can check in from any device without downloading an app."
+          },
+          {
+            "q": "Does RH_Eletropasso support multi-location attendance tracking?",
+            "a": "Yes. RH_Eletropasso supports GPS geofencing, allowing you to define office locations and verify that employees are checking in from authorized sites."
+          }
+        ]
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Get in touch",
+    "subtitle": "Have a question or feedback? We'd love to hear from you.",
+    "name": "Name",
+    "email": "Email",
+    "subject": "Subject",
+    "message": "Message",
+    "namePlaceholder": "Your name",
+    "emailPlaceholder": "you@example.com",
+    "subjectPlaceholder": "What is this about?",
+    "messagePlaceholder": "Tell us what's on your mind…",
+    "requiredFields": "Please fill in all required fields.",
+    "genericError": "Something went wrong. Please try again later.",
+    "sending": "Sending…",
+    "sendMessage": "Send message"
+  },
   "blog": "Blog",
   "guides": "Guides",
   "about": "About",
   "privacy": "Privacy policy",
   "terms": "Terms of service",
   "changelog": "Changelog",
+  "home": "Home",
   "back": "Back",
-  "heroTitle": "Modern HR management made simple",
-  "heroSubtitle": "Free open-source platform for attendance, leave, and employee records.",
-  "notFound": "Page not found"
+  "backToHome": "Back to home",
+  "backToTop": "Back to top",
+  "search": "Search…",
+  "searchAria": "Search (Ctrl+K)",
+  "lightMode": "Switch to light mode",
+  "darkMode": "Switch to dark mode",
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "skipToContent": "Skip to content",
+  "learnMore": "Learn more",
+  "viewAllFeatures": "View all features",
+  "github": "GitHub",
+  "notFound": "Page not found",
+  "allRightsReserved": "All rights reserved.",
+  "copyright": "© {{year}} RH_Eletropasso. All rights reserved.",
+  "seo": {
+    "landingTitle": "RH_Eletropasso — Free Open-Source HR Management Software",
+    "landingDescription": "RH_Eletropasso is a free, open-source HR platform with attendance tracking, leave management, and employee directory. Get started today — no credit card required.",
+    "softwareDescription": "Free, open-source HR management system with attendance tracking, leave management, employee directory, and compliance tools."
+  },
+  "nav": {
+    "features": "Features",
+    "howItWorks": "How it works",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "blog": "Blog",
+    "guides": "Guides"
+  },
+  "hero": {
+    "badge": "Free & open-source HR platform",
+    "title": "Modern HR management",
+    "titleHighlight": "made simple",
+    "subtitle": "RH_Eletropasso is a free, open-source HR management platform trusted by growing teams. Track attendance with selfie-based check-ins, manage leave with one click, and keep employee records organized — all from one intuitive dashboard. No downloads, no credit card — get started in minutes.",
+    "freeForever": "Free forever",
+    "noCreditCard": "No credit card required",
+    "setupMinutes": "Setup in 5 minutes",
+    "videoTitle": "See RH_Eletropasso in action",
+    "videoIframeTitle": "RH_Eletropasso introduction",
+    "installGuide": "Install guide",
+    "installIosIntro": "Install RH_Eletropasso on your iPhone or iPad:",
+    "installIosStep1": "1. Tap the Share button in Safari",
+    "installIosStep2": "2. Select Add to Home Screen",
+    "installIosStep3": "3. Tap Add to confirm",
+    "installAndroidIntro": "Install RH_Eletropasso from your browser:",
+    "installAndroidStep1": "1. Tap the Menu button (⋮ or ⋯)",
+    "installAndroidStep2": "2. Select Install App or Add to Home Screen",
+    "gotIt": "Got it"
+  },
+  "featuresSection": {
+    "eyebrow": "Features",
+    "title": "Everything you need",
+    "subtitle": "One platform to manage your entire HR workflow — from attendance to performance reviews. Whether you're a small business or a growing team, RH_Eletropasso adapts to your needs.",
+    "items": {
+      "attendance-tracking": {
+        "title": "Attendance tracking",
+        "description": "Selfie-based check-in with GPS geofencing and real-time monitoring. Supports office and factory shift modes with biometric verification."
+      },
+      "leave-management": {
+        "title": "Leave management",
+        "description": "Custom leave types, automated balance calculations, and configurable approval workflows. Employees apply in seconds; managers approve with one click."
+      },
+      "employee-directory": {
+        "title": "Employee directory",
+        "description": "Complete employee profiles with department, designation, and role-based access. Self-service portal lets employees update their own information."
+      },
+      "reports-analytics": {
+        "title": "Reports & analytics",
+        "description": "Comprehensive attendance summaries, leave reports, and data-driven insights. Export to CSV for payroll integration and compliance audits."
+      },
+      "performance-reviews": {
+        "title": "Performance reviews",
+        "description": "Structured review cycles with self-assessments, manager evaluations, and HR finalization. Customizable competencies and rating scales."
+      }
+    }
+  },
+  "pricing": {
+    "eyebrow": "Free & open source",
+    "title": "Completely free. No catch.",
+    "subtitle": "RH_Eletropasso is free and open-source software. Every feature is available to every organization — no paywalls, no user limits, no credit card required.",
+    "communityBadge": "Community-powered",
+    "priceForever": "— forever",
+    "priceBlurb": "All features included. No hidden fees. No premium tiers. Just free, open-source HR software for everyone.",
+    "supportTitle": "Support the project",
+    "supportBody": "RH_Eletropasso is independently maintained and funded by the community. If you'd like to remove ads from your organization, you can make a small donation to support development — any amount helps keep the project alive.",
+    "sponsorGithub": "Sponsor on GitHub",
+    "featureLabels": [
+      "Selfie-based attendance with GPS",
+      "Leave management & balances",
+      "Employee directory & profiles",
+      "Reports & data export",
+      "Performance reviews",
+      "PWA — works on any device",
+      "Open source — audit the code",
+      "No user or employee limits"
+    ]
+  },
+  "testimonials": {
+    "eyebrow": "Testimonials",
+    "title": "Trusted by growing teams",
+    "subtitle": "See why organizations choose RH_Eletropasso for their HR management needs.",
+    "stats": {
+      "organizations": "Organizations",
+      "employees": "Employees managed",
+      "uptime": "Uptime"
+    },
+    "items": [
+      {
+        "quote": "RH_Eletropasso transformed how we manage our team. Attendance tracking went from spreadsheets to a one-click selfie check-in. Our HR department saves hours every week.",
+        "name": "Rajesh Kumar",
+        "role": "HR Manager, TechCorp Solutions"
+      },
+      {
+        "quote": "We evaluated 5 different HR platforms before choosing RH_Eletropasso. The selfie-based attendance and GPS tracking eliminated buddy punching overnight. Highly recommend for any growing business.",
+        "name": "Sarah Chen",
+        "role": "Operations Director, Nexus Labs"
+      },
+      {
+        "quote": "As a non-profit, we needed a free HR solution that didn't compromise on features. RH_Eletropasso's leave management and employee directory are exactly what we needed. The PWA works great on our field staff's phones.",
+        "name": "David Okafor",
+        "role": "Executive Director, GreenPath Initiative"
+      }
+    ]
+  },
+  "showcase": {
+    "eyebrow": "Trusted by organizations worldwide",
+    "title": "Teams that rely on RH_Eletropasso"
+  },
+  "cta": {
+    "title": "Ready to transform your HR?",
+    "subtitle": "Get started today — completely free. No credit card, no time limits, no catches.",
+    "footnote": "Free and open-source — forever"
+  },
+  "faqSection": {
+    "eyebrow": "FAQ",
+    "title": "Frequently asked questions",
+    "subtitle": "Everything you need to know about RH_Eletropasso."
+  },
+  "footer": {
+    "tagline": "Modern HR management for growing teams. Open-source and free to get started.",
+    "product": "Product",
+    "resources": "Resources",
+    "company": "Company"
+  },
+  "aboutPage": {
+    "seoTitle": "About RH_Eletropasso — Free Open-Source HR Management Platform",
+    "seoDescription": "Learn about the team, mission, and values behind RH_Eletropasso. A free, open-source HR platform built to make HR management accessible to organizations of every size.",
+    "title": "About RH_Eletropasso",
+    "intro": "We're on a mission to make HR management accessible, transparent, and free for organizations everywhere. RH_Eletropasso is a community-driven, open-source HR platform built for the modern workplace.",
+    "storyTitle": "Our story",
+    "storyP1": "RH_Eletropasso was born out of a simple frustration: HR software is too expensive and too complicated for most organizations. Small businesses, startups, non-profits, and growing teams were being priced out of tools they desperately needed — forced to choose between overpriced enterprise platforms and error-prone spreadsheets.",
+    "storyP2": "We asked a different question: What if essential HR tools were free, open-source, and actually easy to use?",
+    "storyP3": "Starting in 2024, we began building RH_Eletropasso as an open-source project — a Progressive Web App that works on any device, with no downloads, no per-user pricing, and no hidden costs. Attendance tracking with selfie verification. Leave management with one-click approvals. Employee directories. Performance reviews. Reports. Everything a growing team needs, completely free.",
+    "storyP4": "Today, RH_Eletropasso is used by organizations across multiple countries, helping HR teams save hours every week and giving employees a modern, intuitive experience. And because it's open source, the community continuously improves it.",
+    "missionTitle": "Our mission",
+    "missionText": "To democratize HR technology by building the world's most accessible, transparent, and community-driven human resources platform — freely available to every organization, everywhere.",
+    "valuesTitle": "Our values",
+    "values": {
+      "freeForever": {
+        "title": "Free forever",
+        "description": "We believe that essential HR tools should be accessible to every organization, regardless of budget. The core platform is and always will be free."
+      },
+      "openSource": {
+        "title": "Open source",
+        "description": "Transparency builds trust. Our code is public, our roadmap is open, and anyone can contribute. No vendor lock-in, no hidden fees, no surprises."
+      },
+      "community": {
+        "title": "Community-driven",
+        "description": "RH_Eletropasso is shaped by the people who use it. Feature requests, bug reports, and community contributions directly influence our development priorities."
+      },
+      "scale": {
+        "title": "Built for scale",
+        "description": "Whether you have 5 employees or 500, RH_Eletropasso scales with you. Role-based access control, multi-department support, and configurable workflows adapt to your needs."
+      }
+    },
+    "statsTitle": "RH_Eletropasso by the numbers",
+    "stats": {
+      "orgs": "Organizations using RH_Eletropasso",
+      "openSource": "Open source (MIT license)",
+      "pwa": "Works on any device"
+    },
+    "openSourceTitle": "Proudly open source",
+    "openSourceBody": "RH_Eletropasso is licensed under the MIT license. Our entire codebase is available on GitHub. You can inspect the code, suggest improvements, report issues, or even self-host your own instance.",
+    "viewGithub": "View on GitHub",
+    "ctaTitle": "Ready to get started?",
+    "ctaBody": "Join organizations around the world that use RH_Eletropasso to manage their HR. Free forever, no credit card required.",
+    "exploreFeatures": "Explore features"
+  },
+  "featuresPage": {
+    "seoTitle": "Features | RH_Eletropasso - Open Source HRMS",
+    "seoDescription": "Explore all RH_Eletropasso features: selfie-based attendance with GPS, leave management, employee directory, performance reviews, reports, and more. Free and open-source.",
+    "eyebrow": "Features",
+    "title": "All-in-one HR management",
+    "subtitle": "Everything you need to manage attendance, leave, employees, performance reviews, and reports — in one free, open-source platform.",
+    "viewGuides": "View guides",
+    "learnMoreAbout": "Learn more about {{feature}}",
+    "platformEyebrow": "Platform",
+    "platformTitle": "Built for modern teams",
+    "platformSubtitle": "Beyond core HR features, RH_Eletropasso is designed to be fast, accessible, and customizable.",
+    "platform": {
+      "anyDevice": {
+        "title": "Works on any device",
+        "description": "Progressive Web App that works on phones, tablets, and desktops. Install it like a native app — no app store needed."
+      },
+      "cloud": {
+        "title": "Cloud-based & always available",
+        "description": "Access your HR system from anywhere. All data is securely stored in the cloud with automatic backups."
+      },
+      "notifications": {
+        "title": "Real-time notifications",
+        "description": "Email and in-app notifications for leave requests, approvals, attendance alerts, and announcements."
+      },
+      "secure": {
+        "title": "Secure & private",
+        "description": "Role-based access control ensures employees only see what they should. All data is encrypted and protected."
+      },
+      "customizable": {
+        "title": "Customizable",
+        "description": "Configure departments, designations, leave types, review cycles, themes, and more to match your organization."
+      }
+    },
+    "comparisonEyebrow": "Comparison",
+    "comparisonTitle": "RH_Eletropasso vs typical paid HRMS",
+    "comparisonSubtitle": "Get more features out of the box — without the per-user pricing.",
+    "comparisonFeatureCol": "Feature",
+    "comparisonUsCol": "RH_Eletropasso",
+    "comparisonTypicalCol": "Typical paid HRMS",
+    "paidAddon": "Paid add-on",
+    "comparisonRows": [
+      "Attendance tracking",
+      "Selfie + GPS verification",
+      "Leave management",
+      "Custom leave types",
+      "Employee directory",
+      "Performance reviews",
+      "Reports & analytics",
+      "Email notifications",
+      "Mobile app (PWA)",
+      "Open source",
+      "Free tier available",
+      "No per-user pricing"
+    ],
+    "ctaTitle": "Ready to simplify your HR?",
+    "ctaBody": "Join organizations already using RH_Eletropasso. Free to start, no credit card required.",
+    "readBlog": "Read our blog",
+    "catalog": {
+      "attendance-tracking": {
+        "title": "Attendance management",
+        "subtitle": "Selfie-based check-in with GPS tracking",
+        "description": "Eliminate buddy punching and manual timesheets with photo-verified attendance. Employees check in by taking a selfie through the app, which captures their photo along with GPS coordinates and a timestamp.",
+        "subFeatures": [
+          "Selfie-based check-in with automatic photo capture",
+          "GPS location tracking for on-site verification",
+          "Office mode (standard) and Factory mode (shift-based)",
+          "Real-time attendance dashboard with live status",
+          "Attendance logs with filtering, search, and audit trail",
+          "Late arrival and early departure tracking",
+          "Admin override and manual adjustment capabilities"
+        ]
+      },
+      "leave-management": {
+        "title": "Leave management",
+        "subtitle": "Complete leave lifecycle from request to approval",
+        "description": "Streamline your entire leave process. Employees can apply for leave in seconds, managers get instant notifications for one-click approval, and HR has full visibility into leave balances.",
+        "subFeatures": [
+          "One-click leave application with date range picker",
+          "Configurable leave types (annual, sick, casual, custom)",
+          "Annual allowance and balance tracking per employee",
+          "Manager approval workflow with email notifications",
+          "Leave calendar view for team availability",
+          "Half-day and multi-day leave support",
+          "Automatic balance calculations and carry-over rules"
+        ]
+      },
+      "employee-directory": {
+        "title": "Employee directory",
+        "subtitle": "Centralized employee profiles and org structure",
+        "description": "Maintain a complete digital record of every team member. From personal details and job information to department assignments and reporting structure.",
+        "subFeatures": [
+          "Complete employee profiles with personal and job details",
+          "Department and designation management",
+          "Role-based access control (Admin, HR, Manager, Employee)",
+          "Quick search and advanced filtering",
+          "Employee onboarding and offboarding workflows",
+          "Bulk employee import and export",
+          "Profile photo management"
+        ]
+      },
+      "reports-analytics": {
+        "title": "Reports & analytics",
+        "subtitle": "Data-driven insights for better HR decisions",
+        "description": "Turn your HR data into actionable insights. Generate comprehensive reports on attendance patterns, leave utilization, and team performance.",
+        "subFeatures": [
+          "Attendance summary reports by employee, department, or date range",
+          "Leave utilization and balance reports",
+          "Late arrival and absenteeism trends",
+          "Interactive charts and visual dashboards",
+          "Export to CSV for payroll integration",
+          "Custom date range filtering",
+          "Department-level analytics and comparisons"
+        ]
+      },
+      "performance-reviews": {
+        "title": "Performance reviews",
+        "subtitle": "Structured review cycles with multi-level evaluation",
+        "description": "Run fair, transparent, and consistent performance reviews. Define custom competencies, set rating scales, and execute structured review cycles.",
+        "subFeatures": [
+          "Configurable review cycles with custom periods",
+          "Self-assessment by employees",
+          "Manager evaluation with competency ratings",
+          "HR review and finalization stage",
+          "Customizable competency frameworks and rating scales",
+          "Attendance and leave integration in review cards",
+          "Review history and progress tracking"
+        ]
+      },
+      "gps-geofencing": {
+        "title": "GPS & location verification",
+        "subtitle": "Verify employee location at check-in",
+        "description": "Every attendance check-in captures GPS coordinates alongside the selfie, providing location verification for remote teams, field workers, and multi-location organizations.",
+        "subFeatures": [
+          "Automatic GPS capture on check-in",
+          "Map view showing check-in locations",
+          "Multi-location organization support",
+          "Field worker and remote team tracking",
+          "Location data in exportable reports"
+        ]
+      },
+      "biometric-selfie-verification": {
+        "title": "Biometric selfie verification",
+        "subtitle": "Photo-verified attendance without hardware",
+        "description": "No fingerprint scanners or special hardware needed. RH_Eletropasso uses the camera on any smartphone to verify employee identity at check-in.",
+        "subFeatures": [
+          "Front-camera selfie capture on check-in",
+          "Visual audit trail for managers",
+          "Eliminates buddy punching",
+          "No biometric hardware required",
+          "Privacy-respectful: no facial recognition processing"
+        ]
+      }
+    }
+  },
+  "featureDetail": {
+    "notFoundTitle": "Feature not found",
+    "notFoundBody": "The feature page you're looking for doesn't exist.",
+    "whoFor": "Who is this for?",
+    "useCasesFor": "Common use cases for {{feature}}",
+    "previousFeature": "Previous feature",
+    "nextFeature": "Next feature",
+    "viewAll": "View all features",
+    "readyToTry": "Ready to try {{feature}}?",
+    "readyBody": "Get started for free. No credit card required."
+  },
+  "blogPage": {
+    "seoTitle": "Blog | RH_Eletropasso - Open Source HRMS",
+    "seoDescription": "Latest news, updates, and insights about HR management, employee engagement, and RH_Eletropasso product updates.",
+    "title": "Blog",
+    "subtitle": "Latest news, updates, and insights",
+    "filteringBy": "Filtering by:",
+    "clearAll": "Clear all",
+    "clearFilters": "Clear filters",
+    "noPostsFilter": "No posts found for this filter. Try a different selection.",
+    "noPosts": "No posts published yet. Check back soon!",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{total}}",
+    "backToBlog": "Back to blog",
+    "backToAllPosts": "Back to all posts",
+    "postTitleSuffix": "{{title}} | RH_Eletropasso Blog",
+    "postFallbackDescription": "Read {{title}} on the RH_Eletropasso Blog.",
+    "teamName": "RH_Eletropasso Team",
+    "postNotFound": "Post not found",
+    "postNotFoundBody": "The blog post you're looking for doesn't exist or has been unpublished.",
+    "recentPosts": "Recent posts",
+    "archive": "Archive",
+    "categories": "Categories",
+    "clearFilter": "Clear filter"
+  },
+  "tutorialsPage": {
+    "seoTitle": "Guides | RH_Eletropasso - Open Source HRMS",
+    "seoDescription": "Step-by-step guides to help you get the most out of RH_Eletropasso. Learn attendance tracking, leave management, employee directory, and more.",
+    "title": "Guides",
+    "subtitle": "Step-by-step guides to help you get the most out of RH_Eletropasso",
+    "loading": "Loading tutorials…",
+    "empty": "No tutorials published yet. Check back soon!",
+    "loadingTutorial": "Loading tutorial…",
+    "backToTutorials": "Back to tutorials",
+    "backToGuides": "Back to guides",
+    "postTitleSuffix": "{{title}} | RH_Eletropasso Guides",
+    "postFallbackDescription": "Learn how to {{title}} with RH_Eletropasso.",
+    "teamName": "RH_Eletropasso Team"
+  },
+  "changelogPage": {
+    "seoTitle": "Changelog — What's new in RH_Eletropasso",
+    "seoDescription": "See all the latest updates, new features, bug fixes, and improvements to RH_Eletropasso. Track our development progress and stay up to date.",
+    "title": "Changelog",
+    "subtitle": "All the updates, new features, and fixes shipped in RH_Eletropasso. We release improvements regularly to make HR management easier for your team.",
+    "types": {
+      "feature": "Feature",
+      "fix": "Fix",
+      "improvement": "Improvement",
+      "security": "Security",
+      "breaking": "Breaking"
+    }
+  },
+  "privacyPage": {
+    "seoTitle": "Privacy Policy — RH_Eletropasso",
+    "seoDescription": "Learn how RH_Eletropasso collects, uses, and protects your personal data. Read our full privacy policy covering cookies, data retention, and your rights.",
+    "lastUpdated": "Last updated: February 2026",
+    "sections": {
+      "s1Title": "1. Introduction",
+      "s1P1": "Welcome to RH_Eletropasso (\"we\", \"our\", \"us\"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our HR management platform (the \"Service\").",
+      "s1P2": "By using the Service, you agree to the collection and use of information in accordance with this policy. If you do not agree with the terms of this policy, please do not access the Service.",
+      "s2Title": "2. Information We Collect",
+      "s2Intro": "We collect information that you provide directly to us, including:",
+      "s2Items": [
+        "Account Information: Name, email address, organization name, and role when you register.",
+        "Employee Data: Employee profiles, attendance records, leave applications, and related HR data entered by your organization.",
+        "Usage Data: Information about how you interact with the Service, including pages visited, features used, and actions taken.",
+        "Device Information: Browser type, operating system, device type, and IP address.",
+        "Location Data: Approximate location data used for attendance tracking features, only when explicitly enabled by your organization.",
+        "Camera Data: Camera images used for attendance verification, processed locally on your device and stored securely."
+      ],
+      "s3Title": "3. Cookies and Analytics",
+      "s3Intro": "We use cookies and similar tracking technologies to enhance your experience:",
+      "s3Items": [
+        "Essential Cookies: Required for the Service to function properly (authentication, session management).",
+        "Analytics Cookies: We may use analytics to understand how visitors interact with our website. These cookies are only loaded after you provide consent.",
+        "Performance Monitoring: We may use performance monitoring tools for usage insights."
+      ],
+      "s3P2": "You can choose to accept or decline analytics cookies through the consent banner. You can change your preference at any time by clearing your browser's local storage for this site.",
+      "s4Title": "4. How We Use Your Information",
+      "s4Intro": "We use the information we collect to:",
+      "s4Items": [
+        "Provide, operate, and maintain the Service.",
+        "Process attendance records, leave applications, and other HR functions.",
+        "Send you account-related notifications and verification emails.",
+        "Improve and optimize the Service through analytics.",
+        "Detect and prevent fraud, abuse, and security issues.",
+        "Comply with legal obligations."
+      ],
+      "s5Title": "5. Data Storage and Security",
+      "s5Body": "Your data is stored securely using PocketBase as our backend database. We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.",
+      "s6Title": "6. Data Sharing and Disclosure",
+      "s6Intro": "We do not sell your personal information. We may share your data only in these circumstances:",
+      "s6Items": [
+        "Within Your Organization: HR administrators and managers within your organization can access relevant employee data as permitted by their role.",
+        "Service Providers: We use third-party services (hosting, analytics) that may process data on our behalf.",
+        "Legal Requirements: When required by law, regulation, or legal process."
+      ],
+      "s7Title": "7. Your Rights",
+      "s7Intro": "Depending on your location, you may have the following rights:",
+      "s7Items": [
+        "Access: Request a copy of the personal data we hold about you.",
+        "Correction: Request correction of inaccurate or incomplete data.",
+        "Deletion: Request deletion of your personal data, subject to legal obligations.",
+        "Portability: Request a copy of your data in a structured, machine-readable format.",
+        "Withdraw Consent: Withdraw consent for analytics tracking at any time via the cookie settings."
+      ],
+      "s7P2": "Organization administrators can manage and export their organization's data through the Service's built-in tools.",
+      "s8Title": "8. Data Retention",
+      "s8Body": "We retain your personal information for as long as your account is active or as needed to provide you the Service. If you or your organization administrator requests account deletion, we will delete your data within 30 days, except where we are required to retain it for legal or compliance purposes.",
+      "s9Title": "9. Children's Privacy",
+      "s9Body": "The Service is not intended for individuals under the age of 16. We do not knowingly collect personal information from children. If you become aware that a child has provided us with personal data, please contact us and we will take steps to delete such information.",
+      "s10Title": "10. Changes to This Policy",
+      "s10Body": "We may update this Privacy Policy from time to time. We will notify you of any changes by updating the \"Last updated\" date at the top of this page. We encourage you to review this Privacy Policy periodically for any changes.",
+      "s11Title": "11. Contact Us",
+      "s11Intro": "If you have any questions about this Privacy Policy or our data practices, please contact your organization administrator or the system operator.",
+      "contactName": "RH_Eletropasso"
+    }
+  },
+  "termsPage": {
+    "seoTitle": "Terms of Service — RH_Eletropasso",
+    "seoDescription": "Read the Terms of Service for RH_Eletropasso. Understand your rights, responsibilities, and the rules governing use of our open-source HR management platform.",
+    "lastUpdated": "Last updated: February 2026",
+    "sections": {
+      "s1Title": "1. Acceptance of Terms",
+      "s1Body": "By accessing or using RH_Eletropasso (\"the Service\"), you agree to be bound by these Terms of Service (\"Terms\"). If you do not agree to these Terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access or use the Service.",
+      "s2Title": "2. Description of Service",
+      "s2Body": "RH_Eletropasso is an open-source HR management platform that provides tools for attendance tracking, leave management, employee directory management, reporting, and other human resource functions. The Service is provided \"as is\" and \"as available\" for organizations and their authorized users.",
+      "s3Title": "3. User Accounts",
+      "s3Items": [
+        "You must register an organization account to use the Service. You are responsible for maintaining the confidentiality of your account credentials.",
+        "You must provide accurate and complete information during registration and keep your account information up to date.",
+        "You are responsible for all activities that occur under your account.",
+        "Organization administrators are responsible for managing user access and permissions within their organization.",
+        "You must notify us immediately of any unauthorized use of your account or any other security breach."
+      ],
+      "s4Title": "4. Acceptable Use",
+      "s4Intro": "You agree not to use the Service to:",
+      "s4Items": [
+        "Violate any applicable laws, regulations, or third-party rights.",
+        "Upload or transmit viruses, malware, or other malicious code.",
+        "Attempt to gain unauthorized access to the Service, other accounts, or related systems.",
+        "Use the Service for any purpose other than legitimate HR management activities.",
+        "Interfere with or disrupt the integrity or performance of the Service.",
+        "Store or process sensitive personal data beyond what is necessary for HR management purposes.",
+        "Use the Service to send spam, unsolicited communications, or for phishing purposes."
+      ],
+      "s5Title": "5. Organization Data",
+      "s5Body": "Your organization retains ownership of all data entered into the Service (\"Organization Data\"). We do not claim ownership over your Organization Data. You grant us a limited license to host, store, and process your Organization Data solely for the purpose of providing the Service. Organization administrators can export and delete their data at any time through the Service's built-in tools.",
+      "s6Title": "6. Subscription and Billing",
+      "s6Body": "The Service offers both free and paid subscription plans. Paid plans may provide additional features. Payment terms, pricing, and plan details are displayed within the Service. We reserve the right to modify pricing with reasonable notice.",
+      "s7Title": "7. Open Source License",
+      "s7Body": "RH_Eletropasso is an open-source project. The source code is available under its respective open-source license on GitHub. These Terms of Service govern your use of the hosted Service. If you choose to self-host the application, the open-source license terms apply to the software, while these Terms do not apply to self-hosted instances.",
+      "s8Title": "8. Service Availability",
+      "s8Body": "We strive to maintain the availability and reliability of the Service, but we do not guarantee uninterrupted or error-free operation. We may temporarily suspend the Service for maintenance, updates, or other operational reasons.",
+      "s9Title": "9. Limitation of Liability",
+      "s9Body": "To the maximum extent permitted by applicable law, RH_Eletropasso and its contributors shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, use, or goodwill, arising out of or in connection with your use of the Service.",
+      "s10Title": "10. Disclaimer of Warranties",
+      "s10Body": "The Service is provided on an \"AS IS\" and \"AS AVAILABLE\" basis, without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.",
+      "s11Title": "11. Termination",
+      "s11Body": "We reserve the right to suspend or terminate your access to the Service at any time, with or without cause, with or without notice. Upon termination, your right to use the Service will immediately cease. You may also terminate your account at any time by contacting us.",
+      "s12Title": "12. Changes to These Terms",
+      "s12Body": "We reserve the right to modify these Terms at any time. We will provide notice of material changes by updating the \"Last updated\" date at the top of this page. Your continued use of the Service after any changes constitutes acceptance of the new Terms.",
+      "s13Title": "13. Governing Law",
+      "s13Body": "These Terms shall be governed by and construed in accordance with the laws applicable to your jurisdiction, without regard to its conflict of law provisions. Any disputes arising under these Terms shall be resolved through good-faith negotiation before pursuing formal legal action.",
+      "s14Title": "14. Contact Us",
+      "s14Intro": "If you have any questions about these Terms of Service, please contact your organization administrator or the system operator.",
+      "contactName": "RH_Eletropasso"
+    }
+  },
+  "guidesPage": {
+    "seoTitle": "Guides | RH_Eletropasso - Open Source HRMS",
+    "seoDescription": "Step-by-step guides to help you get the most out of RH_Eletropasso. Learn attendance tracking, leave management, employee directory, and more.",
+    "title": "Guides",
+    "subtitle": "Step-by-step guides to help you get the most out of RH_Eletropasso",
+    "loading": "Loading tutorials…",
+    "empty": "No tutorials published yet. Check back soon!",
+    "loadingTutorial": "Loading tutorial…",
+    "backToTutorials": "Back to tutorials",
+    "backToGuides": "Back to guides",
+    "postTitleSuffix": "{{title}} | RH_Eletropasso Guides",
+    "postFallbackDescription": "Learn how to {{title}} with RH_Eletropasso.",
+    "teamName": "RH_Eletropasso Team"
+  },
+  "previous": "Previous",
+  "next": "Next",
+  "pageOf": "Page {{page}} of {{total}}"
 }

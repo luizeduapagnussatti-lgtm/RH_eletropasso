@@ -146,7 +146,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', darkMode ? '#0f172a' : '#fcfdfe');
+      meta.setAttribute('content', darkMode ? '#0a0e17' : '#fcfdfe');
     }
   }, [darkMode]);
 

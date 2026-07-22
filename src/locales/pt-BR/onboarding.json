@@ -1,7 +1,53 @@
 {
   "help": "Ajuda",
   "setupChecklist": "Checklist de configuração",
-  "markDone": "Marcar como concluído",
-  "dismiss": "Dispensar",
-  "getStarted": "Começar"
+  "markDone": "Concluído",
+  "dismiss": "Não mostrar novamente",
+  "getStarted": "Começar",
+  "go": "Ir",
+  "viewGuide": "Ver guia",
+  "setupComplete": "Configuração concluída!",
+  "setupTitle": "Configure sua organização",
+  "setupSubtitle": "Conclua estas etapas para colocar sua equipe em marcha",
+  "setupCompleteSubtitle": "Sua organização está totalmente configurada.",
+  "allStepsComplete": "Todas as {{count}} etapas foram concluídas. Sua organização está pronta!",
+  "hideChecklist": "Ocultar checklist",
+  "progressComplete": "{{completed}} de {{total}} concluídas",
+  "showSetupGuide": "Mostrar guia de configuração",
+  "showSetupGuideHint": "Reabrir o checklist passo a passo da organização",
+  "reEnableSetupGuide": "Reativar guia de configuração",
+  "steps": {
+    "companyInfo": {
+      "title": "Dados da empresa",
+      "description": "Adicione nome, logo, país e endereço da empresa"
+    },
+    "departments": {
+      "title": "Departamentos",
+      "description": "Crie departamentos como Engenharia, RH, Financeiro etc."
+    },
+    "shifts": {
+      "title": "Turnos",
+      "description": "Configure turnos com horários e tolerâncias"
+    },
+    "locations": {
+      "title": "Locais de trabalho",
+      "description": "Adicione coordenadas GPS dos escritórios para validar o ponto"
+    },
+    "teams": {
+      "title": "Equipes",
+      "description": "Organize colaboradores em equipes com líderes"
+    },
+    "leavePolicy": {
+      "title": "Política de licenças",
+      "description": "Configure saldos padrão (férias, eventual, atestado)"
+    },
+    "holidays": {
+      "title": "Feriados",
+      "description": "Cadastre o calendário de feriados da organização"
+    },
+    "employees": {
+      "title": "Colaboradores",
+      "description": "Convide sua equipe para começar a usar o RH_Eletropasso"
+    }
+  }
 }

@@ -26,6 +26,8 @@ const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: numbe
     img.src = dataUrl;
   });
 
+const ALL_EMPLOYEES_FILTER = '__ALL__';
+
 interface ReportsProps {
   user: User;
 }
@@ -52,7 +54,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
   
   // Filter States
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
-  const [employeeFilter, setEmployeeFilter] = useState('All Employees');
+  const [employeeFilter, setEmployeeFilter] = useState(ALL_EMPLOYEES_FILTER);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   
@@ -73,18 +75,18 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     'Check_In': true, 'Check_Out': true, 'Location': true, 'Latitude': true, 'Longitude': true, 'Remarks': true
   });
 
-  const columnOptions = [
-    { key: 'Employee_ID', label: 'Employee ID', icon: UserIcon },
-    { key: 'Name', label: 'Full Name', icon: Layout },
-    { key: 'Date', label: 'Entry Date', icon: Calendar },
-    { key: 'Status_Type', label: 'Status', icon: CheckCircle2 },
-    { key: 'Check_In', label: 'Clock In', icon: Clock },
-    { key: 'Check_Out', label: 'Clock Out', icon: Clock },
-    { key: 'Location', label: 'GPS Address', icon: MapPin },
-    { key: 'Latitude', label: 'Latitude', icon: Search },
-    { key: 'Longitude', label: 'Longitude', icon: Search },
-    { key: 'Remarks', label: 'Notes', icon: FileText },
-  ];
+  const columnOptions = useMemo(() => [
+    { key: 'Employee_ID', label: t('columns.Employee_ID'), icon: UserIcon },
+    { key: 'Name', label: t('columns.Name'), icon: Layout },
+    { key: 'Date', label: t('columns.Date'), icon: Calendar },
+    { key: 'Status_Type', label: t('columns.Status_Type'), icon: CheckCircle2 },
+    { key: 'Check_In', label: t('columns.Check_In'), icon: Clock },
+    { key: 'Check_Out', label: t('columns.Check_Out'), icon: Clock },
+    { key: 'Location', label: t('columns.Location'), icon: MapPin },
+    { key: 'Latitude', label: t('columns.Latitude'), icon: Search },
+    { key: 'Longitude', label: t('columns.Longitude'), icon: Search },
+    { key: 'Remarks', label: t('columns.Remarks'), icon: FileText },
+  ], [t]);
 
   const fetchLogs = async () => {
     try {
@@ -199,7 +201,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       const emp = employees.find(e => e.id === item.employeeId);
       if (!emp) return false;
       if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department)) return false;
-      if (employeeFilter !== 'All Employees' && item.employeeId !== employeeFilter) return false;
+      if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
       return true;
     });
 
@@ -208,7 +210,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       const emp = employees.find(e => e.id === item.employeeId);
       if (!emp) return false;
       if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department)) return false;
-      if (employeeFilter !== 'All Employees' && item.employeeId !== employeeFilter) return false;
+      if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
       return true;
     });
 
@@ -227,7 +229,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         const targetEmployees = employees.filter(e => {
           if (e.status !== 'ACTIVE') return false;
           if (selectedDepts.length > 0 && !selectedDepts.includes(e.department)) return false;
-          if (employeeFilter !== 'All Employees' && e.id !== employeeFilter) return false;
+          if (employeeFilter !== ALL_EMPLOYEES_FILTER && e.id !== employeeFilter) return false;
           return true;
         });
 
@@ -321,7 +323,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       const emp = employees.find(e => e.id === item.employeeId);
       if (!emp) return false;
       if (selectedDepts.length > 0 && !selectedDepts.includes(emp.department)) return false;
-      if (employeeFilter !== 'All Employees' && item.employeeId !== employeeFilter) return false;
+      if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
       return true;
     });
 
@@ -370,7 +372,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
   };
 
   const downloadCSV = () => {
-    if (reportData.length === 0) { showToast("No data to export.", "warning"); return; }
+    if (reportData.length === 0) { showToast(t('noData'), "warning"); return; }
     setIsGenerating(true);
     setTimeout(() => {
       const cleanData = getCleanReportData();
@@ -379,7 +381,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + "\n" + rows.join("\n");
       const link = document.createElement("a");
       link.setAttribute("href", encodeURI(csvContent));
-      link.setAttribute("download", `OpenHR_${reportType}_Export.csv`);
+      link.setAttribute("download", `RH_Eletropasso_${reportType}_Export.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -388,7 +390,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
   };
 
   const downloadPDF = async () => {
-    if (reportData.length === 0) { showToast("No data to export.", "warning"); return; }
+    if (reportData.length === 0) { showToast(t('noData'), "warning"); return; }
     setIsGeneratingPDF(true);
     try {
       const jsPDFModule = await import('jspdf');
@@ -487,14 +489,14 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(148, 163, 184);
-        doc.text(`Generated by OpenHR on ${now}`, 14, pageHeight - 8);
+        doc.text(`Generated by RH_Eletropasso on ${now}`, 14, pageHeight - 8);
         doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
       }
 
-      doc.save(`OpenHR_${reportType}_Export.pdf`);
+      doc.save(`RH_Eletropasso_${reportType}_Export.pdf`);
     } catch (err: any) {
       console.error("PDF generation failed:", err);
-      showToast("Failed to generate PDF: " + (err?.message || err), "error");
+      showToast(t('pdfFailed', { error: err?.message || err }), "error");
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -503,7 +505,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
   // --- Summary Tab Exports ---
 
   const downloadSummaryCSV = () => {
-    if (employeeSummaries.length === 0) { showToast("No summary data to export.", "warning"); return; }
+    if (employeeSummaries.length === 0) { showToast(t('noSummaryData'), "warning"); return; }
     setIsGenerating(true);
     setTimeout(() => {
       const headers = ['Employee ID', 'Name', 'Department', 'Designation', 'Working Days', 'Present', 'Absent', 'Late', 'Leave', 'Half Days', 'Attendance %'];
@@ -515,7 +517,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       const csvContent = 'data:text/csv;charset=utf-8,﻿' + headers.join(',') + '\n' + rows.join('\n');
       const link = document.createElement('a');
       link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', `OpenHR_Employee_Summary_${startDate}_to_${endDate}.csv`);
+      link.setAttribute('download', `RH_Eletropasso_Employee_Summary_${startDate}_to_${endDate}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -524,7 +526,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
   };
 
   const downloadSummaryPDF = async () => {
-    if (employeeSummaries.length === 0) { showToast("No summary data to export.", "warning"); return; }
+    if (employeeSummaries.length === 0) { showToast(t('noSummaryData'), "warning"); return; }
     setIsGeneratingPDF(true);
     try {
       const jsPDFModule = await import('jspdf');
@@ -637,27 +639,27 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(148, 163, 184);
-        doc.text(`Generated by OpenHR on ${now}`, 14, pageHeight - 8);
+        doc.text(`Generated by RH_Eletropasso on ${now}`, 14, pageHeight - 8);
         doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
       }
 
-      doc.save(`OpenHR_Employee_Summary_${startDate}_to_${endDate}.pdf`);
+      doc.save(`RH_Eletropasso_Employee_Summary_${startDate}_to_${endDate}.pdf`);
     } catch (err: any) {
       console.error("Summary PDF generation failed:", err);
-      showToast("Failed to generate PDF: " + (err?.message || err), "error");
+      showToast(t('pdfFailed', { error: err?.message || err }), "error");
     } finally {
       setIsGeneratingPDF(false);
     }
   };
 
   const handleEmailSummaryReport = async () => {
-    if (employeeSummaries.length === 0) { showToast("No summary data to email.", "warning"); return; }
+    if (employeeSummaries.length === 0) { showToast(t('noSummaryData'), "warning"); return; }
     setIsEmailing(true);
     try {
       const rawTarget = customRecipients;
-      if (!rawTarget) throw new Error("Please enter at least one recipient email address.");
-      const targets = rawTarget.split(',').map(t => t.trim()).filter(t => t.includes('@'));
-      if (targets.length === 0) throw new Error("No valid email addresses found.");
+      if (!rawTarget) throw new Error(t('emailErrors.noRecipient'));
+      const targets = rawTarget.split(',').map(addr => addr.trim()).filter(addr => addr.includes('@'));
+      if (targets.length === 0) throw new Error(t('emailErrors.noValidEmails'));
 
       const periodLabel = periodPreset.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       const dateRange = `${startDate} to ${endDate}`;
@@ -665,20 +667,20 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       for (const target of targets) {
         await emailService.sendEmployeeSummaryReport(target, employeeSummaries, periodLabel, dateRange);
       }
-      showToast(`Summary report queued for ${targets.length} recipient(s).`, "success");
+      showToast(t('emailQueuedSummary', { count: targets.length }), "success");
       setTimeout(fetchLogs, 1000);
-    } catch (err: any) { showToast(err.message || "Email relay failed.", "error"); }
+    } catch (err: any) { showToast(err.message || t('emailErrors.relayFailed'), "error"); }
     finally { setIsEmailing(false); }
   };
 
   const handleEmailSummary = async () => {
-    if (reportData.length === 0) { showToast("There is no data in the current report to email.", "warning"); return; }
+    if (reportData.length === 0) { showToast(t('noDataToEmail'), "warning"); return; }
     setIsEmailing(true);
     try {
       const rawTarget = customRecipients;
-      if (!rawTarget) throw new Error("Please enter at least one recipient email address.");
-      const targets = rawTarget.split(',').map(t => t.trim()).filter(t => t.includes('@'));
-      if (targets.length === 0) throw new Error("No valid email addresses found.");
+      if (!rawTarget) throw new Error(t('emailErrors.noRecipient'));
+      const targets = rawTarget.split(',').map(addr => addr.trim()).filter(addr => addr.includes('@'));
+      if (targets.length === 0) throw new Error(t('emailErrors.noValidEmails'));
 
       const BATCH_SIZE = 350;
       const chunks = [];
@@ -693,20 +695,20 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
            totalEmails++;
         }
       }
-      showToast(`Report summary queued for ${targets.length} recipient(s).`, "success");
+      showToast(t('emailQueuedDetail', { count: targets.length }), "success");
       setTimeout(fetchLogs, 1000);
-    } catch (err: any) { showToast(err.message || "Email relay failed.", "error"); } 
+    } catch (err: any) { showToast(err.message || t('emailErrors.relayFailed'), "error"); } 
     finally { setIsEmailing(false); }
   };
 
-  if (isLoading) return <div className="flex flex-col items-center justify-center h-64 text-slate-400"><RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mb-4" /><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Initializing Reporting Engine...</p></div>;
+  if (isLoading) return <div className="flex flex-col items-center justify-center h-64 text-slate-400"><RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mb-4" /><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{t('loading')}</p></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1><HelpButton helpPointId="reports.generator" /></div>
-          <p className="text-slate-500 font-medium text-sm">Employee attendance summary & detailed record extraction</p>
+          <p className="text-slate-500 font-medium text-sm">{t('subtitle')}</p>
         </div>
       </header>
 
@@ -718,34 +720,34 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             {/* Period Presets */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">Period</p>
+                <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('period')}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { key: 'THIS_WEEK', label: 'This Week', icon: CalendarDays },
-                  { key: 'THIS_MONTH', label: 'This Month', icon: Calendar },
-                  { key: 'THIS_YEAR', label: 'This Year', icon: TrendingUp },
-                  { key: 'LAST_MONTH', label: 'Last Month', icon: Calendar },
-                  { key: 'LAST_YEAR', label: 'Last Year', icon: TrendingUp },
+                  { key: 'THIS_WEEK', icon: CalendarDays },
+                  { key: 'THIS_MONTH', icon: Calendar },
+                  { key: 'THIS_YEAR', icon: TrendingUp },
+                  { key: 'LAST_MONTH', icon: Calendar },
+                  { key: 'LAST_YEAR', icon: TrendingUp },
                 ].map(p => (
                   <button key={p.key} onClick={() => handlePresetClick(p.key)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider transition-all border ${
                       periodPreset === p.key ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-indigo-200 hover:text-indigo-600'
                     }`}>
-                    <p.icon size={14} />{p.label}
+                    <p.icon size={14} />{t(`presets.${p.key}`)}
                   </button>
                 ))}
                 <button onClick={() => handlePresetClick('CUSTOM')}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider transition-all border ${
                     periodPreset === 'CUSTOM' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-indigo-200 hover:text-indigo-600'
                   }`}>
-                  <CalendarDays size={14} />Custom
+                  <CalendarDays size={14} />{t('presets.CUSTOM')}
                 </button>
               </div>
               {periodPreset === 'CUSTOM' && (
                 <div className="flex gap-2 pt-2">
-                  <div className="flex-1 min-w-0 space-y-1"><label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">From</label><input type="date" className="w-full min-w-0 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold outline-none" value={startDate} onChange={handleDateChange(setStartDate)} /></div>
-                  <div className="flex-1 min-w-0 space-y-1"><label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">To</label><input type="date" className="w-full min-w-0 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold outline-none" value={endDate} onChange={handleDateChange(setEndDate)} /></div>
+                  <div className="flex-1 min-w-0 space-y-1"><label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('from')}</label><input type="date" className="w-full min-w-0 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold outline-none" value={startDate} onChange={handleDateChange(setStartDate)} /></div>
+                  <div className="flex-1 min-w-0 space-y-1"><label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('to')}</label><input type="date" className="w-full min-w-0 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold outline-none" value={endDate} onChange={handleDateChange(setEndDate)} /></div>
                 </div>
               )}
             </div>
@@ -753,10 +755,10 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             {/* Department Filter */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">Departments ({selectedDepts.length}/{dbDepartments.length})</p>
+                <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('departments', { selected: selectedDepts.length, total: dbDepartments.length })}</p>
                 <div className="flex gap-4">
-                  <button onClick={() => setSelectedDepts(dbDepartments)} className="text-[9px] font-semibold uppercase text-indigo-600 hover:underline">Select All</button>
-                  <button onClick={() => setSelectedDepts([])} className="text-[9px] font-semibold uppercase text-rose-500 hover:underline">Clear All</button>
+                  <button onClick={() => setSelectedDepts(dbDepartments)} className="text-[9px] font-semibold uppercase text-indigo-600 hover:underline">{t('selectAll')}</button>
+                  <button onClick={() => setSelectedDepts([])} className="text-[9px] font-semibold uppercase text-rose-500 hover:underline">{t('clearAll')}</button>
                 </div>
               </div>
               <div className="max-h-60 overflow-y-auto no-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-1 border border-slate-50 rounded-3xl py-4 bg-slate-50/30">
@@ -775,15 +777,15 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             {/* Employee Scoping + Recipient */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">Employee Scoping</label>
+                <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('employeeScoping')}</label>
                 <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)}>
-                  <option value="All Employees">All Active Employees</option>
+                  <option value={ALL_EMPLOYEES_FILTER}>{t('allEmployees')}</option>
                   {employees.filter(e => { if (selectedDepts.length === 0) return true; return selectedDepts.includes(e.department || ''); }).map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">Recipient(s)</label>
-                <input type="text" placeholder="email1@example.com, email2@example.com" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={customRecipients} onChange={e => setCustomRecipients(e.target.value)}/>
+                <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('recipients')}</label>
+                <input type="text" placeholder={t('recipientsPlaceholder')} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={customRecipients} onChange={e => setCustomRecipients(e.target.value)}/>
               </div>
             </div>
           </div>
@@ -793,8 +795,8 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-indigo-100 rounded-xl"><PieChart size={20} className="text-indigo-600" /></div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Employee Summary Report</h2>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Per-employee attendance breakdown</p>
+                <h2 className="text-lg font-bold text-slate-900">{t('employeeSummaryTitle')}</h2>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('perEmployeeBreakdown')}</p>
               </div>
             </div>
 
@@ -802,18 +804,18 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             {employeeSummaries.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-100">
                 <Users size={40} className="mx-auto text-slate-300 mb-3" />
-                <p className="text-sm font-semibold text-slate-400">No employee data for this period</p>
-                <p className="text-xs text-slate-400 mt-1">Try adjusting the date range or department filters.</p>
+                <p className="text-sm font-semibold text-slate-400">{t('noEmployeeData')}</p>
+                <p className="text-xs text-slate-400 mt-1">{t('adjustFilters')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                  { label: 'Employees', value: employeeSummaries.length, color: 'bg-indigo-50 text-indigo-700 border-indigo-100', icon: Users },
-                  { label: 'Total Present', value: employeeSummaries.reduce((s: any, e: any) => s + e.presentDays, 0), color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle2 },
-                  { label: 'Total Absent', value: employeeSummaries.reduce((s: any, e: any) => s + e.absentDays, 0), color: 'bg-rose-50 text-rose-700 border-rose-100', icon: AlertCircle },
-                  { label: 'Total Late', value: employeeSummaries.reduce((s: any, e: any) => s + e.lateDays, 0), color: 'bg-amber-50 text-amber-700 border-amber-100', icon: Clock },
-                  { label: 'Total Leave', value: employeeSummaries.reduce((s: any, e: any) => s + e.leaveDays, 0), color: 'bg-blue-50 text-blue-700 border-blue-100', icon: FileText },
-                  { label: 'Avg. Att.', value: employeeSummaries.length > 0 ? `${Math.round(employeeSummaries.reduce((s: any, e: any) => s + e.attendancePercentage, 0) / employeeSummaries.length)}%` : '—', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: PieChart },
+                  { label: t('stats.employees'), value: employeeSummaries.length, color: 'bg-indigo-50 text-indigo-700 border-indigo-100', icon: Users },
+                  { label: t('stats.totalPresent'), value: employeeSummaries.reduce((s: any, e: any) => s + e.presentDays, 0), color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle2 },
+                  { label: t('stats.totalAbsent'), value: employeeSummaries.reduce((s: any, e: any) => s + e.absentDays, 0), color: 'bg-rose-50 text-rose-700 border-rose-100', icon: AlertCircle },
+                  { label: t('stats.totalLate'), value: employeeSummaries.reduce((s: any, e: any) => s + e.lateDays, 0), color: 'bg-amber-50 text-amber-700 border-amber-100', icon: Clock },
+                  { label: t('stats.totalLeave'), value: employeeSummaries.reduce((s: any, e: any) => s + e.leaveDays, 0), color: 'bg-blue-50 text-blue-700 border-blue-100', icon: FileText },
+                  { label: t('stats.avgAttendance'), value: employeeSummaries.length > 0 ? `${Math.round(employeeSummaries.reduce((s: any, e: any) => s + e.attendancePercentage, 0) / employeeSummaries.length)}%` : '—', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: PieChart },
                 ].map((stat: any) => (
                   <div key={stat.label} className={`${stat.color} rounded-2xl p-4 border text-center`}>
                     <stat.icon size={18} className="mx-auto mb-1.5 opacity-60" />
@@ -824,16 +826,16 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
               </div>
             )}
             <p className="text-[9px] text-slate-400 text-center">
-              Per-employee breakdown is included in the CSV / PDF export and email report.
+              {t('employeeSummaryHint')}
             </p>
 
             {/* Summary Export Buttons */}
             <div className="pt-4 border-t border-slate-50 space-y-3">
               <div className="flex gap-3">
-                <button onClick={downloadSummaryCSV} disabled={isGenerating || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} CSV Summary</button>
-                <button onClick={downloadSummaryPDF} disabled={isGeneratingPDF || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} PDF Summary</button>
+                <button onClick={downloadSummaryCSV} disabled={isGenerating || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvSummary')}</button>
+                <button onClick={downloadSummaryPDF} disabled={isGeneratingPDF || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfSummary')}</button>
               </div>
-              <button onClick={handleEmailSummaryReport} disabled={isEmailing || employeeSummaries.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} Email Summary Report</button>
+              <button onClick={handleEmailSummaryReport} disabled={isEmailing || employeeSummaries.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailSummaryReport')}</button>
             </div>
           </div>
 
@@ -842,30 +844,57 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-slate-100 rounded-xl"><FileText size={20} className="text-slate-700" /></div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Detail Records Report</h2>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Individual attendance & leave records</p>
+                <h2 className="text-lg font-bold text-slate-900">{t('detailRecordsTitle')}</h2>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('detailRecordsHint')}</p>
               </div>
             </div>
 
             {/* Report Type */}
             <div className="space-y-3">
-              <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">Report Type</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {['ATTENDANCE', 'ABSENT', 'LATE', 'LEAVE'].map((id) => (
+              <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('reportType')}</p>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {['ATTENDANCE', 'ABSENT', 'LATE', 'LEAVE', 'TIMESHEET'].map((id) => (
                   <button key={id} onClick={() => setReportType(id)} className={`flex items-center gap-2 p-4 rounded-xl border transition-all ${reportType === id ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 hover:bg-slate-50'}`}>
                     <div className={`p-2 rounded-lg ${reportType === id ? 'bg-white/10' : 'bg-indigo-500 text-white'}`}><FileText size={14} /></div>
-                    <span className="font-semibold text-[10px] uppercase tracking-tight">{id}</span>
+                    <span className="font-semibold text-[10px] uppercase tracking-tight">{t(`reportTypes.${id}`)}</span>
                   </button>
                 ))}
               </div>
             </div>
 
+            {reportType === 'TIMESHEET' ? (
+              <div className="pt-4 border-t border-slate-50">
+                <button
+                  onClick={async () => {
+                    try {
+                      const d = new Date(startDate);
+                      const period = await hrService.getOrCreateTimesheetPeriod(d.getFullYear(), d.getMonth() + 1);
+                      const csv = await hrService.exportTimesheetCsv(period.id);
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `espelho_ptrp_${period.year}_${String(period.month).padStart(2, '0')}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      showToast(t('exportSuccess'), 'success');
+                    } catch (e: any) {
+                      showToast(e?.message || t('exportFailed'), 'error');
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all"
+                >
+                  <FileSpreadsheet size={16} /> {t('csvExport')}
+                </button>
+              </div>
+            ) : (
+            <>
             {/* Configure Columns (collapsible) */}
             <details className="group">
               <summary className="flex items-center gap-2 cursor-pointer text-[10px] font-semibold uppercase text-slate-400 tracking-widest hover:text-slate-600 transition-colors">
                 <Settings2 size={14} />
-                Configure Export Columns ({Object.values(enabledColumns).filter(Boolean).length} active)
-                <span className="ml-auto text-[9px] text-slate-300 group-open:hidden">Click to expand</span>
+                {t('configureColumns', { count: Object.values(enabledColumns).filter(Boolean).length })}
+                <span className="ml-auto text-[9px] text-slate-300 group-open:hidden">{t('clickToExpand')}</span>
               </summary>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-50">
                 {columnOptions.map((col) => (
@@ -883,11 +912,13 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
             {/* Detail Export Buttons */}
             <div className="pt-4 border-t border-slate-50 space-y-3">
               <div className="flex gap-3">
-                <button onClick={downloadCSV} disabled={isGenerating || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} CSV Export</button>
-                <button onClick={downloadPDF} disabled={isGeneratingPDF || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} PDF Export</button>
+                <button onClick={downloadCSV} disabled={isGenerating || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvExport')}</button>
+                <button onClick={downloadPDF} disabled={isGeneratingPDF || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfExport')}</button>
               </div>
-              <button onClick={handleEmailSummary} disabled={isEmailing || reportData.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} Email Detail Report</button>
+              <button onClick={handleEmailSummary} disabled={isEmailing || reportData.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailDetailReport')}</button>
             </div>
+            </>
+            )}
           </div>
 
         </div>
@@ -895,15 +926,15 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         {/* ===== LIVE PREVIEW SIDEBAR (always summary) ===== */}
         <div className="bg-[#0f172a] rounded-2xl p-8 text-white shadow-xl space-y-8 flex flex-col sticky top-24 h-fit animate-in zoom-in duration-700">
            <div className="flex-1 space-y-8">
-             <div className="flex items-center justify-between"><h3 className="text-xl font-semibold flex items-center gap-3"><Search className="text-indigo-400" /> Live Preview</h3><div className="p-2 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-all" onClick={fetchLogs} title="Refresh Email Status"><RefreshCw size={16} /></div></div>
+             <div className="flex items-center justify-between"><h3 className="text-xl font-semibold flex items-center gap-3"><Search className="text-indigo-400" /> {t('livePreview')}</h3><div className="p-2 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-all" onClick={fetchLogs} title={t('refreshEmailStatus')}><RefreshCw size={16} /></div></div>
              <div className="p-8 bg-white/5 rounded-xl border border-white/10 text-center space-y-6">
-               <div><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Employees</p><p className="text-6xl font-semibold text-white">{employeeSummaries.length}</p></div>
+               <div><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">{t('stats.employees')}</p><p className="text-6xl font-semibold text-white">{employeeSummaries.length}</p></div>
                <div className="grid grid-cols-2 gap-2">
                  {[
-                   { label: 'Present', count: employeeSummaries.reduce((s, e) => s + e.presentDays, 0), color: 'text-emerald-400' },
-                   { label: 'Absent', count: employeeSummaries.reduce((s, e) => s + e.absentDays, 0), color: 'text-rose-400' },
-                   { label: 'Late', count: employeeSummaries.reduce((s, e) => s + e.lateDays, 0), color: 'text-amber-400' },
-                   { label: 'Leave', count: employeeSummaries.reduce((s, e) => s + e.leaveDays, 0), color: 'text-blue-400' },
+                   { label: t('present'), count: employeeSummaries.reduce((s, e) => s + e.presentDays, 0), color: 'text-emerald-400' },
+                   { label: t('absent'), count: employeeSummaries.reduce((s, e) => s + e.absentDays, 0), color: 'text-rose-400' },
+                   { label: t('late'), count: employeeSummaries.reduce((s, e) => s + e.lateDays, 0), color: 'text-amber-400' },
+                   { label: t('leave'), count: employeeSummaries.reduce((s, e) => s + e.leaveDays, 0), color: 'text-blue-400' },
                  ].map(stat => (
                    <div key={stat.label} className="bg-white/5 rounded-xl p-3 text-center">
                      <p className={`text-lg font-bold ${stat.color}`}>{stat.count}</p>
@@ -913,7 +944,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                </div>
                <div className="h-px bg-white/10 w-1/2 mx-auto"></div>
                <div>
-                 <p className="text-[8px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">Avg. Attendance</p>
+                 <p className="text-[8px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">{t('avgAttendance')}</p>
                  <p className="text-3xl font-bold text-white">
                    {employeeSummaries.length > 0
                      ? `${Math.round(employeeSummaries.reduce((s, e) => s + e.attendancePercentage, 0) / employeeSummaries.length)}%`
@@ -922,15 +953,15 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                </div>
              </div>
              <div className="space-y-4">
-               <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500"><Activity size={14} className="text-indigo-400" /> Recent Email Activity</div>
+               <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500"><Activity size={14} className="text-indigo-400" /> {t('recentEmailActivity')}</div>
                <div className="bg-slate-900 border border-white/10 rounded-3xl p-2 max-h-48 overflow-y-auto no-scrollbar space-y-1">
-                 {emailLogs.length === 0 ? (<p className="text-center text-[9px] font-semibold text-slate-600 uppercase py-4">No recent activity</p>) : (emailLogs.map(log => (<div key={log.id} className="p-3 bg-white/5 rounded-2xl flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[9px] font-bold text-white truncate">{log.recipient_email}</p><p className="text-[8px] font-medium text-slate-500 truncate">{log.subject}</p></div><div className={`px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase ${log.status === 'SENT' ? 'bg-emerald-500/20 text-emerald-400' : log.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{log.status}</div></div>)))}
+                 {emailLogs.length === 0 ? (<p className="text-center text-[9px] font-semibold text-slate-600 uppercase py-4">{t('noRecentActivity')}</p>) : (emailLogs.map(log => (<div key={log.id} className="p-3 bg-white/5 rounded-2xl flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[9px] font-bold text-white truncate">{log.recipient_email}</p><p className="text-[8px] font-medium text-slate-500 truncate">{log.subject}</p></div><div className={`px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase ${log.status === 'SENT' ? 'bg-emerald-500/20 text-emerald-400' : log.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{log.status}</div></div>)))}
                </div>
-               {emailLogs.some(l => l.status === 'FAILED') && (<div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex gap-2"><AlertCircle size={14} className="text-rose-400 flex-shrink-0" /><p className="text-[9px] font-medium text-rose-300 leading-tight">Some emails failed. Verify SMTP settings in Admin Panel &gt; Settings &gt; Mail.</p></div>)}
-               {isHookMissing && (<div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-2"><HelpCircle size={14} className="text-amber-400 flex-shrink-0" /><div className="space-y-1"><p className="text-[9px] font-bold text-amber-300 leading-tight uppercase">Backend Hook Not Detected</p><p className="text-[8px] font-medium text-amber-400/80 leading-tight">Emails are stuck in PENDING. Ensure <code>main.pb.js</code> is in your PocketBase <code>pb_hooks</code> folder.</p></div></div>)}
+               {emailLogs.some(l => l.status === 'FAILED') && (<div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex gap-2"><AlertCircle size={14} className="text-rose-400 flex-shrink-0" /><p className="text-[9px] font-medium text-rose-300 leading-tight">{t('emailFailedHint')}</p></div>)}
+               {isHookMissing && (<div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-2"><HelpCircle size={14} className="text-amber-400 flex-shrink-0" /><div className="space-y-1"><p className="text-[9px] font-bold text-amber-300 leading-tight uppercase">{t('hookMissingTitle')}</p><p className="text-[8px] font-medium text-amber-400/80 leading-tight">{t('hookMissingHint')}</p></div></div>)}
              </div>
            </div>
-           <div className="p-6 bg-indigo-500/10 rounded-xl border border-indigo-500/20"><p className="text-[9px] font-semibold text-indigo-300 uppercase tracking-[0.3em] mb-2">Technical Info</p><div className="space-y-1 text-[10px] font-bold text-slate-300 uppercase"><p>Format: CSV / PDF</p><p>Mode: Per-Employee Summary + Detail Records</p></div></div>
+           <div className="p-6 bg-indigo-500/10 rounded-xl border border-indigo-500/20"><p className="text-[9px] font-semibold text-indigo-300 uppercase tracking-[0.3em] mb-2">{t('technicalInfo')}</p><div className="space-y-1 text-[10px] font-bold text-slate-300 uppercase"><p>{t('formatCsvPdf')}</p><p>{t('modeSummaryDetail')}</p></div></div>
         </div>
       </div>
     </div>

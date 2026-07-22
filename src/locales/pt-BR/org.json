@@ -212,17 +212,23 @@
   "notificationSaveFailed": "Falha ao salvar a configuração de notificações.",
   "dmprepSync": {
     "title": "Sincronização DMPREP",
-    "description": "Importa cadastros novos do DIMEP.MDB e batidas recentes do MOVIMENT.txt para o OpenHR. O serviço também roda automaticamente a cada 1 hora (batidas ocorrem em ~4 momentos do dia).",
-    "note": "Cadastros criados aqui usam e-mail rep.{pis}@import.eletropasso.local. Funcionários novos no relógio ainda precisam existir no DMPREP; desligamentos no OpenHR não removem biometria do relógio automaticamente.",
+    "description": "Puxa dados do software DMP REP (PC 192.168.15.69) para o OpenHR. Use os botões abaixo conforme o que precisa atualizar.",
+    "autoSyncTitle": "Sincronização automática (servidor)",
+    "autoSyncDetail": "A cada 1 hora o serviço importa somente batidas novas do MOVIMENT.txt. Cadastros de funcionários não entram automaticamente — use Importar cadastros ou Sincronizar tudo após admitir alguém no DMP REP.",
+    "note": "Cadastros importados usam e-mail rep.{pis}@import.eletropasso.local (complemente departamento e e-mail real na Equipe). Enviar ao relógio e biometria continuam manuais no DMP REP; desligamentos no OpenHR não removem biometria do relógio.",
     "syncAll": "Sincronizar tudo",
+    "syncAllHint": "Cadastros (DIMEP.MDB) + batidas (MOVIMENT.txt). Use após admissão completa no DMP REP ou quando quiser atualizar os dois de uma vez.",
     "syncEmployees": "Importar cadastros",
+    "syncEmployeesHint": "Somente funcionários do DIMEP.MDB → Equipe (PIS, nome, cargo, admissão). Não importa batidas. Use depois de cadastrar o colaborador no DMP REP.",
     "syncPunches": "Importar batidas",
+    "syncPunchesHint": "Somente marcações do MOVIMENT.txt → espelho de ponto. Não cria funcionários novos. O serviço em background faz isso a cada hora.",
     "syncing": "Sincronizando…",
     "success": "Sincronização concluída.",
     "failed": "Falha na sincronização com o DMPREP.",
     "busy": "Já existe uma sincronização em andamento. Tente novamente em instantes.",
     "readOnly": "Assinatura expirada: sincronização indisponível em modo somente leitura.",
     "employeesResult": "Cadastros: {{created}} novos, {{updated}} atualizados, {{failed}} falhas",
-    "punchesResult": "Batidas: {{newRecords}} novas, {{inserted}} inseridas, {{duplicates}} duplicadas"
+    "punchesResult": "Batidas: {{newRecords}} novas, {{inserted}} inseridas, {{duplicates}} duplicadas",
+    "punchesSkippedWarning": "{{count}} batida(s) ignorada(s) — sem colaborador no RH: {{ids}}"
   }
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { Mail, CheckCircle2, AlertTriangle, RefreshCw, ArrowRight, Home, Loader2 } from 'lucide-react';
 import { verificationService } from '../../services/verification.service';
 
@@ -14,6 +15,7 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
   email,
   onVerificationComplete,
 }) => {
+  const { t } = useTranslation('auth');
   const [status, setStatus] = useState<'waiting' | 'verified' | 'resending' | 'timeout'>('waiting');
   const [resendMessage, setResendMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const startedAtRef = useRef<number>(Date.now());
@@ -52,9 +54,9 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
     setResendMessage(null);
     const result = await verificationService.resendVerificationEmail(email);
     if (result.success) {
-      setResendMessage({ tone: 'success', text: result.message || 'Verification email sent.' });
+      setResendMessage({ tone: 'success', text: result.message || t('verificationEmailSent') });
     } else {
-      setResendMessage({ tone: 'error', text: result.message || 'Could not resend the verification email.' });
+      setResendMessage({ tone: 'error', text: result.message || t('resendFailed') });
     }
     startedAtRef.current = Date.now();
     setStatus('waiting');
@@ -78,16 +80,16 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
               <CheckCircle2 size={48} className="text-emerald-500" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-bold text-slate-900">Email verified!</h2>
+              <h2 className="text-xl font-bold text-slate-900">{t('emailVerifiedTitle')}</h2>
               <p className="text-sm text-slate-500">
-                Your account is ready. You can now log in.
+                {t('emailVerifiedBody')}
               </p>
             </div>
             <button
               onClick={onVerificationComplete}
               className="w-full py-3.5 bg-primary text-white rounded-2xl font-semibold uppercase text-xs tracking-wide hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-2"
             >
-              Continue to Login <ArrowRight size={16} />
+              {t('continueToLogin')} <ArrowRight size={16} />
             </button>
           </div>
         ) : (
@@ -97,9 +99,13 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
                 <Mail size={36} className="text-primary" />
               </div>
               <div className="space-y-1">
-                <h2 className="text-xl font-bold text-slate-900">Verify your email</h2>
+                <h2 className="text-xl font-bold text-slate-900">{t('verifyYourEmail')}</h2>
                 <p className="text-sm text-slate-500">
-                  We sent a verification link to <span className="font-semibold text-slate-700 break-all">{email}</span>
+                  <Trans
+                    i18nKey="auth:verificationSentTo"
+                    values={{ email }}
+                    components={{ email: <span className="font-semibold text-slate-700 break-all" /> }}
+                  />
                 </p>
               </div>
             </div>
@@ -107,10 +113,13 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
             <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100 text-amber-800">
               <AlertTriangle size={18} className="shrink-0 mt-0.5" />
               <div className="text-sm leading-relaxed">
-                <p className="font-bold">Don't see the email?</p>
+                <p className="font-bold">{t('dontSeeEmail')}</p>
                 <p className="mt-1">
-                  <span className="font-semibold">Check your spam or junk folder.</span> Verification emails sometimes
-                  land there. The message comes from <span className="font-mono text-xs">noreply@openhrapp.com</span>.
+                  <span className="font-semibold">{t('checkSpamFolder')}</span>{' '}
+                  <Trans
+                    i18nKey="auth:senderHint"
+                    components={{ sender: <span className="font-mono text-xs" /> }}
+                  />
                 </p>
               </div>
             </div>
@@ -119,16 +128,16 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
               {status === 'resending' ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  <span>Resending verification email…</span>
+                  <span>{t('resendingEmail')}</span>
                 </>
               ) : status === 'timeout' ? (
                 <span className="text-amber-700 font-medium">
-                  We've stopped checking automatically. Click the link in your email, then refresh this page.
+                  {t('pollTimeout')}
                 </span>
               ) : (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  <span>Waiting for you to click the link… this page updates automatically.</span>
+                  <span>{t('waitingForLink')}</span>
                 </>
               )}
             </div>
@@ -151,22 +160,22 @@ export const RegistrationVerificationPage: React.FC<RegistrationVerificationPage
                 disabled={status === 'resending'}
                 className="flex-1 py-3 px-4 bg-slate-100 text-slate-700 rounded-2xl font-semibold text-sm hover:bg-slate-200 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                <RefreshCw size={16} /> Resend verification email
+                <RefreshCw size={16} /> {t('resendVerificationEmail')}
               </button>
               <button
                 onClick={handleBackHome}
                 className="flex-1 py-3 px-4 bg-white text-slate-700 border border-slate-200 rounded-2xl font-semibold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
               >
-                <Home size={16} /> Back to home
+                <Home size={16} /> {t('backToHome')}
               </button>
             </div>
 
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600 space-y-1">
-              <p className="font-bold text-slate-700">What's next?</p>
+              <p className="font-bold text-slate-700">{t('whatsNext')}</p>
               <ol className="list-decimal pl-5 space-y-0.5">
-                <li>Check your inbox (and spam/junk folder) for the verification email.</li>
-                <li>Click the verification link — it expires after 24 hours.</li>
-                <li>This page will detect the verification automatically and take you to login.</li>
+                <li>{t('nextStep1')}</li>
+                <li>{t('nextStep2')}</li>
+                <li>{t('nextStep3')}</li>
               </ol>
             </div>
           </>

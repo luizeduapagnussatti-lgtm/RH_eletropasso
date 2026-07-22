@@ -17,8 +17,11 @@ import {
   ClipboardCheck,
   Megaphone,
   Bell,
+  CalendarRange,
 } from 'lucide-react';
 import HelpButton from './onboarding/HelpButton';
+import { APP_NAME, APP_ICON_PATH } from '../config/branding';
+import { tRole } from '../i18n/statusMaps';
 
 interface SidebarProps {
   currentPath: string;
@@ -40,8 +43,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, ro
   const regularMenuItems = [
     { id: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
     { id: 'profile', labelKey: 'myProfile', icon: UserCircle, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
-    { id: 'attendance-logs', labelKey: 'myAttendance', icon: History, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
+    // Punch history — managers/employees only (admin/HR administer; they don't clock in)
+    { id: 'attendance-logs', labelKey: 'myAttendance', icon: History, roles: ['MANAGER', 'EMPLOYEE'] },
     { id: 'attendance-audit', labelKey: 'attendanceAudit', icon: List, roles: ['ADMIN', 'HR', 'MANAGER'] },
+    { id: 'timesheet', labelKey: 'timesheet', icon: CalendarRange, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
     { id: 'leave', labelKey: 'leave', icon: CalendarDays, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
     { id: 'announcements', labelKey: 'announcements', icon: Megaphone, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
     { id: 'admin-notifications', labelKey: 'notifications', icon: Bell, roles: ['ADMIN', 'HR'] },
@@ -49,72 +54,100 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, onLogout, ro
     { id: 'performance-review', labelKey: 'performance', icon: ClipboardCheck, roles: ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'] },
     { id: 'organization', labelKey: 'organization', icon: Network, roles: ['ADMIN', 'HR'] },
     { id: 'reports', labelKey: 'reports', icon: BarChart3, roles: ['ADMIN', 'HR'] },
-    { id: 'settings', labelKey: 'settings', icon: Settings, roles: ['ADMIN', 'HR'] },
+    // Full settings / system owner tools — Admin only; HR uses Meu perfil
+    { id: 'settings', labelKey: 'settings', icon: Settings, roles: ['ADMIN'] },
   ];
 
   const menuItems = isSuperAdmin ? superAdminMenuItems : regularMenuItems;
   const filteredItems = menuItems.filter(item => item.roles.includes(role));
 
   return (
-    <aside className="w-80 bg-white h-screen flex flex-col border-r border-slate-100 shadow-sm relative z-50">
-      <div className="p-10 pb-8 flex flex-col items-center text-center">
-        <div className="relative mb-4">
-          <img
-            src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=random`}
-            className="w-24 h-24 rounded-full border-4 border-white shadow-xl bg-slate-50 object-cover"
-            alt={t('common:profile')}
-          />
-          <div className="absolute bottom-1 right-1 w-5 h-5 bg-primary border-4 border-white rounded-full"></div>
+    <aside className="w-80 bg-[#182230] h-screen flex flex-col border-r border-[#243044] shadow-sm relative z-50">
+      <div className="p-6 pb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#0f1620] border border-[#243044] shadow-md flex items-center justify-center p-1.5">
+            <img
+              src={APP_ICON_PATH}
+              className="w-full h-full object-contain"
+              alt={APP_NAME}
+            />
+          </div>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="relative shrink-0">
+              <img
+                src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=random`}
+                className="w-12 h-12 rounded-full border-2 border-[#243044] shadow-md bg-[#0f1620] object-cover"
+                alt={t('common:profile')}
+              />
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#e23d42] border-2 border-[#182230] rounded-full" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h2 className="text-sm font-semibold text-white leading-tight truncate">
+                {user?.name || t('common:userName')}
+              </h2>
+              <p className="text-[10px] font-bold text-white/45 mt-0.5 uppercase tracking-tight truncate">
+                {user?.designation || tRole(role) || t('common:specialist')}
+              </p>
+            </div>
+          </div>
         </div>
-        <h2 className="text-xl font-semibold text-slate-900 leading-tight">{user?.name || t('common:userName')}</h2>
-        <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-tight">{user?.designation || t('common:specialist')}</p>
-        <div className="w-full h-px bg-slate-50 mt-8"></div>
+        <div className="w-full h-px bg-[#243044] mt-5" />
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto no-scrollbar">
-        {filteredItems.map((item) => (
-          <div key={item.id} className="space-y-1">
-            <button
-              onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all duration-300 relative group ${
-                currentPath === item.id
-                  ? 'bg-primary-light/50 text-primary'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                {currentPath === item.id && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary rounded-r-full"></div>
-                )}
-                <item.icon size={22} className={currentPath === item.id ? 'text-primary' : 'text-slate-400'} />
-                <span className="font-bold text-sm tracking-tight">{t(item.labelKey)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {!isSuperAdmin && (
-                  <HelpButton helpPointId={`sidebar.${item.id}`} size={14} variant="sidebar" />
-                )}
-                <ChevronRight size={16} className={`transition-all duration-300 ${currentPath === item.id ? 'text-primary opacity-100 translate-x-0' : 'text-slate-200 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'}`} />
-              </div>
-            </button>
-          </div>
-        ))}
+        {filteredItems.map((item) => {
+          const isActive = currentPath === item.id;
+          return (
+            <div key={item.id} className="space-y-1">
+              <button
+                onClick={() => onNavigate(item.id)}
+                className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all duration-200 relative group ${
+                  isActive
+                    ? 'bg-[#c41e24]/15 text-[#e23d42]'
+                    : 'text-white/55 hover:bg-white/5 hover:text-[#e23d42]'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <item.icon
+                    size={22}
+                    className={isActive ? 'text-[#c41e24]' : 'text-[#e23d42]/70 group-hover:text-[#e23d42]'}
+                  />
+                  <span className="font-bold text-sm tracking-tight">{t(item.labelKey)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {!isSuperAdmin && (
+                    <HelpButton helpPointId={`sidebar.${item.id}`} size={14} variant="sidebar" />
+                  )}
+                  <ChevronRight
+                    size={16}
+                    className={`transition-all duration-200 ${
+                      isActive
+                        ? 'text-[#e23d42] opacity-100 translate-x-0'
+                        : 'text-white/30 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'
+                    }`}
+                  />
+                </div>
+              </button>
+            </div>
+          );
+        })}
 
         <div className="pt-4 pb-2 space-y-4">
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-between p-6 bg-slate-50 border border-slate-100 rounded-3xl group hover:bg-rose-50 transition-all"
+            className="w-full flex items-center justify-between p-5 bg-white/[0.04] border border-[#243044] rounded-3xl group hover:bg-[#c41e24]/12 hover:border-[#c41e24]/35 transition-all"
           >
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-white rounded-2xl shadow-sm text-slate-600 group-hover:text-rose-600 transition-colors">
+              <div className="p-3 bg-[#0f1620] rounded-2xl text-[#e23d42] group-hover:text-[#c41e24] transition-colors">
                 <LogOut size={20} />
               </div>
-              <span className="font-semibold text-sm text-slate-900 uppercase tracking-tight">{t('signOut')}</span>
+              <span className="font-semibold text-sm text-white uppercase tracking-tight">{t('signOut')}</span>
             </div>
-            <ChevronRight size={18} className="text-slate-300 group-hover:text-rose-300 transition-colors" />
+            <ChevronRight size={18} className="text-white/30 group-hover:text-[#e23d42] transition-colors" />
           </button>
 
           <div className="text-center">
-            <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-[0.3em]">OpenHRApp v2.9.0</p>
+            <p className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.3em]">RH_Eletropasso</p>
           </div>
         </div>
       </nav>

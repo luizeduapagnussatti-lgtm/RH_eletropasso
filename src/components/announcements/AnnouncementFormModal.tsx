@@ -1,7 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Announcement, AnnouncementPriority, Role } from '../../types';
+import { tRole } from '../../i18n/statusMaps';
 
 const ALL_ROLES: Role[] = ['ADMIN', 'HR', 'MANAGER', 'TEAM_LEAD', 'MANAGEMENT', 'EMPLOYEE'];
 
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, editingAnnouncement }) => {
+  const { t } = useTranslation('announcements');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<AnnouncementPriority>('NORMAL');
@@ -71,21 +73,18 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
           <h2 className="text-lg font-semibold text-slate-900">
-            {editingAnnouncement ? 'Edit Announcement' : 'New Announcement'}
+            {editingAnnouncement ? t('editAnnouncement') : t('newAnnouncement')}
           </h2>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Title */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Title</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{t('titleField')}</label>
             <input
               type="text"
               value={title}
@@ -93,26 +92,24 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
               maxLength={200}
               required
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-              placeholder="Announcement title..."
+              placeholder={t('titlePlaceholder')}
             />
           </div>
 
-          {/* Content */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Content</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{t('content')}</label>
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
               required
               rows={4}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
-              placeholder="Write your announcement..."
+              placeholder={t('contentPlaceholder')}
             />
           </div>
 
-          {/* Priority Toggle */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{t('priority')}</label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -123,7 +120,7 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
-                Normal
+                {t('normal')}
               </button>
               <button
                 type="button"
@@ -134,15 +131,14 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
-                Urgent
+                {t('urgent')}
               </button>
             </div>
           </div>
 
-          {/* Target Roles */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Target Roles <span className="text-slate-400 normal-case font-medium">(empty = everyone)</span>
+              {t('targetRoles')} <span className="text-slate-400 normal-case font-medium">{t('targetRolesHint')}</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {ALL_ROLES.map(role => (
@@ -156,16 +152,15 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
                       : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
-                  {role.replace('_', ' ')}
+                  {tRole(role)}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Expiry Date */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Expiry Date <span className="text-slate-400 normal-case font-medium">(optional)</span>
+              {t('expiresAt')} <span className="text-slate-400 normal-case font-medium">{t('expiresAtHint')}</span>
             </label>
             <input
               type="date"
@@ -175,13 +170,12 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
             />
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={isSaving || !title.trim() || !content.trim()}
             className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-sm uppercase tracking-widest shadow-lg shadow-primary-light/50 hover:bg-primary-hover transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSaving ? 'Saving...' : editingAnnouncement ? 'Update Announcement' : 'Post Announcement'}
+            {isSaving ? t('saving') : editingAnnouncement ? t('updateAnnouncement') : t('postAnnouncement')}
           </button>
         </form>
       </div>

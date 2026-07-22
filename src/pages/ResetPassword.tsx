@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { authService } from '../services/auth.service';
 
@@ -7,6 +8,7 @@ interface ResetPasswordProps {
 }
 
 export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
+  const { t } = useTranslation('auth');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,11 +19,11 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('passwordMinLength'));
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setError(t('passwordsDoNotMatch'));
       return;
     }
     setError('');
@@ -31,7 +33,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
       setStatus('success');
     } else {
       setStatus('error');
-      setError('Failed to update password. The reset link may have expired.');
+      setError(t('resetLinkExpired'));
     }
   };
 
@@ -49,8 +51,8 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                 <Lock size={28} className="text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-slate-900 tracking-tight">Set New Password</h2>
-                <p className="text-xs text-slate-400 mt-1">Choose a strong password for your account.</p>
+                <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{t('resetTitle')}</h2>
+                <p className="text-xs text-slate-400 mt-1">{t('resetChooseStrong')}</p>
               </div>
             </div>
 
@@ -60,20 +62,20 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                   <CheckCircle2 size={40} className="text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Password updated!</p>
-                  <p className="text-xs text-slate-400 mt-1">You can now log in with your new password.</p>
+                  <p className="text-sm font-semibold text-slate-800">{t('passwordUpdated')}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t('canLoginWithNewPassword')}</p>
                 </div>
                 <button
                   onClick={onFinished}
                   className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3"
                 >
-                  Go to Login <ArrowRight size={16} />
+                  {t('goToLogin')} <ArrowRight size={16} />
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">New Password</label>
+                  <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('newPassword')}</label>
                   <div className="relative group">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
                     <input
@@ -82,7 +84,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                       minLength={8}
                       autoComplete="new-password"
                       className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
-                      placeholder="Min. 8 characters"
+                      placeholder={t('passwordMinPlaceholder')}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                     />
@@ -93,7 +95,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">Confirm Password</label>
+                  <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('confirmPassword')}</label>
                   <div className="relative group">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
                     <input
@@ -101,7 +103,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                       required
                       autoComplete="new-password"
                       className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
-                      placeholder="Repeat your password"
+                      placeholder={t('repeatPasswordPlaceholder')}
                       value={confirm}
                       onChange={e => setConfirm(e.target.value)}
                     />
@@ -123,7 +125,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                   disabled={status === 'loading'}
                   className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3 disabled:opacity-70"
                 >
-                  {status === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <>Update Password <ArrowRight size={16} /></>}
+                  {status === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <>{t('updatePassword')} <ArrowRight size={16} /></>}
                 </button>
 
                 <button
@@ -131,13 +133,13 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onFinished }) => {
                   onClick={onFinished}
                   className="w-full py-2.5 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
                 >
-                  Cancel — Back to Login
+                  {t('cancelBackToLogin')}
                 </button>
               </form>
             )}
           </div>
         </div>
-        <p className="text-center mt-6 text-[8px] font-semibold text-slate-300 uppercase tracking-[0.4em]">v3.0 Multi-Tenant</p>
+        <p className="text-center mt-6 text-[8px] font-semibold text-slate-300 uppercase tracking-[0.4em]">{t('multiTenant')}</p>
       </div>
     </div>
   );

@@ -85,8 +85,8 @@ const Announcements: React.FC<Props> = ({ user }) => {
           <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span className="text-sm">
             {subscription?.status === 'EXPIRED'
-              ? 'Your trial has expired. Creating announcements is disabled.'
-              : 'Your account is suspended. Please contact support.'}
+              ? t('readOnlyExpired')
+              : t('readOnlySuspended')}
           </span>
         </div>
       )}
@@ -99,7 +99,7 @@ const Announcements: React.FC<Props> = ({ user }) => {
           </div>
           <div>
             <div className="flex items-center gap-2"><h1 className="text-xl font-semibold text-slate-900">{t('title')}</h1><HelpButton helpPointId="announcements" size={16} /></div>
-            <p className="text-xs text-slate-400 font-medium">{sortedAnnouncements.length} announcement{sortedAnnouncements.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-slate-400 font-medium">{t('count', { count: sortedAnnouncements.length })}</p>
           </div>
         </div>
         {canWrite && (
@@ -107,7 +107,7 @@ const Announcements: React.FC<Props> = ({ user }) => {
             onClick={() => { setEditingAnnouncement(null); setShowModal(true); }}
             className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-2xl font-semibold text-xs uppercase tracking-wider shadow-lg shadow-primary-light/50 hover:bg-primary-hover transition-all active:scale-95"
           >
-            <Plus size={16} /> New
+            <Plus size={16} /> {t('create')}
           </button>
         )}
       </div>
@@ -116,8 +116,8 @@ const Announcements: React.FC<Props> = ({ user }) => {
       {sortedAnnouncements.length === 0 ? (
         <div className="text-center py-16">
           <Inbox size={48} className="mx-auto text-slate-200 mb-4" />
-          <p className="text-slate-400 font-medium">No announcements yet</p>
-          <p className="text-xs text-slate-300 mt-1">Create one to get started</p>
+          <p className="text-slate-400 font-medium">{t('noAnnouncements')}</p>
+          <p className="text-xs text-slate-300 mt-1">{t('noAnnouncementsHint')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -150,20 +150,20 @@ const Announcements: React.FC<Props> = ({ user }) => {
             <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={24} className="text-rose-500" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Announcement?</h3>
-            <p className="text-sm text-slate-500 mb-6">This action cannot be undone.</p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">{t('confirmDeleteTitle')}</h3>
+            <p className="text-sm text-slate-500 mb-6">{t('confirmDeleteBody')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-all"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={confirmDelete}
                 className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-semibold text-sm hover:bg-rose-600 transition-all"
               >
-                Delete
+                {t('delete')}
               </button>
             </div>
           </div>

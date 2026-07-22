@@ -1,10 +1,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { hrService } from '../../services/hrService';
 import { Attendance, AppConfig, Shift } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
 export const useAttendance = (user: any, onFinish?: () => void) => {
+  const { t } = useTranslation('attendance');
   const { showToast } = useToast();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeRecord, setActiveRecord] = useState<Attendance | undefined>(undefined);
@@ -52,15 +54,12 @@ export const useAttendance = (user: any, onFinish?: () => void) => {
       // as a client-side fallback, surface a one-time, human-readable toast.
       if (closedPast.length > 0) {
         const dates = closedPast.map(s => s.date).join(', ');
-        showToast(
-          `We auto-closed your forgotten check-out from ${dates}. Please remember to check out at end of day.`,
-          'info'
-        );
+        showToast(t('autoClosedToast', { dates }), 'info');
       }
     } catch (e) {
       console.error('Data sync failed', e);
     }
-  }, [user.id, user.shiftId, showToast]);
+  }, [user.id, user.shiftId, showToast, t]);
 
   useEffect(() => {
     const init = async () => {
@@ -131,7 +130,7 @@ export const useAttendance = (user: any, onFinish?: () => void) => {
     } catch (err) {
       console.error(err);
       setStatus('idle');
-      showToast("Failed to submit attendance. Please try again.", "error");
+      showToast(t('punchSubmitFailed'), 'error');
     }
   };
 

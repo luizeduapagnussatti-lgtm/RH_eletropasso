@@ -14,6 +14,7 @@ const profileToUser = (profile: Record<string, any>): User => ({
   department: profile.department || 'Unassigned',
   designation: profile.designation || 'Staff',
   teamId: profile.team_id || undefined,
+  shiftId: profile.shift_id || undefined,
   organizationId: profile.organization_id || undefined,
   avatar: profile.avatar
     ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar}`

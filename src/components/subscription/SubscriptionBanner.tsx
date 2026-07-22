@@ -15,7 +15,7 @@ export const SubscriptionBanner: React.FC<SubscriptionBannerProps> = ({ onUpgrad
   if (isLoading) return null;
   if (!subscription || subscription.isSuperAdmin) return null;
 
-  const canUpgrade = userRole === 'ADMIN' || userRole === 'HR';
+  const canUpgrade = userRole === 'ADMIN';
 
   if (subscription.status === 'TRIAL' && subscription.daysRemaining !== undefined) {
     const isUrgent = subscription.daysRemaining <= 3;

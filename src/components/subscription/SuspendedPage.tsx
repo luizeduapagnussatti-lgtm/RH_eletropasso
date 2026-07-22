@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { XCircle, Mail } from 'lucide-react';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../../config/branding';
 
 interface SuspendedPageProps {
   organizationName?: string;
@@ -50,9 +51,9 @@ export const SuspendedPage: React.FC<SuspendedPageProps> = ({
         <div className="border-t pt-6 mb-6">
           <p className="text-slate-600 mb-4">{t('suspendedContact')}</p>
           <div className="flex flex-col gap-2 text-sm">
-            <a href="mailto:support@openhr.app" className="flex items-center justify-center gap-2 text-primary hover:underline">
+            <a href={SUPPORT_MAILTO} className="flex items-center justify-center gap-2 text-primary hover:underline">
               <Mail className="w-4 h-4" />
-              support@openhr.app
+              {SUPPORT_EMAIL}
             </a>
           </div>
         </div>

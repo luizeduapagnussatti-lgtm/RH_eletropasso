@@ -3,37 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>OpenHRApp — Free Open-Source HR Management Software</title>
+  <title>RH_Eletropasso — Gestão de RH</title>
 
   <!-- SEO Meta Tags -->
-  <meta name="description" content="OpenHRApp is a free, open-source HR management platform with attendance tracking, leave management, and employee directory. Completely free forever — no credit card required.">
-  <meta name="author" content="OpenHRApp">
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://openhrapp.com/">
-  <link rel="alternate" type="application/rss+xml" title="OpenHR Blog RSS Feed" href="https://openhrapp.com/feed.xml">
+  <meta name="description" content="RH_Eletropasso — sistema de gestão de RH da Eletropasso com ponto, licenças e diretório de colaboradores.">
+  <meta name="author" content="Eletropasso">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="canonical" href="/">
+  <link rel="alternate" type="application/rss+xml" title="RH_Eletropasso Feed" href="/feed.xml">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://openhrapp.com/">
-  <meta property="og:title" content="OpenHRApp — Free Open-Source HR Management Software">
-  <meta property="og:description" content="Free, open-source HR management system with attendance tracking, leave management, employee directory, and compliance tools for modern organizations.">
-  <meta property="og:image" content="https://openhrapp.com/img/screenshot-wide.webp">
-  <meta property="og:site_name" content="OpenHRApp">
-  <meta property="og:locale" content="en_US">
+  <meta property="og:url" content="/">
+  <meta property="og:title" content="RH_Eletropasso — Gestão de RH">
+  <meta property="og:description" content="Sistema de gestão de RH da Eletropasso — ponto, licenças, equipe e desempenho.">
+  <meta property="og:image" content="/img/app-icon.png">
+  <meta property="og:site_name" content="RH_Eletropasso">
+  <meta property="og:locale" content="pt_BR">
 
   <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@openhrapp">
-  <meta name="twitter:title" content="OpenHRApp — Free Open-Source HR Management Software">
-  <meta name="twitter:description" content="Free, open-source HR management system with attendance tracking, leave management, employee directory, and compliance tools for modern organizations.">
-  <meta name="twitter:image" content="https://openhrapp.com/img/screenshot-wide.webp">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="RH_Eletropasso — Gestão de RH">
+  <meta name="twitter:description" content="Sistema de gestão de RH da Eletropasso — ponto, licenças, equipe e desempenho.">
+  <meta name="twitter:image" content="/img/app-icon.png">
 
   <!-- PWA & iOS Specific Meta Tags -->
-  <meta name="theme-color" content="#fcfdfe">
+  <meta name="theme-color" content="#c41e24">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="OpenHR">
+  <meta name="apple-mobile-web-app-title" content="RH_Eletropasso">
 
   <!-- Organization + WebSite Structured Data -->
   <script type="application/ld+json">
@@ -42,26 +41,17 @@
     "@graph": [
       {
         "@type": "Organization",
-        "name": "OpenHRApp",
-        "url": "https://openhrapp.com",
-        "logo": "https://openhrapp.com/img/logo.webp",
-        "description": "Free, open-source HR management system with attendance tracking, leave management, employee directory, and compliance tools.",
-        "sameAs": [
-          "https://github.com/mimnets/openhrapp"
-        ]
+        "name": "Eletropasso",
+        "url": "/",
+        "logo": "/img/app-icon.png",
+        "description": "Materiais Elétricos e Energia Solar — sistema interno de RH."
       },
       {
-        "@type": "WebSite",
-        "name": "OpenHRApp",
-        "url": "https://openhrapp.com",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": {
-            "@type": "EntryPoint",
-            "urlTemplate": "https://openhrapp.com/how-to-use?q={search_term_string}"
-          },
-          "query-input": "required name=search_term_string"
-        }
+        "@type": "WebApplication",
+        "name": "RH_Eletropasso",
+        "url": "/",
+        "applicationCategory": "BusinessApplication",
+        "description": "Sistema de gestão de RH da Eletropasso."
       }
     ]
   }
@@ -76,12 +66,15 @@
 
 
   <!-- High Quality Icons for iOS -->
-  <link rel="apple-touch-icon" href="/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
   <link rel="apple-touch-icon" sizes="152x152" href="/img/icon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/img/icon-192.png">
   <link rel="apple-touch-icon" sizes="167x167" href="/img/icon-192.png">
-  
-  <link rel="icon" type="image/webp" href="/img/mobile-logo.webp">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16.png">
+  <link rel="icon" type="image/png" href="/img/favicon.png">
+  <link rel="shortcut icon" href="/img/favicon.png">
   <!-- Vital: Link to manifest at the root level -->
   <link rel="manifest" href="/manifest.json">
   
@@ -146,13 +139,13 @@
     <!-- Splash screen shown while JS modules load -->
     <div id="app-loader" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;background:#fcfdfe;">
       <div style="width:96px;height:96px;background:#fff;border-radius:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px rgba(0,0,0,0.08);border:1.5px solid rgba(0,0,0,0.06);padding:12px;overflow:hidden;">
-        <img src="/img/logo.webp" alt="Loading" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'">
+        <img src="/img/app-icon.png" alt="RH_Eletropasso" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'">
       </div>
       <div style="text-align:center;">
-        <div style="font-family:'Inter',sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.5px;">
-          <span style="color:var(--primary);">Open</span><span style="color:#f59e0b;">HR</span><span style="color:#10b981;">App</span>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#0f172a;">
+          RH_Eletropasso
         </div>
-        <p style="color:#94a3b8;font-size:10px;font-weight:600;letter-spacing:1px;margin-top:6px;">Loading</p>
+        <p style="color:#94a3b8;font-size:10px;font-weight:600;letter-spacing:1px;margin-top:6px;">Carregando…</p>
       </div>
       <div style="width:120px;height:3px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
         <div style="width:40%;height:100%;background:var(--primary);border-radius:3px;animation:loader 1.2s ease-in-out infinite;"></div>

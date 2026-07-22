@@ -16,12 +16,13 @@ declare global {
 }
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { Mail, Lock, ArrowRight, AlertCircle, RefreshCw, Eye, EyeOff, Download, X, Share, MoreVertical, RotateCcw, Building2, Send, Home, CheckCircle2 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { authService } from '../services/auth.service';
 import { checkSupabaseConnection, isSupabaseConfigured } from '../services/supabase';
 import { useToast } from '../context/ToastContext';
+import { APP_NAME, APP_TAGLINE, STORE_LOGO_PATH } from '../config/branding';
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;
@@ -33,26 +34,25 @@ interface LoginProps {
 const BrandLogo = () => {
   const { t } = useTranslation('auth');
   return (
-  <div className="flex flex-col items-center justify-center gap-6">
-    <div className="relative w-24 h-24 md:w-32 md:h-32">
-      <div className="absolute inset-0 bg-primary-light blur-[50px] rounded-full -z-10 opacity-50"></div>
-      <div className="relative w-full h-full bg-white rounded-[1.75rem] shadow-xl flex items-center justify-center p-4 border-2 border-primary/20">
+    <div className="flex flex-col items-center justify-center gap-5">
+      {/* Store wordmark only — RH circular icon is intentionally excluded from login */}
+      <div className="w-full max-w-[280px] rounded-2xl bg-black px-6 py-5 border border-white/10">
         <img
-          src="/img/logo.webp"
-          className="w-full h-full object-contain"
-          alt="OpenHRApp Logo"
+          src={STORE_LOGO_PATH}
+          className="w-full h-auto object-contain"
+          alt="Eletropasso"
+          width={320}
+          height={96}
         />
       </div>
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-white">
+        {APP_NAME}
+        </h1>
+        <p className="text-slate-300 text-sm mt-1">{t('personnelGateway')}</p>
+        <p className="text-slate-400 text-xs mt-1">{APP_TAGLINE}</p>
+      </div>
     </div>
-    <div className="text-center">
-      <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter flex items-center justify-center">
-        <span className="text-primary">Open</span>
-        <span className="text-[#f59e0b]">HR</span>
-        <span className="text-[#10b981]">App</span>
-      </h1>
-      <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">{t('personnelGateway')}</p>
-    </div>
-  </div>
   );
 };
 
@@ -142,7 +142,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
     if (promptEvent) {
       promptEvent.prompt();
       const { outcome } = await promptEvent.userChoice;
-      console.log(`User response to install prompt: ${outcome}`);
 
       if (outcome === 'accepted') {
         (window as any).deferredPWAPrompt = null;
@@ -318,7 +317,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
     if (result.ok) {
       setForgotStatus('sent');
     } else {
-      setForgotError(result.error || 'Could not send reset email. Try again.');
+      setForgotError(result.error || t('resetEmailFailed'));
       setForgotStatus('error');
     }
   };
@@ -326,7 +325,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isConfigured) {
-      setError(`CRITICAL: Backend is not configured.`);
+      setError(t('backendNotConfigured'));
       return;
     }
     setIsLoading(true);
@@ -372,29 +371,37 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
           }, 300);
         }
       } else {
-        const msg = result.error || 'Verification Failed. Check credentials.';
+        const msg = result.error || t('loginFailed');
         setError(msg);
         if (msg.toLowerCase().includes('verified') || msg.toLowerCase().includes('verification')) {
           setShowResend(true);
         }
       }
     } catch (err: any) {
-      setError(`System Error: ${err.message}`);
+      setError(t('systemError', { message: err.message }));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#f8fafc] items-center justify-center p-4 relative overflow-hidden">
-      {/* Dynamic Background */}
-      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary-light blur-[100px] rounded-full -z-10"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-teal-500/5 blur-[100px] rounded-full -z-10"></div>
-      
-      <div className="w-full max-w-[400px] animate-in fade-in zoom-in duration-500">
-        <div className="bg-white md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:border border-slate-100 rounded-xl overflow-hidden">
-          
-          <div className="p-8 md:p-12 space-y-10">
+    <div
+      className="min-h-screen w-full flex flex-col text-white items-center justify-center px-4 py-8 sm:px-6 relative overflow-x-hidden"
+      style={{ backgroundColor: '#0a0e17', backgroundImage: 'none' }}
+    >
+      <div className="w-full max-w-[470px]">
+        <div
+          className="border border-[#383838] rounded-2xl overflow-hidden"
+          style={{
+            backgroundColor: '#181818',
+            backgroundImage: 'none',
+            boxShadow: 'none',
+            filter: 'none',
+            opacity: 1,
+            isolation: 'isolate',
+          }}
+        >
+          <div className="p-7 sm:p-9 md:p-10 space-y-8">
             {/* Brand Header */}
             <BrandLogo />
 
@@ -403,38 +410,43 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
               <div className="space-y-6">
                 {forgotStatus === 'sent' ? (
                   <div className="flex flex-col items-center gap-5 text-center py-2">
-                    <div className="p-4 bg-emerald-50 rounded-full">
-                      <CheckCircle2 size={36} className="text-emerald-500" />
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-400/20 rounded-full">
+                      <CheckCircle2 size={36} className="text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Check your email</p>
-                      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                        A password reset link was sent to <span className="font-bold text-slate-600">{forgotEmail}</span>. Check spam if you don't see it.
+                      <p className="text-base font-semibold text-white">{t('checkEmail')}</p>
+                      <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                        <Trans
+                          i18nKey="auth:resetLinkSentTo"
+                          values={{ email: forgotEmail }}
+                          components={{ email: <span className="font-semibold text-white" /> }}
+                        />
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => { setShowForgot(false); setForgotStatus('idle'); setForgotEmail(''); setForgotError(''); }}
-                      className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3"
+                      className="w-full min-h-12 py-3.5 bg-[var(--brand-red)] text-white rounded-xl font-semibold text-sm hover:bg-[var(--brand-red-mirror)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#181818] transition-all flex items-center justify-center gap-2"
                     >
-                      Back to Login <ArrowRight size={16} />
+                      {t('backToLogin')} <ArrowRight size={16} />
                     </button>
                   </div>
                 ) : (
                   <form onSubmit={handleForgotPassword} className="space-y-5">
-                    <div className="text-center space-y-1">
-                      <p className="text-sm font-semibold text-slate-800">{t('resetPassword')}</p>
-                      <p className="text-xs text-slate-400">{t('resetPasswordHint')}</p>
+                    <div className="text-center space-y-2">
+                      <p className="text-lg font-semibold text-white">{t('resetPassword')}</p>
+                      <p className="text-sm text-slate-300 leading-relaxed">{t('resetPasswordHint')}</p>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationEmail')}</label>
+                      <label htmlFor="forgot-email" className="text-xs font-semibold text-slate-200 px-1">{t('organizationEmail')}</label>
                       <div className="relative group">
-                        <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--brand-red-mirror)] transition-colors z-10" size={18} />
                         <input
+                          id="forgot-email"
                           type="email"
                           required
                           autoComplete="email"
-                          className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
+                          className="w-full min-h-12 pl-12 pr-4 py-3.5 bg-[#202020] border border-[#414141] rounded-xl text-sm font-medium text-white outline-none transition-colors focus:border-white placeholder:text-slate-400"
                           placeholder={t('emailPlaceholder')}
                           value={forgotEmail}
                           onChange={e => setForgotEmail(e.target.value)}
@@ -442,7 +454,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                       </div>
                     </div>
                     {forgotStatus === 'error' && (
-                      <div className="p-3.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wider">
+                      <div className="p-3.5 bg-rose-950/40 text-rose-200 rounded-xl border border-rose-500/30 flex items-center gap-3 text-sm font-medium">
                         <AlertCircle size={14} className="flex-shrink-0" />
                         <span>{forgotError}</span>
                       </div>
@@ -450,14 +462,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                     <button
                       type="submit"
                       disabled={forgotStatus === 'loading'}
-                      className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3 disabled:opacity-70"
+                      className="w-full min-h-12 py-3.5 bg-[var(--brand-red)] text-white rounded-xl font-semibold text-sm hover:bg-[var(--brand-red-mirror)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#181818] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       {forgotStatus === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <>{t('sendResetLink')} <ArrowRight size={16} /></>}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setShowForgot(false); setForgotStatus('idle'); setForgotError(''); }}
-                      className="w-full py-2.5 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
+                      className="w-full min-h-11 py-2.5 text-slate-300 text-sm font-medium hover:text-white transition-colors"
                     >
                       {t('backToLogin')}
                     </button>
@@ -468,16 +480,16 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
             <form onSubmit={handleLogin} className="space-y-6" autoComplete="on" method="post" action=".">
               <div className="space-y-5">
                 <div className="space-y-1.5">
-                  <label htmlFor="login-email" className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('organizationEmail')}</label>
+                  <label htmlFor="login-email" className="text-xs font-semibold text-slate-200 px-1">{t('organizationEmail')}</label>
                   <div className="relative group">
-                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--brand-red-mirror)] transition-colors z-10" size={18} />
                     <input
                       id="login-email"
                       type="email"
                       name="email"
                       autoComplete="username"
                       required
-                      className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
+                      className="w-full min-h-12 pl-12 pr-4 py-3.5 bg-[#202020] border border-[#414141] rounded-xl text-sm font-medium text-white outline-none transition-colors focus:border-white placeholder:text-slate-400"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       placeholder={t('emailPlaceholder')}
@@ -486,16 +498,16 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label htmlFor="login-password" className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('securityCredentials')}</label>
+                  <label htmlFor="login-password" className="text-xs font-semibold text-slate-200 px-1">{t('securityCredentials')}</label>
                   <div className="relative group">
-                    <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" size={18} />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--brand-red-mirror)] transition-colors z-10" size={18} />
                     <input
                       id="login-password"
                       type={showPassword ? "text" : "password"}
                       name="password"
                       autoComplete="current-password"
                       required
-                      className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary-light placeholder:text-slate-300"
+                      className="w-full min-h-12 pl-12 pr-12 py-3.5 bg-[#202020] border border-[#414141] rounded-xl text-sm font-medium text-white outline-none transition-colors focus:border-white placeholder:text-slate-400"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       placeholder={t('passwordPlaceholder')}
@@ -503,7 +515,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                     <button 
                       type="button" 
                       onClick={() => setShowPassword(!showPassword)} 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-primary transition-colors z-10 p-1"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 min-w-11 min-h-11 inline-flex items-center justify-center text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg transition-colors z-10"
+                      aria-label={showPassword ? t('hidePassword') : t('showPassword')}
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -512,8 +525,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
               </div>
 
               {error && (
-                <div className="p-3.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 animate-in shake space-y-2">
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-3 text-[10px] font-semibold uppercase tracking-wider">
+                <div className="p-3.5 bg-rose-950/40 text-rose-200 rounded-xl border border-rose-500/30 animate-in shake space-y-2" role="alert">
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-3 text-sm font-medium">
                     <div className="flex items-center gap-3">
                       <AlertCircle size={14} className="flex-shrink-0" />
                       <span>{error}</span>
@@ -522,14 +535,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                       <button
                         type="button"
                         onClick={handleResendVerification}
-                        className="ml-auto flex items-center gap-1 bg-white px-2 py-1 rounded-md shadow-sm text-rose-600 hover:text-rose-800 transition-colors"
+                        className="ml-auto flex items-center gap-1.5 bg-rose-500/15 px-3 py-2 rounded-lg text-rose-100 hover:bg-rose-500/25 transition-colors"
                       >
                         <Send size={10} /> {t('resendVerification')}
                       </button>
                     )}
                   </div>
                   {showResend && (
-                    <p className="text-[11px] font-medium normal-case tracking-normal text-rose-500/90 leading-snug">
+                    <p className="text-xs font-medium text-rose-200/85 leading-relaxed">
                       {t('spamHint')}
                     </p>
                   )}
@@ -540,7 +553,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-xs uppercase tracking-[0.2em] shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-all flex items-center justify-center gap-3 disabled:opacity-70 mt-2"
+                  className="w-full min-h-12 py-3.5 bg-[var(--brand-red)] text-white rounded-xl font-semibold text-sm hover:bg-[var(--brand-red-mirror)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#181818] transition-all flex items-center justify-center gap-2 disabled:opacity-60 mt-2"
                 >
                   {isLoading ? <RefreshCw className="animate-spin" size={18} /> : <>{t('continue')} <ArrowRight size={16} /></>}
                 </button>
@@ -548,7 +561,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                 <button
                   type="button"
                   onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotStatus('idle'); setForgotError(''); }}
-                  className="w-full py-2 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
+                  className="w-full min-h-11 py-2 text-slate-300 text-sm font-medium hover:text-white transition-colors"
                 >
                   {t('forgotPassword')}
                 </button>
@@ -556,7 +569,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                 <button
                   type="button"
                   onClick={onRegisterClick}
-                  className="w-full py-3 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-semibold text-[10px] uppercase tracking-widest hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2"
+                  className="w-full min-h-12 py-3 bg-transparent text-slate-200 border border-[#3a495e] rounded-xl font-semibold text-sm hover:bg-white/5 hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 transition-all flex items-center justify-center gap-2"
                 >
                   <Building2 size={14} /> {t('registerOrg')}
                 </button>
@@ -566,41 +579,37 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                   <button
                     type="button"
                     onClick={onBackToLanding}
-                    className="w-full py-2.5 text-slate-400 text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors flex items-center justify-center gap-2"
+                    className="w-full min-h-11 py-2.5 text-slate-300 text-sm font-medium hover:text-white transition-colors flex items-center justify-center gap-2"
                   >
                     <Home size={12} /> {t('backToHome')}
                   </button>
                 )}
 
                 {/* Utils Row: Install & Reset */}
-                <div className="flex justify-center items-center gap-4 pt-4 border-t border-slate-50">
+                <div className={`grid ${isInstalled ? 'grid-cols-2' : 'grid-cols-3'} gap-1 pt-4 border-t border-[#383838]`}>
                    {!isInstalled && (
                    <button
                      type="button"
                      onClick={handleInstallClick}
-                     className="flex items-center gap-2 px-4 py-2 text-slate-400 rounded-xl text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
+                     className="min-h-11 flex items-center justify-center gap-1.5 px-2 py-2 text-slate-400 rounded-lg text-xs font-medium hover:text-white hover:bg-white/5 transition-colors"
                    >
                      <Download size={12} /> {isIOS && !canPrompt ? t('appGuide') : t('installApp')}
                    </button>
                    )}
 
-                   <div className="w-px h-3 bg-slate-200"></div>
-
                    <button
                      type="button"
                      onClick={handleCheckForUpdates}
-                     className="flex items-center gap-2 px-4 py-2 text-slate-400 rounded-xl text-[10px] font-semibold uppercase tracking-widest hover:text-primary transition-colors"
+                     className="min-h-11 flex items-center justify-center gap-1.5 px-2 py-2 text-slate-400 rounded-lg text-xs font-medium hover:text-white hover:bg-white/5 transition-colors"
                      title={t('updates')}
                    >
                      <RefreshCw size={12} /> {t('updates')}
                    </button>
 
-                   <div className="w-px h-3 bg-slate-200"></div>
-
                    <button
                      type="button"
                      onClick={handleSystemReset}
-                     className="flex items-center gap-2 px-4 py-2 text-slate-400 rounded-xl text-[10px] font-semibold uppercase tracking-widest hover:text-rose-600 transition-colors"
+                     className="min-h-11 flex items-center justify-center gap-1.5 px-2 py-2 text-slate-400 rounded-lg text-xs font-medium hover:text-rose-300 transition-colors"
                      title={t('resetCache')}
                    >
                      <RotateCcw size={12} /> {t('resetCache')}
@@ -613,12 +622,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
         </div>
 
         {/* System Version */}
-        <p className="text-center mt-6 text-[8px] font-semibold text-slate-300 uppercase tracking-[0.4em]">v3.0 {t('multiTenant')}</p>
+        <p className="text-center mt-5 text-xs font-medium text-slate-500">v3.0 · {t('multiTenant')}</p>
       </div>
 
       {/* Database Connection Indicator */}
       <div
-        className="fixed top-6 right-6 hidden md:flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-100 shadow-sm"
+        className="fixed top-5 right-5 hidden md:flex items-center gap-2 bg-[var(--chrome-bg)] px-3 py-2 rounded-full border border-[var(--chrome-border)]"
         role="status"
         aria-live="polite"
         title={t(`databaseConnection.${connectionStatus}Hint`)}
@@ -632,7 +641,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
                 : 'bg-rose-500'
           }`}
         />
-        <span className="text-[8px] font-semibold uppercase text-slate-500 tracking-[0.2em]">
+        <span className="text-xs font-medium text-slate-300">
           {t(`databaseConnection.${connectionStatus}`)}
         </span>
       </div>
@@ -640,68 +649,68 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
       {/* Installation Instructions Popup */}
       {showInstallHelp && (
         <div className="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
-           <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-xl animate-in slide-in-from-bottom-10 border border-slate-100">
+           <div className="bg-[var(--chrome-bg)] w-full max-w-sm rounded-2xl p-6 shadow-xl animate-in slide-in-from-bottom-10 border border-[var(--chrome-border)]">
               <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                   <Download size={16} className="text-primary"/> Install Guide
+                 <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                   <Download size={18} className="text-[var(--brand-red-mirror)]"/> {t('installGuide')}
                  </h3>
-                 <button onClick={() => setShowInstallHelp(false)} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-900 transition-colors"><X size={16}/></button>
+                 <button onClick={() => setShowInstallHelp(false)} className="min-w-11 min-h-11 inline-flex items-center justify-center bg-white/5 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors" aria-label={t('closeInstructions')}><X size={18}/></button>
               </div>
               
               {isIOS ? (
                 <div className="space-y-5">
-                   <p className="text-xs font-medium text-slate-500 leading-relaxed">To install this app on your iPhone or iPad, please follow these steps:</p>
+                   <p className="text-sm font-medium text-slate-300 leading-relaxed">{t('installIosIntro')}</p>
                    <div className="space-y-3">
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-blue-500"><Share size={18} /></div>
-                         <div className="text-xs font-bold text-slate-700">1. Tap the <span className="text-blue-600">Share</span> button in Safari</div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-blue-400"><Share size={18} /></div>
+                         <div className="text-sm font-medium text-slate-200">{t('installIos1')}</div>
                       </div>
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-900 font-semibold text-[10px]">+</div>
-                         <div className="text-xs font-bold text-slate-700">2. Select <span className="text-slate-900">Add to Home Screen</span></div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-white font-semibold">+</div>
+                         <div className="text-sm font-medium text-slate-200">{t('installIos2')}</div>
                       </div>
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-900 font-semibold text-[10px]">Add</div>
-                         <div className="text-xs font-bold text-slate-700">3. Tap <span className="text-blue-600">Add</span> (top right)</div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="min-w-9 h-9 px-2 rounded-lg bg-[#243044] flex items-center justify-center text-white font-semibold text-xs">{t('installIos3Add')}</div>
+                         <div className="text-sm font-medium text-slate-200">{t('installIos3')}</div>
                       </div>
                    </div>
                 </div>
               ) : isMobile ? (
                 <div className="space-y-5">
-                   <p className="text-xs font-medium text-slate-500 leading-relaxed">For the best experience, open this page in <span className="text-slate-900 font-bold">Google Chrome</span> browser. If you are already using Chrome or another browser, follow these steps:</p>
+                   <p className="text-sm font-medium text-slate-300 leading-relaxed">{t('installAndroidIntro')}</p>
                    <div className="space-y-3">
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-600"><MoreVertical size={18} /></div>
-                         <div className="text-xs font-bold text-slate-700">1. Tap the <span className="text-slate-900">Menu</span> button (⋮ or ⋯)</div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-slate-200"><MoreVertical size={18} /></div>
+                         <div className="text-sm font-medium text-slate-200">{t('installAndroid1')}</div>
                       </div>
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary"><Download size={18} /></div>
-                         <div className="text-xs font-bold text-slate-700">2. Look for <span className="text-slate-900">Install App</span>, <span className="text-slate-900">Add to Home Screen</span>, or <span className="text-slate-900">Add shortcut</span></div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-[var(--brand-red-mirror)]"><Download size={18} /></div>
+                         <div className="text-sm font-medium text-slate-200">{t('installAndroid2')}</div>
                       </div>
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-emerald-500 font-semibold text-[10px]">✓</div>
-                         <div className="text-xs font-bold text-slate-700">3. Confirm and the app will be added to your <span className="text-slate-900">Home Screen</span></div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-emerald-400 font-semibold">✓</div>
+                         <div className="text-sm font-medium text-slate-200">{t('installAndroid3')}</div>
                       </div>
                    </div>
 
                 </div>
               ) : (
                 <div className="space-y-5">
-                   <p className="text-xs font-medium text-slate-500 leading-relaxed">If the automatic prompt didn't appear, you can install manually:</p>
+                   <p className="text-sm font-medium text-slate-300 leading-relaxed">{t('installDesktopIntro')}</p>
                    <div className="space-y-3">
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-600"><MoreVertical size={18} /></div>
-                         <div className="text-xs font-bold text-slate-700">1. Click the <span className="text-slate-900">Browser Menu</span> (⋮ three dots)</div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-slate-200"><MoreVertical size={18} /></div>
+                         <div className="text-sm font-medium text-slate-200">{t('installDesktop1')}</div>
                       </div>
-                      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl">
-                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary"><Download size={18} /></div>
-                         <div className="text-xs font-bold text-slate-700">2. Select <span className="text-slate-900">Install App</span> or <span className="text-slate-900">Install OpenHRApp</span></div>
+                      <div className="flex items-center gap-4 p-3 bg-[#111a26] border border-[#344258] rounded-xl">
+                         <div className="w-9 h-9 rounded-lg bg-[#243044] flex items-center justify-center text-[var(--brand-red-mirror)]"><Download size={18} /></div>
+                         <div className="text-sm font-medium text-slate-200">{t('installDesktop2')}</div>
                       </div>
                    </div>
                 </div>
               )}
               
-              <button onClick={() => setShowInstallHelp(false)} className="w-full mt-6 py-4 bg-primary text-white rounded-2xl font-semibold uppercase text-[10px] tracking-widest shadow-lg shadow-primary-light">Close Instructions</button>
+              <button onClick={() => setShowInstallHelp(false)} className="w-full min-h-12 mt-6 py-3.5 bg-[var(--brand-red)] hover:bg-[var(--brand-red-mirror)] text-white rounded-xl font-semibold text-sm transition-colors">{t('closeInstructions')}</button>
            </div>
         </div>
       )}

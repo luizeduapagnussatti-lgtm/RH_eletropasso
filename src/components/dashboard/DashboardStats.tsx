@@ -1,7 +1,8 @@
-
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { CalendarDays, Gift } from 'lucide-react';
 import { Holiday } from '../../types';
+import { formatDate } from '../../i18n/format';
 
 interface Props {
   leaveUsed: number;
@@ -21,6 +22,8 @@ const SkeletonCard = () => (
 );
 
 export const DashboardStats: React.FC<Props> = ({ leaveUsed, upcomingHoliday, isLoading }) => {
+  const { t } = useTranslation('dashboard');
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 gap-3 md:gap-4">
@@ -37,8 +40,12 @@ export const DashboardStats: React.FC<Props> = ({ leaveUsed, upcomingHoliday, is
           <CalendarDays size={18} className="md:w-5 md:h-5" />
         </div>
         <div>
-          <h3 className="text-lg md:text-xl font-semibold text-slate-900 leading-none">{leaveUsed} Days</h3>
-          <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-tight">Leave Used</p>
+          <h3 className="text-lg md:text-xl font-semibold text-slate-900 leading-none">
+            {t('leaveUsedDays', { count: leaveUsed })}
+          </h3>
+          <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-tight">
+            {t('leaveUsedLabel')}
+          </p>
         </div>
       </div>
       <div className="bg-white p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-3">
@@ -47,10 +54,12 @@ export const DashboardStats: React.FC<Props> = ({ leaveUsed, upcomingHoliday, is
         </div>
         <div>
           <h3 className="text-lg md:text-xl font-semibold text-slate-900 leading-none truncate">
-            {upcomingHoliday ? new Date(upcomingHoliday.date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) : 'N/A'}
+            {upcomingHoliday
+              ? formatDate(upcomingHoliday.date, { month: 'short', day: 'numeric' })
+              : t('noHolidayDate')}
           </h3>
           <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-tight truncate">
-            {upcomingHoliday ? upcomingHoliday.name : 'No Holidays'}
+            {upcomingHoliday ? upcomingHoliday.name : t('noHolidays')}
           </p>
         </div>
       </div>

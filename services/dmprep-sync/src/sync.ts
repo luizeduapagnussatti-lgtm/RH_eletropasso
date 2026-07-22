@@ -11,6 +11,8 @@ export interface SyncRunResult {
   newRecords: number;
   inserted: number;
   duplicates: number;
+  skippedPunches: number;
+  skippedEmployeeIds: string[];
   skipped: boolean;
   resetCursor: boolean;
 }
@@ -55,6 +57,8 @@ export async function runSyncOnce(
       newRecords: 0,
       inserted: 0,
       duplicates: 0,
+      skippedPunches: 0,
+      skippedEmployeeIds: [],
       skipped: true,
       resetCursor: truncated,
     };
@@ -62,6 +66,8 @@ export async function runSyncOnce(
 
   let inserted = 0;
   let duplicates = 0;
+  let skippedPunches = 0;
+  const skippedEmployeeIds = new Set<string>();
 
   for (let offset = 0; offset < records.length; offset += config.batchSize) {
     const batch = records.slice(offset, offset + config.batchSize);
@@ -69,11 +75,17 @@ export async function runSyncOnce(
     const result = await deps.forward(punches, config.ingest, config.deviceSerial);
     inserted += result.inserted;
     duplicates += result.duplicates;
+    skippedPunches += result.skipped;
+    for (const employeeId of result.skippedEmployeeIds) {
+      skippedEmployeeIds.add(employeeId);
+    }
     logger.info(
       {
         batchSize: batch.length,
         inserted: result.inserted,
         duplicates: result.duplicates,
+        skipped: result.skipped,
+        skippedEmployeeIds: result.skippedEmployeeIds,
         affectedDates: result.affectedDates,
       },
       'DMPREP batch forwarded',
@@ -100,6 +112,8 @@ export async function runSyncOnce(
     newRecords: records.length,
     inserted,
     duplicates,
+    skippedPunches,
+    skippedEmployeeIds: [...skippedEmployeeIds],
     skipped: false,
     resetCursor: truncated,
   };
@@ -133,16 +147,20 @@ export function startSyncLoop(
         } catch (stateError) {
           logger.error({ err: stateError }, 'Failed to persist DMPREP sync error state');
         }
-        throw error;
+        return undefined;
       }
     });
     if (result && 'busy' in result && result.busy) return;
   };
 
-  void tick();
-  const timer = setInterval(() => {
-    void tick();
-  }, config.pollIntervalMs);
+  const safeTick = () => {
+    void tick().catch((error) => {
+      logger.error({ err: error }, 'DMPREP sync tick failed unexpectedly');
+    });
+  };
+
+  safeTick();
+  const timer = setInterval(safeTick, config.pollIntervalMs);
 
   return {
     stop: () => {

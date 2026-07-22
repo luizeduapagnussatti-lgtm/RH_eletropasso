@@ -13,9 +13,11 @@ import { DmprepSyncPanel } from './DmprepSyncPanel';
 interface Props {
   config: AppConfig;
   onSave: (config: AppConfig) => Promise<void>;
+  /** Full system owner controls (PTRP policy, DMPREP). HR sees operational org branding only. */
+  canEditSystemPolicy?: boolean;
 }
 
-export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
+export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy = true }) => {
   const { t } = useTranslation('org');
   const { showToast } = useToast();
   const [orgData, setOrgData] = useState({ name: '', country: 'BD', address: '', logo: '' });
@@ -219,7 +221,8 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
          </div>
       </div>
 
-      {/* PTRP Policy Section */}
+      {/* PTRP Policy Section — Admin only */}
+      {canEditSystemPolicy && (
       <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
          <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Scale size={24} className="text-primary" /> {t('ptrpPolicy')}</h3>
          <p className="text-xs text-slate-400 -mt-4">{t('ptrpPolicyHint')}</p>
@@ -247,6 +250,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
             </div>
          </div>
       </div>
+      )}
 
       {/* Duty Type Labels Section */}
       <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
@@ -264,7 +268,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave }) => {
          </div>
       </div>
 
-      <DmprepSyncPanel />
+      {canEditSystemPolicy && <DmprepSyncPanel />}
     </div>
   );
 };

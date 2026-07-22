@@ -112,7 +112,7 @@ export const useCamera = () => {
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
         ((navigator as any).standalone === true ||
           window.matchMedia('(display-mode: standalone)').matches);
-      setError(isIOSPWA ? null : 'Camera permission denied.');
+      setError(isIOSPWA ? null : 'errors.cameraPermissionDenied');
     } finally {
       setLoading(false);
     }
@@ -168,7 +168,7 @@ export const useCamera = () => {
       const webp = await convertToWebP(file, 0.7, 1080);
       return await blobToDataURL(webp);
     } catch {
-      setError('Failed to take photo. Please try again.');
+      setError('errors.photoFailed');
       return null;
     } finally {
       setLoading(false);
@@ -185,7 +185,7 @@ export const useCamera = () => {
       const webp = await convertToWebP(file, 0.7, 1080);
       return await blobToDataURL(webp);
     } catch {
-      setError('Failed to select photo. Please try again.');
+      setError('errors.selectPhotoFailed');
       return null;
     } finally {
       setLoading(false);

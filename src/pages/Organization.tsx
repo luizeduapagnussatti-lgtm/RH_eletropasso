@@ -9,6 +9,8 @@ import { hrService } from '../services/hrService';
 import { Holiday, Team, OfficeLocation, LeaveWorkflow, Shift, ShiftOverride, CustomLeaveType, ShiftWeekday, ShiftDaySchedule } from '../types';
 import { useSubscription } from '../context/SubscriptionContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { isOrgAdmin } from '../utils/roles';
 
 // Import sub-components
 import { OrgStructure } from '../components/organization/OrgStructure';
@@ -31,6 +33,8 @@ interface OrganizationProps {
 const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const { t } = useTranslation('org');
   const { t: tCommon } = useTranslation('common');
+  const { user } = useAuth();
+  const canEditSystemPolicy = isOrgAdmin(user?.role);
   const {
       departments, designations, holidays, teams, employees, leavePolicy, config, workflows, shiftOverrides, notificationConfig,
       isLoading, isSaving,
@@ -363,7 +367,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         )}
 
         {activeTab === 'SYSTEM' && (
-           <OrgSystem config={config} onSave={saveConfig} />
+           <OrgSystem config={config} onSave={saveConfig} canEditSystemPolicy={canEditSystemPolicy} />
         )}
       </div>
 

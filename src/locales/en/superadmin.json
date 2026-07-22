@@ -1,18 +1,1024 @@
 {
-  "title": "Super admin",
-  "orgs": "Organizations",
-  "upgrades": "Upgrades",
-  "ads": "Ads",
-  "storage": "Storage",
-  "notifs": "Notifications",
-  "theme": "Theme",
-  "email": "Email",
-  "push": "Push",
-  "blog": "Blog",
-  "tutorials": "Tutorials",
-  "showcase": "Showcase",
-  "social": "Social links",
-  "appearance": "Appearance",
-  "createOrg": "Create organization",
-  "deleteOrg": "Delete organization"
+  "title": "Super Admin Dashboard",
+  "subtitle": "Manage all organizations on the platform",
+  "newOrganization": "New Organization",
+  "backToList": "Back to List",
+  "platform": "Platform",
+  "content": "Content",
+  "fillRequired": "Please fill in all required fields",
+  "passwordMinLength": "Password must be at least 8 characters",
+  "userVerified": "User verified successfully",
+  "userDeleted": "User deleted successfully",
+  "deleteOrgConfirm": "Are you sure you want to delete \"{{name}}\"?\n\nThis will permanently delete:\n- All users ({{userCount}})\n- All attendance records\n- All leave records\n- All settings\n\nThis action cannot be undone!",
+  "deleteUserConfirm": "Are you sure you want to delete user \"{{name}}\"? This action cannot be undone.",
+  "upgradeRequests": "Upgrade Requests",
+  "filterAll": "All",
+  "loading": "Loading...",
+  "noUpgradeRequests": "No upgrade requests found",
+  "donationSummary": "Donation: ${{amount}} ({{tier}})",
+  "extensionSummary": "Extension: {{days}} days",
+  "adSupportedMode": "Ad-Supported Mode",
+  "refLabel": "Ref: {{ref}}",
+  "reasonLabel": "Reason: {{reason}}",
+  "approve": "Approve",
+  "reject": "Reject",
+  "submittedAt": "Submitted: {{date}}",
+  "allOrganizations": "All Organizations",
+  "loadingOrgs": "Loading organizations...",
+  "noOrgs": "No organizations found",
+  "trialEnds": "Ends: {{date}}",
+  "verified": "Verified",
+  "pendingVerification": "Pending verification",
+  "pending": "Pending",
+  "viewUsers": "View Users",
+  "edit": "Edit",
+  "delete": "Delete",
+  "verifyUser": "Verify User",
+  "deleteUser": "Delete User",
+  "createOrgTitle": "Create New Organization",
+  "editOrgTitle": "Edit: {{name}}",
+  "usersInOrg": "Users in {{name}}",
+  "usersCount": "{{count}} users",
+  "loadingUsers": "Loading users...",
+  "noUsers": "No users found",
+  "tabs": {
+    "orgs": "Orgs",
+    "upgrades": "Upgrades",
+    "ads": "Ads",
+    "storage": "Storage",
+    "notifs": "Notifs",
+    "theme": "Theme",
+    "email": "Email",
+    "push": "Push",
+    "blog": "Blog",
+    "tutorials": "Tutorials",
+    "guides": "Guides",
+    "showcase": "Showcase",
+    "social": "Social"
+  },
+  "requestStatus": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
+  },
+  "stats": {
+    "totalOrgs": "Total Orgs",
+    "totalUsers": "Total Users",
+    "active": "Active",
+    "trial": "Trial",
+    "expired": "Expired",
+    "last30d": "Last 30d"
+  },
+  "table": {
+    "organization": "Organization",
+    "status": "Status",
+    "users": "Users",
+    "admin": "Admin",
+    "created": "Created",
+    "actions": "Actions",
+    "user": "User",
+    "role": "Role",
+    "department": "Department"
+  },
+  "form": {
+    "orgName": "Organization Name *",
+    "orgNamePlaceholder": "e.g., Acme Corporation",
+    "subscriptionStatus": "Subscription Status",
+    "trialEndDate": "Trial End Date",
+    "trialEndHint": "Organization will auto-expire after this date",
+    "address": "Address",
+    "addressPlaceholder": "e.g., 123 Business Street, City",
+    "initialAdmin": "Initial Admin Account",
+    "adminName": "Admin Name *",
+    "adminNamePlaceholder": "e.g., John Smith",
+    "adminEmail": "Admin Email *",
+    "adminEmailPlaceholder": "e.g., admin@company.com",
+    "adminPassword": "Admin Password *",
+    "adminPasswordPlaceholder": "Min. 8 characters",
+    "cancel": "Cancel",
+    "createOrganization": "Create Organization",
+    "saveChanges": "Save Changes"
+  },
+  "subscriptionOptions": {
+    "TRIAL": "Trial",
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "SUSPENDED": "Suspended"
+  },
+  "ads": {
+    "title": "Ad Management",
+    "subtitle": "Configure ad slots for AD_SUPPORTED organizations",
+    "loadError": "Failed to load ad configurations",
+    "saveSuccess": "Ad slot \"{{slot}}\" updated successfully",
+    "saveError": "Failed to save configuration",
+    "toggleError": "Failed to update status.",
+    "toggleEnabled": "Ad slot \"{{slot}}\" enabled",
+    "toggleDisabled": "Ad slot \"{{slot}}\" disabled",
+    "size": "Size: {{size}}",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "type": "Type:",
+    "adsenseSlot": "(Slot: {{slot}})",
+    "imageConfigured": "(Image configured)",
+    "configure": "Configure",
+    "previewTitle": "Ad Placement Preview",
+    "previewSidebar": "Sidebar",
+    "previewDashboard": "Dashboard",
+    "previewFooter": "Footer",
+    "configureModalTitle": "Configure {{slot}} Ad",
+    "adType": "Ad Type",
+    "adTypes": {
+      "image": "Image",
+      "adsense": "AdSense",
+      "custom": "Custom HTML"
+    },
+    "imageUrl": "Image URL *",
+    "imageUrlPlaceholder": "https://example.com/ad-image.png",
+    "linkUrl": "Link URL (optional)",
+    "linkUrlPlaceholder": "https://example.com/landing-page",
+    "altText": "Alt Text",
+    "altTextPlaceholder": "Advertisement description",
+    "adsenseClientId": "AdSense Client ID *",
+    "adsenseClientPlaceholder": "ca-pub-XXXXXXXXXXXXXXXX",
+    "adsenseSlotId": "Ad Slot ID *",
+    "adsenseSlotPlaceholder": "1234567890",
+    "adsenseScriptNote": "Make sure to add the AdSense script to your index.html head section.",
+    "customHtml": "Custom HTML *",
+    "customHtmlPlaceholder": "<div>Your custom ad HTML...</div>",
+    "customHtmlWarning": "Warning: Only use trusted HTML. Malicious scripts can compromise security.",
+    "cancel": "Cancel",
+    "saveConfiguration": "Save Configuration",
+    "slots": {
+      "sidebar": {
+        "name": "Sidebar",
+        "description": "Bottom of sidebar navigation"
+      },
+      "dashboard": {
+        "name": "Dashboard",
+        "description": "Below dashboard stats"
+      },
+      "reports": {
+        "name": "Reports",
+        "description": "Reports page sidebar"
+      },
+      "footer": {
+        "name": "Footer",
+        "description": "Footer area on all pages"
+      },
+      "landing-hero": {
+        "name": "Landing Hero",
+        "description": "Below hero section on landing page"
+      },
+      "landing-mid": {
+        "name": "Landing Mid",
+        "description": "Between sections on landing page"
+      },
+      "blog-header": {
+        "name": "Blog Header",
+        "description": "Top of blog listing page"
+      },
+      "blog-feed": {
+        "name": "Blog Feed",
+        "description": "Below blog post grid"
+      },
+      "blog-post-top": {
+        "name": "Blog Post Top",
+        "description": "Top of blog post page"
+      },
+      "blog-post-content": {
+        "name": "Blog Post Content",
+        "description": "Inside blog post content area"
+      }
+    }
+  },
+  "storagePanel": {
+    "title": "Storage Management",
+    "subtitle": "Manage attendance selfie retention to optimize storage",
+    "errorLoad": "Failed to load storage statistics",
+    "successRetentionUpdated": "Retention period updated to {{days}} days",
+    "errorSave": "Failed to save retention setting",
+    "confirmCleanup": "This will permanently delete all selfie images older than {{days}} days.\n\nThis action cannot be undone. Continue?",
+    "successCleanup": "Cleanup complete! Cleaned {{cleaned}} records",
+    "successCleanupWithErrors": "Cleanup complete! Cleaned {{cleaned}} records, {{errors}} errors",
+    "errorCleanup": "Failed to run cleanup: {{message}}",
+    "errorUnknown": "Unknown error",
+    "totalRecords": "Total Records",
+    "withSelfies": "With Selfies",
+    "estStorage": "Est. Storage",
+    "estStorageValue": "~{{mb}} MB",
+    "retention": "Retention",
+    "retentionValue": "{{days}} days",
+    "lastCleanupTitle": "Last Automatic Cleanup",
+    "runTime": "Run Time",
+    "recordsCleaned": "Records Cleaned",
+    "errors": "Errors",
+    "cutoffDate": "Cutoff Date",
+    "policyTitle": "Selfie Retention Policy",
+    "policyDesc": "Selfies older than the retention period will be automatically deleted daily at 2 AM server time. Attendance records will be preserved, only the selfie images are removed.",
+    "options": {
+      "7": {
+        "label": "7 days",
+        "desc": "Aggressive — Minimal storage"
+      },
+      "14": {
+        "label": "14 days",
+        "desc": "Short — Low storage"
+      },
+      "30": {
+        "label": "30 days",
+        "desc": "Standard — Recommended"
+      },
+      "60": {
+        "label": "60 days",
+        "desc": "Extended — Moderate storage"
+      },
+      "90": {
+        "label": "90 days",
+        "desc": "Long — Higher storage"
+      }
+    },
+    "savePolicy": "Save Retention Policy",
+    "runCleanup": "Run Cleanup Now",
+    "notesTitle": "Important Notes",
+    "notes1": "Deleted selfies cannot be recovered",
+    "notes2": "Automatic cleanup runs daily at 2:00 AM server time",
+    "notes3": "Consider local labor laws before setting retention period",
+    "notes4": "Storage estimates are approximate (~150KB per selfie)"
+  },
+  "appearancePanel": {
+    "title": "Global App Theme",
+    "subtitle": "Set the accent color for all users across the platform.",
+    "accentColor": "Accent Color",
+    "active": "Active",
+    "successSet": "Global theme set to \"{{name}}\". All users will see this on their next visit.",
+    "errorSave": "Failed to save: {{message}}",
+    "noteLabel": "Note:",
+    "noteText": "This sets the global accent color for the entire platform. All users will see the updated theme. Users can still choose their own light/dark mode preference.",
+    "themes": {
+      "arctic-frost": "Arctic Frost",
+      "corporate-blue": "Corporate Blue",
+      "ocean-depths": "Ocean Depths",
+      "modern-minimal": "Modern Minimal",
+      "forest-canopy": "Forest Canopy",
+      "midnight-galaxy": "Midnight Galaxy",
+      "tech-innovation": "Tech Innovation",
+      "sunset-orange": "Sunset Orange",
+      "rose-garden": "Rose Garden",
+      "golden-amber": "Golden Amber",
+      "deep-indigo": "Deep Indigo",
+      "royal-purple": "Royal Purple",
+      "teal-wave": "Teal Wave",
+      "charcoal-slate": "Charcoal Slate"
+    }
+  },
+  "notificationsPanel": {
+    "title": "Notification Retention",
+    "subtitle": "Manage notification retention to keep the database clean",
+    "errorLoad": "Failed to load notification statistics",
+    "successRetentionUpdated": "Notification retention updated to {{days}} days",
+    "errorSave": "Failed to save retention setting",
+    "confirmPurge": "Are you sure you want to DELETE ALL notifications?\n\nThis will permanently remove every notification for ALL users across ALL organizations.\n\nThis action cannot be undone.",
+    "successPurge": "Purge complete! Deleted {{count}} notifications",
+    "errorPurge": "Failed to purge notifications: {{message}}",
+    "total": "Total",
+    "read": "Read",
+    "unread": "Unread",
+    "retention": "Retention",
+    "retentionValue": "{{days}} days",
+    "purgeTitle": "Purge All Notifications",
+    "purgeDesc": "Permanently delete every notification for all users across all organizations.",
+    "purgeButton": "Purge All ({{count}})",
+    "lastCleanupTitle": "Last Automatic Cleanup",
+    "runTime": "Run Time",
+    "deleted": "Notifications Deleted",
+    "errors": "Errors",
+    "cutoffDate": "Cutoff Date",
+    "policyTitle": "Notification Retention Policy",
+    "policyDesc": "Notifications older than the retention period will be automatically deleted daily at 3 AM server time. This applies to all notifications across all organizations.",
+    "options": {
+      "7": {
+        "label": "7 days",
+        "desc": "Aggressive — Minimal retention"
+      },
+      "14": {
+        "label": "14 days",
+        "desc": "Short — Low retention"
+      },
+      "30": {
+        "label": "30 days",
+        "desc": "Standard — Recommended"
+      },
+      "60": {
+        "label": "60 days",
+        "desc": "Extended — Moderate retention"
+      },
+      "90": {
+        "label": "90 days",
+        "desc": "Long — Higher retention"
+      }
+    },
+    "savePolicy": "Save Retention Policy",
+    "notesTitle": "Important Notes",
+    "notes1": "Deleted notifications cannot be recovered",
+    "notes2": "Automatic cleanup runs daily at 3:00 AM server time",
+    "notes3": "Both read and unread notifications will be deleted after the retention period",
+    "notes4": "This affects notifications across all organizations on the platform"
+  },
+  "blog": {
+    "listTitle": "Blog Posts",
+    "newPost": "New Post",
+    "loading": "Loading posts...",
+    "emptyTitle": "No blog posts yet",
+    "emptyHint": "Create your first blog post to get started",
+    "table": {
+      "title": "Title",
+      "status": "Status",
+      "author": "Author",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "actions": {
+      "unpublish": "Unpublish",
+      "publish": "Publish",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "validation": {
+      "titleRequired": "Title is required",
+      "slugRequired": "Slug is required"
+    },
+    "deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
+    "publishedSuccess": "Post published successfully",
+    "unpublishedSuccess": "Post unpublished successfully",
+    "backToList": "Back to Posts",
+    "previewView": "Preview",
+    "previewEdit": "Edit",
+    "createPost": "Create Post",
+    "updatePost": "Update Post",
+    "createTitle": "Create New Post",
+    "editTitle": "Edit: {{title}}",
+    "untitled": "Untitled",
+    "byAuthor": "By {{name}}",
+    "coverAlt": "Cover",
+    "coverPreviewAlt": "Cover preview",
+    "status": {
+      "PUBLISHED": "Published"
+    },
+    "form": {
+      "title": "Title *",
+      "titlePlaceholder": "Enter post title...",
+      "slug": "Slug *",
+      "slugPrefix": "/blog/",
+      "slugPlaceholder": "url-friendly-slug",
+      "authorName": "Author Name",
+      "authorPlaceholder": "Author name...",
+      "excerpt": "Excerpt",
+      "excerptPlaceholder": "Brief summary of the post...",
+      "content": "Content",
+      "contentPlaceholder": "Start writing your blog post...",
+      "coverImage": "Cover Image",
+      "changeImage": "Change Image",
+      "uploadImage": "Upload Image",
+      "status": "Status",
+      "draft": "Draft",
+      "published": "Published"
+    }
+  },
+  "tutorials": {
+    "listTitle": "Tutorials",
+    "autoOrder": "Auto-Order",
+    "autoOrderTitle": "Auto-assign display order based on category",
+    "newTutorial": "New Tutorial",
+    "loading": "Loading tutorials...",
+    "emptyTitle": "No tutorials yet",
+    "emptyHint": "Create your first tutorial to get started",
+    "table": {
+      "title": "Title",
+      "category": "Category",
+      "parent": "Parent",
+      "status": "Status",
+      "order": "Order",
+      "actions": "Actions"
+    },
+    "actions": {
+      "unpublish": "Unpublish",
+      "publish": "Publish",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "validation": {
+      "titleRequired": "Title is required",
+      "slugRequired": "Slug is required"
+    },
+    "deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
+    "autoOrderConfirm": "This will auto-assign display_order values to all tutorials based on category order. Continue?",
+    "publishedSuccess": "Tutorial published successfully",
+    "unpublishedSuccess": "Tutorial unpublished successfully",
+    "autoOrderSuccess": "Display order auto-assigned successfully!",
+    "autoOrderFailed": "Failed to auto-assign order",
+    "backToList": "Back to Tutorials",
+    "previewView": "Preview",
+    "previewEdit": "Edit",
+    "createTutorial": "Create Tutorial",
+    "updateTutorial": "Update Tutorial",
+    "createTitle": "Create New Tutorial",
+    "editTitle": "Edit: {{title}}",
+    "untitled": "Untitled",
+    "byAuthor": "By {{name}}",
+    "coverAlt": "Cover",
+    "coverPreviewAlt": "Cover preview",
+    "status": {
+      "PUBLISHED": "Published"
+    },
+    "categories": {
+      "gettingStarted": "Getting Started",
+      "dashboard": "Dashboard",
+      "attendance": "Attendance",
+      "leave": "Leave",
+      "employees": "Employees",
+      "organization": "Organization",
+      "performance": "Performance",
+      "reports": "Reports",
+      "settings": "Settings",
+      "subscription": "Subscription",
+      "general": "General"
+    },
+    "form": {
+      "title": "Title *",
+      "titlePlaceholder": "Enter tutorial title...",
+      "slug": "Slug *",
+      "slugPrefix": "/guides/",
+      "slugPlaceholder": "url-friendly-slug",
+      "category": "Category",
+      "categoryPlaceholder": "e.g. Attendance, Leave...",
+      "parentTutorial": "Parent Tutorial",
+      "parentNone": "None (Top-level)",
+      "displayOrder": "Display Order",
+      "authorName": "Author Name",
+      "authorPlaceholder": "Author name...",
+      "excerpt": "Excerpt",
+      "excerptPlaceholder": "Brief summary of the tutorial...",
+      "content": "Content",
+      "contentPlaceholder": "Start writing your tutorial...",
+      "coverImage": "Cover Image",
+      "changeImage": "Change Image",
+      "uploadImage": "Upload Image",
+      "status": "Status",
+      "draft": "Draft",
+      "published": "Published"
+    }
+  },
+  "showcase": {
+    "listTitle": "Showcase Organizations",
+    "addOrganization": "Add Organization",
+    "loading": "Loading...",
+    "emptyTitle": "No showcase organizations yet",
+    "emptyHint": "Add organizations to display on the landing page",
+    "table": {
+      "organization": "Organization",
+      "country": "Country",
+      "industry": "Industry",
+      "order": "Order",
+      "active": "Active",
+      "actions": "Actions"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "activeHide": "Active — click to hide",
+    "activeShow": "Hidden — click to show",
+    "deleteConfirm": "Remove \"{{name}}\" from showcase?",
+    "modal": {
+      "addTitle": "Add Showcase Entry",
+      "editTitle": "Edit Showcase Entry",
+      "logoLabel": "Organization Logo",
+      "logoHint": "Click to upload. PNG or SVG recommended.",
+      "logoPreviewAlt": "Logo preview",
+      "logoRequired": "* Required"
+    },
+    "form": {
+      "name": "Organization Name *",
+      "country": "Country",
+      "countryPlaceholder": "e.g. Brazil",
+      "industry": "Industry",
+      "selectIndustry": "Select...",
+      "websiteUrl": "Website URL",
+      "websitePlaceholder": "https://example.com",
+      "tagline": "Tagline",
+      "taglinePlaceholder": "e.g. Leading HR solutions",
+      "displayOrder": "Display Order",
+      "visibility": "Visibility",
+      "visibleOnLanding": "Visible on landing page",
+      "hidden": "Hidden",
+      "cancel": "Cancel",
+      "add": "Add",
+      "update": "Update"
+    },
+    "validation": {
+      "nameRequired": "Organization name is required",
+      "logoRequired": "Logo is required for new entries"
+    },
+    "industries": {
+      "technology": "Technology",
+      "manufacturing": "Manufacturing",
+      "healthcare": "Healthcare",
+      "education": "Education",
+      "finance": "Finance",
+      "retail": "Retail",
+      "construction": "Construction",
+      "logistics": "Logistics",
+      "consulting": "Consulting",
+      "nonProfit": "Non-Profit",
+      "other": "Other"
+    }
+  },
+  "socialLinks": {
+    "listTitle": "Social Media Links",
+    "addLink": "Add Link",
+    "loading": "Loading...",
+    "emptyTitle": "No social links yet",
+    "emptyHint": "Add social media links to display on the landing page footer",
+    "table": {
+      "platform": "Platform",
+      "url": "URL",
+      "order": "Order",
+      "active": "Active",
+      "actions": "Actions"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "activeHide": "Active — click to hide",
+    "activeShow": "Hidden — click to show",
+    "deleteConfirm": "Remove \"{{platform}}\" link?",
+    "modal": {
+      "addTitle": "Add Social Link",
+      "editTitle": "Edit Social Link"
+    },
+    "form": {
+      "platform": "Platform *",
+      "url": "URL *",
+      "urlPlaceholder": "https://youtube.com/@yourchannel",
+      "displayOrder": "Display Order",
+      "visibility": "Visibility",
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "cancel": "Cancel",
+      "add": "Add",
+      "update": "Update"
+    },
+    "validation": {
+      "urlRequired": "URL is required"
+    },
+    "platforms": {
+      "youtube": "YouTube",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "linkedin": "LinkedIn",
+      "x": "X / Twitter",
+      "tiktok": "TikTok",
+      "github": "GitHub"
+    }
+  },
+  "guideLinks": {
+    "title": "Guide Help Links",
+    "subtitle": "Configure which tutorial opens when users click the help button on each page.",
+    "reset": "Reset",
+    "save": "Save",
+    "none": "— None —",
+    "tooltipPreview": "Preview",
+    "successSaved": "Guide links saved successfully.",
+    "errorSave": "Failed to save guide links.",
+    "sections": {
+      "sidebarMenu": "Sidebar Menu",
+      "dashboard": "Dashboard",
+      "attendance": "Attendance",
+      "leave": "Leave",
+      "employees": "Employees",
+      "organization": "Organization",
+      "reports": "Reports",
+      "reviews": "Reviews",
+      "other": "Other"
+    },
+    "helpPoints": {
+      "sidebar": {
+        "dashboard": {
+          "label": "Sidebar — Dashboard"
+        },
+        "profile": {
+          "label": "Sidebar — My Profile"
+        },
+        "attendance-logs": {
+          "label": "Sidebar — My Attendance"
+        },
+        "attendance-audit": {
+          "label": "Sidebar — Attendance Audit"
+        },
+        "leave": {
+          "label": "Sidebar — Leave"
+        },
+        "announcements": {
+          "label": "Sidebar — Announcements"
+        },
+        "admin-notifications": {
+          "label": "Sidebar — Notifications"
+        },
+        "employees": {
+          "label": "Sidebar — Team Directory"
+        },
+        "performance-review": {
+          "label": "Sidebar — Performance"
+        },
+        "organization": {
+          "label": "Sidebar — Organization"
+        },
+        "reports": {
+          "label": "Sidebar — Reports"
+        },
+        "settings": {
+          "label": "Sidebar — Settings"
+        }
+      },
+      "dashboard": {
+        "admin": {
+          "label": "Dashboard (Admin)"
+        },
+        "manager": {
+          "label": "Dashboard (Manager)"
+        },
+        "employee": {
+          "label": "Dashboard (Employee)"
+        }
+      },
+      "attendance": {
+        "clockin": {
+          "label": "Attendance — Clock In"
+        },
+        "logs": {
+          "label": "My Attendance History"
+        },
+        "audit": {
+          "label": "Attendance Audit"
+        }
+      },
+      "leave": {
+        "balance": {
+          "label": "Leave Balance Cards"
+        },
+        "apply": {
+          "label": "Leave Application Form"
+        },
+        "manager": {
+          "label": "Manager Approval Hub"
+        },
+        "hr": {
+          "label": "HR Administration"
+        }
+      },
+      "employees": {
+        "directory": {
+          "label": "Employee Directory"
+        },
+        "create": {
+          "label": "Add Employee Form"
+        }
+      },
+      "org": {
+        "structure": {
+          "label": "Organization — Structure"
+        },
+        "teams": {
+          "label": "Organization — Teams"
+        },
+        "placement": {
+          "label": "Organization — Placement"
+        },
+        "shifts": {
+          "label": "Organization — Shifts"
+        },
+        "workflow": {
+          "label": "Organization — Workflow"
+        },
+        "leaves": {
+          "label": "Organization — Leaves"
+        },
+        "holidays": {
+          "label": "Organization — Holidays"
+        },
+        "notifications": {
+          "label": "Organization — Notifications"
+        },
+        "system": {
+          "label": "Organization — System"
+        }
+      },
+      "reports": {
+        "generator": {
+          "label": "Reports Generator"
+        }
+      },
+      "review": {
+        "employee": {
+          "label": "Performance Review (Employee)"
+        },
+        "manager": {
+          "label": "Performance Review (Manager)"
+        },
+        "hr": {
+          "label": "Performance Review (HR)"
+        }
+      },
+      "announcements": {
+        "label": "Announcements"
+      },
+      "notifications": {
+        "admin": {
+          "label": "Admin Notifications"
+        }
+      },
+      "settings": {
+        "profile": {
+          "label": "Profile Settings"
+        },
+        "theme": {
+          "label": "Theme Customization"
+        }
+      }
+    }
+  },
+  "bulkEmail": {
+    "title": "Bulk Email",
+    "subtitle": "Broadcast announcements, alerts, or warnings to organization admins or users across the platform.",
+    "compose": "Compose",
+    "history": "History",
+    "audienceTitle": "Audience",
+    "audienceAllAdminsLabel": "All org admins",
+    "audienceAllAdminsDesc": "Every ADMIN across all organizations",
+    "audienceAllUsersLabel": "All users",
+    "audienceAllUsersDesc": "Every registered user (excluding Super Admins)",
+    "audienceOrgLabel": "Specific organization",
+    "audienceOrgDesc": "Pick one org and target its admins or users",
+    "audienceBySubLabel": "By subscription status",
+    "audienceBySubDesc": "Target orgs in TRIAL / EXPIRED / etc.",
+    "audienceSummaryAllAdmins": "All organization admins (ADMIN + HR roles)",
+    "audienceSummaryAllUsers": "All registered users (excluding Super Admins)",
+    "audienceSummaryOrg": "{{role}} of {{name}}",
+    "audienceSummaryOrgFallback": "Specific organization",
+    "audienceSummaryBySub": "{{role}} in orgs with status: {{statuses}}",
+    "audienceRoleAdmins": "admins (ADMIN + HR)",
+    "audienceRoleUsers": "users",
+    "audienceNote": "Recipients are every registered user matching the audience above (excluding Super Admins). Verification status is ignored — newly-registered admins/HR who haven't clicked their verification link are still reachable. The list is de-duplicated by email.",
+    "messageTitle": "Message",
+    "formTemplate": "Template",
+    "formTemplateScratch": "— Start from scratch —",
+    "formClearTemplate": "Clear template",
+    "formTemplateHint": "Select a template to pre-fill subject and body. You can edit freely after. Use {{name}} for the recipient's first name and {{reset_link}} for a unique password reset link.",
+    "formSubject": "Subject",
+    "formSubjectPlaceholder": "e.g. Important: scheduled maintenance this weekend",
+    "formSubjectCount": "{{count}}/200",
+    "formBody": "Body",
+    "formBodyPlaceholder": "Write your announcement, warning, or alert here. Formatting and links are supported.",
+    "formOrganization": "Organization",
+    "formSelectOrg": "Select an organization",
+    "formLoadingOrgs": "Loading…",
+    "formOrgUsersCount": "{{name}} ({{count}} users)",
+    "formSubscriptionStatuses": "Subscription statuses",
+    "formScope": "Scope:",
+    "formScopeAllUsers": "All users",
+    "formScopeAdminsOnly": "Admins only",
+    "previewTitle": "Recipients preview",
+    "previewAudience": "Audience:",
+    "previewButton": "Preview recipients",
+    "previewCounting": "Counting…",
+    "sendButton": "Send to {{count}} recipients",
+    "sendButtonEmpty": "Send to — recipients",
+    "previewRecipients": "{{count}} recipients",
+    "previewRecipientOne": "{{count}} recipient",
+    "previewSample": "Sample: {{emails}}",
+    "previewAndMore": "…and {{count}} more",
+    "errorCompleteAudience": "Please complete the audience selection first",
+    "errorNoRecipients": "No recipients matched this audience",
+    "errorPreviewFailed": "Preview failed: {{message}}",
+    "errorPreviewFailedGeneric": "Preview failed. Check console for details.",
+    "errorSendFailed": "Send failed. Check console for details.",
+    "historyTitle": "Recent campaigns",
+    "historyRefresh": "Refresh",
+    "historyLoading": "Loading…",
+    "historyEmpty": "No bulk campaigns yet.",
+    "historyColSentAt": "Sent at",
+    "historyColSubject": "Subject",
+    "historyColTotal": "Total",
+    "historyColSent": "Sent",
+    "historyColFailed": "Failed",
+    "historyColPending": "Pending",
+    "historyView": "View",
+    "confirmTitle": "Confirm bulk send",
+    "confirmBody": "You are about to send an email to {{count}} recipients ({{audience}}). This cannot be undone.",
+    "confirmBodyOne": "You are about to send an email to {{count}} recipient ({{audience}}). This cannot be undone.",
+    "confirmSubject": "Subject:",
+    "confirmCancel": "Cancel",
+    "confirmSend": "Yes, send now",
+    "confirmQueuing": "Queuing…",
+    "detailSummary": "{{total}} recipients · {{sent}} sent · {{failed}} failed · {{pending}} pending",
+    "detailClose": "Close",
+    "detailLoading": "Loading…",
+    "detailEmpty": "No rows.",
+    "detailColRecipient": "Recipient",
+    "detailColStatus": "Status",
+    "detailColSentAt": "Sent at",
+    "detailColError": "Error",
+    "templates": {
+      "password_reset": {
+        "label": "Password Reset Notice"
+      },
+      "newsletter": {
+        "label": "Newsletter"
+      },
+      "maintenance": {
+        "label": "System Maintenance"
+      },
+      "announcement": {
+        "label": "General Announcement"
+      },
+      "welcome": {
+        "label": "Welcome / Onboarding"
+      }
+    },
+    "queueStatus": {
+      "PENDING": "Pending",
+      "SENT": "Sent",
+      "FAILED": "Failed"
+    }
+  },
+  "pushBroadcast": {
+    "title": "Push Broadcast",
+    "subtitle": "Send a push notification to subscribed users.",
+    "target": "Target",
+    "targetAll": "All platform",
+    "targetOrg": "Organization",
+    "targetRole": "Role",
+    "targetUser": "Single user",
+    "targetTypes": {
+      "ALL": "All platform",
+      "ORG": "Organization",
+      "ROLE": "Role",
+      "USER": "Single user"
+    },
+    "selectOrg": "— Select organization —",
+    "orgUsersCount": "{{name}} ({{count}} users)",
+    "userIdPlaceholder": "Paste user UUID (auth.users.id)",
+    "counting": "Counting recipients…",
+    "selectToCount": "Select target to count recipients",
+    "subscriptions": "{{count}} active push subscriptions",
+    "subscriptionOne": "{{count}} active push subscription",
+    "refreshCount": "Refresh count",
+    "formTitle": "Title",
+    "formTitlePlaceholder": "e.g., Scheduled maintenance tonight",
+    "formBody": "Body",
+    "formBodyPlaceholder": "Notification body text…",
+    "formClickUrl": "Click URL (optional)",
+    "formClickUrlPlaceholder": "/dashboard or /announcements",
+    "formClickUrlHint": "Defaults to /dashboard if blank.",
+    "previewLabel": "Preview",
+    "previewTitleFallback": "Title here",
+    "previewBodyFallback": "Body text here",
+    "previewAppNow": "{{appName}} · now",
+    "send": "Send broadcast",
+    "sending": "Sending…",
+    "successSent": "Broadcast sent. {{delivered}}/{{recipients}} delivered. {{stale}} stale cleaned.",
+    "errorSend": "Failed to send broadcast",
+    "historyTitle": "Recent broadcasts",
+    "historyRefresh": "Refresh",
+    "historyEmpty": "No broadcasts yet.",
+    "historyDelivered": "{{count}} delivered",
+    "historyRecipients": "/ {{count}} recipients",
+    "historyFailed": "{{count}} failed",
+    "historyStaleCleaned": "{{count}} stale cleaned",
+    "historyBy": "by {{name}} · ",
+    "confirmTitle": "Confirm broadcast",
+    "confirmBody": "Sending push to {{count}} subscriptions.",
+    "confirmBodyOne": "Sending push to {{count}} subscription.",
+    "confirmCrossTenant": "Cross-tenant: this reaches every organization on the platform.",
+    "confirmCancel": "Cancel",
+    "confirmSendNow": "Send now"
+  },
+  "shell": {
+    "title": "Super Admin Dashboard",
+    "subtitle": "Manage all organizations on the platform",
+    "newOrganization": "New Organization",
+    "backToList": "Back to List",
+    "tabGroup": {
+      "platform": "Platform",
+      "content": "Content"
+    },
+    "tab": {
+      "orgs": "Orgs",
+      "upgrades": "Upgrades",
+      "ads": "Ads",
+      "storage": "Storage",
+      "notifs": "Notifs",
+      "theme": "Theme",
+      "email": "Email",
+      "push": "Push",
+      "blog": "Blog",
+      "tutorials": "Tutorials",
+      "guides": "Guides",
+      "showcase": "Showcase",
+      "social": "Social"
+    },
+    "errors": {
+      "fillRequired": "Please fill in all required fields",
+      "passwordMin": "Password must be at least 8 characters"
+    },
+    "success": {
+      "userVerified": "User verified successfully",
+      "userDeleted": "User deleted successfully"
+    },
+    "confirm": {
+      "deleteOrg": "Are you sure you want to delete \"{{name}}\"?\n\nThis will permanently delete:\n- All users ({{userCount}})\n- All attendance records\n- All leave records\n- All settings\n\nThis action cannot be undone!",
+      "deleteUser": "Are you sure you want to delete user \"{{name}}\"? This action cannot be undone."
+    },
+    "upgradesPanel": {
+      "title": "Upgrade Requests",
+      "filterAll": "All",
+      "loading": "Loading...",
+      "empty": "No upgrade requests found",
+      "donation": "Donation: ${{amount}} ({{tier}})",
+      "extension": "Extension: {{days}} days",
+      "adSupported": "Ad-Supported Mode",
+      "ref": "Ref: {{ref}}",
+      "reason": "Reason: {{reason}}",
+      "approve": "Approve",
+      "reject": "Reject",
+      "submitted": "Submitted: {{date}}",
+      "filterPending": "Pending",
+      "filterApproved": "Approved",
+      "filterRejected": "Rejected"
+    },
+    "stats": {
+      "totalOrgs": "Total Orgs",
+      "totalUsers": "Total Users",
+      "active": "Active",
+      "trial": "Trial",
+      "expired": "Expired",
+      "last30d": "Last 30d"
+    },
+    "orgsPanel": {
+      "title": "All Organizations",
+      "loading": "Loading organizations...",
+      "empty": "No organizations found",
+      "colOrganization": "Organization",
+      "colStatus": "Status",
+      "colUsers": "Users",
+      "colAdmin": "Admin",
+      "colCreated": "Created",
+      "colActions": "Actions",
+      "trialEnds": "Ends: {{date}}",
+      "verified": "Verified",
+      "pendingVerification": "Pending verification",
+      "tooltipViewUsers": "View Users",
+      "tooltipEdit": "Edit",
+      "tooltipDelete": "Delete"
+    },
+    "form": {
+      "createTitle": "Create New Organization",
+      "editTitle": "Edit: {{name}}",
+      "orgName": "Organization Name *",
+      "orgNamePlaceholder": "e.g., Acme Corporation",
+      "subscriptionStatus": "Subscription Status",
+      "statusTrial": "Trial",
+      "statusActive": "Active",
+      "statusExpired": "Expired",
+      "statusSuspended": "Suspended",
+      "trialEndDate": "Trial End Date",
+      "trialEndHint": "Organization will auto-expire after this date",
+      "address": "Address",
+      "addressPlaceholder": "e.g., 123 Business Street, City",
+      "adminSection": "Initial Admin Account",
+      "adminName": "Admin Name *",
+      "adminNamePlaceholder": "e.g., John Smith",
+      "adminEmail": "Admin Email *",
+      "adminEmailPlaceholder": "e.g., admin@company.com",
+      "adminPassword": "Admin Password *",
+      "adminPasswordPlaceholder": "Min. 8 characters",
+      "cancel": "Cancel",
+      "create": "Create Organization",
+      "save": "Save Changes"
+    },
+    "users": {
+      "title": "Users in {{name}}",
+      "count": "{{count}} users",
+      "loading": "Loading users...",
+      "empty": "No users found",
+      "colUser": "User",
+      "colRole": "Role",
+      "colDepartment": "Department",
+      "verified": "Verified",
+      "pending": "Pending",
+      "tooltipVerify": "Verify User",
+      "tooltipDelete": "Delete User"
+    }
+  }
 }
