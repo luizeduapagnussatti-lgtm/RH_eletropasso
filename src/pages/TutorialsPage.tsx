@@ -10,6 +10,18 @@ import { APP_NAME } from '../config/branding';
 
 // Preferred category display order — categories not listed here appear at the end
 const CATEGORY_ORDER = [
+  // pt-BR (RH_Eletropasso seed)
+  'Primeiros passos',
+  'Painel',
+  'Ponto e jornada',
+  'Férias e afastamentos',
+  'Equipe',
+  'Organização',
+  'Desempenho',
+  'Relatórios',
+  'Configurações',
+  'Geral',
+  // Legacy English categories (if any remain)
   'Getting Started',
   'Dashboard',
   'Attendance',

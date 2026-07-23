@@ -22,10 +22,16 @@ const DEFAULT_GUIDE_LINKS: Record<string, string> = {
   'sidebar.organization': 'setting-up-organization',
   'sidebar.reports': 'generating-reports',
   'sidebar.settings': 'managing-profile-settings',
+  'sidebar.timesheet': 'espelho-de-ponto-ptrp',
+  'sidebar.roster': 'espelho-de-ponto-ptrp',
   // Attendance
   'attendance.clockin': 'how-to-clock-in-and-out',
   'attendance.logs': 'understanding-attendance-logs',
   'attendance.audit': 'attendance-admin-audit',
+  'attendance': 'how-to-clock-in-and-out',
+  // Timesheet / PTRP
+  'timesheet.espelho': 'espelho-de-ponto-ptrp',
+  'timesheet.bank': 'banco-de-horas',
   // Leave
   'leave.balance': 'how-to-apply-for-leave',
   'leave.apply': 'how-to-apply-for-leave',
@@ -38,12 +44,12 @@ const DEFAULT_GUIDE_LINKS: Record<string, string> = {
   'org.structure': 'setting-up-organization',
   'org.teams': 'setting-up-organization',
   'org.placement': 'setting-up-organization',
-  'org.shifts': 'setting-up-organization',
+  'org.shifts': 'configurando-turnos',
   'org.workflow': 'setting-up-organization',
   'org.leaves': 'understanding-leave-policies',
   'org.holidays': 'setting-up-organization',
   'org.notifications': 'notification-settings',
-  'org.system': 'setting-up-organization',
+  'org.system': 'sincronizacao-dmprep',
   // Reports
   'reports.generator': 'generating-reports',
   // Performance Reviews
@@ -67,13 +73,16 @@ export const clearGuideLinksCache = () => { cachedGuideLinks = null; };
 type HelpButtonVariant = 'default' | 'sidebar' | 'inline';
 
 interface HelpButtonProps {
-  helpPointId: string;
+  helpPointId?: string;
+  /** @deprecated use helpPointId */
+  topic?: string;
   className?: string;
   size?: number;
   variant?: HelpButtonVariant;
 }
 
-const HelpButton: React.FC<HelpButtonProps> = ({ helpPointId, className = '', size = 18, variant = 'default' }) => {
+const HelpButton: React.FC<HelpButtonProps> = ({ helpPointId: helpPointIdProp, topic, className = '', size = 18, variant = 'default' }) => {
+  const helpPointId = helpPointIdProp || topic || '';
   const [slug, setSlug] = useState<string | null>(DEFAULT_GUIDE_LINKS[helpPointId] || null);
 
   useEffect(() => {
