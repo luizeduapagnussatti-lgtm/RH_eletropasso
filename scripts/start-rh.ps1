@@ -147,7 +147,7 @@ foreach ($check in @(
 
 Write-Host "App: http://${HostIp}:3000"
 Write-Host 'Credenciais: E:\RH_eletropasso\credenciais.txt'
-Write-Host 'DMPREP: Organizacao > Sistema > Sincronizacao DMPREP'
+Write-Host 'Relogio: Organizacao > Sistema > Sincronizacao relogio de ponto'
 Write-Host "Log: $transcript"
 
 Stop-Transcript | Out-Null

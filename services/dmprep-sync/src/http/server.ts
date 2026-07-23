@@ -4,6 +4,7 @@ import type { SyncConfig } from '../config.js';
 import { importEmployeesFromDmprep } from '../employees/import.js';
 import { loadSyncState } from '../state.js';
 import { runSyncOnce } from '../sync.js';
+import { runWatchCommCollect } from '../watchcomm/trigger.js';
 import { isSyncLocked, withSyncLock } from '../syncLock.js';
 
 export type SyncScope = 'all' | 'punches' | 'employees';
@@ -71,8 +72,11 @@ export function startHttpServer(
         sendJson(res, 200, {
           ok: true,
           busy: isSyncLocked(),
+          punchSource: config.movimentEnabled ? 'moviment' : 'watchcomm-tcp',
+          movimentEnabled: config.movimentEnabled,
           movimentPath: config.movimentPath,
           mdbPath: config.mdbPath,
+          watchcomm: config.watchcomm,
           state,
         });
         return;
@@ -92,7 +96,9 @@ export function startHttpServer(
             payload.employees = await importEmployeesFromDmprep(config);
           }
           if (scope === 'all' || scope === 'punches') {
-            payload.punches = await runSyncOnce(config, logger);
+            payload.punches = config.movimentEnabled
+              ? await runSyncOnce(config, logger)
+              : await runWatchCommCollect(config);
           }
           return payload;
         });

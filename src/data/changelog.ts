@@ -15,6 +15,108 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-23',
+    title: 'rep-gateway: engenharia reversa WatchComm (.69)',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Pesquisa DMPREP: WatchComm.dll (.NET x86) expõe RSAHelper.Encrypt(data, exponentHex, modulusHex), frame PrintPoint III STX=0xF8 ETX=0xF0 tipo=0xA1; ciphertext difere do PKCS#1 Node — próximo passo portar RSAHelper e teste live no relógio.',
+      },
+      {
+        type: 'feature',
+        description:
+          'rep-gateway: modo REP_ACK_MODE=watchcomm-rsa com bridge PowerShell (porta 3003) e rotação de probes status-inquiry / inquiry-immediate-status / empty / frame70 para fechar handshake Client Rest.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'rep-gateway live: NAT NPM (172.28.0.7) na allowlist; probes WatchComm com modos rsa/packet/aes, InquiryMRPRegisters e UpdateAESParameters (78 B → RSA 128 B). Conexão Client Rest OK (porta 80); confirmcommand ainda error=1.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Pivot operacional: poller WatchComm TCP no servidor (.245) coleta batidas do PrintPoint (:3000) a cada 1 h; sync MOVIMENT.txt/DMPREP agent desativado.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Organização → Sistema: painel renomeado para Sincronização relógio; Coletar batidas dispara WatchComm; Importar cadastros continua via DIMEP.MDB.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Poller WatchComm TCP (~60s) no .245: collect-once-mrp + Task Scheduler OpenHR-WatchComm-Poller, bootstrap por watermark NSR sem replay histórico, forward ingest-punches. Client Rest em hold (rollback: religar Habilita conexão).',
+      },
+      {
+        type: 'fix',
+        description:
+          'Task Scheduler do poller WatchComm: wrapper Run-Poller.cmd corrige truncamento do schtasks; espelho de ponto recalcula dias com batidas REP ao carregar o período.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Poller WatchComm: intervalo do Task Scheduler alterado de 1 minuto para 1 hora (param -IntervalHours no Install).',
+      },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Escalas: destaque do dia em edição',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Selected Saturday chip is solid primary with “editando” badge, scale and ring; editing panel shows the active date clearly. Applied migration 0024 work_roster_assignments on local Supabase.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Escalas: passado vs futuro + carga do turno',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Roster date chips: muted past / sky today / green upcoming; past Saturdays view-only for managers (Admin/HR can correct). Shows shift load hours from profile shift (or default) and syncs timesheet day on save so monthly expected hours reflect who worked Saturday.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Escalas de trabalho (sábados e feriados)',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'New Work Schedules screen for Admin/HR/Manager: pick who works each Saturday (optional holidays), swap people, copy previous Saturday. Published roster drives timesheet expected hours (OFF = no absence). Migration 0024 work_roster_assignments.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Espelho: carregar só após aplicar filtros',
+    entries: [
+      { type: 'improvement', description: 'Timesheet for Admin/HR/Manager starts empty — pick employee + Apply filters; changing filters clears results until re-applied. Employees still auto-load own mirror.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Espelho: meta de horas e sem dias futuros',
+    entries: [
+      { type: 'improvement', description: 'Hour-bank rail shows period target / worked / remaining (elapsed days only) without changing the main table layout.' },
+      { type: 'fix', description: 'Future dates are hidden from day filter and table; recalculatePeriod stops at today so future days are not marked absent.' },
+    ],
+  },
+  {
+    date: '2026-07-22',
+    title: 'Espelho: aprovação gestor em massa + rótulos do banco',
+    entries: [
+      { type: 'feature', description: 'Timesheet: bulk manager acknowledgement — select rows / select all pending / approve all pending in one click.' },
+      { type: 'improvement', description: 'Hour bank list shows plain-language labels (e.g. ABSENCE_DEBIT → Débito por falta; OT_CREDIT → Crédito de HE).' },
+    ],
+  },
+  {
     date: '2026-07-22',
     title: 'Relatórios: ponto PTRP e rótulos de ausência',
     entries: [
@@ -36,6 +138,8 @@ export const changelog: ChangelogRelease[] = [
       { type: 'fix', description: 'Timesheet competence now uses org ptrpPolicy.periodStartDay (default 26): e.g. July = 26/Jun–25/Jul, matching Eletropasso payroll close on the 25th.' },
       { type: 'improvement', description: 'OPEN periods auto-realign start/end when cutoff changes; day filter lists dates in the competence range; Reports TIMESHEET export resolves competence correctly.' },
       { type: 'improvement', description: 'Espelho de ponto toolbar: Ano/Mês/Dia/Colaborador as equal grid fields (same label + h-10 control rhythm); actions on a separate row — fixes Colaborador misalignment.' },
+      { type: 'improvement', description: 'Painel Admin: resumo operacional (presentes/pendências/equipe/feriado), tiles GESTÃO/PESSOAL com hover lift + badge de licenças, setup completo recolhido por padrão.' },
+      { type: 'improvement', description: 'Organização: abas com hover/ativo no padrão do Painel; Estrutura, Equipes e Alocação sem banner primary — painéis brancos, contagem e cards/linhas com lift no hover.' },
     ],
   },
   {

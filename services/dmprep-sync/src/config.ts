@@ -6,7 +6,14 @@ const configSchema = z.object({
   DMPREP_MOVIMENT_PATH: z.string().min(1),
   DMPREP_MDB_PATH: z.string().optional(),
   DMPREP_DEVICE_SERIAL: z.string().default('00003004820030709'),
+  DMPREP_MOVIMENT_ENABLED: z
+    .enum(['true', 'false', '1', '0'])
+    .default('false')
+    .transform((value) => value === 'true' || value === '1'),
   DMPREP_POLL_INTERVAL_MS: z.coerce.number().int().min(60_000).max(14_400_000).default(3_600_000),
+  WATCHCOMM_POLLER_SCRIPT: z.string().optional(),
+  WATCHCOMM_CONFIG_PATH: z.string().optional(),
+  WATCHCOMM_RESULT_PATH: z.string().optional(),
   DMPREP_STATE_PATH: z.string().default('./data/dmprep-sync-state.json'),
   DMPREP_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(100),
   DMPREP_HTTP_ENABLED: z
@@ -31,7 +38,13 @@ export type SyncConfig = {
   movimentPath: string;
   mdbPath: string | null;
   deviceSerial: string;
+  movimentEnabled: boolean;
   pollIntervalMs: number;
+  watchcomm: {
+    pollerScript: string;
+    configPath: string;
+    resultPath: string;
+  };
   statePath: string;
   batchSize: number;
   importTempPassword: string;
@@ -53,16 +66,27 @@ export type SyncConfig = {
   };
 };
 
+const DEFAULT_WATCHCOMM_POLLER = 'C:\\xampp\\htdocs\\RH_eletropasso\\scripts\\watchcomm-poller\\Run-WatchCommPoller.ps1';
+const DEFAULT_WATCHCOMM_CONFIG = 'E:\\RH_eletropasso\\config\\watchcomm-poller.json';
+const DEFAULT_WATCHCOMM_RESULT = 'E:\\RH_eletropasso\\logs\\rep-gateway\\watchcomm-poller\\last-cycle-result.json';
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): SyncConfig {
   const parsed = configSchema.parse(env);
   const httpApiKey = parsed.DMPREP_HTTP_API_KEY ?? parsed.PUNCH_INGEST_API_KEY;
+  const watchcommConfig = parsed.WATCHCOMM_CONFIG_PATH ?? DEFAULT_WATCHCOMM_CONFIG;
   return {
     nodeEnv: parsed.NODE_ENV,
     logLevel: parsed.LOG_LEVEL,
     movimentPath: parsed.DMPREP_MOVIMENT_PATH,
     mdbPath: parsed.DMPREP_MDB_PATH ?? null,
     deviceSerial: parsed.DMPREP_DEVICE_SERIAL,
+    movimentEnabled: parsed.DMPREP_MOVIMENT_ENABLED,
     pollIntervalMs: parsed.DMPREP_POLL_INTERVAL_MS,
+    watchcomm: {
+      pollerScript: parsed.WATCHCOMM_POLLER_SCRIPT ?? DEFAULT_WATCHCOMM_POLLER,
+      configPath: watchcommConfig,
+      resultPath: parsed.WATCHCOMM_RESULT_PATH ?? DEFAULT_WATCHCOMM_RESULT,
+    },
     statePath: parsed.DMPREP_STATE_PATH,
     batchSize: parsed.DMPREP_BATCH_SIZE,
     importTempPassword: parsed.DMPREP_IMPORT_TEMP_PASSWORD,

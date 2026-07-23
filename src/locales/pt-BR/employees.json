@@ -59,6 +59,15 @@
   "activated": "{{name}} ativado",
   "cannotEditAdmin": "Somente o Administrador pode editar ou remover contas de Administrador.",
   "cannotAssignAdmin": "O Auxiliar de RH não pode criar ou promover a Administrador.",
+  "staffAccountCreated": "{{name}} cadastrado como {{role}}. Conta sem vínculo de ponto/relógio — checklist DMPREP não se aplica.",
+  "roleHints": {
+    "ADMIN": "Administra o sistema (sem bater ponto).",
+    "HR": "Auxiliar operacional de RH (sem bater ponto).",
+    "MANAGEMENT": "Diretoria / sócio — sem ponto. Para administrar o RH no sistema, use Administrador.",
+    "MANAGER": "Gestor de equipe — bate ponto e aprova equipe.",
+    "TEAM_LEAD": "Líder de equipe — bate ponto.",
+    "EMPLOYEE": "Colaborador CLT — bate ponto no relógio."
+  },
   "operationFailed": "Falha na operação. Verifique os logs do servidor.",
   "noTeam": "Sem equipe",
   "unknownTeam": "Equipe desconhecida",
@@ -107,7 +116,7 @@
       },
       "step4": {
         "title": "Validar batidas no OpenHR",
-        "detail": "Após a primeira batida, use Organização → Sistema → Sincronizar DMPREP ou aguarde o poll automático (1 h)."
+        "detail": "Após a primeira batida, use Organização → Sistema → Sincronização relógio ou aguarde a coleta automática (1 h)."
       }
     },
     "discharge": {

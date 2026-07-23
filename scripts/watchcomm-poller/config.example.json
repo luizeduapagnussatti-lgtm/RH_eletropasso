@@ -1,0 +1,21 @@
+{
+  "clockIp": "192.168.15.201",
+  "clockPort": 3000,
+  "deviceSerial": "00003004820030709",
+  "firmwareVersion": "03.00.0028",
+  "equipmentId": 1,
+  "modulusHex": "916CA83A303938982FC68C1B158E3DB9E34C2CA294F35251154E9B87BF69F1E82E3E0225CFFBB9632609444DA7977A3633471B536395BBE3533506300E10544EBDCFC33FB484FE4B94FD727FA0E857B1B82EE811D6BE84AEB3B1B66DAA85DB329F5E5E74E9D8EA9F929AE781FBF16430D12229B533BEE3921358F4139E4ADBBF",
+  "exponentHex": "010001",
+  "ingestUrl": "http://127.0.0.1:54321/functions/v1/ingest-punches",
+  "ingestApiKey": "CHANGE_ME",
+  "organizationId": "7e620d63-0d21-4307-9f4e-1f1fa96cbc74",
+  "timeoutSeconds": 30,
+  "maxBatchesPerCycle": 80,
+  "maxRecordsPerCycle": 200,
+  "forwardEnabled": true,
+  "bootstrapOnly": false,
+  "statePath": "E:\\RH_eletropasso\\logs\\rep-gateway\\watchcomm-poller\\state.json",
+  "resultPath": "E:\\RH_eletropasso\\logs\\rep-gateway\\watchcomm-poller\\last-cycle-result.json",
+  "logDir": "E:\\RH_eletropasso\\logs\\rep-gateway\\watchcomm-poller",
+  "collectScript": ""
+}

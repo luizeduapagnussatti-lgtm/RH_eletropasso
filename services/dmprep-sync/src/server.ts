@@ -12,21 +12,26 @@ const logger = pino({
 logger.info(
   {
     movimentPath: config.movimentPath,
+    movimentEnabled: config.movimentEnabled,
     mdbPath: config.mdbPath,
     deviceSerial: config.deviceSerial,
     pollIntervalMs: config.pollIntervalMs,
     statePath: config.statePath,
+    watchcomm: config.watchcomm,
     httpPort: config.http.enabled ? config.http.port : null,
   },
   'DMPREP sync starting',
 );
 
-const loop = startSyncLoop(config, logger);
+const loop = config.movimentEnabled ? startSyncLoop(config, logger) : null;
+if (!config.movimentEnabled) {
+  logger.info('MOVIMENT.txt auto-poll disabled — punches via WatchComm TCP (Task Scheduler + manual sync)');
+}
 const http = startHttpServer(config, logger);
 
 function shutdown(signal: string) {
   logger.info({ signal }, 'DMPREP sync shutting down');
-  loop.stop();
+  loop?.stop();
   void http.close().finally(() => process.exit(0));
 }
 

@@ -49,7 +49,13 @@ describe('sync loop', () => {
       movimentPath: 'MOVIMENT.txt',
       mdbPath: null,
       deviceSerial: DEVICE,
+      movimentEnabled: true,
       pollIntervalMs: 60_000,
+      watchcomm: {
+        pollerScript: 'Run-WatchCommPoller.ps1',
+        configPath: 'watchcomm.json',
+        resultPath: path.join(tempDir, 'last-cycle-result.json'),
+      },
       statePath: path.join(tempDir, 'state.json'),
       batchSize: 100,
       importTempPassword: 'TestImport123!',

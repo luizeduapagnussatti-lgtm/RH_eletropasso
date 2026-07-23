@@ -59,6 +59,15 @@
   "activated": "{{name}} activated",
   "cannotEditAdmin": "Only an Administrator can edit or remove Administrator accounts.",
   "cannotAssignAdmin": "HR Assistants cannot create or promote to Administrator.",
+  "staffAccountCreated": "{{name}} created as {{role}}. No clock/REP link — DMPREP checklist skipped.",
+  "roleHints": {
+    "ADMIN": "Administers the app (does not punch).",
+    "HR": "Operational RH assistant (does not punch).",
+    "MANAGEMENT": "Board / partner — no punch. To administer RH in the app, use Administrator.",
+    "MANAGER": "Team manager — punches and approves team.",
+    "TEAM_LEAD": "Team lead — punches.",
+    "EMPLOYEE": "CLT employee — punches on the clock."
+  },
   "operationFailed": "Operation failed. Check server logs.",
   "noTeam": "No team",
   "unknownTeam": "Unknown team",
@@ -107,7 +116,7 @@
       },
       "step4": {
         "title": "Validate punches in OpenHR",
-        "detail": "After the first punch, use Organization → System → Sync DMPREP or wait for the automatic poll (1 h)."
+        "detail": "After the first punch, use Organization → System → Clock sync or wait for automatic collection (1 h)."
       }
     },
     "discharge": {

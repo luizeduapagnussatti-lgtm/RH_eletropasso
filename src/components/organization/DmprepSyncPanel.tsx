@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Users, Clock3, Download } from 'lucide-react';
+import { RefreshCw, Users, Clock3, Radio } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useToast } from '../../context/ToastContext';
@@ -86,7 +86,7 @@ export const DmprepSyncPanel: React.FC = () => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3">
-            <Download size={24} className="text-primary" />
+            <Radio size={24} className="text-primary" />
             {t('dmprepSync.title')}
           </h3>
           <p className="text-sm text-slate-500 mt-2 max-w-3xl">{t('dmprepSync.description')}</p>
