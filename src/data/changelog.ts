@@ -16,6 +16,15 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-23',
+    title: 'Guias de ajuda RH_Eletropasso (pt-BR)',
+    entries: [
+      { type: 'feature', description: 'Published 29 step-by-step guides on /how-to-use (pt-BR) covering ponto, espelho PTRP, DMPREP, turnos, férias, equipe, relatórios and more; seed via npm run seed:tutorials.' },
+      { type: 'fix', description: 'Timesheet HelpButton now opens espelho-de-ponto-ptrp (was broken topic prop); org.shifts → configurando-turnos; org.system → sincronizacao-dmprep.' },
+      { type: 'improvement', description: 'Guides page category order prefers pt-BR labels (Primeiros passos, Ponto e jornada, …).' },
+    ],
+  },
+  {
+    date: '2026-07-23',
     title: 'Guia operacional relógio SmartPoint B',
     entries: [
       {
