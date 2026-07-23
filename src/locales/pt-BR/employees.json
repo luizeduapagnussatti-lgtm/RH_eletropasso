@@ -84,58 +84,217 @@
   "exportWillExport_other": "{{count}} colaboradores serão exportados",
   "employeeIdPisHint": "Use o PIS com 12 dígitos (ex.: 026740847000) — deve ser igual ao cadastro do DMPREP/relógio.",
   "dmprepChecklist": {
-    "admissionTitle": "Checklist de admissão — DMPREP + relógio",
-    "dischargeTitle": "Checklist de desligamento — DMPREP + relógio",
+    "admissionTitle": "Checklist de admissão — RH + relógio",
+    "dischargeTitle": "Checklist de desligamento — relógio + RH",
     "subtitle": "Colaborador: {{name}}",
-    "warning": "OpenHR e DMPREP não sincronizam automaticamente para o relógio. Siga os passos no software DMP REP (192.168.15.69) antes de considerar o processo concluído.",
+    "warning": "O RH cadastra e exporta para o DIMEP.MDB — não é necessário recadastrar no software DMP REP. A biometria é cadastrada diretamente no relógio PrintPoint SmartPoint B (função 91).",
     "copyPis": "Copiar matrícula/PIS",
     "pisCopied": "Matrícula copiada.",
     "pisCopyFailed": "Não foi possível copiar a matrícula.",
-    "pullFromDmprep": "Puxar cadastros do DMPREP",
+    "pullFromDmprep": "Importar cadastros legados (DMPREP → RH)",
+    "pullFromDmprepHint": "Somente para sincronizar funcionários já existentes no DMPREP. Não substitui o fluxo de admissão pelo RH.",
     "syncing": "Sincronizando…",
     "syncResult": "Importação: {{created}} novos, {{updated}} atualizados.",
     "syncFailed": "Falha ao puxar cadastros do DMPREP.",
-    "dmprepHostHint": "DMP REP: 192.168.15.69",
+    "dmprepHostHint": "PrintPoint SmartPoint B — biometria no equipamento",
     "done": "Concluir",
     "cancelDischarge": "Cancelar",
-    "confirmDischarge": "Excluir no OpenHR",
+    "confirmDischarge": "Excluir no RH",
     "confirming": "Excluindo…",
-    "dischargeComplete": "{{name}} removido do OpenHR.",
+    "dischargeComplete": "{{name}} removido do RH_Eletropasso.",
     "admission": {
       "step1": {
         "title": "Cadastro concluído no OpenHR",
         "detail": "{{name}} foi salvo. Matrícula registrada: {{employeeId}}."
       },
       "step2": {
-        "title": "Cadastrar no DMP REP",
-        "detail": "Abra o DMP REP e inclua o funcionário com o mesmo PIS {{employeeId}}."
+        "title": "Exportar para DMPREP",
+        "detail": "Use Enviar para DMPREP no painel do colaborador. Grava no DIMEP.MDB (DMP REP fechado durante export). Não abra o DMP REP para recadastrar."
       },
       "step3": {
-        "title": "Enviar ao relógio PrintPoint",
-        "detail": "No DMP REP, execute a operação de envio de cadastro/biometria ao relógio (Operações REP)."
+        "title": "Cadastrar biometria no relógio",
+        "detail": "No PrintPoint SmartPoint B: F1 → 91 → supervisor → credencial {{employeeId}} → 2 dedos (2 leituras cada). Manual §3.5."
       },
       "step4": {
-        "title": "Validar batidas no OpenHR",
-        "detail": "Após a primeira batida, use Organização → Sistema → Sincronização relógio ou aguarde a coleta automática (1 h)."
+        "title": "Validar batidas no RH",
+        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática ~1 h ou Organização → Sistema → Coletar batidas."
       }
     },
     "discharge": {
       "step1": {
-        "title": "Desativar no DMP REP",
-        "detail": "Remova ou inative {{name}} no software DMP REP antes de excluir no OpenHR."
+        "title": "Excluir digitais no relógio (obrigatório)",
+        "detail": "No PrintPoint SmartPoint B: F1 → 92 → supervisor → credencial {{employeeId}}. Confirme «Digital excluída com sucesso». Manual §3.6."
       },
       "step2": {
-        "title": "Remover biometria do relógio",
-        "detail": "Execute no DMP REP o envio/exclusão de credencial no PrintPoint III."
+        "title": "Remover cadastro no MDB",
+        "detail": "Automático ao excluir {{name}} no RH (export de desligamento). Não é necessário abrir o DMP REP."
       },
       "step3": {
-        "title": "Sincronizar batidas finais (opcional)",
-        "detail": "Em Organização → Sistema, clique em Importar batidas se houver marcações pendentes."
+        "title": "Coletar batidas finais (opcional)",
+        "detail": "Em Organização → Sistema, clique em Coletar batidas se houver marcações pendentes."
       },
       "step4": {
-        "title": "Excluir conta no OpenHR",
-        "detail": "Confirme abaixo para remover {{name}} do RH_Eletropasso."
+        "title": "Excluir conta no RH",
+        "detail": "Somente após excluir as digitais no relógio (passo 1), confirme abaixo para remover {{name}}."
       }
     }
+  },
+  "onboarding": {
+    "titleCreate": "Novo colaborador",
+    "titleEdit": "Editar colaborador",
+    "backToDirectory": "Voltar ao diretório",
+    "fullName": "Nome completo",
+    "cpf": "CPF",
+    "mobile": "Celular",
+    "emergencyContact": "Contato de emergência",
+    "photo": "Foto",
+    "employmentType": "Tipo de vínculo",
+    "permanent": "Efetivo",
+    "contract": "Contrato",
+    "temporary": "Temporário",
+    "location": "Local de trabalho",
+    "office": "Presencial",
+    "field": "Externo / campo",
+    "editIdentityHint": "E-mail e matrícula/PIS não podem ser alterados aqui — use suporte se necessário.",
+    "clockAfterSave": "Após salvar, você poderá enviar o cadastro ao DMPREP e acompanhar a biometria no relógio.",
+    "steps": {
+      "identity": "Identidade",
+      "contract": "Contrato",
+      "access": "Acesso",
+      "review": "Revisão"
+    },
+    "errors": {
+      "nameRequired": "Informe o nome completo.",
+      "pisInvalid": "PIS/credencial inválido — use 11 ou 12 dígitos numéricos.",
+      "cpfInvalid": "CPF inválido.",
+      "emailRequired": "Informe o e-mail corporativo.",
+      "passwordShort": "A senha deve ter pelo menos 8 caracteres."
+    },
+    "save": "Salvar colaborador",
+    "saving": "Salvando…",
+    "next": "Próximo",
+    "back": "Voltar"
+  },
+  "clockOnboarding": {
+    "title": "Integração com relógio",
+    "subtitle": "Acompanhamento para {{name}}",
+    "sendToDmprep": "Enviar para DMPREP",
+    "markBioDone": "Biometria cadastrada no relógio",
+    "refresh": "Atualizar status",
+    "finish": "Concluir",
+    "exportResult": "Exportação: {{exported}} enviado(s), {{failed}} falha(s).",
+    "exportFailed": "Falha ao exportar para DMPREP.",
+    "bioMarked": "Biometria marcada — aguardando batida de teste.",
+    "stepRh": "Cadastro no RH",
+    "stepRhDetail": "Colaborador salvo com PIS {{pis}}.",
+    "stepExport": "Exportado para DMPREP",
+    "stepExportDetail": "Cadastro gravado no DIMEP.MDB — substitui cadastrar no DMP REP. Mantenha o DMP REP fechado durante o export; não recadastre manualmente.",
+    "stepBio": "Biometria no relógio",
+    "stepBioDetail": "No PrintPoint SmartPoint B: F1 → 91 → supervisor → credencial {{pis}} → cadastre 2 dedos (2 leituras cada). Manual §3.5.",
+    "stepPunch": "Batida de teste",
+    "stepPunchDetail": "Após a primeira batida, o status muda para Pronto automaticamente.",
+    "status": {
+      "NOT_APPLICABLE": "Sem ponto",
+      "PENDING_EXPORT": "Pendente exportação",
+      "PENDING_BIO": "Pendente biometria",
+      "READY": "Pronto",
+      "ERROR": "Erro na exportação"
+    },
+    "badge": {
+      "PENDING_EXPORT": "Export pendente",
+      "PENDING_BIO": "Bio pendente",
+      "READY": "Relógio OK",
+      "ERROR": "Erro relógio"
+    },
+    "filter": {
+      "all": "Todos",
+      "pending_export": "Pendente exportação",
+      "pending_bio": "Pendente biometria"
+    }
+  },
+  "clockGuide": {
+    "referenceTitle": "Guia do relógio PrintPoint SmartPoint B",
+    "admissionTitle": "Como cadastrar biometria (admissão)",
+    "dischargeTitle": "Como excluir biometria (desligamento)",
+    "subtitle": "Manual SmartPoint B §3.5 e §3.6 — fluxo Eletropasso: RH exporta cadastro; biometria no relógio.",
+    "tabAdmission": "Admissão",
+    "tabDischarge": "Desligamento",
+    "sectionSteps": "Passo a passo",
+    "sectionManual": "Atalhos no relógio",
+    "sectionGlossary": "Glossário",
+    "admission": {
+      "overview": "O RH cadastra o colaborador e exporta para o DIMEP.MDB (substitui digitar no DMP REP). Depois disso, vá ao relógio PrintPoint SmartPoint B e cadastre a biometria usando a credencial/PIS — sem abrir Operações REP.",
+      "step1": {
+        "title": "Cadastrar no RH",
+        "detail": "Informe o PIS com 12 dígitos (ex.: {{pis}}). Esse número é a credencial no relógio."
+      },
+      "step2": {
+        "title": "Exportar para DMPREP",
+        "detail": "Clique Enviar para DMPREP. Grava nome, PIS e credencial no DIMEP.MDB (PC .69). DMP REP deve estar fechado durante o export."
+      },
+      "step3": {
+        "title": "Cadastrar biometria no relógio",
+        "detail": "No PrintPoint SmartPoint B, função 91 (Manual §3.5): supervisor → credencial {{pis}} → cadastre 2 dedos (2 leituras cada no Smart B)."
+      },
+      "step4": {
+        "title": "Validar batida no RH",
+        "detail": "Após a primeira batida, o status muda para Pronto automaticamente. Coleta automática ~1 h ou Organização → Sistema → Coletar batidas."
+      }
+    },
+    "discharge": {
+      "overview": "No desligamento, exclua primeiro as digitais no relógio (função 92). Excluir no RH remove o cadastro do MDB, mas não apaga biometria do equipamento.",
+      "step1": {
+        "title": "Excluir digitais no relógio (obrigatório)",
+        "detail": "PrintPoint SmartPoint B, função 92 (Manual §3.6): supervisor → credencial {{employeeId}} de {{name}}. Aguarde «Digital excluída com sucesso»."
+      },
+      "step2": {
+        "title": "Remover cadastro no MDB",
+        "detail": "Automático ao excluir {{name}} no RH (export de desligamento). Não precisa abrir o DMP REP."
+      },
+      "step3": {
+        "title": "Coletar batidas finais (opcional)",
+        "detail": "Organização → Sistema → Coletar batidas, se houver marcações pendentes."
+      },
+      "step4": {
+        "title": "Excluir conta no RH",
+        "detail": "Somente após excluir digitais no relógio (passo 1), confirme a exclusão de {{name}}."
+      }
+    },
+    "manual": {
+      "admissionTitle": "Inclusão de digitais — função 91",
+      "admissionSteps": "F1 → digite 91 → E → PIS/senha do supervisor → E → senha → E → digite credencial {{pis}} → E → selecione 1º dedo → E → posicione 2 vezes → repita para 2º dedo.",
+      "dischargeTitle": "Exclusão de digitais — função 92",
+      "dischargeSteps": "F1 → digite 92 → E → PIS/senha do supervisor → E → senha → E → digite credencial {{pis}} → E → confirme «Digital excluída com sucesso».",
+      "modelNote": "SmartPoint B (Secukey): 2 leituras por dedo, até 2 digitais por colaborador."
+    },
+    "warnings": {
+      "pisMatch": "O PIS/credencial deve ser idêntico no RH, DIMEP.MDB e no relógio.",
+      "bioOnClock": "Biometria é cadastrada e excluída somente no relógio físico (funções 91 e 92) — não pelo software DMP REP.",
+      "noDmprepRecadastro": "Após export bem-sucedido, não recadastre o funcionário manualmente no DMP REP.",
+      "noAutoOffboard": "Excluir no RH não remove biometria do relógio — use função 92 antes de excluir a conta."
+    },
+    "glossary": {
+      "pis": {
+        "term": "PIS / Credencial",
+        "definition": "Identificador de 12 dígitos no RH. Mesmo número usado no relógio para cadastrar ou excluir digitais."
+      },
+      "nsr": {
+        "term": "NSR",
+        "definition": "Número Sequencial de Registro — cada operação no relógio (inclusão/exclusão de digital) gera um NSR na memória do equipamento."
+      },
+      "credential": {
+        "term": "Credencial",
+        "definition": "Código do colaborador no relógio (= PIS). Informado no teclado do PrintPoint ao cadastrar biometria."
+      },
+      "dmprep": {
+        "term": "DMPREP / DIMEP.MDB",
+        "definition": "Banco de cadastro mestre no PC .69. O RH exporta para lá; não é necessário recadastrar no software salvo falha de export."
+      },
+      "printpoint": {
+        "term": "PrintPoint SmartPoint B",
+        "definition": "Relógio biométrico Secukey em 192.168.15.201. Admissão: função 91. Desligamento: função 92. Batidas coletadas automaticamente pelo servidor RH."
+      }
+    },
+    "highlightCritical": "Passo obrigatório"
   }
 }

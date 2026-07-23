@@ -9,6 +9,7 @@ import { supabase } from '../../services/supabase';
 import { convertFileToWebP } from '../../utils/imageConvert';
 import { useToast } from '../../context/ToastContext';
 import { DmprepSyncPanel } from './DmprepSyncPanel';
+import { ClockEmployeeGuide } from '../employees/ClockEmployeeGuide';
 
 interface Props {
   config: AppConfig;
@@ -267,6 +268,10 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
             </div>
          </div>
       </div>
+
+      {canEditSystemPolicy && (
+        <ClockEmployeeGuide mode="reference" defaultExpanded />
+      )}
 
       {canEditSystemPolicy && <DmprepSyncPanel />}
     </div>

@@ -84,58 +84,217 @@
   "exportWillExport_other": "{{count}} employees will be exported",
   "employeeIdPisHint": "Use the 12-digit PIS (e.g. 026740847000) — must match DMPREP/clock registration.",
   "dmprepChecklist": {
-    "admissionTitle": "Admission checklist — DMPREP + clock",
-    "dischargeTitle": "Offboarding checklist — DMPREP + clock",
+    "admissionTitle": "Admission checklist — HR + clock",
+    "dischargeTitle": "Offboarding checklist — clock + HR",
     "subtitle": "Employee: {{name}}",
-    "warning": "OpenHR and DMPREP do not automatically sync to the clock. Complete the steps in DMP REP software (192.168.15.69) before considering the process done.",
+    "warning": "HR registers and exports to DIMEP.MDB — no need to re-register in DMP REP software. Biometrics are enrolled directly on the PrintPoint SmartPoint B clock (function 91).",
     "copyPis": "Copy employee ID/PIS",
     "pisCopied": "Employee ID copied.",
     "pisCopyFailed": "Could not copy employee ID.",
-    "pullFromDmprep": "Pull employees from DMPREP",
+    "pullFromDmprep": "Import legacy records (DMPREP → HR)",
+    "pullFromDmprepHint": "Only to sync employees already in DMPREP. Does not replace HR-first admission.",
     "syncing": "Syncing…",
     "syncResult": "Import: {{created}} created, {{updated}} updated.",
     "syncFailed": "Failed to pull employees from DMPREP.",
-    "dmprepHostHint": "DMP REP: 192.168.15.69",
+    "dmprepHostHint": "PrintPoint SmartPoint B — biometrics on device",
     "done": "Done",
     "cancelDischarge": "Cancel",
-    "confirmDischarge": "Delete in OpenHR",
+    "confirmDischarge": "Delete in HR",
     "confirming": "Deleting…",
-    "dischargeComplete": "{{name}} removed from OpenHR.",
+    "dischargeComplete": "{{name}} removed from RH_Eletropasso.",
     "admission": {
       "step1": {
         "title": "OpenHR registration complete",
         "detail": "{{name}} was saved. Employee ID: {{employeeId}}."
       },
       "step2": {
-        "title": "Register in DMP REP",
-        "detail": "Open DMP REP and add the employee with the same PIS {{employeeId}}."
+        "title": "Export to DMPREP",
+        "detail": "Use Send to DMPREP in the employee panel. Writes to DIMEP.MDB (DMP REP closed during export). Do not re-register in DMP REP."
       },
       "step3": {
-        "title": "Send to PrintPoint clock",
-        "detail": "In DMP REP, run the REP operation to send registration/biometrics to the clock."
+        "title": "Enroll biometrics on clock",
+        "detail": "On PrintPoint SmartPoint B: F1 → 91 → supervisor → credential {{employeeId}} → 2 fingers (2 reads each). Manual §3.5."
       },
       "step4": {
-        "title": "Validate punches in OpenHR",
-        "detail": "After the first punch, use Organization → System → Clock sync or wait for automatic collection (1 h)."
+        "title": "Validate punches in HR",
+        "detail": "After the first punch, status becomes Ready. Automatic collection ~1 h or Organization → System → Collect punches."
       }
     },
     "discharge": {
       "step1": {
-        "title": "Deactivate in DMP REP",
-        "detail": "Remove or deactivate {{name}} in DMP REP before deleting in OpenHR."
+        "title": "Delete fingerprints on clock (required)",
+        "detail": "On PrintPoint SmartPoint B: F1 → 92 → supervisor → credential {{employeeId}}. Confirm «Fingerprint deleted successfully». Manual §3.6."
       },
       "step2": {
-        "title": "Remove biometrics from clock",
-        "detail": "In DMP REP, run the operation to remove the credential from PrintPoint III."
+        "title": "Remove record from MDB",
+        "detail": "Automatic when deleting {{name}} in HR (discharge export). No need to open DMP REP."
       },
       "step3": {
-        "title": "Sync final punches (optional)",
-        "detail": "In Organization → System, click Import punches if pending marks exist."
+        "title": "Collect final punches (optional)",
+        "detail": "In Organization → System, click Collect punches if pending marks exist."
       },
       "step4": {
-        "title": "Delete OpenHR account",
-        "detail": "Confirm below to remove {{name}} from RH_Eletropasso."
+        "title": "Delete HR account",
+        "detail": "Only after deleting fingerprints on the clock (step 1), confirm deletion of {{name}} below."
       }
     }
+  },
+  "onboarding": {
+    "titleCreate": "New employee",
+    "titleEdit": "Edit employee",
+    "backToDirectory": "Back to directory",
+    "fullName": "Full name",
+    "cpf": "CPF (Brazilian tax ID)",
+    "mobile": "Mobile phone",
+    "emergencyContact": "Emergency contact",
+    "photo": "Photo",
+    "employmentType": "Employment type",
+    "permanent": "Permanent",
+    "contract": "Contract",
+    "temporary": "Temporary",
+    "location": "Work location",
+    "office": "Office",
+    "field": "Field / external",
+    "editIdentityHint": "Email and employee ID/PIS cannot be changed here — contact support if needed.",
+    "clockAfterSave": "After saving, you can push the record to DMPREP and track clock biometrics.",
+    "steps": {
+      "identity": "Identity",
+      "contract": "Contract",
+      "access": "Access",
+      "review": "Review"
+    },
+    "errors": {
+      "nameRequired": "Enter the full name.",
+      "pisInvalid": "Invalid PIS/credential — use 11 or 12 numeric digits.",
+      "cpfInvalid": "Invalid CPF.",
+      "emailRequired": "Enter the work email.",
+      "passwordShort": "Password must be at least 8 characters."
+    },
+    "save": "Save employee",
+    "saving": "Saving…",
+    "next": "Next",
+    "back": "Back"
+  },
+  "clockOnboarding": {
+    "title": "Clock integration",
+    "subtitle": "Tracking for {{name}}",
+    "sendToDmprep": "Send to DMPREP",
+    "markBioDone": "Biometrics registered on clock",
+    "refresh": "Refresh status",
+    "finish": "Done",
+    "exportResult": "Export: {{exported}} sent, {{failed}} failed.",
+    "exportFailed": "Failed to export to DMPREP.",
+    "bioMarked": "Biometrics marked — waiting for test punch.",
+    "stepRh": "HR record saved",
+    "stepRhDetail": "Employee saved with PIS {{pis}}.",
+    "stepExport": "Exported to DMPREP",
+    "stepExportDetail": "Record written to DIMEP.MDB — replaces manual DMP REP registration. Keep DMP REP closed during export; do not re-register manually.",
+    "stepBio": "Clock biometrics",
+    "stepBioDetail": "On PrintPoint SmartPoint B: F1 → 91 → supervisor → credential {{pis}} → enroll 2 fingers (2 reads each). Manual §3.5.",
+    "stepPunch": "Test punch",
+    "stepPunchDetail": "After the first punch, status becomes Ready automatically.",
+    "status": {
+      "NOT_APPLICABLE": "No clock",
+      "PENDING_EXPORT": "Pending export",
+      "PENDING_BIO": "Pending biometrics",
+      "READY": "Ready",
+      "ERROR": "Export error"
+    },
+    "badge": {
+      "PENDING_EXPORT": "Export pending",
+      "PENDING_BIO": "Bio pending",
+      "READY": "Clock OK",
+      "ERROR": "Clock error"
+    },
+    "filter": {
+      "all": "All",
+      "pending_export": "Pending export",
+      "pending_bio": "Pending biometrics"
+    }
+  },
+  "clockGuide": {
+    "referenceTitle": "PrintPoint SmartPoint B clock guide",
+    "admissionTitle": "How to enroll biometrics (admission)",
+    "dischargeTitle": "How to delete biometrics (offboarding)",
+    "subtitle": "SmartPoint B Manual §3.5 and §3.6 — Eletropasso flow: HR exports record; biometrics on clock.",
+    "tabAdmission": "Admission",
+    "tabDischarge": "Offboarding",
+    "sectionSteps": "Step by step",
+    "sectionManual": "Clock shortcuts",
+    "sectionGlossary": "Glossary",
+    "admission": {
+      "overview": "HR registers the employee and exports to DIMEP.MDB (replaces typing in DMP REP). Then go to the PrintPoint SmartPoint B and enroll biometrics using the credential/PIS — no REP Operations needed.",
+      "step1": {
+        "title": "Register in HR",
+        "detail": "Enter the 12-digit PIS (e.g. {{pis}}). This number is the credential on the clock."
+      },
+      "step2": {
+        "title": "Export to DMPREP",
+        "detail": "Click Send to DMPREP. Writes name, PIS, and credential to DIMEP.MDB (PC .69). DMP REP must be closed during export."
+      },
+      "step3": {
+        "title": "Enroll biometrics on clock",
+        "detail": "On PrintPoint SmartPoint B, function 91 (Manual §3.5): supervisor → credential {{pis}} → enroll 2 fingers (2 reads each on Smart B)."
+      },
+      "step4": {
+        "title": "Validate punch in HR",
+        "detail": "After the first punch, status becomes Ready automatically. Automatic collection ~1 h or Organization → System → Collect punches."
+      }
+    },
+    "discharge": {
+      "overview": "On offboarding, delete fingerprints on the clock first (function 92). Deleting in HR removes the MDB record but does not erase biometrics from the device.",
+      "step1": {
+        "title": "Delete fingerprints on clock (required)",
+        "detail": "PrintPoint SmartPoint B, function 92 (Manual §3.6): supervisor → credential {{employeeId}} for {{name}}. Wait for «Fingerprint deleted successfully»."
+      },
+      "step2": {
+        "title": "Remove record from MDB",
+        "detail": "Automatic when deleting {{name}} in HR (discharge export). No need to open DMP REP."
+      },
+      "step3": {
+        "title": "Collect final punches (optional)",
+        "detail": "Organization → System → Collect punches if pending marks exist."
+      },
+      "step4": {
+        "title": "Delete HR account",
+        "detail": "Only after deleting fingerprints on the clock (step 1), confirm deletion of {{name}}."
+      }
+    },
+    "manual": {
+      "admissionTitle": "Fingerprint enrollment — function 91",
+      "admissionSteps": "F1 → type 91 → E → supervisor PIS/password → E → password → E → enter credential {{pis}} → E → select 1st finger → E → place finger 2 times → repeat for 2nd finger.",
+      "dischargeTitle": "Fingerprint deletion — function 92",
+      "dischargeSteps": "F1 → type 92 → E → supervisor PIS/password → E → password → E → enter credential {{pis}} → E → confirm «Fingerprint deleted successfully».",
+      "modelNote": "SmartPoint B (Secukey): 2 reads per finger, up to 2 fingerprints per employee."
+    },
+    "warnings": {
+      "pisMatch": "PIS/credential must be identical in HR, DIMEP.MDB, and on the clock.",
+      "bioOnClock": "Biometrics are enrolled and deleted only on the physical clock (functions 91 and 92) — not via DMP REP software.",
+      "noDmprepRecadastro": "After successful export, do not manually re-register the employee in DMP REP.",
+      "noAutoOffboard": "Deleting in HR does not remove biometrics from the clock — use function 92 before deleting the account."
+    },
+    "glossary": {
+      "pis": {
+        "term": "PIS / Credential",
+        "definition": "12-digit identifier in HR. Same number used on the clock to enroll or delete fingerprints."
+      },
+      "nsr": {
+        "term": "NSR",
+        "definition": "Sequential Record Number — each clock operation (fingerprint add/delete) generates an NSR in device memory."
+      },
+      "credential": {
+        "term": "Credential",
+        "definition": "Employee code on the clock (= PIS). Entered on PrintPoint keypad when enrolling biometrics."
+      },
+      "dmprep": {
+        "term": "DMPREP / DIMEP.MDB",
+        "definition": "Master record database on PC .69. HR exports to it; no need to re-register in software unless export fails."
+      },
+      "printpoint": {
+        "term": "PrintPoint SmartPoint B",
+        "definition": "Secukey biometric clock at 192.168.15.201. Admission: function 91. Offboarding: function 92. Punches collected automatically by HR server."
+      }
+    },
+    "highlightCritical": "Required step"
   }
 }

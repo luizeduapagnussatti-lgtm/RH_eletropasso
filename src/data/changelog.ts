@@ -16,6 +16,38 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-23',
+    title: 'Guia operacional relógio SmartPoint B',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Fluxo didático corrigido: biometria no relógio (funções 91/92, Manual SmartPoint B §3.5/§3.6), não via DMP REP Operações REP; desligamento exige exclusão de digitais no equipamento antes de excluir no RH.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Cadastro centralizado RH + integração relógio',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Cadastro de colaboradores: wizard em 4 etapas (identidade, contrato, acesso, revisão) com PIS/credencial único por org, CPF, status e clock_onboarding_status persistidos (migration 0025).',
+      },
+      {
+        type: 'feature',
+        description:
+          'Integração relógio: painel ClockOnboardingPanel com export RH→DMPREP (scope export-employees), badges e filtros no diretório, ficha do colaborador e auto READY na primeira batida (ingest-punches).',
+      },
+      {
+        type: 'feature',
+        description:
+          'Desligamento simétrico: inativação + export-employee-discharge para DIMEP.MDB antes da exclusão da conta; testes unitários em employeeCredentials.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-23',
     title: 'rep-gateway: engenharia reversa WatchComm (.69)',
     entries: [
       {
@@ -42,6 +74,11 @@ export const changelog: ChangelogRelease[] = [
         type: 'improvement',
         description:
           'Organização → Sistema: painel renomeado para Sincronização relógio; Coletar batidas dispara WatchComm; Importar cadastros continua via DIMEP.MDB.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Guia PrintPoint/DMPREP (manual SmartPoint B): cadastro e desligamento no wizard, modal de checklist e referência em Organização → Sistema.',
       },
       {
         type: 'feature',
