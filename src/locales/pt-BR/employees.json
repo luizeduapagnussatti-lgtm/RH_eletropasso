@@ -80,6 +80,26 @@
   "exportSummary": "Resumo",
   "exportPage": "Página {{current}} de {{total}}",
   "exportGeneratedBy": "Gerado pelo RH_Eletropasso em {{date}}",
+  "exportDeptAll": "Todos os departamentos",
+  "exportDeptSingle": "Departamento {{dept}}",
+  "exportDeptMultiple": "{{count}} departamentos",
+  "exportSubtitle": "{{label}} ({{count}} colaboradores)",
+  "exportMetricTotal": "Total",
+  "exportMetricActive": "Ativos",
+  "exportMetricInactive": "Inativos",
+  "exportColId": "Matrícula",
+  "exportColName": "Nome",
+  "exportColEmail": "E-mail",
+  "exportColDepartment": "Departamento",
+  "exportColDesignation": "Cargo",
+  "exportColRole": "Papel",
+  "exportColTeam": "Equipe",
+  "exportColStatus": "Status",
+  "exportColType": "Vínculo",
+  "exportColJoining": "Admissão",
+  "exportColMobile": "Celular",
+  "exportColLocation": "Local",
+  "exportColWorkType": "Tipo de trabalho",
   "exportWillExport_one": "{{count}} colaborador será exportado",
   "exportWillExport_other": "{{count}} colaboradores serão exportados",
   "employeeIdPisHint": "Use o PIS com 12 dígitos (ex.: 026740847000) — deve ser igual ao cadastro do DMPREP/relógio.",
@@ -102,6 +122,7 @@
     "confirmDischarge": "Excluir no RH",
     "confirming": "Excluindo…",
     "dischargeComplete": "{{name}} removido do RH_Eletropasso.",
+    "dischargeWarning": "Antes de excluir no RH: remova as digitais no PrintPoint SmartPoint B (função 92). Depois confirme os passos e exclua a conta. A exportação de desligamento para o DIMEP.MDB é tentada automaticamente.",
     "admission": {
       "step1": {
         "title": "Cadastro concluído no OpenHR",
@@ -156,7 +177,7 @@
     "office": "Presencial",
     "field": "Externo / campo",
     "editIdentityHint": "E-mail e matrícula/PIS não podem ser alterados aqui — use suporte se necessário.",
-    "clockAfterSave": "Após salvar, você poderá enviar o cadastro ao DMPREP e acompanhar a biometria no relógio.",
+    "clockAfterSave": "Após salvar, você será levado à tela de admissão no relógio (export DMPREP + biometria).",
     "steps": {
       "identity": "Identidade",
       "contract": "Contrato",
@@ -296,5 +317,14 @@
       }
     },
     "highlightCritical": "Passo obrigatório"
+  },
+  "lifecycle": {
+    "missingId": "Colaborador não informado.",
+    "notFound": "Colaborador não encontrado ou já removido.",
+    "forbidden": "Sem permissão para este fluxo.",
+    "admissionPageHint": "Conclua o checklist e use o painel abaixo para exportar ao DMPREP e cadastrar a biometria. Depois clique em Concluir.",
+    "dischargePageHint": "Marque todos os passos (incluindo exclusão da digital no relógio). Só então o botão Excluir no RH é liberado.",
+    "simpleDischargeTitle": "Excluir conta (sem ponto)",
+    "simpleDischargeHint": "{{name}} ({{role}}) não usa o relógio. A exclusão remove apenas o acesso ao RH_Eletropasso — não há biometria a remover."
   }
 }

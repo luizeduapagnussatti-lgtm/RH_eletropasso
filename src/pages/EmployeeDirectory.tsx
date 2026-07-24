@@ -40,23 +40,22 @@ import {
   canAssignRole,
   canManageEmployeeRecord,
   isStaffAdmin,
+  needsClockAdmission,
 } from '../utils/roles';
 import {
   DmprepLifecycleModal,
   type DmprepLifecycleType,
 } from '../components/employees/DmprepLifecycleModal';
-
-
-const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
-  new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const ratio = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
-      resolve({ w: img.naturalWidth * ratio, h: img.naturalHeight * ratio });
-    };
-    img.onerror = () => resolve({ w: maxSize, h: maxSize });
-    img.src = dataUrl;
-  });
+import { ClockStatusBadge } from '../components/employees/ClockOnboardingPanel';
+import { formatIsoDateBr } from '../i18n/format';
+import {
+  applyStandardTable,
+  createPdfDocument,
+  drawMetricStrip,
+  drawReportFooters,
+  drawReportHeader,
+  formatGeneratedAt,
+} from '../utils/reportPdf';
 
 const DirectorySkeleton = () => (
   <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 animate-pulse h-full flex flex-col">
@@ -77,11 +76,14 @@ const DirectorySkeleton = () => (
   </div>
 );
 
+type ClockFilter = 'all' | 'pending_export' | 'pending_bio';
+
 interface EmployeeDirectoryProps {
   user: User;
+  onNavigate?: (path: string, params?: { employeeId?: string }) => void;
 }
 
-const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
+const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate }) => {
   const { t } = useTranslation('employees');
   const { showToast } = useToast();
   const isAdmin = isStaffAdmin(user?.role);
@@ -117,6 +119,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
   const [isGeneratingCSV, setIsGeneratingCSV] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [selectedExportDepts, setSelectedExportDepts] = useState<string[]>([]);
+  const [clockFilter, setClockFilter] = useState<ClockFilter>('all');
   const [showDeptFilter, setShowDeptFilter] = useState(false);
   const [orgInfo, setOrgInfo] = useState<{ name: string; address: string; logoDataUrl: string | null }>({ name: '', address: '', logoDataUrl: null });
 
@@ -214,13 +217,22 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
   const [formState, setFormState] = useState(initialNewEmpState);
 
   const filtered = useMemo(() => {
-    return employees.filter(emp => 
-      (emp.name || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      (emp.employeeId || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      (emp.department || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      (emp.email || '').toLowerCase().includes(debouncedSearch.toLowerCase())
-    );
-  }, [employees, debouncedSearch]);
+    return employees.filter(emp => {
+      const matchesSearch =
+        (emp.name || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (emp.employeeId || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (emp.department || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (emp.email || '').toLowerCase().includes(debouncedSearch.toLowerCase());
+      if (!matchesSearch) return false;
+      if (clockFilter === 'pending_export') {
+        return emp.clockOnboardingStatus === 'PENDING_EXPORT' || emp.clockOnboardingStatus === 'ERROR';
+      }
+      if (clockFilter === 'pending_bio') {
+        return emp.clockOnboardingStatus === 'PENDING_BIO';
+      }
+      return true;
+    });
+  }, [employees, debouncedSearch, clockFilter]);
 
   const toggleExportDept = (dept: string) => {
     setSelectedExportDepts(prev => prev.includes(dept) ? prev.filter(d => d !== dept) : [...prev, dept]);
@@ -250,23 +262,19 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
 
   const handleOpenAdd = () => {
     if (!isAdmin) return;
+    if (onNavigate) {
+      onNavigate('employee-new');
+      return;
+    }
     setEditingId(null);
     setFormError(null);
     const defaultShift = shifts.find(s => s.isDefault);
-
-    console.log('[EmployeeDirectory] Opening add employee form');
-    console.log('[EmployeeDirectory] Available shifts:', shifts.length);
-    console.log('[EmployeeDirectory] Default shift found:', defaultShift?.name, 'ID:', defaultShift?.id);
-
-    const newFormState = {
+    setFormState({
       ...initialNewEmpState,
       department: depts[0] || 'Unassigned',
       designation: desigs[0] || 'New Employee',
-      shiftId: defaultShift?.id || ''
-    };
-
-    console.log('[EmployeeDirectory] Setting initial form state with shiftId:', newFormState.shiftId);
-    setFormState(newFormState);
+      shiftId: defaultShift?.id || '',
+    });
     setShowModal(true);
   };
 
@@ -274,6 +282,10 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
     if (!isAdmin) return;
     if (!canManageEmployeeRecord(user?.role, emp.role)) {
       showToast(t('cannotEditAdmin'), 'error');
+      return;
+    }
+    if (onNavigate) {
+      onNavigate('employee-edit', { employeeId: emp.id });
       return;
     }
     setEditingId(emp.id);
@@ -312,6 +324,10 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
       showToast(t('cannotEditAdmin'), 'error');
       return;
     }
+    if (onNavigate) {
+      onNavigate('employee-discharge', { employeeId: id });
+      return;
+    }
     setLifecycleModal({
       type: 'discharge',
       employeeName: emp.name,
@@ -322,7 +338,17 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
 
   const confirmDeleteEmployee = async () => {
     if (!lifecycleModal?.deleteId) return;
+    const emp = employees.find(e => e.id === lifecycleModal.deleteId);
+    if (emp && needsClockAdmission(emp.role) && emp.employeeId) {
+      await hrService.updateProfile(emp.id, { status: 'INACTIVE' }).catch(() => {});
+      try {
+        await hrService.triggerDmprepSync('export-employee-discharge', emp.id);
+      } catch {
+        /* best-effort DMPREP cleanup before account removal */
+      }
+    }
     await hrService.deleteEmployee(lifecycleModal.deleteId);
+    setLifecycleModal(null);
     await fetchEmployees();
     showToast(t('dmprepChecklist.dischargeComplete', { name: lifecycleModal.employeeName }), 'success');
   };
@@ -365,11 +391,23 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
         console.log('[EmployeeDirectory] Creating new employee');
         await hrService.addEmployee(formState as any);
         setShowModal(false);
-        setLifecycleModal({
-          type: 'admission',
-          employeeName: formState.name,
-          employeeId: formState.employeeId,
-        });
+        if (needsClockAdmission(formState.role)) {
+          const list = await hrService.getEmployees();
+          const created = list.find(
+            e => e.email === formState.email || e.employeeId === formState.employeeId
+          );
+          if (created && onNavigate) {
+            onNavigate('employee-admission', { employeeId: created.id });
+          } else {
+            setLifecycleModal({
+              type: 'admission',
+              employeeName: formState.name,
+              employeeId: formState.employeeId,
+            });
+          }
+        } else {
+          showToast(t('staffAccountCreated', { name: formState.name, role: tRole(formState.role) }), 'success');
+        }
       }
     } catch (err: any) {
       console.error('[EmployeeDirectory] Submit error:', err);
@@ -438,110 +476,78 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
     if (exportData.length === 0) return;
     setIsGeneratingPDF(true);
     try {
-      const jsPDFModule = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-      const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
-      if (autoTableModule.applyPlugin) autoTableModule.applyPlugin(jsPDF);
+      const doc = await createPdfDocument('landscape');
 
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
+      const deptLabel =
+        selectedExportDepts.length === 0 || selectedExportDepts.length === depts.length
+          ? t('exportDeptAll')
+          : selectedExportDepts.length === 1
+            ? t('exportDeptSingle', { dept: selectedExportDepts[0] })
+            : t('exportDeptMultiple', { count: selectedExportDepts.length });
 
-      // --- Header ---
-      let cursorY = 15;
-      const logoSize = 20;
-      let textStartX = 14;
+      let cursorY = await drawReportHeader(doc, {
+        org: orgInfo,
+        title: t('exportDirectoryTitle'),
+        subtitle: t('exportSubtitle', { label: deptLabel, count: exportData.length }),
+      });
 
-      if (orgInfo.logoDataUrl) {
-        try {
-          const logoDims = await getScaledLogoDims(orgInfo.logoDataUrl, logoSize);
-          doc.addImage(orgInfo.logoDataUrl, 'PNG', 14, cursorY - 5, logoDims.w, logoDims.h);
-          textStartX = 14 + logoDims.w + 6;
-        } catch { /* skip logo on error */ }
-      }
-
-      if (orgInfo.name) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(orgInfo.name, textStartX, cursorY + 2);
-      }
-      if (orgInfo.address) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(orgInfo.address, textStartX, cursorY + 9);
-      }
-
-      cursorY += Math.max(logoSize, 14) + 6;
-
-      // --- Title ---
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      const deptLabel = selectedExportDepts.length === 0 || selectedExportDepts.length === depts.length
-        ? 'Employee Directory'
-        : selectedExportDepts.length === 1
-          ? `${selectedExportDepts[0]} Department`
-          : `${selectedExportDepts.length} Departments`;
-      doc.text(`${deptLabel} (${exportData.length} employees)`, 14, cursorY);
-      cursorY += 8;
-
-      // --- Summary Stats ---
       const activeCount = exportData.filter(e => e.status === 'ACTIVE').length;
-      const inactiveCount = exportData.filter(e => e.status !== 'ACTIVE').length;
-      const deptCounts: Record<string, number> = {};
-      exportData.forEach(e => { const d = e.department || 'Unassigned'; deptCounts[d] = (deptCounts[d] || 0) + 1; });
-      const deptSummary = Object.entries(deptCounts).map(([k, v]) => `${k}: ${v}`).join('    ');
+      const inactiveCount = exportData.length - activeCount;
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('Summary', 14, cursorY);
-      cursorY += 5;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      doc.text(`Total: ${exportData.length}    Active: ${activeCount}    Inactive: ${inactiveCount}`, 14, cursorY);
-      cursorY += 4;
-      doc.text(deptSummary, 14, cursorY);
-      cursorY += 8;
+      cursorY = drawMetricStrip(doc, cursorY, [
+        { label: t('exportMetricTotal'), value: exportData.length, tone: 'neutral' },
+        { label: t('exportMetricActive'), value: activeCount, tone: 'present' },
+        { label: t('exportMetricInactive'), value: inactiveCount, tone: inactiveCount > 0 ? 'absent' : 'neutral' },
+      ], t('exportSummary'));
 
-      // --- Table ---
-      const tableHeaders = ['ID', 'Name', 'Email', 'Department', 'Designation', 'Role', 'Team', 'Status', 'Type', 'Joining Date', 'Mobile', 'Location', 'Work Type'];
+      const tableHeaders = [
+        t('exportColId'),
+        t('exportColName'),
+        t('exportColEmail'),
+        t('exportColDepartment'),
+        t('exportColDesignation'),
+        t('exportColRole'),
+        t('exportColTeam'),
+        t('exportColStatus'),
+        t('exportColType'),
+        t('exportColJoining'),
+        t('exportColMobile'),
+        t('exportColLocation'),
+        t('exportColWorkType'),
+      ];
       const tableRows = exportData.map(emp => [
-        emp.employeeId || '', emp.name || '', emp.email || '', emp.department || '',
-        emp.designation || '', emp.role || '', getTeamName(emp.teamId), emp.status || '',
-        emp.employmentType || '', emp.joiningDate || '', emp.mobile || '', emp.location || '', emp.workType || ''
+        emp.employeeId || '',
+        emp.name || '',
+        emp.email || '',
+        emp.department || '',
+        emp.designation || '',
+        tRole(emp.role),
+        getTeamName(emp.teamId),
+        emp.status || '',
+        emp.employmentType || '',
+        emp.joiningDate ? formatIsoDateBr(emp.joiningDate) : '',
+        emp.mobile || '',
+        emp.location || '',
+        emp.workType || '',
       ]);
 
-      (doc as any).autoTable({
+      applyStandardTable(doc, {
         startY: cursorY,
         head: [tableHeaders],
         body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 7 },
-        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        margin: { left: 14, right: 14 },
-        styles: { cellPadding: 2, overflow: 'linebreak' },
+        styles: { fontSize: 7, cellPadding: 2 },
       });
 
-      // --- Footer ---
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      const now = new Date().toLocaleString();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Generated by RH_Eletropasso on ${now}`, 14, pageHeight - 8);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
-      }
+      drawReportFooters(
+        doc,
+        t('exportGeneratedBy', { date: formatGeneratedAt() }),
+        (current, total) => t('exportPage', { current, total })
+      );
 
       doc.save(getExportFilename('pdf'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('PDF generation failed:', err);
-      showToast(t('pdfFailed', { error: err?.message || String(err) }), 'error');
+      showToast(t('pdfFailed', { error: err instanceof Error ? err.message : String(err) }), 'error');
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -638,6 +644,25 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
         </div>
       )}
 
+      {isAdmin && (
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'pending_export', 'pending_bio'] as ClockFilter[]).map(key => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setClockFilter(key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                clockFilter === key
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              {t(`clockOnboarding.filter.${key}`)}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} aria-hidden />
@@ -672,11 +697,21 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
           <div
             key={emp.id}
             className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm transition-all group relative h-full flex flex-col hover:border-slate-200 hover:shadow-md cursor-pointer focus-within:ring-2 focus-within:ring-primary/30"
-            onClick={() => setShowViewModal(emp)}
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate('employee-view', { employeeId: emp.id });
+              } else {
+                setShowViewModal(emp);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                setShowViewModal(emp);
+                if (onNavigate) {
+                  onNavigate('employee-view', { employeeId: emp.id });
+                } else {
+                  setShowViewModal(emp);
+                }
               }
             }}
             role="button"
@@ -711,17 +746,20 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
                 <p className="text-sm text-slate-500 h-5 truncate" title={emp.designation || t('staff')}>
                   {emp.designation || t('staff')}
                 </p>
-                <span
-                  className={`inline-flex mt-2 self-start px-2 py-0.5 rounded-md text-xs font-medium ${
-                    emp.role === 'ADMIN'
-                      ? 'bg-rose-50 text-rose-700'
-                      : emp.role === 'HR'
-                        ? 'bg-indigo-50 text-indigo-700'
-                        : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  {tRole(emp.role)}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span
+                    className={`inline-flex self-start px-2 py-0.5 rounded-md text-xs font-medium ${
+                      emp.role === 'ADMIN'
+                        ? 'bg-rose-50 text-rose-700'
+                        : emp.role === 'HR'
+                          ? 'bg-indigo-50 text-indigo-700'
+                          : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {tRole(emp.role)}
+                  </span>
+                  <ClockStatusBadge status={emp.clockOnboardingStatus} />
+                </div>
               </div>
             </div>
 
@@ -906,6 +944,11 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user }) => {
                         <option key={roleCode} value={roleCode}>{tRole(roleCode)}</option>
                       ))}
                     </select>
+                    {formState.role && (
+                      <p className="text-[10px] text-slate-500 px-1 mt-1.5 leading-relaxed">
+                        {t(`roleHints.${formState.role}`, { defaultValue: '' })}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

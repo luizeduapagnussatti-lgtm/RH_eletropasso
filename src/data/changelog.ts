@@ -15,6 +15,82 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-24',
+    title: 'Ciclo completo admissão/desligamento (relógio)',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Excluir na Equipe abre tela dedicada de desligamento (checklist + remoção de digital função 92) antes de apagar a conta; cadastro CLT redireciona para tela de admissão (export DMPREP + biometria).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Contas sem ponto (Admin/RH/Diretoria): exclusão com confirmação simples, sem checklist de biometria. Painel DMPREP reutilizado via DmprepLifecyclePanel.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Relatórios — UX didática',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Tela de Relatórios: faixa de contexto (período/escopo), cards com total da equipe + média por colaborador, tooltips de métricas, tabela colapsável por colaborador (com meio-dia e rodapé TOTAL), painel lateral com top 3 ausências, PDF/CSV resumo alinhados ao escopo.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Mobile colaborador — espelho, escalas e assinatura',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Shell mobile para quem bate ponto no relógio: bottom nav Início/Espelho/Escalas/Conta, atalhos no dashboard, bloqueio de ponto mobile (batida só no REP).',
+      },
+      {
+        type: 'feature',
+        description:
+          'MyTimesheet (cards por dia) + assinatura mensal com selfie e rubrica (migration 0032, bucket timesheet-signatures, status EMPLOYEE_SIGNED).',
+      },
+      {
+        type: 'feature',
+        description:
+          'MyRoster read-only + trocas de sábado/feriado entre colaboradores (migration 0033 roster_swap_requests) com aceite do par e aprovação do gestor.',
+      },
+      { type: 'improvement', description: 'Notificações de revisão do espelho apontam para my-timesheet; gestor só aprova após assinatura do colaborador.' },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Pré-folha e eSocial — Sprints 1–10',
+    entries: [
+      { type: 'feature', description: 'Employer eSocial fields (CNPJ, razão social, ambiente) on organizations + Org System UI; process doc docs/esocial-processo-eletropasso.md.' },
+      { type: 'feature', description: 'Payroll readiness panel (CPF/PIS/admission gaps), HE 50%/100% classification (Sun/holiday vs other days), payroll_consolidations service and Pre-payroll page.' },
+      { type: 'feature', description: 'eSocial rubric mappings (configurable), JSON/CSV export v1, S-1200 XML draft, ZIP package for accountant, payroll-export Edge Function + API docs.' },
+      { type: 'feature', description: 'Sidebar Pré-folha route; Timesheet export pré-folha JSON replaces legacy stub button; esocialTransmission placeholder for optional gov webservice (Sprint 10).' },
+      { type: 'feature', description: 'Accounting workflow (migration 0031): mirror ZIP to accountant, payroll slip values, payslip upload, employee acknowledgment/correction; Folha & Contabilidade UI with 4-step flow.' },
+      { type: 'improvement', description: 'Unified PDF design system (reportPdf.ts): Eletropasso chrome + brand-red header on all exports — reports, directory, leave, performance review; pt-BR i18n; DESIGN.md PDF spec.' },
+      { type: 'fix', description: 'Timesheet mirror (Eletropasso): employee no longer signs/acknowledges PTRP mirror; manager or HR approves each employee; formal acknowledgment stays on payslip (Folha & Contabilidade).' },
+      { type: 'feature', description: 'Espelho PTRP: botão Exportar espelho PDF (padrão reportPdf) — detalhado por colaborador ou resumo de todos; exige competência APPROVED/LOCKED.' },
+      { type: 'improvement', description: 'Link LAN copiável (https://rh.eletropasso.local) na login e Configurações; script scripts/lan-client para hosts + certificado raiz nos PCs da loja.' },
+    ],
+  },
+  {
+    date: '2026-07-23',
+    title: 'Espelho de ponto — revisão por colaborador',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Enviar para revisão agora é por colaborador: validação (dias incompletos/ajustes sem motivo), notificações ao colaborador e gestor, painel resumo em \"Todos\", aprovação individual e bloqueio de competência com opção de forçar.',
+      },
+      { type: 'fix', description: 'PDFs: logo Eletropasso vazada (PNG com alpha via reportPdf) em todos os exports; relatórios detalhados em pt-BR (status, GPS, observações, datas DD/MM/AAAA).' },
+    ],
+  },
+  {
     date: '2026-07-23',
     title: 'Guias de ajuda RH_Eletropasso (pt-BR)',
     entries: [

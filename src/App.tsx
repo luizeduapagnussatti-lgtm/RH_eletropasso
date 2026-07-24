@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Analytics } from '@vercel/analytics/react';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -40,6 +41,8 @@ import AboutPage from './pages/AboutPage';
 // page when their cached service worker still references deleted assets.
 const Dashboard = lazyWithReload(() => import('./pages/Dashboard'));
 const EmployeeDirectory = lazyWithReload(() => import('./pages/EmployeeDirectory'));
+const EmployeeOnboarding = lazyWithReload(() => import('./pages/EmployeeOnboarding'));
+const EmployeeLifecyclePage = lazyWithReload(() => import('./pages/EmployeeLifecyclePage'));
 const Attendance = lazyWithReload(() => import('./pages/Attendance'));
 const AttendanceLogs = lazyWithReload(() => import('./pages/AttendanceLogs'));
 const Leave = lazyWithReload(() => import('./pages/Leave'));
@@ -52,9 +55,17 @@ const PerformanceReview = lazyWithReload(() => import('./pages/PerformanceReview
 const Announcements = lazyWithReload(() => import('./pages/Announcements'));
 const AdminNotifications = lazyWithReload(() => import('./pages/AdminNotifications'));
 const Timesheet = lazyWithReload(() => import('./pages/Timesheet'));
+const Payroll = lazyWithReload(() => import('./pages/Payroll'));
+const WorkRoster = lazyWithReload(() => import('./pages/WorkRoster'));
+const MyTimesheet = lazyWithReload(() => import('./pages/MyTimesheet'));
+const MyRoster = lazyWithReload(() => import('./pages/MyRoster'));
 
 import { navigateTo } from './utils/seo';
 import { PushPermissionPrompt } from './components/PushPermissionPrompt';
+import { useToast } from './context/ToastContext';
+import { useEmployeeMobileShell } from './hooks/useEmployeeMobileShell';
+import { isAttendanceRoute, shouldUseEmployeeMobileShell } from './utils/mobileShell';
+import { needsClockAdmission } from './utils/roles';
 
 // Parse features route from pathname
 const parseFeaturesRoute = (pathname: string) => {
@@ -103,6 +114,9 @@ const parseTutorialRoute = (pathname: string) => {
 const AppContent: React.FC = () => {
   const { user, isLoading, isConfigured, setConfigured, login, logout } = useAuth();
   const { subscription, isLoading: isSubscriptionLoading } = useSubscription();
+  const { showToast } = useToast();
+  const { t: tMobile } = useTranslation('mobile');
+  const employeeMobileShell = useEmployeeMobileShell();
   const [currentPath, setCurrentPath] = useState('dashboard');
   const [navParams, setNavParams] = useState<any>(null);
 
@@ -335,6 +349,22 @@ const AppContent: React.FC = () => {
   // Push subscription handled via PushPermissionPrompt (soft-gate, user-initiated)
 
   const handleNavigate = (path: string, params?: any) => {
+    const mobilePunchBlock =
+      user &&
+      shouldUseEmployeeMobileShell(user.role) &&
+      (path === 'attendance' ||
+        path === 'attendance-quick-office' ||
+        path === 'attendance-quick-factory' ||
+        path === 'attendance-finish' ||
+        isAttendanceRoute(path));
+
+    if (mobilePunchBlock) {
+      showToast(tMobile('punchBlockedMessage'), 'info');
+      setCurrentPath('dashboard');
+      setNavParams(null);
+      return;
+    }
+
     if (path === 'attendance-quick-office') {
       setCurrentPath('attendance');
       setNavParams({ autoStart: 'OFFICE' });
@@ -344,6 +374,12 @@ const AppContent: React.FC = () => {
     } else if (path === 'attendance-finish') {
       setCurrentPath('attendance');
       setNavParams({ autoStart: 'FINISH' });
+    } else if (path === 'timesheet' && employeeMobileShell) {
+      setCurrentPath('my-timesheet');
+      setNavParams(params || null);
+    } else if (path === 'my-timesheet' || path === 'my-roster') {
+      setCurrentPath(path);
+      setNavParams(params || null);
     } else {
       setCurrentPath(path);
       setNavParams(params || null);
@@ -456,8 +492,49 @@ const AppContent: React.FC = () => {
         }
         return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'profile': return <Settings user={user} onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} />;
-      case 'employees': return <EmployeeDirectory user={user} />;
+      case 'employees': return <EmployeeDirectory user={user} onNavigate={handleNavigate} />;
+      case 'employee-new':
+        return <EmployeeOnboarding user={user} mode="create" onNavigate={handleNavigate} />;
+      case 'employee-edit':
+        return (
+          <EmployeeOnboarding
+            user={user}
+            mode="edit"
+            employeeId={navParams?.employeeId}
+            onNavigate={handleNavigate}
+          />
+        );
+      case 'employee-view':
+        return (
+          <EmployeeOnboarding
+            user={user}
+            mode="view"
+            employeeId={navParams?.employeeId}
+            onNavigate={handleNavigate}
+          />
+        );
+      case 'employee-admission':
+        return (
+          <EmployeeLifecyclePage
+            user={user}
+            mode="admission"
+            employeeId={navParams?.employeeId}
+            onNavigate={handleNavigate}
+          />
+        );
+      case 'employee-discharge':
+        return (
+          <EmployeeLifecyclePage
+            user={user}
+            mode="discharge"
+            employeeId={navParams?.employeeId}
+            onNavigate={handleNavigate}
+          />
+        );
       case 'attendance':
+        if (needsClockAdmission(user.role) && employeeMobileShell) {
+          return <Dashboard user={user} onNavigate={handleNavigate} />;
+        }
         if (user.role === 'ADMIN' || user.role === 'HR') {
           return <Dashboard user={user} onNavigate={handleNavigate} />;
         }
@@ -477,6 +554,22 @@ const AppContent: React.FC = () => {
         return <AttendanceLogs user={user} viewMode="MY" />;
       case 'attendance-audit': return <AttendanceLogs user={user} viewMode="AUDIT" />;
       case 'timesheet': return <Timesheet user={user} />;
+      case 'my-timesheet':
+        if (needsClockAdmission(user.role)) {
+          return <MyTimesheet user={user} onNavigate={handleNavigate} />;
+        }
+        return <Timesheet user={user} />;
+      case 'my-roster':
+        if (needsClockAdmission(user.role)) {
+          return <MyRoster user={user} onNavigate={handleNavigate} />;
+        }
+        return <Dashboard user={user} onNavigate={handleNavigate} />;
+      case 'payroll': return <Payroll user={user} onNavigate={handleNavigate} />;
+      case 'roster':
+        if (user.role === 'ADMIN' || user.role === 'HR' || user.role === 'MANAGER') {
+          return <WorkRoster user={user} />;
+        }
+        return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'leave': return <Leave user={user} autoOpen={navParams?.autoOpen} />;
       case 'announcements': return <Announcements user={user} />;
       case 'admin-notifications': return <AdminNotifications user={user} />;
