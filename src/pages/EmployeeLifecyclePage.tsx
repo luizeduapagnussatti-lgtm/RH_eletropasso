@@ -199,18 +199,31 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
           onConfirm={confirmDischarge}
         />
       ) : (
-        <DmprepLifecyclePanel
-          type="admission"
-          employeeName={employee.name}
-          punchKey={punchKey}
-          onCancel={goDirectory}
-        >
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-6 space-y-4">
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+            {t('dmprepChecklist.warning')}
+          </div>
+          {punchKey ? (
+            <p className="text-xs text-slate-500">
+              {t('officialEmployeeId')}:{' '}
+              <code className="font-mono font-semibold text-slate-800 dark:text-slate-200">{punchKey}</code>
+            </p>
+          ) : null}
           <ClockOnboardingPanel
             employee={employee}
             onRefresh={refreshEmployee}
             onComplete={goDirectory}
           />
-        </DmprepLifecyclePanel>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+            <button
+              type="button"
+              onClick={goDirectory}
+              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold"
+            >
+              {t('dmprepChecklist.done')}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
