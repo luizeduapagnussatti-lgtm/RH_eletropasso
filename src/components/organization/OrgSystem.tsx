@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, Moon, MapPin, Building2, Tag, Scale } from 'lucide-react';
-import { AppConfig, PtrpPolicy } from '../../types';
+import { Globe, Moon, MapPin, Building2, Tag, Scale, Landmark, Radio } from 'lucide-react';
+import { AppConfig, PtrpPolicy, EsocialAmbiente } from '../../types';
 import { COUNTRIES, getFlagEmoji } from '../../data/countries';
 import { TIMEZONE_OPTIONS, DEFAULT_PTRP_POLICY } from '../../constants';
 import { apiClient } from '../../services/api.client';
 import { supabase } from '../../services/supabase';
 import { convertFileToWebP } from '../../utils/imageConvert';
+import { normalizeCnpj, validateCnpj, formatCnpjDisplay } from '../../utils/employerCredentials';
 import { useToast } from '../../context/ToastContext';
-import { DmprepSyncPanel } from './DmprepSyncPanel';
 import { ClockEmployeeGuide } from '../employees/ClockEmployeeGuide';
+import { OrgEsocialRubrics } from './OrgEsocialRubrics';
 
 interface Props {
   config: AppConfig;
@@ -21,7 +22,16 @@ interface Props {
 export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy = true }) => {
   const { t } = useTranslation('org');
   const { showToast } = useToast();
-  const [orgData, setOrgData] = useState({ name: '', country: 'BD', address: '', logo: '' });
+  const [orgData, setOrgData] = useState({
+    name: '',
+    country: 'BD',
+    address: '',
+    logo: '',
+    cnpj: '',
+    legalName: '',
+    esocialAmbiente: 'PRODUCAO_RESTRITA' as EsocialAmbiente,
+    payrollContactEmail: '',
+  });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +42,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
       if (!orgId) return;
       const { data: org, error } = await supabase
         .from('organizations')
-        .select('name, country, address, logo')
+        .select('name, country, address, logo, cnpj, legal_name, esocial_ambiente, payroll_contact_email')
         .eq('id', orgId)
         .maybeSingle();
       if (error || !org) return;
@@ -40,7 +50,11 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
         name: org.name || '',
         country: org.country || 'BD',
         address: org.address || '',
-        logo: org.logo || ''
+        logo: org.logo || '',
+        cnpj: org.cnpj ? formatCnpjDisplay(org.cnpj) : '',
+        legalName: org.legal_name || '',
+        esocialAmbiente: (org.esocial_ambiente as EsocialAmbiente) || 'PRODUCAO_RESTRITA',
+        payrollContactEmail: org.payroll_contact_email || '',
       });
       if (org.logo) {
         const { data } = supabase.storage.from('org-logos').getPublicUrl(org.logo);
@@ -85,6 +99,11 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
     if (!orgId) return;
     setIsSaving(true);
     try {
+      const cnpjNorm = normalizeCnpj(orgData.cnpj);
+      if (cnpjNorm && !validateCnpj(cnpjNorm).ok) {
+        showToast(t('cnpjInvalid'), 'error');
+        return;
+      }
       let logoPath = orgData.logo;
       if (logoFile) {
         const webpLogo = await convertFileToWebP(logoFile);
@@ -97,7 +116,16 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
       }
       const { error } = await supabase
         .from('organizations')
-        .update({ name: orgData.name, country: orgData.country, address: orgData.address, logo: logoPath })
+        .update({
+          name: orgData.name,
+          country: orgData.country,
+          address: orgData.address,
+          logo: logoPath,
+          cnpj: cnpjNorm || null,
+          legal_name: orgData.legalName.trim() || null,
+          esocial_ambiente: orgData.esocialAmbiente,
+          payroll_contact_email: orgData.payrollContactEmail.trim() || null,
+        })
         .eq('id', orgId);
       if (error) throw error;
       showToast(t('orgUpdatedSuccess'), 'success');
@@ -181,6 +209,39 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
             </div>
          </div>
       </div>
+
+      {canEditSystemPolicy && (
+      <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
+         <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Landmark size={24} className="text-primary" /> {t('esocialEmployer')}</h3>
+         <p className="text-xs text-slate-400 -mt-4">{t('esocialEmployerHint')}</p>
+         <div className="flex justify-end -mt-2">
+           <button type="button" onClick={() => void handleOrgDataSave()} disabled={isSaving} className="px-4 py-2 bg-primary text-white rounded-xl font-bold text-xs disabled:opacity-50">
+             {isSaving ? t('saving') : t('saveOrganization')}
+           </button>
+         </div>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('cnpj')}</label>
+               <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" placeholder={t('cnpjPlaceholder')} value={orgData.cnpj} onChange={e => setOrgData({ ...orgData, cnpj: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('legalName')}</label>
+               <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" placeholder={t('legalNamePlaceholder')} value={orgData.legalName} onChange={e => setOrgData({ ...orgData, legalName: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('esocialAmbiente')}</label>
+               <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-50 transition-all" value={orgData.esocialAmbiente} onChange={e => setOrgData({ ...orgData, esocialAmbiente: e.target.value as EsocialAmbiente })}>
+                  <option value="PRODUCAO_RESTRITA">{t('esocialAmbienteRestrita')}</option>
+                  <option value="PRODUCAO">{t('esocialAmbienteProducao')}</option>
+               </select>
+            </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('payrollContactEmail')}</label>
+               <input type="email" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" placeholder={t('payrollContactEmailPlaceholder')} value={orgData.payrollContactEmail} onChange={e => setOrgData({ ...orgData, payrollContactEmail: e.target.value })} />
+            </div>
+         </div>
+      </div>
+      )}
 
       {/* System Configuration Section */}
       <div className="bg-white p-10 rounded-xl border border-slate-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-8 duration-500">
@@ -273,7 +334,22 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
         <ClockEmployeeGuide mode="reference" defaultExpanded />
       )}
 
-      {canEditSystemPolicy && <DmprepSyncPanel />}
+      {canEditSystemPolicy && (
+        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
+            <Radio size={18} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-slate-900">{t('clockConsoleShortcut.title')}</h3>
+            <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+              {t('clockConsoleShortcut.description')}
+            </p>
+            <p className="text-xs text-slate-500 mt-2">{t('clockConsoleShortcut.hint')}</p>
+          </div>
+        </div>
+      )}
+
+      {canEditSystemPolicy && <OrgEsocialRubrics />}
     </div>
   );
 };

@@ -1,53 +1,82 @@
-# DMPREP ↔ Relógio — investigação (2026-07-21)
+# DMPREP ↔ Relógio — fluxo RH-first (2026-07-23)
 
 ## Resumo
 
-O **DMP REP** é a ponte comprovada entre o PrintPoint III e o arquivo
-`MOVIMENT.txt`. O caminho **OpenHR → relógio** (enviar cadastro/biometria)
-**não possui API HTTP documentada** neste projeto. A operação oficial passa
-pelo software DMPREP no PC `192.168.15.69`.
+O **RH_Eletropasso** é a fonte da verdade para cadastro (dados + PIS/credencial). O export grava no **DIMEP.MDB** e **substitui** cadastrar manualmente no software DMP REP.
 
-## O que o banco `DIMEP.MDB` revela
+**Biometria** é cadastrada e excluída **no relógio físico** PrintPoint SmartPoint B (Manual §3.5 e §3.6) — **não** via Operações REP do DMPREP.
 
-Tabelas relevantes:
+## Fluxo de admissão
 
-| Tabela | Indício |
-|--------|---------|
-| `Funcionario` | Cadastro mestre (Codigo, Nome, PIS, Credencial, DtAdmissao) |
-| `RelogiosREP` | Relógios cadastrados (IP, NumeroSerie, ChaveRSA) |
-| `Marcacao` | Marcações processadas pelo DMPREP |
-| `TEMP_PIS_REP` / `TEMP_CARTOES_REP` | Staging para envio ao REP |
-| `TemplatesREP` / `DedoXTemplatesREP` | Templates biométricos |
-
-Não há tabela ou campo exposto que permita, a partir do OpenHR, disparar
-**envio automático** ao relógio sem o executável DMPREP (`WatchComm.dll`,
-protocolo TCP binário + RSA).
-
-## Fluxos suportados hoje
-
-```
-Relógio ──TCP──► DMPREP ──► MOVIMENT.txt ──► dmprep-sync ──► OpenHR
-DMPREP ──► DIMEP.MDB ──► import employees ──► OpenHR profiles
+```mermaid
+flowchart LR
+  RH[RH wizard + PIS] --> Export[Enviar para DMPREP]
+  Export --> MDB[DIMEP.MDB]
+  MDB --> Clock["Relógio função 91"]
+  Clock --> Punch[Batida → RH automático]
 ```
 
-## Fluxo manual necessário (admissão)
+1. Cadastrar colaborador no RH (PIS 12 dígitos).
+2. **Enviar para DMPREP** — grava no MDB (DMP REP **fechado** durante export).
+3. No **PrintPoint SmartPoint B**: F1 → **91** → supervisor → credencial/PIS → 2 dedos (2 leituras cada).
+4. Primeira batida → status **Pronto** no RH (coleta automática ~1 h).
 
-1. Cadastrar funcionário no **DMP REP** (PIS = credencial de 12 dígitos).
-2. Enviar cadastro/biometria ao relógio pelo menu do DMPREP (*Operações REP*).
-3. Cadastrar no OpenHR com **mesma matrícula/PIS** (12 dígitos).
-4. Clicar **Sincronizar DMPREP** ou aguardar o poll automático.
+**Não é necessário** abrir o DMP REP para recadastrar após export bem-sucedido.
 
-## Fluxo manual necessário (desligamento)
+## Fluxo de desligamento
 
-1. Inativar/remover no **DMP REP** e excluir biometria do relógio.
-2. Excluir ou inativar no OpenHR.
-3. Sincronizar batidas finais se necessário.
+```mermaid
+flowchart LR
+  Clock92["Relógio função 92"] --> MDB[RH remove MDB]
+  MDB --> RHDel[Excluir conta RH]
+```
 
-## Próximos passos possíveis (não implementados)
+1. **Obrigatório:** no relógio, F1 → **92** → supervisor → credencial → «Digital excluída com sucesso» (§3.6).
+2. RH remove cadastro do MDB (automático ao excluir conta).
+3. (Opcional) Coletar batidas finais.
+4. Excluir conta no RH.
 
-- Automação UI do DMPREP (AutoIt / RPA) — frágil, depende de versão.
-- SDK/protocolo DIMEP homologado — requer contrato/suporte TOTVS/DIMEP.
-- Agente Windows que monitora `DIMEP.MDB` e replica **push** OpenHR → DMPREP
-  (ainda exigiria API de escrita no MDB + trigger de envio REP).
+**Excluir no RH não apaga biometria do relógio** — faça o passo 1 antes.
 
-Até lá, o OpenHR usa **checklist operacional** na admissão/desligamento.
+## Atalhos no relógio (SmartPoint B)
+
+| Função | Teclas | Manual |
+|--------|--------|--------|
+| Inclusão de digitais | F1 → 91 → E | §3.5 |
+| Exclusão de digitais | F1 → 92 → E | §3.6 |
+
+Sequência: supervisor (PIS + senha) → credencial do colaborador → operação de dedo(s).
+
+## Coleta de batidas
+
+PrintPoint → WatchComm/poller (servidor .245) → ingest-punches → espelho de ponto.
+
+Import legado DMPREP → RH (`import employees`) permanece para cadastros antigos; admissão nova usa wizard + export.
+
+## Supervisores e console do relógio
+
+Em **Comunicação → Relógio de Ponto** (ADMIN):
+
+1. cadastra supervisores (aba Supervisores) — até 5 ativos;
+2. **Limpeza** + **Enviar** (masters via WatchComm);
+3. diagnostica o equipamento (série, memória, empregador, status);
+4. envia/remove empregados e digitais (aba Empregados);
+5. ajusta data/hora; configurações sensíveis exigem digitar `ALTERAR`.
+
+Organização → Sistema mantém apenas um atalho para o console.
+
+A senha de supervisor é cifrada na Edge Function com
+`CLOCK_SUPERVISOR_ENCRYPTION_KEY` (fallback local: `SUPABASE_SERVICE_ROLE_KEY`),
+não volta ao navegador e só é decifrada em `send-masters`. Comandos genéricos
+usam `Invoke-WatchCommCommand.ps1` + scope `clock-command`, com auditoria em
+`clock_command_log`. Ambos compartilham `withSyncLock` com a coleta.
+
+Recuperação do master biométrico antigo: **Limpeza → Enviar novo
+supervisor → F1 → 91 → código → senha**.
+
+## Limitações
+
+- Captura de digital continua no equipamento (função 91); o RH envia a credencial.
+- Mensagens de display não são suportadas neste firmware PrintPoint III.
+- MDB bloqueado com DMP REP aberto → status ERROR; feche e tente novamente.
+- Firmware / erase MRP / ClearAllRegisters nunca são expostos (denylist).

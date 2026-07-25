@@ -2,18 +2,33 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import pino from 'pino';
 import type { SyncConfig } from '../config.js';
 import { importEmployeesFromDmprep } from '../employees/import.js';
+import { exportEmployeesToDmprep, exportEmployeeDischargeFromDmprep } from '../employees/export.js';
 import { loadSyncState } from '../state.js';
 import { runSyncOnce } from '../sync.js';
 import { runWatchCommCollect } from '../watchcomm/trigger.js';
+import { runWatchCommMasters, type WatchCommMaster } from '../watchcomm/sendMasters.js';
+import { runWatchCommCommand } from '../watchcomm/command.js';
 import { isSyncLocked, withSyncLock } from '../syncLock.js';
 
-export type SyncScope = 'all' | 'punches' | 'employees';
+export type SyncScope =
+  | 'all'
+  | 'punches'
+  | 'employees'
+  | 'export-employees'
+  | 'export-employee-discharge'
+  | 'send-masters'
+  | 'clear-masters'
+  | 'clock-command';
 
 export interface ManualSyncResult {
   scope: SyncScope;
   busy?: boolean;
   punches?: Awaited<ReturnType<typeof runSyncOnce>>;
   employees?: Awaited<ReturnType<typeof importEmployeesFromDmprep>>;
+  export?: Awaited<ReturnType<typeof exportEmployeesToDmprep>>;
+  discharge?: Awaited<ReturnType<typeof exportEmployeeDischargeFromDmprep>>;
+  masters?: Awaited<ReturnType<typeof runWatchCommMasters>>;
+  command?: Awaited<ReturnType<typeof runWatchCommCommand>>;
   error?: string;
 }
 
@@ -38,17 +53,52 @@ function isAuthorized(req: IncomingMessage, apiKey: string): boolean {
   return Boolean(apiKey && (header === apiKey || bearer === apiKey));
 }
 
-function parseScope(body: string): SyncScope {
-  if (!body.trim()) return 'all';
-  try {
-    const parsed = JSON.parse(body) as { scope?: string };
-    if (parsed.scope === 'punches' || parsed.scope === 'employees' || parsed.scope === 'all') {
-      return parsed.scope;
-    }
-  } catch {
-    // default
+const VALID_SCOPES: ReadonlySet<SyncScope> = new Set([
+  'all',
+  'punches',
+  'employees',
+  'export-employees',
+  'export-employee-discharge',
+  'send-masters',
+  'clear-masters',
+  'clock-command',
+]);
+
+export class InvalidSyncScopeError extends Error {
+  constructor(scope: string) {
+    super(`Invalid sync scope: ${scope}`);
+    this.name = 'InvalidSyncScopeError';
   }
-  return 'all';
+}
+
+export function parseScope(body: string): {
+  scope: SyncScope;
+  profileIds?: string[];
+  masters?: WatchCommMaster[];
+  command?: { op: string; payload?: Record<string, unknown> };
+} {
+  if (!body.trim()) return { scope: 'all' };
+  let parsed: {
+    scope?: string;
+    profileIds?: string[];
+    masters?: WatchCommMaster[];
+    command?: { op: string; payload?: Record<string, unknown> };
+  };
+  try {
+    parsed = JSON.parse(body) as typeof parsed;
+  } catch {
+    throw new InvalidSyncScopeError('(malformed JSON)');
+  }
+  const scope = parsed.scope ?? 'all';
+  if (!VALID_SCOPES.has(scope as SyncScope)) {
+    throw new InvalidSyncScopeError(scope);
+  }
+  return {
+    scope: scope as SyncScope,
+    profileIds: parsed.profileIds,
+    masters: parsed.masters,
+    command: parsed.command,
+  };
 }
 
 export function startHttpServer(
@@ -89,9 +139,41 @@ export function startHttpServer(
         }
 
         const body = await readBody(req);
-        const scope = parseScope(body);
+        let scope: SyncScope;
+        let profileIds: string[] | undefined;
+        let masters: WatchCommMaster[] | undefined;
+        let command: { op: string; payload?: Record<string, unknown> } | undefined;
+        try {
+          ({ scope, profileIds, masters, command } = parseScope(body));
+        } catch (error) {
+          if (error instanceof InvalidSyncScopeError) {
+            sendJson(res, 400, { error: error.message });
+            return;
+          }
+          throw error;
+        }
         const result = await withSyncLock(async (): Promise<ManualSyncResult> => {
           const payload: ManualSyncResult = { scope };
+          if (scope === 'send-masters') {
+            payload.masters = await runWatchCommMasters(config, 'send', masters);
+            return payload;
+          }
+          if (scope === 'clear-masters') {
+            payload.masters = await runWatchCommMasters(config, 'clear');
+            return payload;
+          }
+          if (scope === 'clock-command') {
+            payload.command = await runWatchCommCommand(config, command?.op ?? '', command?.payload);
+            return payload;
+          }
+          if (scope === 'export-employees') {
+            payload.export = await exportEmployeesToDmprep(config, { profileIds });
+            return payload;
+          }
+          if (scope === 'export-employee-discharge') {
+            payload.discharge = await exportEmployeeDischargeFromDmprep(config, { profileIds });
+            return payload;
+          }
           if (scope === 'all' || scope === 'employees') {
             payload.employees = await importEmployeesFromDmprep(config);
           }

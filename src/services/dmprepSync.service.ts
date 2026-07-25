@@ -4,7 +4,23 @@ const SUPABASE_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL
   ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
   : '';
 
-export type DmprepSyncScope = 'all' | 'punches' | 'employees';
+export type DmprepSyncScope =
+  | 'all'
+  | 'punches'
+  | 'employees'
+  | 'export-employees'
+  | 'export-employee-discharge'
+  | 'send-masters'
+  | 'clear-masters'
+  | 'clock-command';
+
+export interface DmprepEmployeeExportSummary {
+  exported: number;
+  failed: number;
+  skipped: number;
+  total: number;
+  errors?: string[];
+}
 
 export interface DmprepEmployeeImportSummary {
   created: number;
@@ -32,10 +48,21 @@ export interface DmprepSyncResponse {
   error?: string;
   employees?: DmprepEmployeeImportSummary;
   punches?: DmprepPunchSyncSummary;
+  export?: DmprepEmployeeExportSummary;
+  discharge?: DmprepEmployeeExportSummary;
+  masters?: {
+    success: boolean;
+    action: 'send' | 'clear';
+    supervisorCount: number;
+    finishedAt?: string;
+  };
 }
 
 export const dmprepSyncService = {
-  async triggerSync(scope: DmprepSyncScope = 'all'): Promise<DmprepSyncResponse> {
+  async triggerSync(
+    scope: DmprepSyncScope = 'all',
+    profileId?: string,
+  ): Promise<DmprepSyncResponse> {
     if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) {
       throw new Error('Supabase is not configured');
     }
@@ -51,7 +78,10 @@ export const dmprepSyncService = {
         Authorization: `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ scope }),
+      body: JSON.stringify({
+        scope,
+        ...(profileId ? { profileIds: [profileId] } : {}),
+      }),
     });
 
     const json = (await res.json()) as DmprepSyncResponse & { message?: string };

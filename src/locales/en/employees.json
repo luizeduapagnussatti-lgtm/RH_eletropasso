@@ -1,5 +1,6 @@
 {
   "title": "Team directory",
+  "sendToClockHint": "Changed records? Then send the lists to the clock under Clock communication.",
   "addEmployee": "Add employee",
   "editEmployee": "Edit employee",
   "searchPlaceholder": "Search by name, ID, or designation…",
@@ -283,10 +284,10 @@
     },
     "manual": {
       "admissionTitle": "Fingerprint enrollment — function 91",
-      "admissionSteps": "F1 → type 91 → E → supervisor PIS/password → E → password → E → enter credential {{pis}} → E → select 1st finger → E → place finger 2 times → repeat for 2nd finger.",
+      "admissionSteps": "After sending the employee from the Time Clock console (Communication → Employees), on the device: F1 → 91 → E → supervisor PIS/password → E → password → E → credential {{pis}} should already be listed → select employee → E → 1st finger (2 reads) → 2nd finger (2 reads).",
       "dischargeTitle": "Fingerprint deletion — function 92",
-      "dischargeSteps": "F1 → type 92 → E → supervisor PIS/password → E → password → E → enter credential {{pis}} → E → confirm «Fingerprint deleted successfully».",
-      "modelNote": "SmartPoint B (Secukey): 2 reads per finger, up to 2 fingerprints per employee."
+      "dischargeSteps": "Prefer removing fingerprint/employee from the Time Clock console. Manual: F1 → 92 → E → supervisor PIS/password → E → password → E → credential {{pis}} → E → confirm deletion.",
+      "modelNote": "SmartPoint B (Secukey): 2 reads per finger, up to 2 fingerprints per employee. Manual credential typing is only needed if RH send fails."
     },
     "warnings": {
       "pisMatch": "PIS/credential must be identical in HR, DIMEP.MDB, and on the clock.",

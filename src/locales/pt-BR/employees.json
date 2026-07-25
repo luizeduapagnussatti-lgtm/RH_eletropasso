@@ -1,5 +1,6 @@
 {
   "title": "Diretório da equipe",
+  "sendToClockHint": "Alterou cadastros? Depois envie as listas ao relógio em Comunicação com o relógio.",
   "addEmployee": "Adicionar colaborador",
   "editEmployee": "Editar colaborador",
   "searchPlaceholder": "Buscar por nome, matrícula ou cargo…",
@@ -283,10 +284,10 @@
     },
     "manual": {
       "admissionTitle": "Inclusão de digitais — função 91",
-      "admissionSteps": "F1 → digite 91 → E → PIS/senha do supervisor → E → senha → E → digite credencial {{pis}} → E → selecione 1º dedo → E → posicione 2 vezes → repita para 2º dedo.",
+      "admissionSteps": "Apos enviar o colaborador pelo console Relogio de Ponto (Comunicacao → Empregados), no equipamento: F1 → 91 → E → PIS/senha do supervisor → E → senha → E → a credencial {{pis}} ja deve estar na lista → selecione o colaborador → E → 1o dedo (2 leituras) → 2o dedo (2 leituras).",
       "dischargeTitle": "Exclusão de digitais — função 92",
-      "dischargeSteps": "F1 → digite 92 → E → PIS/senha do supervisor → E → senha → E → digite credencial {{pis}} → E → confirme «Digital excluída com sucesso».",
-      "modelNote": "SmartPoint B (Secukey): 2 leituras por dedo, até 2 digitais por colaborador."
+      "dischargeSteps": "Prefira remover digital/empregado pelo console Relogio de Ponto. Manual: F1 → 92 → E → PIS/senha do supervisor → E → senha → E → credencial {{pis}} → E → confirme exclusao.",
+      "modelNote": "SmartPoint B (Secukey): 2 leituras por dedo, ate 2 digitais por colaborador. A digitacao da credencial no teclado so e necessaria se o envio pelo RH falhar."
     },
     "warnings": {
       "pisMatch": "O PIS/credencial deve ser idêntico no RH, DIMEP.MDB e no relógio.",

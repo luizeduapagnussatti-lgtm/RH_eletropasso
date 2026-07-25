@@ -15,9 +15,61 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-25',
+    title: 'Console Relógio de Ponto — controle WatchComm completo',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'dmprep-sync: scopes desconhecidos agora retornam HTTP 400 (fail-closed) em vez de cair em sync completo; dist era reconstruído só se ausente — start-rh.ps1 agora rebuilda quando src for mais novo.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Comunicação vira console Relógio de Ponto com abas: Sync, Supervisores, Diagnóstico, Empregados, Data/Hora, Configurações e Auditoria. Organização → Sistema fica só com atalho.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Dispatcher genérico Invoke-WatchCommCommand.ps1 + scope clock-command + Edge clock-command + auditoria clock_command_log (allowlist; denylist permanente para firmware/erase MRP).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Envio de empregados ao PrintPoint atualiza clock_onboarding_status para PENDING_BIO; guia de biometria prioriza envio pelo RH e deixa a digitação manual só como fallback.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-25',
+    title: 'Supervisores do PrintPoint pelo RH',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Navegação reorganizada no modelo mental do DMP REP: menu lateral agora agrupa Operação do ponto, Cadastros, Comunicação, Relatórios e RH+. Novas telas Operação do ponto (hub Cartões→Espelho→Apuração), Apuração da competência e Comunicação com o relógio (coletar/enviar separados dos cadastros), com atalhos cruzados entre Espelho, Apuração, Relatórios e Cartões.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Organização → Sistema agora cadastra até 5 supervisores do relógio (inclusive a partir de ADMIN do RH) e oferece os comandos separados Enviar Supervisores e Limpeza de Supervisores, no fluxo do DMP REP.',
+      },
+      {
+        type: 'security',
+        description:
+          'Senhas de supervisor são cifradas na Edge Function, nunca retornam ao navegador e só são decifradas durante o envio; comandos são serializados com a coleta e registrados em auditoria.',
+      },
+    ],
+  },
+  {
     date: '2026-07-24',
     title: 'Ciclo completo admissão/desligamento (relógio)',
     entries: [
+      {
+        type: 'fix',
+        description:
+          'Coletar batidas falhava com PropertyNotFoundStrict em resultPath quando o config.json do WatchComm não tinha essa chave (StrictMode). Poller lê campos opcionais com segurança; resultPath adicionado aos configs locais.',
+      },
       {
         type: 'feature',
         description:

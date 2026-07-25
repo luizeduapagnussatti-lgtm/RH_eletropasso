@@ -1,6 +1,13 @@
 
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'HR' | 'EMPLOYEE' | 'TEAM_LEAD' | 'MANAGEMENT';
 export type WorkType = 'OFFICE' | 'FIELD';
+export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
+export type ClockOnboardingStatus =
+  | 'NOT_APPLICABLE'
+  | 'PENDING_EXPORT'
+  | 'PENDING_BIO'
+  | 'READY'
+  | 'ERROR';
 export type SubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'SUSPENDED' | 'AD_SUPPORTED';
 
 export type UpgradeRequestType = 'DONATION' | 'TRIAL_EXTENSION' | 'AD_SUPPORTED';
@@ -39,12 +46,18 @@ export interface AppTheme {
   };
 }
 
+export type EsocialAmbiente = 'PRODUCAO' | 'PRODUCAO_RESTRITA';
+
 export interface Organization {
   id: string;
   name: string;
   address?: string;
   logo?: string;
   country?: string;
+  cnpj?: string;
+  legalName?: string;
+  esocialAmbiente?: EsocialAmbiente;
+  payrollContactEmail?: string;
   subscriptionStatus?: SubscriptionStatus;
   trialEndDate?: string;
   created?: string;
@@ -53,6 +66,200 @@ export interface Organization {
   userCount?: number;
   adminEmail?: string;
   adminVerified?: boolean;
+}
+
+export type PayrollConsolidationStatus = 'DRAFT' | 'APPROVED' | 'LOCKED';
+
+export interface PayrollConsolidation {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  periodId?: string;
+  referenceMonth: string;
+  regularHours: number;
+  extraHours50: number;
+  extraHours100: number;
+  nightHours: number;
+  lateHours: number;
+  absenceHours: number;
+  status: PayrollConsolidationStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+  employeeName?: string;
+  employeeCpf?: string;
+  employeePis?: string;
+}
+
+export type EsocialRubricInternalType = 'REGULAR' | 'HE_50' | 'HE_100' | 'NIGHT' | 'ABSENCE';
+
+export interface EsocialRubricMapping {
+  id: string;
+  organizationId: string;
+  internalType: EsocialRubricInternalType;
+  rubricCode: string;
+  description: string;
+  active: boolean;
+}
+
+export type EsocialEventStatus =
+  | 'DRAFT'
+  | 'READY'
+  | 'VALIDATED'
+  | 'ERROR'
+  | 'EXPORTED'
+  | 'SENT_TO_ACCOUNTANT'
+  | 'TRANSMITTED'
+  | 'ACCEPTED';
+
+export interface EsocialEvent {
+  id: string;
+  organizationId: string;
+  periodId?: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  status: EsocialEventStatus;
+  xmlPath?: string;
+  validationErrors?: unknown[];
+  created?: string;
+  updated?: string;
+}
+
+export type PayrollAccountingWorkflowStatus =
+  | 'READY'
+  | 'SENT_TO_ACCOUNTING'
+  | 'FOLHA_RECEIVED'
+  | 'ACK_COLLECTING'
+  | 'CLOSED';
+
+export type PayrollSlipAckStatus = 'PENDING' | 'SIGNED' | 'CORRECTION_REQUESTED';
+
+export interface PayrollAccountingHandoff {
+  id: string;
+  organizationId: string;
+  periodId: string;
+  workflowStatus: PayrollAccountingWorkflowStatus;
+  sentToAccountingAt?: string;
+  sentBy?: string;
+  folhaReceivedAt?: string;
+  folhaReceivedBy?: string;
+  closedAt?: string;
+  notes?: string;
+}
+
+export interface PayrollPaymentSlip {
+  id: string;
+  organizationId: string;
+  periodId: string;
+  employeeId: string;
+  refRegularHours: number;
+  refHe50Hours: number;
+  refHe100Hours: number;
+  refNightHours: number;
+  refLateHours: number;
+  refAbsenceHours: number;
+  accHe50Hours?: number;
+  accHe100Hours?: number;
+  accNightHours?: number;
+  accLateHours?: number;
+  accAbsenceHours?: number;
+  slipFilePath?: string;
+  acknowledgmentStatus: PayrollSlipAckStatus;
+  signedAt?: string;
+  correctionNotes?: string;
+  employeeName?: string;
+  employeeCpf?: string;
+  employeePis?: string;
+}
+
+export interface ClockSupervisor {
+  id: string;
+  organizationId: string;
+  profileId?: string;
+  code: string;
+  pis: string;
+  name: string;
+  hasPassword: boolean;
+  hasTechnicalPermission: boolean;
+  hasDatetimePermission: boolean;
+  hasPendrivePermission: boolean;
+  hasBobbinPermission: boolean;
+  isActive: boolean;
+  created?: string;
+  updated?: string;
+}
+
+export interface ClockSupervisorInput {
+  id?: string;
+  profileId?: string | null;
+  code: string;
+  pis: string;
+  name: string;
+  password?: string;
+  hasTechnicalPermission: boolean;
+  hasDatetimePermission: boolean;
+  hasPendrivePermission: boolean;
+  hasBobbinPermission: boolean;
+  isActive: boolean;
+}
+
+export interface ClockSupervisorCommand {
+  id: string;
+  action: 'SEND' | 'CLEAR';
+  status: 'SUCCESS' | 'ERROR';
+  supervisorCount: number;
+  performedBy?: string;
+  errorMessage?: string;
+  created: string;
+}
+
+/** WatchComm ops exposed via `/functions/v1/clock-command` (deny-list dangerous ops). */
+export type ClockCommandOp =
+  | 'status'
+  | 'identity'
+  | 'employer-read'
+  | 'employee-list-read'
+  | 'fingerprint-list-read'
+  | 'set-datetime'
+  | 'set-dst'
+  | 'remove-dst'
+  | 'include-holidays'
+  | 'send-display-message'
+  | 'clear-display-message'
+  | 'send-employees'
+  | 'remove-employee'
+  | 'exclude-fingerprint'
+  | 'exclude-fingerprint-orphans'
+  | 'program-biometric-reader-use'
+  | 'program-trigger-type'
+  | 'update-communication-user'
+  | 'set-net-info'
+  | 'change-employer';
+
+export interface ClockCommandResult {
+  success: boolean;
+  op: ClockCommandOp;
+  command?: Record<string, unknown>;
+  busy?: boolean;
+  error?: string;
+}
+
+export interface ClockCommandLogEntry {
+  id: string;
+  operation: string;
+  status: 'SUCCESS' | 'ERROR' | string;
+  payloadSummary?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  performedBy?: string;
+  errorMessage?: string;
+  created: string;
+}
+
+/** Employee row as returned by `employee-list-read` on the clock. */
+export interface ClockEmployeeOnDevice {
+  pis: string;
+  name?: string;
+  code?: string;
 }
 
 export interface SubscriptionInfo {
@@ -124,13 +331,17 @@ export interface Employee extends User {
   mobile: string;
   emergencyContact: string;
   salary: number;
-  status: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
+  status: EmployeeStatus;
   employmentType: 'PERMANENT' | 'CONTRACT' | 'TEMPORARY';
   location: string;
+  cpf?: string;
   nid?: string;
   password?: string;
   lineManagerId?: string;
   workType: WorkType;
+  clockOnboardingStatus?: ClockOnboardingStatus;
+  clockOnboardingAt?: string;
+  clockOnboardingNotes?: string;
 }
 
 export interface Attendance {
@@ -303,6 +514,48 @@ export interface ShiftOverride {
   organizationId?: string;
 }
 
+/** Who works / is off on a roster day (Saturday or holiday). */
+export type RosterAssignmentStatus = 'WORK' | 'OFF';
+export type RosterDayKind = 'SATURDAY' | 'HOLIDAY';
+
+export interface WorkRosterAssignment {
+  id: string;
+  organizationId?: string;
+  workDate: string;
+  employeeId: string;
+  status: RosterAssignmentStatus;
+  dayKind: RosterDayKind;
+  notes?: string;
+  createdBy?: string;
+  created?: string;
+  updated?: string;
+}
+
+export type RosterSwapStatus =
+  | 'PENDING_PEER'
+  | 'PENDING_MANAGER'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export interface RosterSwapRequest {
+  id: string;
+  organizationId: string;
+  workDate: string;
+  dayKind: RosterDayKind;
+  requesterEmployeeId: string;
+  requesterProfileId?: string;
+  targetEmployeeId: string;
+  targetProfileId?: string;
+  status: RosterSwapStatus;
+  reason?: string;
+  peerRespondedAt?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  created?: string;
+  updated?: string;
+}
+
 export type PunchDirection = 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'UNKNOWN';
 export type PunchSource = 'CLOCK' | 'MANUAL' | 'IMPORT' | 'SYSTEM';
 
@@ -320,6 +573,25 @@ export interface Punch {
 }
 
 export type TimesheetPeriodStatus = 'OPEN' | 'IN_REVIEW' | 'APPROVED' | 'LOCKED';
+
+export type TimesheetEmployeeReviewStatus = 'OPEN' | 'IN_REVIEW' | 'EMPLOYEE_SIGNED' | 'APPROVED';
+
+export interface TimesheetEmployeeReview {
+  id: string;
+  organizationId: string;
+  periodId: string;
+  employeeId: string;
+  profileId?: string;
+  status: TimesheetEmployeeReviewStatus;
+  submittedAt?: string;
+  submittedBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  employeeSignedAt?: string;
+  employeeSelfiePath?: string;
+  employeeSignaturePath?: string;
+  employeeSignMetadata?: Record<string, unknown>;
+}
 
 export interface TimesheetPeriod {
   id: string;

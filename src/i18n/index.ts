@@ -22,6 +22,11 @@ import superadminEn from '../locales/en/superadmin.json';
 import marketingEn from '../locales/en/marketing.json';
 import emailsEn from '../locales/en/emails.json';
 import ptrpEn from '../locales/en/ptrp.json';
+import payrollEn from '../locales/en/payroll.json';
+import rosterEn from '../locales/en/roster.json';
+import mobileEn from '../locales/en/mobile.json';
+import hubEn from '../locales/en/hub.json';
+import timeClockEn from '../locales/en/timeClock.json';
 
 import commonPt from '../locales/pt-BR/common.json';
 import navPt from '../locales/pt-BR/nav.json';
@@ -43,6 +48,11 @@ import superadminPt from '../locales/pt-BR/superadmin.json';
 import marketingPt from '../locales/pt-BR/marketing.json';
 import emailsPt from '../locales/pt-BR/emails.json';
 import ptrpPt from '../locales/pt-BR/ptrp.json';
+import payrollPt from '../locales/pt-BR/payroll.json';
+import rosterPt from '../locales/pt-BR/roster.json';
+import mobilePt from '../locales/pt-BR/mobile.json';
+import hubPt from '../locales/pt-BR/hub.json';
+import timeClockPt from '../locales/pt-BR/timeClock.json';
 
 export const NAMESPACES = [
   'common',
@@ -65,6 +75,11 @@ export const NAMESPACES = [
   'marketing',
   'emails',
   'ptrp',
+  'payroll',
+  'roster',
+  'mobile',
+  'hub',
+  'timeClock',
 ] as const;
 
 void i18n
@@ -93,6 +108,11 @@ void i18n
         marketing: marketingEn,
         emails: emailsEn,
         ptrp: ptrpEn,
+        payroll: payrollEn,
+        roster: rosterEn,
+        mobile: mobileEn,
+        hub: hubEn,
+        timeClock: timeClockEn,
       },
       'pt-BR': {
         common: commonPt,
@@ -115,6 +135,11 @@ void i18n
         marketing: marketingPt,
         emails: emailsPt,
         ptrp: ptrpPt,
+        payroll: payrollPt,
+        roster: rosterPt,
+        mobile: mobilePt,
+        hub: hubPt,
+        timeClock: timeClockPt,
       },
     },
     fallbackLng: 'pt-BR',

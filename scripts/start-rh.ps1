@@ -98,7 +98,18 @@ if (-not (Get-NodeProcess 'supabase functions serve')) {
 # 4) dmprep-sync (:3099)
 if (-not (Test-PortListening 3099)) {
   $dmprepDir = Join-Path $ProjectRoot 'services/dmprep-sync'
-  if (-not (Test-Path (Join-Path $dmprepDir 'dist/src/server.js'))) {
+  $distEntry = Join-Path $dmprepDir 'dist/src/server.js'
+  $srcDir = Join-Path $dmprepDir 'src'
+  $needsBuild = -not (Test-Path $distEntry)
+  if (-not $needsBuild) {
+    $distTime = (Get-Item $distEntry).LastWriteTimeUtc
+    $newerSrc = Get-ChildItem -Path $srcDir -Recurse -File -Filter '*.ts' |
+      Where-Object { $_.LastWriteTimeUtc -gt $distTime } |
+      Select-Object -First 1
+    if ($newerSrc) { $needsBuild = $true }
+  }
+  if ($needsBuild) {
+    Write-Host 'dmprep-sync: rebuilding dist (src newer or missing)...'
     Push-Location $dmprepDir
     npm run build 2>&1 | Write-Host
     Pop-Location

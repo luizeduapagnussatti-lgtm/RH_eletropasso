@@ -44,3 +44,48 @@ A porta 3000 fecha; o poller passa a falhar ate religar o modo Server.
   -NoProfile -ExecutionPolicy Bypass `
   -File .\Run-WatchCommPoller.ps1 -ConfigPath .\config.json
 ```
+
+## Modificações Gerais — supervisores
+
+O RH usa as mesmas operações do menu DMP REP:
+
+- **Enviar Supervisores:** `AddMaster(...)` + `SendMasterList()`
+- **Limpeza de Supervisores:** `ClearMasterList()`
+
+Os comandos passam pelo `dmprep-sync` e pelo mesmo lock da coleta de
+batidas, portanto nunca concorrem no canal TCP.
+
+UI: **Comunicação → Relógio de Ponto → Supervisores** (Organização → Sistema
+só mantém um atalho).
+
+```powershell
+& "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" `
+  -NoProfile -ExecutionPolicy Bypass `
+  -File .\Send-WatchCommMasters.ps1 `
+  -Action Send -PayloadPath .\masters-temporario.json `
+  -ConfigPath .\config.json
+
+# Destrutivo: remove todos os masters do equipamento
+& "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" `
+  -NoProfile -ExecutionPolicy Bypass `
+  -File .\Send-WatchCommMasters.ps1 `
+  -Action Clear -ConfigPath .\config.json
+```
+
+Fluxo seguro de recuperação: cadastrar no RH → **Limpeza** → **Enviar** →
+no relógio, `F1` → `91` → código → senha.
+
+## Dispatcher genérico (`Invoke-WatchCommCommand.ps1`)
+
+Operações allowlisted (diagnóstico, data/hora, empregados, biometria,
+configurações, empregador) via scope `clock-command` no `dmprep-sync` e
+Edge Function `clock-command`. Denylist permanente: firmware, erase MRP,
+ClearAllRegisters, etc.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\Test-WatchCommContract.ps1
+```
+
+Mensagens de display (`SendDisplayMessage`) retornam `supported=false` no
+PrintPoint III atual (`PPIII_UnknownFunction`) — a UI trata como aviso.
