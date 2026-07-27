@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
@@ -8,11 +8,12 @@ import {
   Minus,
   Plus,
   RotateCcw,
+  Trash2,
   Undo2,
   X,
 } from 'lucide-react';
-import { Punch, TimesheetDay } from '../../types';
-import { pairPunchesToSlots } from '../../services/punch.service';
+import { Punch, PunchDirection, TimesheetDay } from '../../types';
+import { pairPunchesToSlots, punchLocalDateKey } from '../../services/punch.service';
 import { formatIsoDateBr, formatTime } from '../../i18n/format';
 
 export interface TimesheetAdjustValues {
@@ -21,6 +22,12 @@ export interface TimesheetAdjustValues {
   lateMinutes: number;
   absenceMinutes: number;
   remarks: string;
+}
+
+export interface TimesheetAddPunchInput {
+  time: string; // HH:MM
+  direction: PunchDirection;
+  remarks?: string;
 }
 
 interface Props {
@@ -34,6 +41,8 @@ interface Props {
   onClose: () => void;
   onSave: (values: TimesheetAdjustValues) => Promise<void>;
   onSetManagerAck: (acked: boolean) => Promise<void>;
+  onAddPunch: (input: TimesheetAddPunchInput) => Promise<void>;
+  onDeletePunch: (punchId: string) => Promise<void>;
 }
 
 interface DurationParts {
@@ -53,6 +62,15 @@ function partsToMinutes({ h, m }: DurationParts): number {
 function formatSlotTime(iso?: string): string {
   if (!iso) return '—';
   return formatTime(iso, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function suggestNextDirection(punches: Punch[]): PunchDirection {
+  const sorted = [...punches].sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+  if (sorted.length === 0) return 'IN';
+  const last = sorted[sorted.length - 1]!;
+  if (last.direction === 'IN' || last.direction === 'BREAK_END') return 'OUT';
+  if (last.direction === 'OUT' || last.direction === 'BREAK_START') return 'IN';
+  return sorted.length % 2 === 0 ? 'IN' : 'OUT';
 }
 
 interface DurationFieldProps {
@@ -164,15 +182,23 @@ function DurationField({
 
       <div className="min-h-[1.25rem] flex justify-center">
         {changed ? (
-          <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md">
+          <span className="text-[10px] font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
             {fmtMinutes(originalMinutes)} → {fmtMinutes(currentMinutes)}
           </span>
         ) : (
-          <span className="text-[10px] text-slate-400">{fmtMinutes(currentMinutes)}</span>
+          <span className="text-[10px] text-slate-500">{fmtMinutes(currentMinutes)}</span>
         )}
       </div>
     </div>
   );
+}
+
+function directionLabel(dir: PunchDirection, t: (k: string) => string): string {
+  if (dir === 'IN') return t('punchDirIn');
+  if (dir === 'OUT') return t('punchDirOut');
+  if (dir === 'BREAK_START') return t('punchDirBreakStart');
+  if (dir === 'BREAK_END') return t('punchDirBreakEnd');
+  return t('punchDirUnknown');
 }
 
 export const TimesheetAdjustModal: React.FC<Props> = ({
@@ -186,12 +212,16 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   onClose,
   onSave,
   onSetManagerAck,
+  onAddPunch,
+  onDeletePunch,
 }) => {
   const { t } = useTranslation('ptrp');
   const [isSaving, setIsSaving] = useState(false);
   const [isAckBusy, setIsAckBusy] = useState(false);
+  const [isPunchBusy, setIsPunchBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localAck, setLocalAck] = useState(day.managerAck);
+  const [showManualTotals, setShowManualTotals] = useState(false);
 
   const [worked, setWorked] = useState(() => minutesToParts(day.workedMinutes));
   const [overtime, setOvertime] = useState(() => minutesToParts(day.overtimeMinutes));
@@ -199,8 +229,49 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   const [absence, setAbsence] = useState(() => minutesToParts(day.absenceMinutes));
   const [remarks, setRemarks] = useState(day.remarks || '');
 
-  const slots = useMemo(() => pairPunchesToSlots(punches, day.workDate), [punches, day.workDate]);
+  const [newPunchTime, setNewPunchTime] = useState('');
+  const [newPunchDir, setNewPunchDir] = useState<PunchDirection>(() => suggestNextDirection(punches));
+  const [newPunchNote, setNewPunchNote] = useState('');
+
+  const dayPunches = useMemo(
+    () =>
+      punches
+        .filter(p => punchLocalDateKey(p.punchedAt) === day.workDate)
+        .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt)),
+    [punches, day.workDate],
+  );
+
+  const slots = useMemo(() => pairPunchesToSlots(dayPunches, day.workDate), [dayPunches, day.workDate]);
   const hoursLockedByAck = localAck && canEditHours;
+  const punchEditLocked = !canEditHours || localAck;
+
+  useEffect(() => {
+    setWorked(minutesToParts(day.workedMinutes));
+    setOvertime(minutesToParts(day.overtimeMinutes));
+    setLate(minutesToParts(day.lateMinutes));
+    setAbsence(minutesToParts(day.absenceMinutes));
+    setRemarks(day.remarks || '');
+    setLocalAck(day.managerAck);
+  }, [
+    day.id,
+    day.workedMinutes,
+    day.overtimeMinutes,
+    day.lateMinutes,
+    day.absenceMinutes,
+    day.remarks,
+    day.managerAck,
+  ]);
+
+  useEffect(() => {
+    setNewPunchDir(suggestNextDirection(dayPunches));
+  }, [dayPunches]);
+
+  useEffect(() => {
+    const last = dayPunches[dayPunches.length - 1];
+    if (last && (last.direction === 'IN' || last.direction === 'BREAK_END')) {
+      setNewPunchTime(prev => (prev ? prev : '17:45'));
+    }
+  }, [day.id, dayPunches]);
 
   const hasChanges = useMemo(() => (
     partsToMinutes(worked) !== day.workedMinutes ||
@@ -220,6 +291,49 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
       setError(err instanceof Error ? err.message : t('loadFailed'));
     } finally {
       setIsAckBusy(false);
+    }
+  };
+
+  const handleAddPunch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (punchEditLocked) {
+      setError(t('adjustNeedUnapproveFirst'));
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(newPunchTime)) {
+      setError(t('adjustPunchTimeInvalid'));
+      return;
+    }
+    setError(null);
+    setIsPunchBusy(true);
+    try {
+      await onAddPunch({
+        time: newPunchTime,
+        direction: newPunchDir,
+        remarks: newPunchNote.trim() || undefined,
+      });
+      setNewPunchNote('');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('punchFailed'));
+    } finally {
+      setIsPunchBusy(false);
+    }
+  };
+
+  const handleDeletePunch = async (punchId: string) => {
+    if (punchEditLocked) {
+      setError(t('adjustNeedUnapproveFirst'));
+      return;
+    }
+    if (!window.confirm(t('adjustDeletePunchConfirm'))) return;
+    setError(null);
+    setIsPunchBusy(true);
+    try {
+      await onDeletePunch(punchId);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('punchFailed'));
+    } finally {
+      setIsPunchBusy(false);
     }
   };
 
@@ -261,6 +375,8 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
     setError(null);
   };
 
+  const busy = isSaving || isAckBusy || isPunchBusy;
+
   return (
     <div
       className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-3 sm:p-4"
@@ -274,10 +390,10 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
             <h2 id="timesheet-adjust-title" className="text-lg font-semibold tracking-tight">
               {t('adjustModalTitle')}
             </h2>
-            <p className="text-sm text-white/85 font-medium tabular-nums truncate">
+            <p className="text-sm text-white/90 font-medium tabular-nums truncate">
               {formatIsoDateBr(day.workDate)} · {employeeName}
             </p>
-            <p className="text-[11px] text-white/70">
+            <p className="text-[11px] text-slate-300">
               {t('adjustModalSubtitle', { status: dayStatusLabel(day.status), expected: fmtMinutes(day.expectedMinutes) })}
             </p>
           </div>
@@ -291,24 +407,26 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
           </button>
         </div>
 
-        <form id="timesheet-adjust-form" onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
-          {/* Step 1 — approval */}
+        <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
+          {/* Approval banner — high contrast */}
           <section
-            className={`rounded-xl border px-3.5 py-3 space-y-2 ${
-              localAck ? 'border-emerald-200 bg-emerald-50/80' : 'border-amber-200 bg-amber-50/80'
+            className={`rounded-xl border-2 px-3.5 py-3 space-y-2 ${
+              localAck
+                ? 'border-emerald-600 bg-emerald-50'
+                : 'border-amber-600 bg-amber-50'
             }`}
           >
             <div className="flex items-start gap-2.5">
               {localAck ? (
-                <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" aria-hidden />
+                <CheckCircle2 size={18} className="text-emerald-800 shrink-0 mt-0.5" aria-hidden />
               ) : (
-                <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" aria-hidden />
+                <AlertCircle size={18} className="text-amber-800 shrink-0 mt-0.5" aria-hidden />
               )}
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-sm font-semibold text-slate-800">
+                <p className={`text-sm font-bold ${localAck ? 'text-emerald-950' : 'text-amber-950'}`}>
                   {localAck ? t('adjustAckApprovedTitle') : t('adjustAckPendingTitle')}
                 </p>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className={`text-xs leading-relaxed font-medium ${localAck ? 'text-emerald-900' : 'text-amber-900'}`}>
                   {localAck ? t('adjustAckApprovedHint') : t('adjustAckPendingHint')}
                 </p>
               </div>
@@ -318,9 +436,9 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 {localAck ? (
                   <button
                     type="button"
-                    disabled={isAckBusy || isSaving}
+                    disabled={busy}
                     onClick={() => { void handleAck(false); }}
-                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-white border border-amber-300 text-amber-900 hover:bg-amber-50 disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-white border-2 border-amber-700 text-amber-950 hover:bg-amber-100 disabled:opacity-60"
                   >
                     <Undo2 size={14} aria-hidden />
                     {isAckBusy ? t('adjustAckWorking') : t('revokeManagerAck')}
@@ -328,9 +446,9 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 ) : (
                   <button
                     type="button"
-                    disabled={isAckBusy || isSaving || hasChanges}
+                    disabled={busy || hasChanges}
                     onClick={() => { void handleAck(true); }}
-                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-60"
                     title={hasChanges ? t('adjustSaveBeforeApprove') : undefined}
                   >
                     <CheckCircle2 size={14} aria-hidden />
@@ -342,21 +460,23 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
           </section>
 
           {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 flex gap-2 text-xs font-medium text-rose-800">
+            <div className="rounded-xl border-2 border-rose-600 bg-rose-50 px-3.5 py-2.5 flex gap-2 text-xs font-semibold text-rose-950">
               <AlertCircle size={16} className="shrink-0 mt-0.5" aria-hidden />
               {error}
             </div>
           )}
 
-          {/* Step 2 — punches reference */}
-          <section className="space-y-2" aria-labelledby="adjust-punches-heading">
+          {/* Step 1 — punches (primary) */}
+          <section className="space-y-3" aria-labelledby="adjust-punches-heading">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">1</span>
-              <h3 id="adjust-punches-heading" className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                <Clock size={14} className="text-slate-500" aria-hidden />
+              <h3 id="adjust-punches-heading" className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                <Clock size={14} className="text-slate-600" aria-hidden />
                 {t('adjustSectionPunches')}
               </h3>
             </div>
+            <p className="text-xs text-slate-600 ml-7 leading-relaxed">{t('adjustSectionPunchesHint')}</p>
+
             <div className="grid grid-cols-4 gap-1.5 text-center">
               {[
                 { label: t('colEntry1'), value: formatSlotTime(slots.entry1) },
@@ -364,133 +484,248 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 { label: t('colEntry2'), value: formatSlotTime(slots.entry2) },
                 { label: t('colExit2'), value: formatSlotTime(slots.exit2) },
               ].map(slot => (
-                <div key={slot.label} className="rounded-lg border border-slate-100 bg-slate-50 px-1.5 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">{slot.label}</p>
-                  <p className="text-sm font-semibold tabular-nums text-slate-800 mt-0.5">{slot.value}</p>
+                <div key={slot.label} className="rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{slot.label}</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-900 mt-0.5">{slot.value}</p>
                 </div>
               ))}
             </div>
-            {slots.allPunches.length === 0 && (
-              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+
+            {dayPunches.length > 0 ? (
+              <ul className="rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                {dayPunches.map(p => (
+                  <li key={p.id} className="flex items-center gap-2 px-3 py-2 bg-white text-sm">
+                    <span className="font-semibold tabular-nums text-slate-900 w-14 shrink-0">
+                      {formatTime(p.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-700 w-16 shrink-0">
+                      {directionLabel(p.direction, t)}
+                    </span>
+                    <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                      p.source === 'MANUAL'
+                        ? 'bg-violet-100 text-violet-900'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {p.source === 'MANUAL' ? t('punchSourceManual') : t('punchSourceClock')}
+                    </span>
+                    <span className="flex-1" />
+                    {canEditHours && p.source === 'MANUAL' && !localAck && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => { void handleDeletePunch(p.id); }}
+                        className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50 flex items-center justify-center disabled:opacity-50"
+                        aria-label={t('adjustDeletePunch')}
+                        title={t('adjustDeletePunch')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs font-medium text-amber-950 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
                 {t('adjustNoPunchesHint')}
               </p>
             )}
-          </section>
 
-          {/* Step 3 — edit hours */}
-          <section className="space-y-3" aria-labelledby="adjust-values-heading">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">2</span>
-                  <h3 id="adjust-values-heading" className="text-sm font-semibold text-slate-800">
-                    {t('adjustSectionValues')}
-                  </h3>
+            {canEditHours && (
+              <form
+                onSubmit={handleAddPunch}
+                className={`rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-3 space-y-2 ${punchEditLocked ? 'opacity-60' : ''}`}
+              >
+                <p className="text-xs font-bold text-slate-900">{t('adjustAddPunchTitle')}</p>
+                <p className="text-[11px] text-slate-600 leading-snug">{t('adjustAddPunchHint')}</p>
+                {hoursLockedByAck && (
+                  <p className="text-[11px] font-semibold text-sky-950 bg-sky-50 border border-sky-300 rounded-lg px-2.5 py-1.5 flex gap-1.5">
+                    <Info size={14} className="shrink-0 mt-0.5" aria-hidden />
+                    {t('adjustNeedUnapproveFirst')}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="space-y-1">
+                    <label htmlFor="new-punch-time" className="block text-[10px] font-semibold uppercase text-slate-600">
+                      {t('adjustPunchTime')}
+                    </label>
+                    <input
+                      id="new-punch-time"
+                      type="time"
+                      required
+                      disabled={punchEditLocked || busy}
+                      value={newPunchTime}
+                      onChange={e => setNewPunchTime(e.target.value)}
+                      className="h-10 px-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold tabular-nums text-slate-900 disabled:bg-slate-100"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="new-punch-dir" className="block text-[10px] font-semibold uppercase text-slate-600">
+                      {t('direction')}
+                    </label>
+                    <select
+                      id="new-punch-dir"
+                      disabled={punchEditLocked || busy}
+                      value={newPunchDir}
+                      onChange={e => setNewPunchDir(e.target.value as PunchDirection)}
+                      className="h-10 px-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-900 disabled:bg-slate-100"
+                    >
+                      <option value="IN">{t('punchDirIn')}</option>
+                      <option value="OUT">{t('punchDirOut')}</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={punchEditLocked || busy}
+                    className="h-10 px-3 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    <Plus size={14} aria-hidden />
+                    {isPunchBusy ? t('adjustPunchWorking') : t('adjustAddPunch')}
+                  </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-1 ml-7">{t('adjustSectionValuesHint')}</p>
-              </div>
-              {canEditHours && hasChanges && !localAck && (
-                <button
-                  type="button"
-                  onClick={resetToOriginal}
-                  className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 hover:text-slate-900"
-                >
-                  <RotateCcw size={12} aria-hidden />
-                  {t('adjustReset')}
-                </button>
-              )}
-            </div>
-
-            {hoursLockedByAck && (
-              <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 flex gap-2 text-xs text-sky-900">
-                <Info size={14} className="shrink-0 mt-0.5" aria-hidden />
-                <p>{t('adjustNeedUnapproveFirst')}</p>
-              </div>
+                <input
+                  type="text"
+                  disabled={punchEditLocked || busy}
+                  value={newPunchNote}
+                  onChange={e => setNewPunchNote(e.target.value)}
+                  placeholder={t('adjustPunchNotePlaceholder')}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 disabled:bg-slate-100"
+                />
+              </form>
             )}
+          </section>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <DurationField
-                id="worked"
-                label={t('worked')}
-                hint={t('adjustWorkedHint')}
-                value={worked}
-                onChange={setWorked}
-                originalMinutes={day.workedMinutes}
-                fmtMinutes={fmtMinutes}
-                disabled={!canEditHours || localAck}
-                onUseExpected={day.expectedMinutes > 0 ? () => setWorked(minutesToParts(day.expectedMinutes)) : undefined}
-                useExpectedLabel={t('adjustUseExpected')}
-              />
-              <DurationField
-                id="overtime"
-                label={t('overtimeFull')}
-                hint={t('adjustOvertimeHint')}
-                value={overtime}
-                onChange={setOvertime}
-                originalMinutes={day.overtimeMinutes}
-                fmtMinutes={fmtMinutes}
-                disabled={!canEditHours || localAck}
-              />
-              <DurationField
-                id="late"
-                label={t('late')}
-                hint={t('adjustLateHint')}
-                value={late}
-                onChange={setLate}
-                originalMinutes={day.lateMinutes}
-                fmtMinutes={fmtMinutes}
-                disabled={!canEditHours || localAck}
-              />
-              <DurationField
-                id="absence"
-                label={t('absence')}
-                hint={t('adjustAbsenceHint')}
-                value={absence}
-                onChange={setAbsence}
-                originalMinutes={day.absenceMinutes}
-                fmtMinutes={fmtMinutes}
-                disabled={!canEditHours || localAck}
-              />
+          {/* Step 2 — calculated totals (read-only summary) */}
+          <section className="space-y-2" aria-labelledby="adjust-calc-heading">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">2</span>
+              <h3 id="adjust-calc-heading" className="text-sm font-semibold text-slate-900">
+                {t('adjustSectionCalculated')}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 ml-7">{t('adjustSectionCalculatedHint')}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 ml-0 sm:ml-0">
+              {[
+                { label: t('worked'), value: fmtMinutes(day.workedMinutes) },
+                { label: t('overtimeFull'), value: day.overtimeMinutes ? fmtMinutes(day.overtimeMinutes) : '—' },
+                { label: t('late'), value: day.lateMinutes ? fmtMinutes(day.lateMinutes) : '—' },
+                { label: t('absence'), value: day.absenceMinutes ? fmtMinutes(day.absenceMinutes) : '—' },
+              ].map(card => (
+                <div key={card.label} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
+                  <p className="text-sm font-bold tabular-nums text-slate-900 mt-0.5">{card.value}</p>
+                </div>
+              ))}
             </div>
           </section>
 
-          {/* Step 4 — remarks */}
+          {/* Advanced: manual totals override */}
           {canEditHours && (
-            <section className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">3</span>
-                <label htmlFor="adjust-remarks" className="text-sm font-semibold text-slate-800">
-                  {t('adjustRemarksLabel')}
-                </label>
-              </div>
-              <textarea
-                id="adjust-remarks"
-                rows={2}
-                required={hasChanges}
-                disabled={localAck}
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-y min-h-[4rem] disabled:bg-slate-50 disabled:opacity-70"
-                placeholder={t('adjustRemarksPlaceholder')}
-                value={remarks}
-                onChange={e => setRemarks(e.target.value)}
-              />
-            </section>
+            <details
+              className="rounded-xl border border-slate-200 bg-slate-50 open:bg-white"
+              open={showManualTotals}
+              onToggle={e => setShowManualTotals((e.target as HTMLDetailsElement).open)}
+            >
+              <summary className="cursor-pointer select-none px-3.5 py-2.5 text-xs font-bold text-slate-800 list-none flex items-center justify-between gap-2">
+                <span>{t('adjustManualTotalsToggle')}</span>
+                <span className="text-[10px] font-semibold uppercase text-slate-500">
+                  {showManualTotals ? t('adjustManualTotalsHide') : t('adjustManualTotalsShow')}
+                </span>
+              </summary>
+              <form id="timesheet-adjust-form" onSubmit={handleSubmit} className="px-3.5 pb-3.5 space-y-3 border-t border-slate-100 pt-3">
+                <p className="text-[11px] text-slate-600 leading-relaxed">{t('adjustSectionValuesHint')}</p>
+                {hoursLockedByAck && (
+                  <p className="text-[11px] font-semibold text-sky-950 bg-sky-50 border border-sky-300 rounded-lg px-2.5 py-1.5">
+                    {t('adjustNeedUnapproveFirst')}
+                  </p>
+                )}
+                {hasChanges && !localAck && (
+                  <button
+                    type="button"
+                    onClick={resetToOriginal}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
+                  >
+                    <RotateCcw size={12} aria-hidden />
+                    {t('adjustReset')}
+                  </button>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <DurationField
+                    id="worked"
+                    label={t('worked')}
+                    hint={t('adjustWorkedHint')}
+                    value={worked}
+                    onChange={setWorked}
+                    originalMinutes={day.workedMinutes}
+                    fmtMinutes={fmtMinutes}
+                    disabled={!canEditHours || localAck}
+                    onUseExpected={day.expectedMinutes > 0 ? () => setWorked(minutesToParts(day.expectedMinutes)) : undefined}
+                    useExpectedLabel={t('adjustUseExpected')}
+                  />
+                  <DurationField
+                    id="overtime"
+                    label={t('overtimeFull')}
+                    hint={t('adjustOvertimeHint')}
+                    value={overtime}
+                    onChange={setOvertime}
+                    originalMinutes={day.overtimeMinutes}
+                    fmtMinutes={fmtMinutes}
+                    disabled={!canEditHours || localAck}
+                  />
+                  <DurationField
+                    id="late"
+                    label={t('late')}
+                    hint={t('adjustLateHint')}
+                    value={late}
+                    onChange={setLate}
+                    originalMinutes={day.lateMinutes}
+                    fmtMinutes={fmtMinutes}
+                    disabled={!canEditHours || localAck}
+                  />
+                  <DurationField
+                    id="absence"
+                    label={t('absence')}
+                    hint={t('adjustAbsenceHint')}
+                    value={absence}
+                    onChange={setAbsence}
+                    originalMinutes={day.absenceMinutes}
+                    fmtMinutes={fmtMinutes}
+                    disabled={!canEditHours || localAck}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="adjust-remarks" className="block text-xs font-bold text-slate-900">
+                    {t('adjustRemarksLabel')}
+                  </label>
+                  <textarea
+                    id="adjust-remarks"
+                    rows={2}
+                    required={hasChanges}
+                    disabled={localAck}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 resize-y min-h-[4rem] disabled:bg-slate-50 disabled:opacity-70"
+                    placeholder={t('adjustRemarksPlaceholder')}
+                    value={remarks}
+                    onChange={e => setRemarks(e.target.value)}
+                  />
+                </div>
+              </form>
+            </details>
           )}
-        </form>
+        </div>
 
         <div className="shrink-0 p-4 sm:p-5 border-t border-slate-100 bg-slate-50/80 flex flex-col-reverse sm:flex-row gap-2">
           <button
             type="button"
             onClick={onClose}
-            disabled={isSaving || isAckBusy}
-            className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            disabled={busy}
+            className="flex-1 py-3 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
           >
             {t('common:close')}
           </button>
-          {canEditHours && (
+          {canEditHours && showManualTotals && (
             <button
               type="submit"
               form="timesheet-adjust-form"
-              disabled={isSaving || isAckBusy || !hasChanges || localAck}
+              disabled={busy || !hasChanges || localAck}
               className="flex-1 py-3 bg-primary text-white rounded-xl text-xs font-semibold hover:opacity-95 disabled:opacity-50"
             >
               {isSaving ? t('adjustSaving') : t('saveAdjust')}

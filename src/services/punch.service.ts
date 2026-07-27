@@ -33,8 +33,35 @@ export interface PunchDaySlots {
   allPunches: Punch[];
 }
 
+/** Calendar day in the browser's local timezone (YYYY-MM-DD). */
+export function punchLocalDateKey(punchedAt: string): string {
+  const d = new Date(punchedAt);
+  if (Number.isNaN(d.getTime())) {
+    return punchedAt.includes('T') ? punchedAt.slice(0, 10) : punchedAt.slice(0, 10);
+  }
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Build timestamptz ISO from a work date + local HH:MM (store wall-clock). */
+export function localWorkDateTimeToIso(workDate: string, timeHhMm: string): string {
+  const dateParts = workDate.split('-').map(Number);
+  const timeParts = timeHhMm.split(':').map(Number);
+  const y = dateParts[0];
+  const mo = dateParts[1];
+  const d = dateParts[2];
+  const hh = timeParts[0];
+  const mm = timeParts[1];
+  if (!y || !mo || !d || hh == null || mm == null) {
+    throw new Error('Invalid work date or time');
+  }
+  return new Date(y, mo - 1, d, hh, mm, 0, 0).toISOString();
+}
+
 function punchDateKey(punchedAt: string): string {
-  return punchedAt.slice(0, 10);
+  return punchLocalDateKey(punchedAt);
 }
 
 /** Chronological slots: Entrada1, Saída1, Entrada2, Saída2; extras in overflow. */
@@ -79,7 +106,7 @@ export function groupPunchesByDate(punches: Punch[]): Map<string, Punch[]> {
 /** Pair punches for a calendar day (local date YYYY-MM-DD). */
 export function consolidatePunchesForDay(punches: Punch[], date: string): PunchDaySummary {
   const dayPunches = punches
-    .filter(p => p.punchedAt.slice(0, 10) === date || p.punchedAt.includes(date))
+    .filter(p => punchDateKey(p.punchedAt) === date)
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
   const ins = dayPunches.filter(p => p.direction === 'IN' || p.direction === 'UNKNOWN');
@@ -104,12 +131,13 @@ export const punchService = {
     const orgId = apiClient.getOrganizationId();
     if (!orgId) return [];
 
+    // America/Sao_Paulo offset so evening punches near UTC midnight stay in-range.
     let query = supabase
       .from('punches')
       .select('*')
       .eq('organization_id', orgId)
-      .gte('punched_at', `${opts.startDate}T00:00:00`)
-      .lte('punched_at', `${opts.endDate}T23:59:59.999`)
+      .gte('punched_at', `${opts.startDate}T00:00:00.000-03:00`)
+      .lte('punched_at', `${opts.endDate}T23:59:59.999-03:00`)
       .order('punched_at', { ascending: true })
       .limit(5000);
 

@@ -179,6 +179,16 @@
       "version": "0035",
       "file": "0035_clock_command_log.sql",
       "title": "PrintPoint — auditoria genérica de comandos WatchComm"
+    },
+    {
+      "version": "0036",
+      "file": "0036_profiles_clock_credential.sql",
+      "title": "Credencial do relógio (clock_credential) separada do PIS"
+    },
+    {
+      "version": "0037",
+      "file": "0037_punches_manager_delete.sql",
+      "title": "RLS — MANAGER pode apagar batidas (correção manual no espelho)"
     }
   ]
 }

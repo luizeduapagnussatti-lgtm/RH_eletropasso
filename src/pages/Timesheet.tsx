@@ -20,6 +20,7 @@ import { DEFAULT_PTRP_POLICY } from '../constants';
 import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
 import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
 import { isNonPunchingStaff } from '../utils/roles';
+import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
 
 interface Props {
   user: User;
@@ -182,10 +183,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         const dayByDate = new Map(filtered.map(d => [d.workDate, d]));
         const punchDates = [
           ...new Set(
-            punchList.map(px => {
-              const iso = px.punchedAt.includes('T') ? px.punchedAt.split('T')[0]! : px.punchedAt.slice(0, 10);
-              return iso;
-            }),
+            punchList.map(px => punchLocalDateKey(px.punchedAt)),
           ),
         ].slice(0, 14);
         const staleDates = punchDates.filter(d => {
@@ -671,14 +669,94 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     }
   };
 
+  const addPunchFromModal = async (input: { time: string; direction: Punch['direction']; remarks?: string }) => {
+    if (!adjustDay || locked) throw new Error(t('lockedHint'));
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId
+    );
+    const punchEmployeeId = emp?.employeeId || adjustDay.employeeId;
+    const punchedAt = localWorkDateTimeToIso(adjustDay.workDate, input.time);
+
+    // Same minute already exists?
+    const dup = punches.some(p => {
+      if (punchLocalDateKey(p.punchedAt) !== adjustDay.workDate) return false;
+      if (
+        p.employeeId !== punchEmployeeId &&
+        p.employeeId !== adjustDay.employeeId &&
+        p.employeeId !== emp?.id
+      ) {
+        return false;
+      }
+      const d = new Date(p.punchedAt);
+      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      return hhmm === input.time;
+    });
+    if (dup) throw new Error(t('adjustPunchDuplicate'));
+
+    if (adjustDay.managerAck) {
+      await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', false);
+    }
+
+    const created = await hrService.createManualPunch({
+      employeeId: punchEmployeeId,
+      punchedAt,
+      direction: input.direction,
+      remarks: input.remarks,
+    });
+    setPunches(prev => [...prev, created].sort((a, b) => a.punchedAt.localeCompare(b.punchedAt)));
+
+    const recalcKey = emp?.id || adjustDay.employeeId;
+    const recalculated = await hrService.recalculateTimesheetDay(recalcKey, adjustDay.workDate, period || undefined);
+    await hrService.acknowledgeTimesheetDay(recalculated.id, 'manager', false);
+    setAdjustDay({ ...recalculated, managerAck: false });
+    setDays(prev =>
+      prev.map(d =>
+        d.id === recalculated.id ||
+        (d.workDate === recalculated.workDate && d.employeeId === recalculated.employeeId)
+          ? { ...recalculated, managerAck: false }
+          : d
+      )
+    );
+    showToast(t('adjustPunchAddedRecalc'), 'success');
+    await load();
+  };
+
+  const deletePunchFromModal = async (punchId: string) => {
+    if (!adjustDay || locked) throw new Error(t('lockedHint'));
+    if (adjustDay.managerAck) {
+      await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', false);
+    }
+    await hrService.deletePunch(punchId);
+    setPunches(prev => prev.filter(p => p.id !== punchId));
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId
+    );
+    const recalcKey = emp?.id || adjustDay.employeeId;
+    const recalculated = await hrService.recalculateTimesheetDay(recalcKey, adjustDay.workDate, period || undefined);
+    await hrService.acknowledgeTimesheetDay(recalculated.id, 'manager', false);
+    setAdjustDay({ ...recalculated, managerAck: false });
+    setDays(prev =>
+      prev.map(d =>
+        d.id === recalculated.id ||
+        (d.workDate === recalculated.workDate && d.employeeId === recalculated.employeeId)
+          ? { ...recalculated, managerAck: false }
+          : d
+      )
+    );
+    showToast(t('adjustPunchDeletedRecalc'), 'success');
+    await load();
+  };
+
   const adjustDayPunches = useMemo(() => {
     if (!adjustDay) return [] as Punch[];
     const date = adjustDay.workDate;
+    const emp = employees.find(e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId);
     return punches.filter(p => {
-      if (p.punchedAt.slice(0, 10) !== date) return false;
+      if (punchLocalDateKey(p.punchedAt) !== date) return false;
       return (
         p.employeeId === adjustDay.employeeId ||
-        p.employeeId === employees.find(e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId)?.employeeId
+        p.employeeId === emp?.employeeId ||
+        p.employeeId === emp?.id
       );
     });
   }, [adjustDay, punches, employees]);
@@ -1262,6 +1340,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             showToast(acked ? t('managerAckOk') : t('revokeManagerAckOk'), 'success');
             await load();
           }}
+          onAddPunch={addPunchFromModal}
+          onDeletePunch={deletePunchFromModal}
         />
       )}
 

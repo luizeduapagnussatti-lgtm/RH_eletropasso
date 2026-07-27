@@ -16,6 +16,33 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-27',
+    title: 'Espelho — revisão do modal de batidas',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Modal de carga do dia: data local das batidas (fuso BR), bloqueio de horário duplicado, confirmação ao remover batida manual; gestores podem apagar punches (RLS 0037); após lançar/remover, manager_ack é limpo e a carga recalcula.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'Espelho — batida manual no modal do dia',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'No modal da carga do dia, gestor/RH lança batida esquecida (horário + entrada/saída); o sistema recalcula trabalhado/HE/atraso/falta. Batidas manuais podem ser removidas.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Banner de aprovação do modal com contraste corrigido (texto legível em âmbar/verde).',
+      },
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'Espelho — desfazer aprovação e modal didático',
     entries: [
       {
