@@ -22,21 +22,29 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // ── Runtime caching ──────────────────────────────────────────────────────────
 
+function isSupabaseApiHost(host: string): boolean {
+  return (
+    host.endsWith('.supabase.co') ||
+    host === 'api-rh.eletropasso.local' ||
+    host.endsWith('.eletropasso.local') && host.startsWith('api-')
+  );
+}
+
 // Supabase Auth — never cache
 registerRoute(
-  ({ url }) => url.host.endsWith('.supabase.co') && /^\/auth\/v1\//.test(url.pathname),
+  ({ url }) => isSupabaseApiHost(url.host) && /^\/auth\/v1\//.test(url.pathname),
   new NetworkOnly(),
 );
 
 // Supabase Realtime — never cache
 registerRoute(
-  ({ url }) => url.host.endsWith('.supabase.co') && /^\/realtime\/v1\//.test(url.pathname),
+  ({ url }) => isSupabaseApiHost(url.host) && /^\/realtime\/v1\//.test(url.pathname),
   new NetworkOnly(),
 );
 
 // Supabase Edge Functions — never cache
 registerRoute(
-  ({ url }) => url.host.endsWith('.supabase.co') && /^\/functions\/v1\//.test(url.pathname),
+  ({ url }) => isSupabaseApiHost(url.host) && /^\/functions\/v1\//.test(url.pathname),
   new NetworkOnly(),
 );
 

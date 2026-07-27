@@ -37,7 +37,8 @@ function mapCycleResult(raw: WatchCommCycleResult): SyncRunResult {
 }
 
 async function readCycleResult(resultPath: string): Promise<WatchCommCycleResult> {
-  const text = await readFile(resultPath, 'utf8');
+  // PowerShell Set-Content -Encoding UTF8 writes a BOM; strip before parse.
+  const text = (await readFile(resultPath, 'utf8')).replace(/^\uFEFF/, '').trim();
   return JSON.parse(text) as WatchCommCycleResult;
 }
 

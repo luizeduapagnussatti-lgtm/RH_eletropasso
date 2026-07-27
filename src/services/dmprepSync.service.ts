@@ -84,7 +84,16 @@ export const dmprepSyncService = {
       }),
     });
 
-    const json = (await res.json()) as DmprepSyncResponse & { message?: string };
+    const text = await res.text();
+    let json: DmprepSyncResponse & { message?: string };
+    try {
+      json = (text ? JSON.parse(text) : {}) as DmprepSyncResponse & { message?: string };
+    } catch {
+      const snippet = text.trim().slice(0, 80).replace(/\s+/g, ' ');
+      throw new Error(
+        `Clock sync returned non-JSON (HTTP ${res.status}). Check API gateway and dmprep-sync. ${snippet}`,
+      );
+    }
     if (!res.ok) {
       throw new Error(json.error || json.message || 'DMPREP sync failed');
     }

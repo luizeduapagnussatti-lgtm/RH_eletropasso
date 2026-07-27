@@ -41,12 +41,24 @@ function Read-JsonFile([string]$Path) {
   Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
+# StrictMode throws on missing NoteProperty — optional config keys need this.
+function Get-ConfigValue($Object, [string]$Name, $Default = $null) {
+  if ($null -eq $Object) { return $Default }
+  $prop = $Object.PSObject.Properties[$Name]
+  if ($null -eq $prop) { return $Default }
+  if ($null -eq $prop.Value -or $prop.Value -eq '') { return $Default }
+  return $prop.Value
+}
+
 function Save-JsonFile($Object, [string]$Path) {
   $dir = Split-Path -Parent $Path
   if ($dir -and -not (Test-Path -LiteralPath $dir)) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
   }
-  ($Object | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath $Path -Encoding UTF8
+  # UTF-8 without BOM — Node JSON.parse fails on EF BB BF from Set-Content -Encoding UTF8 (Windows PS 5.1).
+  $json = $Object | ConvertTo-Json -Depth 8
+  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($Path, $json, $utf8NoBom)
 }
 
 function Write-CycleResult(
@@ -120,7 +132,7 @@ function Send-Ingest([object]$Config, [array]$Punches) {
     'Content-Type' = 'application/json'
     'x-ingest-key' = $Config.ingestApiKey
   }
-  $timeout = [int]$Config.timeoutSeconds
+  $timeout = [int](Get-ConfigValue $Config 'timeoutSeconds' 30)
   if ($timeout -lt 15) { $timeout = 15 }
   Ensure-TrustAllCerts
   return Invoke-RestMethod -Uri $Config.ingestUrl -Method Post -Headers $headers -Body $body -TimeoutSec $timeout
@@ -131,17 +143,14 @@ if (-not (Test-Path -LiteralPath $ConfigPath)) {
 }
 
 $Config = Read-JsonFile $ConfigPath
-$logDir = [string]$Config.logDir
-if (-not $logDir) { $logDir = Join-Path $PSScriptRoot 'logs' }
+$logDir = [string](Get-ConfigValue $Config 'logDir' (Join-Path $PSScriptRoot 'logs'))
 if (-not (Test-Path -LiteralPath $logDir)) {
   New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 $script:LogFile = Join-Path $logDir ("poller-{0}.log" -f (Get-Date -Format 'yyyyMMdd'))
 
-$statePath = [string]$Config.statePath
-if (-not $statePath) { $statePath = Join-Path $logDir 'state.json' }
-$resultPath = [string]$Config.resultPath
-if (-not $resultPath) { $resultPath = Join-Path $logDir 'last-cycle-result.json' }
+$statePath = [string](Get-ConfigValue $Config 'statePath' (Join-Path $logDir 'state.json'))
+$resultPath = [string](Get-ConfigValue $Config 'resultPath' (Join-Path $logDir 'last-cycle-result.json'))
 
 $state = [pscustomobject]@{
   lastNsr     = 0
@@ -152,15 +161,16 @@ $state = [pscustomobject]@{
 }
 if (Test-Path -LiteralPath $statePath) {
   $loaded = Read-JsonFile $statePath
-  if ($null -ne $loaded.lastNsr) { $state.lastNsr = [int]$loaded.lastNsr }
-  if ($null -ne $loaded.bootstrapped) { $state.bootstrapped = [bool]$loaded.bootstrapped }
-  if ($loaded.lastRunAt) { $state.lastRunAt = [string]$loaded.lastRunAt }
+  $lastNsrVal = Get-ConfigValue $loaded 'lastNsr' $null
+  if ($null -ne $lastNsrVal) { $state.lastNsr = [int]$lastNsrVal }
+  $bootVal = Get-ConfigValue $loaded 'bootstrapped' $null
+  if ($null -ne $bootVal) { $state.bootstrapped = [bool]$bootVal }
+  $runAtVal = Get-ConfigValue $loaded 'lastRunAt' $null
+  if ($runAtVal) { $state.lastRunAt = [string]$runAtVal }
 }
 
-$collectScript = [string]$Config.collectScript
-if (-not $collectScript) {
-  $collectScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\collect-once-mrp.ps1'))
-}
+$defaultCollect = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\collect-once-mrp.ps1'))
+$collectScript = [string](Get-ConfigValue $Config 'collectScript' $defaultCollect)
 if (-not (Test-Path -LiteralPath $collectScript)) {
   throw "collect-once-mrp.ps1 nao encontrado: $collectScript"
 }
@@ -170,12 +180,13 @@ $startNsrNum = if ($state.lastNsr -gt 0) { $state.lastNsr + 1 } else { 1 }
 $startNsr = $startNsrNum.ToString('0000000000')
 
 $outJson = Join-Path $logDir ('collect-{0}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-$maxBatches = [int]$Config.maxBatchesPerCycle
+$maxBatches = [int](Get-ConfigValue $Config 'maxBatchesPerCycle' 80)
 if ($maxBatches -le 0) { $maxBatches = 80 }
-$maxRecords = [int]$Config.maxRecordsPerCycle
+$maxRecords = [int](Get-ConfigValue $Config 'maxRecordsPerCycle' 200)
 if ($maxRecords -le 0) { $maxRecords = 200 }
+$forwardEnabled = [bool](Get-ConfigValue $Config 'forwardEnabled' $true)
 
-Write-Log ("cycle start startNsr={0} bootstrap={1} forward={2}" -f $startNsr, $doBootstrap, [bool]$Config.forwardEnabled)
+Write-Log ("cycle start startNsr={0} bootstrap={1} forward={2}" -f $startNsr, $doBootstrap, $forwardEnabled)
 
 $selfX86 = "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
 $collectArgList = New-Object System.Collections.Generic.List[string]
@@ -219,7 +230,8 @@ if (-not (Test-Path -LiteralPath $outJson)) {
 
 $result = Read-JsonFile $outJson
 $punches = @()
-if ($result.punches) { $punches = @($result.punches) }
+$punchesVal = Get-ConfigValue $result 'punches' $null
+if ($null -ne $punchesVal) { $punches = @($punchesVal) }
 
 $maxSeen = [int]$state.lastNsr
 foreach ($p in $punches) {
@@ -272,7 +284,7 @@ $toSend = @($punches | Where-Object {
 })
 
 $inserted = 0
-if ($Config.forwardEnabled -and $toSend.Count -gt 0) {
+if ($forwardEnabled -and $toSend.Count -gt 0) {
   if (-not $Config.ingestApiKey -or $Config.ingestApiKey -eq 'CHANGE_ME') {
     Write-Log 'ingestApiKey nao configurado - pulando forward' 'WARN'
   } else {
