@@ -15,6 +15,27 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-27',
+    title: 'Credencial do relógio separada do PIS',
+    entries: [
+      {
+        type: 'breaking',
+        description:
+          'profiles.clock_credential: ID/Matrícula do PrintPoint (funções 91/92) fica separado do PIS (employee_id, folha/eSocial). Cadastro, guias e botão Copiar usam a Credencial — o relógio não aceita PIS no teclado.',
+      },
+      {
+        type: 'feature',
+        description:
+          'DMPREP import/export: PIS → employee_id e Credencial → clock_credential; export deixa de forçar Credencial = PIS; backfill a partir do DIMEP.MDB no sync de employees.',
+      },
+      {
+        type: 'fix',
+        description:
+          'ingest-punches resolve batidas por clock_credential ou employee_id (pad 11/12), gravando o PIS canônico no punch.',
+      },
+    ],
+  },
+  {
     date: '2026-07-25',
     title: 'Console Relógio de Ponto — controle WatchComm completo',
     entries: [

@@ -2,10 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { SyncConfig } from '../config.js';
-import { employeeIdFromPis, importEmailFromPis, pisLookupKeys } from './credentials.js';
+import { employeeIdFromPis, importEmailFromPis, pisLookupKeys, clockCredentialFromValue } from './credentials.js';
 
 export interface DmprepFuncionarioRow {
   PIS?: string | number | null;
+  Credencial?: string | number | null;
   Nome?: string | null;
   Cargo?: string | null;
   DtAdmissao?: string | null;
@@ -22,6 +23,7 @@ export interface EmployeeImportResult {
 interface ProfileRow {
   id: string;
   employee_id: string | null;
+  clock_credential?: string | null;
   email: string | null;
   name: string | null;
 }
@@ -70,11 +72,95 @@ print(json.dumps(rows, ensure_ascii=False, default=str))
 function buildProfileIndex(profiles: ProfileRow[]): Map<string, ProfileRow> {
   const index = new Map<string, ProfileRow>();
   for (const profile of profiles) {
-    for (const key of pisLookupKeys(profile.employee_id)) {
+    for (const key of [
+      ...pisLookupKeys(profile.employee_id),
+      ...pisLookupKeys(profile.clock_credential),
+    ]) {
       index.set(key, profile);
     }
   }
   return index;
+}
+
+/**
+ * One-shot / sync helper: fill profiles.clock_credential from DIMEP.MDB Credencial
+ * when empty, matching by PIS (employee_id).
+ */
+export async function backfillClockCredentialsFromDmprep(
+  config: SyncConfig,
+  admin?: SupabaseClient,
+): Promise<{ updated: number; skipped: number; failed: number; total: number }> {
+  if (!config.supabase.url || !config.supabase.serviceRoleKey) {
+    throw new Error('Supabase credentials are required for credential backfill');
+  }
+  if (!config.mdbPath) {
+    throw new Error('DMPREP_MDB_PATH is not configured');
+  }
+
+  const supabase =
+    admin ??
+    createClient(config.supabase.url, config.supabase.serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+  const employees = loadFuncionariosFromMdb(config.mdbPath);
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, employee_id, clock_credential')
+    .eq('organization_id', config.ingest.organizationId);
+  if (error) throw error;
+
+  const byPis = new Map<string, { id: string; clock_credential: string | null }>();
+  for (const p of profiles ?? []) {
+    for (const key of pisLookupKeys(p.employee_id)) {
+      byPis.set(key, {
+        id: p.id,
+        clock_credential: p.clock_credential ?? null,
+      });
+    }
+  }
+
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const row of employees) {
+    const pis = employeeIdFromPis(String(row.PIS ?? ''));
+    const cred = clockCredentialFromValue(String(row.Credencial ?? ''));
+    if (!pis || !cred) {
+      skipped++;
+      continue;
+    }
+
+    const profile = pisLookupKeys(pis)
+      .map((k) => byPis.get(k))
+      .find(Boolean);
+    if (!profile) {
+      skipped++;
+      continue;
+    }
+    if (profile.clock_credential) {
+      skipped++;
+      continue;
+    }
+
+    const { error: upErr } = await supabase
+      .from('profiles')
+      .update({
+        clock_credential: cred,
+        updated: new Date().toISOString(),
+      })
+      .eq('id', profile.id);
+
+    if (upErr) {
+      failed++;
+    } else {
+      updated++;
+      profile.clock_credential = cred;
+    }
+  }
+
+  return { updated, skipped, failed, total: employees.length };
 }
 
 export async function importEmployeesFromDmprep(
@@ -97,7 +183,7 @@ export async function importEmployeesFromDmprep(
   const employees = loadFuncionariosFromMdb(config.mdbPath);
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
-    .select('id, employee_id, email, name')
+    .select('id, employee_id, clock_credential, email, name')
     .eq('organization_id', config.ingest.organizationId);
   if (profileError) throw profileError;
 
@@ -109,6 +195,8 @@ export async function importEmployeesFromDmprep(
 
   for (const row of employees) {
     const employeeId = employeeIdFromPis(String(row.PIS ?? ''));
+    const clockCredential =
+      clockCredentialFromValue(String(row.Credencial ?? '')) || employeeId;
     const name = String(row.Nome ?? '').trim();
     const designation = String(row.Cargo ?? '').trim() || null;
     const joiningDate = parseDate(row.DtAdmissao);
@@ -118,7 +206,10 @@ export async function importEmployeesFromDmprep(
       continue;
     }
 
-    const existing = pisLookupKeys(employeeId)
+    const existing = [
+      ...pisLookupKeys(employeeId),
+      ...pisLookupKeys(clockCredential),
+    ]
       .map((key) => index.get(key))
       .find(Boolean);
 
@@ -130,6 +221,7 @@ export async function importEmployeesFromDmprep(
           designation,
           joining_date: joiningDate,
           employee_id: employeeId,
+          clock_credential: clockCredential || null,
           updated: new Date().toISOString(),
         })
         .eq('id', existing.id);
@@ -137,6 +229,14 @@ export async function importEmployeesFromDmprep(
         failed++;
       } else {
         updated++;
+        for (const key of [...pisLookupKeys(employeeId), ...pisLookupKeys(clockCredential)]) {
+          index.set(key, {
+            id: existing.id,
+            employee_id: employeeId,
+            email: existing.email,
+            name,
+          });
+        }
       }
       skipped++;
       continue;
@@ -163,6 +263,7 @@ export async function importEmployeesFromDmprep(
       email,
       role: 'EMPLOYEE',
       employee_id: employeeId,
+      clock_credential: clockCredential || null,
       designation,
       joining_date: joiningDate,
       verified: false,
@@ -175,7 +276,7 @@ export async function importEmployeesFromDmprep(
       continue;
     }
 
-    for (const key of pisLookupKeys(employeeId)) {
+    for (const key of [...pisLookupKeys(employeeId), ...pisLookupKeys(clockCredential)]) {
       index.set(key, { id: userId, employee_id: employeeId, email, name });
     }
     created++;

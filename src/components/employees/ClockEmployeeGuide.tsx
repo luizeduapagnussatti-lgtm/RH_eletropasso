@@ -26,7 +26,10 @@ interface Props {
   interactive?: InteractiveProps;
   highlightFirstStep?: boolean;
   employeeName?: string;
+  /** PIS (folha) — informational */
   employeeId?: string;
+  /** PrintPoint Credencial / Matrícula — used in 91/92 steps */
+  clockCredential?: string;
 }
 
 const ADMISSION_STEP_COUNT = 4;
@@ -35,14 +38,16 @@ const DISCHARGE_STEP_COUNT = 4;
 function ManualKeyboardSteps({
   flow,
   employeeId,
+  clockCredential,
   compact,
 }: {
   flow: 'admission' | 'discharge';
   employeeId?: string;
+  clockCredential?: string;
   compact?: boolean;
 }) {
   const { t } = useTranslation('employees');
-  const pis = employeeId ?? '________';
+  const cred = clockCredential || employeeId || '________';
   const titleKey =
     flow === 'admission' ? 'clockGuide.manual.admissionTitle' : 'clockGuide.manual.dischargeTitle';
   const stepsKey =
@@ -59,9 +64,10 @@ function ManualKeyboardSteps({
         <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t(titleKey)}</p>
       </div>
       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-mono max-w-prose">
-        {t(stepsKey, { pis })}
+        {t(stepsKey, { pis: cred, credential: cred, employeeId: cred })}
       </p>
       <p className="text-[10px] text-slate-400">{t('clockGuide.manual.modelNote')}</p>
+      <p className="text-[10px] text-amber-700 dark:text-amber-300">{t('clockGuide.manual.credentialNotPis')}</p>
     </div>
   );
 }
@@ -72,6 +78,7 @@ function GuideSteps({
   highlightFirstStep,
   employeeName,
   employeeId,
+  clockCredential,
   compact,
 }: {
   flow: 'admission' | 'discharge';
@@ -79,11 +86,14 @@ function GuideSteps({
   highlightFirstStep?: boolean;
   employeeName?: string;
   employeeId?: string;
+  clockCredential?: string;
   compact?: boolean;
 }) {
   const { t } = useTranslation('employees');
   const count = flow === 'admission' ? ADMISSION_STEP_COUNT : DISCHARGE_STEP_COUNT;
   const prefix = `clockGuide.${flow}`;
+  const cred = clockCredential || employeeId || '';
+  const pis = employeeId || '';
 
   return (
     <ol className={`${compact ? 'space-y-2' : 'space-y-3'} list-none p-0 m-0`}>
@@ -92,8 +102,10 @@ function GuideSteps({
         const title = t(`${prefix}.step${stepNum}.title`);
         const detail = t(`${prefix}.step${stepNum}.detail`, {
           name: employeeName ?? '',
-          employeeId: employeeId ?? '',
-          pis: employeeId ?? '',
+          employeeId: cred,
+          pis: cred,
+          credential: cred,
+          pisNumber: pis,
         });
         const isChecked = interactive?.checked[index] ?? false;
         const isCritical = highlightFirstStep && flow === 'discharge' && index === 0;
@@ -240,9 +252,11 @@ export const ClockEmployeeGuide: React.FC<Props> = ({
   highlightFirstStep = false,
   employeeName,
   employeeId,
+  clockCredential,
 }) => {
   const { t } = useTranslation('employees');
   const [refTab, setRefTab] = useState<'admission' | 'discharge'>(referenceDefaultTab);
+  const cred = clockCredential || employeeId;
 
   const activeFlow: 'admission' | 'discharge' =
     mode === 'reference' ? refTab : mode;
@@ -269,9 +283,15 @@ export const ClockEmployeeGuide: React.FC<Props> = ({
           highlightFirstStep={highlightFirstStep}
           employeeName={employeeName}
           employeeId={employeeId}
+          clockCredential={cred}
           compact
         />
-        <ManualKeyboardSteps flow={activeFlow} employeeId={employeeId} compact />
+        <ManualKeyboardSteps
+          flow={activeFlow}
+          employeeId={employeeId}
+          clockCredential={cred}
+          compact
+        />
       </div>
     );
   }
@@ -327,6 +347,7 @@ export const ClockEmployeeGuide: React.FC<Props> = ({
               highlightFirstStep={highlightFirstStep}
               employeeName={employeeName}
               employeeId={employeeId}
+              clockCredential={cred}
             />
           </div>
         ) : (
@@ -341,6 +362,7 @@ export const ClockEmployeeGuide: React.FC<Props> = ({
               highlightFirstStep={highlightFirstStep}
               employeeName={employeeName}
               employeeId={employeeId}
+              clockCredential={cred}
             />
           </AccordionSection>
         )}
@@ -350,7 +372,11 @@ export const ClockEmployeeGuide: React.FC<Props> = ({
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
               {t('clockGuide.sectionManual')}
             </p>
-            <ManualKeyboardSteps flow={activeFlow} employeeId={employeeId} />
+            <ManualKeyboardSteps
+              flow={activeFlow}
+              employeeId={employeeId}
+              clockCredential={cred}
+            />
           </div>
         ) : (
           <AccordionSection
@@ -358,7 +384,11 @@ export const ClockEmployeeGuide: React.FC<Props> = ({
             title={t('clockGuide.sectionManual')}
             defaultOpen={defaultExpanded}
           >
-            <ManualKeyboardSteps flow={activeFlow} employeeId={employeeId} />
+            <ManualKeyboardSteps
+              flow={activeFlow}
+              employeeId={employeeId}
+              clockCredential={cred}
+            />
           </AccordionSection>
         )}
 

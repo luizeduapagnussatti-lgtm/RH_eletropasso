@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
   // A clock credential must resolve to exactly one employee in this tenant.
   const { data: profiles, error: profileError } = await admin
     .from('profiles')
-    .select('id,employee_id')
+    .select('id,employee_id,clock_credential')
     .eq('organization_id', organizationId);
   if (profileError) return json(500, { error: 'Employee validation failed' });
 
@@ -182,6 +182,22 @@ Deno.serve(async (req: Request) => {
 
   const affected = [...new Set(recalcRows.map((row) => row.work_date))];
 
+  // Mark clock onboarding READY on first successful punch for pending employees
+  const punchedEmployeeIds = [...new Set(acceptedRows.map(r => String(r.employee_id)))];
+  if (punchedEmployeeIds.length > 0 && inserted > 0) {
+    const now = new Date().toISOString();
+    await admin
+      .from('profiles')
+      .update({
+        clock_onboarding_status: 'READY',
+        clock_onboarding_at: now,
+        clock_onboarding_notes: 'Primeira batida recebida — integração relógio concluída',
+      })
+      .eq('organization_id', organizationId)
+      .in('employee_id', punchedEmployeeIds)
+      .in('clock_onboarding_status', ['PENDING_EXPORT', 'PENDING_BIO']);
+  }
+
   const skipped = rows.length - acceptedRows.length;
 
   return json(200, {
@@ -229,18 +245,21 @@ function saoPauloDate(timestamp: string): string {
 }
 
 function buildEmployeeCredentialIndex(
-  profiles: Array<{ employee_id: string | null }>,
+  profiles: Array<{ employee_id: string | null; clock_credential?: string | null }>,
 ): Map<string, string> {
   const index = new Map<string, string>();
   for (const profile of profiles) {
     const canonical = String(profile.employee_id || '').trim();
     if (!canonical) continue;
-    for (const key of credentialLookupKeys(canonical)) {
-      const existing = index.get(key);
-      if (existing && existing !== canonical) {
-        index.set(key, '__AMBIGUOUS__');
-      } else {
-        index.set(key, canonical);
+    const sources = [canonical, String(profile.clock_credential || '').trim()].filter(Boolean);
+    for (const source of sources) {
+      for (const key of credentialLookupKeys(source)) {
+        const existing = index.get(key);
+        if (existing && existing !== canonical) {
+          index.set(key, '__AMBIGUOUS__');
+        } else {
+          index.set(key, canonical);
+        }
       }
     }
   }

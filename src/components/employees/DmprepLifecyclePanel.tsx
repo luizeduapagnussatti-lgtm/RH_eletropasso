@@ -17,8 +17,10 @@ export type DmprepLifecycleType = 'admission' | 'discharge';
 export interface DmprepLifecyclePanelProps {
   type: DmprepLifecycleType;
   employeeName: string;
-  /** PIS / matrícula (credencial do relógio) */
+  /** PIS (informational) */
   punchKey?: string;
+  /** PrintPoint Credencial / Matrícula — used for copy + 91/92 */
+  clockCredential?: string;
   onCancel: () => void;
   /** Discharge: runs after all steps checked. Admission: optional (Done uses onCancel). */
   onConfirm?: () => void | Promise<void>;
@@ -34,6 +36,7 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
   type,
   employeeName,
   punchKey,
+  clockCredential,
   onCancel,
   onConfirm,
   children,
@@ -43,20 +46,21 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
   const [checked, setChecked] = useState<boolean[]>(() => Array(stepCount(type)).fill(false));
   const [syncing, setSyncing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const credForClock = clockCredential || punchKey;
 
   useEffect(() => {
     setChecked(Array(stepCount(type)).fill(false));
-  }, [type, punchKey, employeeName]);
+  }, [type, punchKey, clockCredential, employeeName]);
 
   const toggleStep = (index: number) => {
     setChecked(prev => prev.map((value, i) => (i === index ? !value : value)));
   };
 
-  const copyPis = async () => {
-    if (!punchKey) return;
+  const copyCredential = async () => {
+    if (!credForClock) return;
     try {
-      await navigator.clipboard.writeText(punchKey);
-      showToast(t('dmprepChecklist.pisCopied'), 'success');
+      await navigator.clipboard.writeText(credForClock);
+      showToast(t('dmprepChecklist.credentialCopied'), 'success');
     } catch {
       showToast(t('dmprepChecklist.pisCopyFailed'), 'error');
     }
@@ -109,22 +113,27 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
         </p>
       </div>
 
-      {punchKey ? (
+      {credForClock ? (
         <div className="px-6 py-4 flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-700 shrink-0">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {t('officialEmployeeId')}
+            {t('clockCredential')}
           </span>
           <code className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-mono text-slate-800 dark:text-slate-200">
-            {punchKey}
+            {credForClock}
           </code>
           <button
             type="button"
-            onClick={() => void copyPis()}
+            onClick={() => void copyCredential()}
             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
           >
             <Copy size={14} />
-            {t('dmprepChecklist.copyPis')}
+            {t('dmprepChecklist.copyCredential')}
           </button>
+          {punchKey && punchKey !== credForClock ? (
+            <span className="text-[10px] text-slate-400 w-full">
+              {t('officialEmployeeId')}: <code className="font-mono">{punchKey}</code> ({t('dmprepChecklist.pisNotForClock')})
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -135,6 +144,7 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
           highlightFirstStep={type === 'discharge'}
           employeeName={employeeName}
           employeeId={punchKey}
+          clockCredential={credForClock}
           interactive={{ checked, onToggle: toggleStep }}
         />
         {children}

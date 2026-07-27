@@ -103,14 +103,14 @@
   "exportColWorkType": "Work type",
   "exportWillExport_one": "{{count}} employee will be exported",
   "exportWillExport_other": "{{count}} employees will be exported",
-  "employeeIdPisHint": "Use the 12-digit PIS (e.g. 026740847000) — must match DMPREP/clock registration.",
+  "employeeIdPisHint": "PIS/NIS with 11–12 digits (payroll/eSocial). Not the number typed on the clock.",
   "dmprepChecklist": {
     "admissionTitle": "Admission checklist — HR + clock",
     "dischargeTitle": "Offboarding checklist — clock + HR",
     "subtitle": "Employee: {{name}}",
-    "warning": "HR registers and exports to DIMEP.MDB — no need to re-register in DMP REP software. Biometrics are enrolled directly on the PrintPoint SmartPoint B clock (function 91).",
-    "copyPis": "Copy employee ID/PIS",
-    "pisCopied": "Employee ID copied.",
+    "warning": "HR registers and exports to DIMEP.MDB. PrintPoint biometrics (91/92) use Credencial/ID (DMP REP Matrícula) — the clock does not accept PIS.",
+    "copyPis": "Copy PIS",
+    "pisCopied": "PIS copied.",
     "pisCopyFailed": "Could not copy employee ID.",
     "pullFromDmprep": "Import legacy records (DMPREP → HR)",
     "pullFromDmprepHint": "Only to sync employees already in DMPREP. Does not replace HR-first admission.",
@@ -123,7 +123,7 @@
     "confirmDischarge": "Delete in HR",
     "confirming": "Deleting…",
     "dischargeComplete": "{{name}} removed from RH_Eletropasso.",
-    "dischargeWarning": "Before deleting in HR: remove fingerprints on the PrintPoint SmartPoint B (function 92). Then confirm the steps and delete the account. Discharge export to DIMEP.MDB is attempted automatically.",
+    "dischargeWarning": "Before deleting in HR: remove fingerprints on PrintPoint (function 92) with Credencial/ID — the clock does not accept PIS.",
     "admission": {
       "step1": {
         "title": "OpenHR registration complete",
@@ -135,7 +135,7 @@
       },
       "step3": {
         "title": "Enroll biometrics on clock",
-        "detail": "On PrintPoint SmartPoint B: F1 → 91 → supervisor → credential {{employeeId}} → 2 fingers (2 reads each). Manual §3.5."
+        "detail": "On PrintPoint SmartPoint B: F1 → 91 → supervisor → enter Credencial {{credential}} (not PIS) → 2 fingers. Manual §3.5."
       },
       "step4": {
         "title": "Validate punches in HR",
@@ -145,7 +145,7 @@
     "discharge": {
       "step1": {
         "title": "Delete fingerprints on clock (required)",
-        "detail": "On PrintPoint SmartPoint B: F1 → 92 → supervisor → credential {{employeeId}}. Confirm «Fingerprint deleted successfully». Manual §3.6."
+        "detail": "On PrintPoint: F1 → 92 → supervisor → Credencial {{credential}} (not PIS). Confirm fingerprint deleted. Manual §3.6."
       },
       "step2": {
         "title": "Remove record from MDB",
@@ -159,7 +159,10 @@
         "title": "Delete HR account",
         "detail": "Only after deleting fingerprints on the clock (step 1), confirm deletion of {{name}} below."
       }
-    }
+    },
+    "copyCredential": "Copy clock credential",
+    "credentialCopied": "Clock credential copied.",
+    "pisNotForClock": "do not use on the clock keypad"
   },
   "onboarding": {
     "titleCreate": "New employee",
@@ -187,10 +190,11 @@
     },
     "errors": {
       "nameRequired": "Enter the full name.",
-      "pisInvalid": "Invalid PIS/credential — use 11 or 12 numeric digits.",
+      "pisInvalid": "Invalid PIS — use 11 or 12 numeric digits.",
       "cpfInvalid": "Invalid CPF.",
       "emailRequired": "Enter the work email.",
-      "passwordShort": "Password must be at least 8 characters."
+      "passwordShort": "Password must be at least 8 characters.",
+      "credentialInvalid": "Invalid clock credential — use up to 12 numeric digits."
     },
     "save": "Save employee",
     "saving": "Saving…",
@@ -212,7 +216,7 @@
     "stepExport": "Exported to DMPREP",
     "stepExportDetail": "Record written to DIMEP.MDB — replaces manual DMP REP registration. Keep DMP REP closed during export; do not re-register manually.",
     "stepBio": "Clock biometrics",
-    "stepBioDetail": "On PrintPoint SmartPoint B: F1 → 91 → supervisor → credential {{pis}} → enroll 2 fingers (2 reads each). Manual §3.5.",
+    "stepBioDetail": "On PrintPoint: F1 → 91 → supervisor → Credencial {{credential}} (not PIS) → 2 fingers. Manual §3.5.",
     "stepPunch": "Test punch",
     "stepPunchDetail": "After the first punch, status becomes Ready automatically.",
     "status": {
@@ -245,10 +249,10 @@
     "sectionManual": "Clock shortcuts",
     "sectionGlossary": "Glossary",
     "admission": {
-      "overview": "HR registers the employee and exports to DIMEP.MDB (replaces typing in DMP REP). Then go to the PrintPoint SmartPoint B and enroll biometrics using the credential/PIS — no REP Operations needed.",
+      "overview": "HR registers PIS + Credencial and exports to DIMEP.MDB. On PrintPoint use Credencial/ID for 91/92 — not PIS.",
       "step1": {
         "title": "Register in HR",
-        "detail": "Enter the 12-digit PIS (e.g. {{pis}}). This number is the credential on the clock."
+        "detail": "Enter PIS (payroll) and clock Credencial (ID/Matrícula). If Credencial is empty, the system uses PIS."
       },
       "step2": {
         "title": "Export to DMPREP",
@@ -256,7 +260,7 @@
       },
       "step3": {
         "title": "Enroll biometrics on clock",
-        "detail": "On PrintPoint SmartPoint B, function 91 (Manual §3.5): supervisor → credential {{pis}} → enroll 2 fingers (2 reads each on Smart B)."
+        "detail": "PrintPoint function 91: supervisor → Credencial {{credential}} (not PIS) → 2 fingers."
       },
       "step4": {
         "title": "Validate punch in HR",
@@ -264,10 +268,10 @@
       }
     },
     "discharge": {
-      "overview": "On offboarding, delete fingerprints on the clock first (function 92). Deleting in HR removes the MDB record but does not erase biometrics from the device.",
+      "overview": "On offboarding, delete fingerprints first (function 92) with Credencial/ID — not PIS.",
       "step1": {
         "title": "Delete fingerprints on clock (required)",
-        "detail": "PrintPoint SmartPoint B, function 92 (Manual §3.6): supervisor → credential {{employeeId}} for {{name}}. Wait for «Fingerprint deleted successfully»."
+        "detail": "PrintPoint function 92: supervisor → Credencial {{credential}} for {{name}}."
       },
       "step2": {
         "title": "Remove record from MDB",
@@ -284,29 +288,30 @@
     },
     "manual": {
       "admissionTitle": "Fingerprint enrollment — function 91",
-      "admissionSteps": "After sending the employee from the Time Clock console (Communication → Employees), on the device: F1 → 91 → E → supervisor PIS/password → E → password → E → credential {{pis}} should already be listed → select employee → E → 1st finger (2 reads) → 2nd finger (2 reads).",
+      "admissionSteps": "After sending the employee from the Time Clock console (Communication → Employees), on the device: F1 → 91 → E → supervisor PIS/password → E → password → E → credential {{credential}} should already be listed → select employee → E → 1st finger (2 reads) → 2nd finger (2 reads).",
       "dischargeTitle": "Fingerprint deletion — function 92",
-      "dischargeSteps": "Prefer removing fingerprint/employee from the Time Clock console. Manual: F1 → 92 → E → supervisor PIS/password → E → password → E → credential {{pis}} → E → confirm deletion.",
-      "modelNote": "SmartPoint B (Secukey): 2 reads per finger, up to 2 fingerprints per employee. Manual credential typing is only needed if RH send fails."
+      "dischargeSteps": "Prefer removing fingerprint/employee from the Time Clock console. Manual: F1 → 92 → E → supervisor PIS/password → E → password → E → credential {{credential}} → E → confirm deletion.",
+      "modelNote": "SmartPoint B (Secukey): 2 reads per finger, up to 2 fingerprints per employee. Manual credential typing is only needed if RH send fails.",
+      "credentialNotPis": "Important: type Credencial/ID (DMP REP Matrícula). PrintPoint does not accept PIS on the keypad."
     },
     "warnings": {
-      "pisMatch": "PIS/credential must be identical in HR, DIMEP.MDB, and on the clock.",
+      "pisMatch": "PIS and Credencial may differ. Always use Credencial/ID on the clock.",
       "bioOnClock": "Biometrics are enrolled and deleted only on the physical clock (functions 91 and 92) — not via DMP REP software.",
       "noDmprepRecadastro": "After successful export, do not manually re-register the employee in DMP REP.",
       "noAutoOffboard": "Deleting in HR does not remove biometrics from the clock — use function 92 before deleting the account."
     },
     "glossary": {
       "pis": {
-        "term": "PIS / Credential",
-        "definition": "12-digit identifier in HR. Same number used on the clock to enroll or delete fingerprints."
+        "term": "PIS / NIS",
+        "definition": "Social ID for payroll/eSocial. Not typed on the PrintPoint keypad."
       },
       "nsr": {
         "term": "NSR",
         "definition": "Sequential Record Number — each clock operation (fingerprint add/delete) generates an NSR in device memory."
       },
       "credential": {
-        "term": "Credential",
-        "definition": "Employee code on the clock (= PIS). Entered on PrintPoint keypad when enrolling biometrics."
+        "term": "Credencial / Matrícula (clock)",
+        "definition": "Employee ID on PrintPoint and DMP REP Matrícula column. Used for 91/92. May differ from PIS."
       },
       "dmprep": {
         "term": "DMPREP / DIMEP.MDB",
@@ -327,5 +332,8 @@
     "dischargePageHint": "Check every step (including fingerprint removal on the clock). Only then is Delete in HR enabled.",
     "simpleDischargeTitle": "Delete account (no clock)",
     "simpleDischargeHint": "{{name}} ({{role}}) does not use the time clock. Deletion only removes RH_Eletropasso access — no biometrics to remove."
-  }
+  },
+  "clockCredential": "Clock credential (ID/badge)",
+  "clockCredentialPlaceholder": "e.g. 20 (short DMP REP Matrícula)",
+  "clockCredentialHint": "Number PrintPoint accepts for functions 91/92 (DMP REP Matrícula). If empty, PIS is used. May differ from PIS."
 }

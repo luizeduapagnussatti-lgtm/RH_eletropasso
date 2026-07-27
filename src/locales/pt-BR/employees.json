@@ -103,15 +103,21 @@
   "exportColWorkType": "Tipo de trabalho",
   "exportWillExport_one": "{{count}} colaborador será exportado",
   "exportWillExport_other": "{{count}} colaboradores serão exportados",
-  "employeeIdPisHint": "Use o PIS com 12 dígitos (ex.: 026740847000) — deve ser igual ao cadastro do DMPREP/relógio.",
+  "employeeIdPisHint": "PIS/NIS com 11–12 dígitos (folha/eSocial). Não é o número digitado no relógio.",
+  "clockCredential": "Credencial do relógio (ID/Matrícula)",
+  "clockCredentialPlaceholder": "Ex.: 20 (ID curto do DMP REP)",
+  "clockCredentialHint": "Número que o PrintPoint aceita nas funções 91/92 (Matrícula do DMP REP). Se vazio, usa o PIS. Pode ser diferente do PIS.",
   "dmprepChecklist": {
     "admissionTitle": "Checklist de admissão — RH + relógio",
     "dischargeTitle": "Checklist de desligamento — relógio + RH",
     "subtitle": "Colaborador: {{name}}",
-    "warning": "O RH cadastra e exporta para o DIMEP.MDB — não é necessário recadastrar no software DMP REP. A biometria é cadastrada diretamente no relógio PrintPoint SmartPoint B (função 91).",
-    "copyPis": "Copiar matrícula/PIS",
-    "pisCopied": "Matrícula copiada.",
-    "pisCopyFailed": "Não foi possível copiar a matrícula.",
+    "warning": "O RH cadastra e exporta para o DIMEP.MDB. A biometria no PrintPoint (funções 91/92) usa a Credencial/ID (Matrícula do DMP REP) — o relógio não aceita PIS.",
+    "copyPis": "Copiar PIS",
+    "copyCredential": "Copiar credencial do relógio",
+    "pisCopied": "PIS copiado.",
+    "credentialCopied": "Credencial do relógio copiada.",
+    "pisCopyFailed": "Não foi possível copiar.",
+    "pisNotForClock": "não usar no teclado do relógio",
     "pullFromDmprep": "Importar cadastros legados (DMPREP → RH)",
     "pullFromDmprepHint": "Somente para sincronizar funcionários já existentes no DMPREP. Não substitui o fluxo de admissão pelo RH.",
     "syncing": "Sincronizando…",
@@ -123,29 +129,29 @@
     "confirmDischarge": "Excluir no RH",
     "confirming": "Excluindo…",
     "dischargeComplete": "{{name}} removido do RH_Eletropasso.",
-    "dischargeWarning": "Antes de excluir no RH: remova as digitais no PrintPoint SmartPoint B (função 92). Depois confirme os passos e exclua a conta. A exportação de desligamento para o DIMEP.MDB é tentada automaticamente.",
+    "dischargeWarning": "Antes de excluir no RH: remova as digitais no PrintPoint (função 92) com a Credencial/ID — o relógio não aceita PIS. Depois confirme os passos e exclua a conta.",
     "admission": {
       "step1": {
         "title": "Cadastro concluído no OpenHR",
-        "detail": "{{name}} foi salvo. Matrícula registrada: {{employeeId}}."
+        "detail": "{{name}} foi salvo. PIS: {{pisNumber}}. Credencial do relógio: {{credential}}."
       },
       "step2": {
         "title": "Exportar para DMPREP",
-        "detail": "Use Enviar para DMPREP no painel do colaborador. Grava no DIMEP.MDB (DMP REP fechado durante export). Não abra o DMP REP para recadastrar."
+        "detail": "Use Enviar para DMPREP no painel do colaborador. Grava PIS e Credencial no DIMEP.MDB (DMP REP fechado durante export)."
       },
       "step3": {
         "title": "Cadastrar biometria no relógio",
-        "detail": "No PrintPoint SmartPoint B: F1 → 91 → supervisor → credencial {{employeeId}} → 2 dedos (2 leituras cada). Manual §3.5."
+        "detail": "No PrintPoint SmartPoint B: F1 → 91 → supervisor → digite a Credencial {{credential}} (não o PIS) → 2 dedos (2 leituras cada). Manual §3.5."
       },
       "step4": {
         "title": "Validar batidas no RH",
-        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática ~1 h ou Organização → Sistema → Coletar batidas."
+        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática ou Organização → Sistema → Coletar batidas."
       }
     },
     "discharge": {
       "step1": {
         "title": "Excluir digitais no relógio (obrigatório)",
-        "detail": "No PrintPoint SmartPoint B: F1 → 92 → supervisor → credencial {{employeeId}}. Confirme «Digital excluída com sucesso». Manual §3.6."
+        "detail": "No PrintPoint SmartPoint B: F1 → 92 → supervisor → digite a Credencial {{credential}} (não o PIS). Confirme «Digital excluída com sucesso». Manual §3.6."
       },
       "step2": {
         "title": "Remover cadastro no MDB",
@@ -187,7 +193,8 @@
     },
     "errors": {
       "nameRequired": "Informe o nome completo.",
-      "pisInvalid": "PIS/credencial inválido — use 11 ou 12 dígitos numéricos.",
+      "pisInvalid": "PIS inválido — use 11 ou 12 dígitos numéricos.",
+      "credentialInvalid": "Credencial do relógio inválida — use até 12 dígitos numéricos.",
       "cpfInvalid": "CPF inválido.",
       "emailRequired": "Informe o e-mail corporativo.",
       "passwordShort": "A senha deve ter pelo menos 8 caracteres."
@@ -212,7 +219,7 @@
     "stepExport": "Exportado para DMPREP",
     "stepExportDetail": "Cadastro gravado no DIMEP.MDB — substitui cadastrar no DMP REP. Mantenha o DMP REP fechado durante o export; não recadastre manualmente.",
     "stepBio": "Biometria no relógio",
-    "stepBioDetail": "No PrintPoint SmartPoint B: F1 → 91 → supervisor → credencial {{pis}} → cadastre 2 dedos (2 leituras cada). Manual §3.5.",
+    "stepBioDetail": "No PrintPoint SmartPoint B: F1 → 91 → supervisor → Credencial {{credential}} (não o PIS) → 2 dedos (2 leituras cada). Manual §3.5.",
     "stepPunch": "Batida de teste",
     "stepPunchDetail": "Após a primeira batida, o status muda para Pronto automaticamente.",
     "status": {
@@ -245,18 +252,18 @@
     "sectionManual": "Atalhos no relógio",
     "sectionGlossary": "Glossário",
     "admission": {
-      "overview": "O RH cadastra o colaborador e exporta para o DIMEP.MDB (substitui digitar no DMP REP). Depois disso, vá ao relógio PrintPoint SmartPoint B e cadastre a biometria usando a credencial/PIS — sem abrir Operações REP.",
+      "overview": "O RH cadastra o colaborador (PIS + Credencial) e exporta para o DIMEP.MDB. No PrintPoint, use a Credencial/ID (Matrícula do DMP REP) nas funções 91/92 — o relógio não aceita PIS.",
       "step1": {
         "title": "Cadastrar no RH",
-        "detail": "Informe o PIS com 12 dígitos (ex.: {{pis}}). Esse número é a credencial no relógio."
+        "detail": "Informe o PIS (folha) e a Credencial do relógio (ID/Matrícula). Se a Credencial ficar vazia, o sistema usa o PIS."
       },
       "step2": {
         "title": "Exportar para DMPREP",
-        "detail": "Clique Enviar para DMPREP. Grava nome, PIS e credencial no DIMEP.MDB (PC .69). DMP REP deve estar fechado durante o export."
+        "detail": "Clique Enviar para DMPREP. Grava PIS e Credencial no DIMEP.MDB (PC .69). DMP REP deve estar fechado durante o export."
       },
       "step3": {
         "title": "Cadastrar biometria no relógio",
-        "detail": "No PrintPoint SmartPoint B, função 91 (Manual §3.5): supervisor → credencial {{pis}} → cadastre 2 dedos (2 leituras cada no Smart B)."
+        "detail": "No PrintPoint SmartPoint B, função 91 (Manual §3.5): supervisor → digite a Credencial {{credential}} (não o PIS) → 2 dedos (2 leituras cada)."
       },
       "step4": {
         "title": "Validar batida no RH",
@@ -264,10 +271,10 @@
       }
     },
     "discharge": {
-      "overview": "No desligamento, exclua primeiro as digitais no relógio (função 92). Excluir no RH remove o cadastro do MDB, mas não apaga biometria do equipamento.",
+      "overview": "No desligamento, exclua primeiro as digitais no relógio (função 92) com a Credencial/ID — não use o PIS. Excluir no RH remove o cadastro do MDB, mas não apaga biometria do equipamento.",
       "step1": {
         "title": "Excluir digitais no relógio (obrigatório)",
-        "detail": "PrintPoint SmartPoint B, função 92 (Manual §3.6): supervisor → credencial {{employeeId}} de {{name}}. Aguarde «Digital excluída com sucesso»."
+        "detail": "PrintPoint SmartPoint B, função 92 (Manual §3.6): supervisor → Credencial {{credential}} de {{name}}. Aguarde «Digital excluída com sucesso»."
       },
       "step2": {
         "title": "Remover cadastro no MDB",
@@ -284,37 +291,38 @@
     },
     "manual": {
       "admissionTitle": "Inclusão de digitais — função 91",
-      "admissionSteps": "Apos enviar o colaborador pelo console Relogio de Ponto (Comunicacao → Empregados), no equipamento: F1 → 91 → E → PIS/senha do supervisor → E → senha → E → a credencial {{pis}} ja deve estar na lista → selecione o colaborador → E → 1o dedo (2 leituras) → 2o dedo (2 leituras).",
+      "admissionSteps": "Apos enviar o colaborador pelo console Relogio de Ponto (Comunicacao → Empregados), no equipamento: F1 → 91 → E → PIS/senha do supervisor → E → senha → E → a Credencial {{credential}} ja deve estar na lista → selecione o colaborador → E → 1o dedo (2 leituras) → 2o dedo (2 leituras).",
       "dischargeTitle": "Exclusão de digitais — função 92",
-      "dischargeSteps": "Prefira remover digital/empregado pelo console Relogio de Ponto. Manual: F1 → 92 → E → PIS/senha do supervisor → E → senha → E → credencial {{pis}} → E → confirme exclusao.",
-      "modelNote": "SmartPoint B (Secukey): 2 leituras por dedo, ate 2 digitais por colaborador. A digitacao da credencial no teclado so e necessaria se o envio pelo RH falhar."
+      "dischargeSteps": "Prefira remover digital/empregado pelo console Relogio de Ponto. Manual: F1 → 92 → E → PIS/senha do supervisor → E → senha → E → Credencial {{credential}} (nao o PIS) → E → confirme exclusao.",
+      "modelNote": "SmartPoint B (Secukey): 2 leituras por dedo, ate 2 digitais por colaborador.",
+      "credentialNotPis": "Importante: digite a Credencial/ID (Matrícula do DMP REP). O PrintPoint não aceita o PIS no teclado."
     },
     "warnings": {
-      "pisMatch": "O PIS/credencial deve ser idêntico no RH, DIMEP.MDB e no relógio.",
+      "pisMatch": "PIS e Credencial podem ser diferentes. No relógio use sempre a Credencial/ID.",
       "bioOnClock": "Biometria é cadastrada e excluída somente no relógio físico (funções 91 e 92) — não pelo software DMP REP.",
       "noDmprepRecadastro": "Após export bem-sucedido, não recadastre o funcionário manualmente no DMP REP.",
-      "noAutoOffboard": "Excluir no RH não remove biometria do relógio — use função 92 antes de excluir a conta."
+      "noAutoOffboard": "Excluir no RH não remove biometria do relógio — use função 92 com a Credencial antes de excluir a conta."
     },
     "glossary": {
       "pis": {
-        "term": "PIS / Credencial",
-        "definition": "Identificador de 12 dígitos no RH. Mesmo número usado no relógio para cadastrar ou excluir digitais."
+        "term": "PIS / NIS",
+        "definition": "Identificador social (folha/eSocial), 11–12 dígitos. Não é o número digitado no teclado do PrintPoint."
       },
       "nsr": {
         "term": "NSR",
         "definition": "Número Sequencial de Registro — cada operação no relógio (inclusão/exclusão de digital) gera um NSR na memória do equipamento."
       },
       "credential": {
-        "term": "Credencial",
-        "definition": "Código do colaborador no relógio (= PIS). Informado no teclado do PrintPoint ao cadastrar biometria."
+        "term": "Credencial / Matrícula (relógio)",
+        "definition": "ID do colaborador no PrintPoint e coluna Matrícula do DMP REP. Usado nas funções 91/92. Pode ser diferente do PIS."
       },
       "dmprep": {
         "term": "DMPREP / DIMEP.MDB",
-        "definition": "Banco de cadastro mestre no PC .69. O RH exporta para lá; não é necessário recadastrar no software salvo falha de export."
+        "definition": "Banco de cadastro mestre no PC .69. O RH exporta PIS e Credencial para lá."
       },
       "printpoint": {
         "term": "PrintPoint SmartPoint B",
-        "definition": "Relógio biométrico Secukey em 192.168.15.201. Admissão: função 91. Desligamento: função 92. Batidas coletadas automaticamente pelo servidor RH."
+        "definition": "Relógio biométrico Secukey. Admissão: função 91. Desligamento: função 92. Aceita Credencial/ID, não PIS."
       }
     },
     "highlightCritical": "Passo obrigatório"

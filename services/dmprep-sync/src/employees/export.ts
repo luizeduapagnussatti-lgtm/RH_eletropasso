@@ -8,11 +8,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { SyncConfig } from '../config.js';
-import { employeeIdFromPis } from './credentials.js';
+import { employeeIdFromPis, clockCredentialFromValue } from './credentials.js';
 
 export interface ExportEmployeeRow {
   id: string;
   employee_id: string;
+  clock_credential: string | null;
   name: string;
   designation: string | null;
   joining_date: string | null;
@@ -142,17 +143,17 @@ export async function exportEmployeesToDmprep(
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+  const selectCols =
+    'id, employee_id, clock_credential, name, designation, joining_date, clock_onboarding_status';
+
   let query = supabase
     .from('profiles')
-    .select('id, employee_id, name, designation, joining_date, clock_onboarding_status')
+    .select(selectCols)
     .eq('organization_id', config.ingest.organizationId)
     .in('clock_onboarding_status', ['PENDING_EXPORT', 'ERROR']);
 
   if (options?.profileIds?.length) {
-    query = supabase
-      .from('profiles')
-      .select('id, employee_id, name, designation, joining_date, clock_onboarding_status')
-      .in('id', options.profileIds);
+    query = supabase.from('profiles').select(selectCols).in('id', options.profileIds);
   }
 
   const { data: profiles, error } = await query;
@@ -166,11 +167,13 @@ export async function exportEmployeesToDmprep(
     return { exported: 0, failed: 0, skipped: 0, total: 0, errors: [] };
   }
 
-  const payload: ProfileExportPayload[] = rows.map(p => {
+  const payload: ProfileExportPayload[] = rows.map((p) => {
     const pis = employeeIdFromPis(p.employee_id);
+    const credencial =
+      clockCredentialFromValue(p.clock_credential) || pis;
     return {
       pis,
-      credencial: pis,
+      credencial,
       nome: p.name || '',
       cargo: p.designation || '',
       dtAdmissao: p.joining_date || null,
@@ -209,7 +212,8 @@ export async function exportEmployeesToDmprep(
       .update({
         clock_onboarding_status: 'PENDING_BIO',
         clock_onboarding_at: now,
-        clock_onboarding_notes: 'Exportado para DMPREP — cadastre biometria no relógio pelo PIS',
+        clock_onboarding_notes:
+          'Exportado para DMPREP — cadastre biometria no relógio com a Credencial (ID/Matrícula), não o PIS',
       })
       .eq('id', p.id);
     if (upErr) {

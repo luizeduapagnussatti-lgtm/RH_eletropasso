@@ -12,7 +12,7 @@ import {
 import { Employee, ClockOnboardingStatus } from '../../types';
 import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
-import { formatPisDisplay } from '../../utils/employeeCredentials';
+import { formatPisDisplay, formatClockCredentialDisplay, resolveClockCredential } from '../../utils/employeeCredentials';
 import { ClockEmployeeGuide } from './ClockEmployeeGuide';
 
 interface Props {
@@ -49,13 +49,15 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
   const [markingBio, setMarkingBio] = useState(false);
 
   const pis = formatPisDisplay(employee.employeeId);
+  const credRaw = resolveClockCredential(employee.clockCredential, employee.employeeId);
+  const credDisplay = formatClockCredentialDisplay(credRaw) || credRaw;
   const current = employee.clockOnboardingStatus || 'PENDING_EXPORT';
   const step = statusStep(current);
 
-  const copyPis = async () => {
+  const copyCredential = async () => {
     try {
-      await navigator.clipboard.writeText(pis);
-      showToast(t('dmprepChecklist.pisCopied'), 'success');
+      await navigator.clipboard.writeText(credDisplay);
+      showToast(t('dmprepChecklist.credentialCopied'), 'success');
     } catch {
       showToast(t('dmprepChecklist.pisCopyFailed'), 'error');
     }
@@ -94,9 +96,9 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
   };
 
   const steps = [
-    { key: 'rh', done: step >= 1, title: t('clockOnboarding.stepRh'), detail: t('clockOnboarding.stepRhDetail', { pis }) },
+    { key: 'rh', done: step >= 1, title: t('clockOnboarding.stepRh'), detail: t('clockOnboarding.stepRhDetail', { pis, credential: credDisplay }) },
     { key: 'export', done: step >= 2, title: t('clockOnboarding.stepExport'), detail: t('clockOnboarding.stepExportDetail') },
-    { key: 'bio', done: (employee.clockOnboardingNotes || '').includes('Biometria') || current === 'READY', title: t('clockOnboarding.stepBio'), detail: t('clockOnboarding.stepBioDetail', { pis }) },
+    { key: 'bio', done: (employee.clockOnboardingNotes || '').includes('Biometria') || current === 'READY', title: t('clockOnboarding.stepBio'), detail: t('clockOnboarding.stepBioDetail', { pis: credDisplay, credential: credDisplay }) },
     { key: 'punch', done: current === 'READY', title: t('clockOnboarding.stepPunch'), detail: t('clockOnboarding.stepPunchDetail') },
   ];
 
@@ -136,9 +138,9 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
       </ul>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void copyPis()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm">
+        <button type="button" onClick={() => void copyCredential()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm">
           <Copy size={14} />
-          {t('dmprepChecklist.copyPis')} ({pis})
+          {t('dmprepChecklist.copyCredential')} ({credDisplay})
         </button>
         {(current === 'PENDING_EXPORT' || current === 'ERROR') && (
           <button
@@ -185,6 +187,7 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
         defaultExpanded={!compact}
         employeeName={employee.name}
         employeeId={pis}
+        clockCredential={credDisplay}
       />
     </div>
   );

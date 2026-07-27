@@ -5,7 +5,7 @@ import { Employee, Shift, Team, User } from '../../types';
 import { hrService } from '../../services/hrService';
 import { organizationService } from '../../services/organization.service';
 import { assignableRoles, needsClockAdmission } from '../../utils/roles';
-import { normalizePis, validatePis, validateCpf } from '../../utils/employeeCredentials';
+import { normalizePis, validatePis, validateCpf, validateClockCredential, resolveClockCredential } from '../../utils/employeeCredentials';
 import {
   emptyOnboardingForm,
   OnboardingFormState,
@@ -85,6 +85,7 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
           name: emp.name,
           email: emp.email,
           employeeId: emp.employeeId,
+          clockCredential: emp.clockCredential || '',
           cpf: emp.cpf || '',
           password: '',
           role: emp.role,
@@ -102,7 +103,6 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
           shiftId: emp.shiftId || '',
           status: emp.status,
         });
-        setSavedEmployee(emp);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -126,6 +126,8 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       if (needsClockAdmission(form.role)) {
         const pis = validatePis(form.employeeId);
         if (!pis.ok) return t('onboarding.errors.pisInvalid');
+        const cred = validateClockCredential(form.clockCredential);
+        if (!cred.ok) return t('onboarding.errors.credentialInvalid');
       }
       if (form.cpf) {
         const cpf = validateCpf(form.cpf);
@@ -168,6 +170,7 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       const payload: Partial<Employee> & { password?: string } = {
         ...form,
         employeeId: normalizePis(form.employeeId) || form.employeeId,
+        clockCredential: resolveClockCredential(form.clockCredential, form.employeeId) || undefined,
         cpf: form.cpf,
       };
       if (mode === 'create') {

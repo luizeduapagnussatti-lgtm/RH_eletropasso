@@ -335,6 +335,8 @@ export interface Employee extends User {
   employmentType: 'PERMANENT' | 'CONTRACT' | 'TEMPORARY';
   location: string;
   cpf?: string;
+  /** PrintPoint / DMP REP Credencial (Matrícula). May differ from PIS (employeeId). */
+  clockCredential?: string;
   nid?: string;
   password?: string;
   lineManagerId?: string;

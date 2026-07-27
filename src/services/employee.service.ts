@@ -1,7 +1,9 @@
 
 import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabase';
 import { apiClient, dedupe, resolveOrgId } from './api.client';
-import { Employee } from '../types';
+import { Employee, ClockOnboardingStatus } from '../types';
+import { normalizePis, validatePis, normalizeCpf, validateCpf, normalizeClockCredential, validateClockCredential, resolveClockCredential } from '../utils/employeeCredentials';
+import { needsClockAdmission } from '../utils/roles';
 
 let cachedEmployees: Employee[] | null = null;
 let empCacheTimestamp = 0;
@@ -33,8 +35,41 @@ function mapProfileToEmployee(r: any): Employee {
     employmentType: r.employment_type || 'PERMANENT',
     location: r.location || '',
     workType: r.work_type || 'OFFICE',
+    cpf: r.cpf || undefined,
+    clockCredential: r.clock_credential || undefined,
     verified: !!r.verified,
-  } as any;
+    clockOnboardingStatus: r.clock_onboarding_status as ClockOnboardingStatus | undefined,
+    clockOnboardingAt: r.clock_onboarding_at || undefined,
+    clockOnboardingNotes: r.clock_onboarding_notes || undefined,
+  } as Employee;
+}
+
+async function assertUniquePis(orgId: string | null | undefined, pis: string, excludeId?: string) {
+  if (!orgId || !pis) return;
+  let q = supabase
+    .from('profiles')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('employee_id', pis);
+  if (excludeId) q = q.neq('id', excludeId);
+  const { data } = await q.maybeSingle();
+  if (data) throw new Error('PIS already registered for another employee');
+}
+
+async function assertUniqueClockCredential(
+  orgId: string | null | undefined,
+  cred: string,
+  excludeId?: string
+) {
+  if (!orgId || !cred) return;
+  let q = supabase
+    .from('profiles')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('clock_credential', cred);
+  if (excludeId) q = q.neq('id', excludeId);
+  const { data } = await q.maybeSingle();
+  if (data) throw new Error('Clock credential already registered for another employee');
 }
 
 export const employeeService = {
@@ -78,22 +113,44 @@ export const employeeService = {
   async addEmployee(emp: Partial<Employee>) {
     if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) return;
 
+    const role = (emp.role || 'EMPLOYEE').toUpperCase();
+    if (needsClockAdmission(role)) {
+      const pisCheck = validatePis(emp.employeeId);
+      if (!pisCheck.ok) throw new Error('Invalid PIS');
+      const credCheck = validateClockCredential(emp.clockCredential);
+      if (!credCheck.ok) throw new Error('Invalid clock credential');
+    }
+    if (emp.cpf) {
+      const cpfCheck = validateCpf(emp.cpf);
+      if (!cpfCheck.ok) throw new Error('Invalid CPF');
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
+
+    const normalizedPis = emp.employeeId ? normalizePis(emp.employeeId) : '';
+    const normalizedCred = resolveClockCredential(emp.clockCredential, emp.employeeId);
 
     const formData = new FormData();
     if (emp.email)       formData.append('email', emp.email);
     if ((emp as any).password) formData.append('password', (emp as any).password);
     if (emp.name)        formData.append('name', emp.name);
-    if (emp.role)        formData.append('role', emp.role.toUpperCase());
+    formData.append('role', role);
     if (emp.department)  formData.append('department', emp.department);
     if (emp.designation) formData.append('designation', emp.designation);
-    if (emp.employeeId)  formData.append('employeeId', emp.employeeId);
+    if (normalizedPis)   formData.append('employeeId', normalizedPis);
+    if (normalizedCred)  formData.append('clockCredential', normalizedCred);
     if (emp.lineManagerId) formData.append('lineManagerId', emp.lineManagerId);
     if (emp.teamId)      formData.append('teamId', emp.teamId);
     if (emp.shiftId)     formData.append('shiftId', emp.shiftId);
     if (emp.mobile)      formData.append('mobile', emp.mobile);
     if (emp.joiningDate) formData.append('joiningDate', emp.joiningDate);
+    if (emp.employmentType) formData.append('employmentType', emp.employmentType);
+    if (emp.workType)    formData.append('workType', emp.workType);
+    if (emp.location)    formData.append('location', emp.location);
+    if (emp.emergencyContact) formData.append('emergencyContact', emp.emergencyContact);
+    if (emp.cpf)         formData.append('cpf', normalizeCpf(emp.cpf));
+    if (emp.status)      formData.append('status', emp.status);
 
     // Avatar: data URL → Blob
     if (emp.avatar && typeof emp.avatar === 'string' && emp.avatar.startsWith('data:')) {
@@ -117,12 +174,36 @@ export const employeeService = {
   async updateProfile(id: string, updates: Partial<Employee> | any) {
     if (!isSupabaseConfigured()) return;
 
+    const orgId = await resolveOrgId();
     const payload: any = {};
     if (updates.name !== undefined)        payload.name = updates.name;
     if (updates.role !== undefined)        payload.role = updates.role.toUpperCase();
     if (updates.department !== undefined)  payload.department = updates.department;
     if (updates.designation !== undefined) payload.designation = updates.designation;
-    if (updates.employeeId !== undefined)  payload.employee_id = updates.employeeId;
+    if (updates.employeeId !== undefined) {
+      const pis = normalizePis(updates.employeeId);
+      if (pis && needsClockAdmission(updates.role || 'EMPLOYEE')) {
+        const pisCheck = validatePis(updates.employeeId);
+        if (!pisCheck.ok) throw new Error('Invalid PIS');
+      }
+      if (pis) await assertUniquePis(orgId, pis, id);
+      payload.employee_id = pis || null;
+    }
+    if (updates.clockCredential !== undefined) {
+      const credCheck = validateClockCredential(updates.clockCredential);
+      if (!credCheck.ok) throw new Error('Invalid clock credential');
+      const cred = normalizeClockCredential(updates.clockCredential);
+      if (cred) await assertUniqueClockCredential(orgId, cred, id);
+      payload.clock_credential = cred || null;
+    }
+    if (updates.cpf !== undefined) {
+      const cpf = normalizeCpf(updates.cpf);
+      if (cpf) {
+        const cpfCheck = validateCpf(cpf);
+        if (!cpfCheck.ok) throw new Error('Invalid CPF');
+      }
+      payload.cpf = cpf || null;
+    }
     if (updates.mobile !== undefined)      payload.mobile = updates.mobile;
     if (updates.joiningDate !== undefined) payload.joining_date = updates.joiningDate;
     if (updates.employmentType !== undefined) payload.employment_type = updates.employmentType;
@@ -130,6 +211,14 @@ export const employeeService = {
     if (updates.salary !== undefined)      payload.salary = updates.salary;
     if (updates.location !== undefined)    payload.location = updates.location;
     if (updates.emergencyContact !== undefined) payload.emergency_contact = updates.emergencyContact;
+    if (updates.status !== undefined)      payload.status = updates.status;
+    if (updates.clockOnboardingStatus !== undefined) {
+      payload.clock_onboarding_status = updates.clockOnboardingStatus;
+      payload.clock_onboarding_at = new Date().toISOString();
+    }
+    if (updates.clockOnboardingNotes !== undefined) {
+      payload.clock_onboarding_notes = updates.clockOnboardingNotes;
+    }
 
     const lmId = updates.lineManagerId ?? updates.line_manager_id;
     if (lmId !== undefined) payload.line_manager_id = lmId === '' ? null : lmId;

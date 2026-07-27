@@ -9,6 +9,7 @@ import {
   isStaffAdmin,
   needsClockAdmission,
 } from '../utils/roles';
+import { formatClockCredentialDisplay, resolveClockCredential } from '../utils/employeeCredentials';
 import { DmprepLifecyclePanel } from '../components/employees/DmprepLifecyclePanel';
 import { ClockOnboardingPanel } from '../components/employees/ClockOnboardingPanel';
 
@@ -126,6 +127,9 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
 
   const punchKey = employee.employeeId || undefined;
   const clockRole = needsClockAdmission(employee.role);
+  const credDisplay = formatClockCredentialDisplay(
+    resolveClockCredential(employee.clockCredential, employee.employeeId)
+  );
 
   // Non-punching accounts: simple delete confirm (no fingerprint checklist)
   if (mode === 'discharge' && !clockRole) {
@@ -195,6 +199,7 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
           type="discharge"
           employeeName={employee.name}
           punchKey={punchKey}
+          clockCredential={credDisplay}
           onCancel={goDirectory}
           onConfirm={confirmDischarge}
         />
@@ -203,10 +208,15 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
           <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
             {t('dmprepChecklist.warning')}
           </div>
-          {punchKey ? (
+          {credDisplay ? (
             <p className="text-xs text-slate-500">
-              {t('officialEmployeeId')}:{' '}
-              <code className="font-mono font-semibold text-slate-800 dark:text-slate-200">{punchKey}</code>
+              {t('clockCredential')}:{' '}
+              <code className="font-mono font-semibold text-slate-800 dark:text-slate-200">{credDisplay}</code>
+              {punchKey && punchKey !== resolveClockCredential(employee.clockCredential, employee.employeeId) ? (
+                <span className="ml-2 text-slate-400">
+                  ({t('officialEmployeeId')}: {punchKey})
+                </span>
+              ) : null}
             </p>
           ) : null}
           <ClockOnboardingPanel

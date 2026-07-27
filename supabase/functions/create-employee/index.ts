@@ -8,6 +8,53 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const PUNCHING_ROLES = new Set(['EMPLOYEE', 'MANAGER', 'TEAM_LEAD']);
+
+function normalizePis(value: string): string {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? digits.padStart(12, '0') : '';
+}
+
+function validatePis(value: string): boolean {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.length >= 11 && digits.length <= 12 && /^\d+$/.test(digits);
+}
+
+function normalizeClockCredential(value: string): string {
+  let digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length > 12) digits = digits.slice(-12);
+  return digits.padStart(12, '0');
+}
+
+function resolveClockCredential(clockCredential: string, pis: string): string {
+  return normalizeClockCredential(clockCredential) || normalizePis(pis);
+}
+
+function normalizeCpf(value: string): string {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
+function validateCpf(value: string): boolean {
+  const cpf = normalizeCpf(value);
+  if (!cpf) return true;
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i], 10) * (10 - i);
+  let d1 = (sum * 10) % 11;
+  if (d1 === 10) d1 = 0;
+  if (d1 !== parseInt(cpf[9], 10)) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i], 10) * (11 - i);
+  let d2 = (sum * 10) % 11;
+  if (d2 === 10) d2 = 0;
+  return d2 === parseInt(cpf[10], 10);
+}
+
+function initialClockStatus(role: string): string {
+  return PUNCHING_ROLES.has(role.toUpperCase()) ? 'PENDING_EXPORT' : 'NOT_APPLICABLE';
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -16,7 +63,6 @@ Deno.serve(async (req: Request) => {
     return jsonError(405, 'Method not allowed');
   }
 
-  // Verify caller JWT
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return jsonError(401, 'Missing Authorization header');
 
@@ -34,7 +80,6 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Fetch caller's profile to verify role + org
   const { data: callerProfile, error: profileErr } = await adminClient
     .from('profiles')
     .select('role, organization_id')
@@ -54,12 +99,19 @@ Deno.serve(async (req: Request) => {
     const role        = (formData.get('role')?.toString() ?? 'EMPLOYEE').toUpperCase();
     const department  = formData.get('department')?.toString()?.trim() ?? '';
     const designation = formData.get('designation')?.toString()?.trim() ?? '';
-    const employeeId  = formData.get('employeeId')?.toString()?.trim() ?? '';
+    const employeeIdRaw = formData.get('employeeId')?.toString()?.trim() ?? '';
+    const clockCredentialRaw = formData.get('clockCredential')?.toString()?.trim() ?? '';
     const lineManagerId = formData.get('lineManagerId')?.toString()?.trim() || null;
     const teamId      = formData.get('teamId')?.toString()?.trim() || null;
     const shiftId     = formData.get('shiftId')?.toString()?.trim() || null;
     const mobile      = formData.get('mobile')?.toString()?.trim() ?? '';
     const joiningDate = formData.get('joiningDate')?.toString()?.trim() || null;
+    const employmentType = formData.get('employmentType')?.toString()?.trim() || 'PERMANENT';
+    const workType    = formData.get('workType')?.toString()?.trim() || 'OFFICE';
+    const location    = formData.get('location')?.toString()?.trim() ?? '';
+    const emergencyContact = formData.get('emergencyContact')?.toString()?.trim() ?? '';
+    const cpfRaw      = formData.get('cpf')?.toString()?.trim() ?? '';
+    const status      = formData.get('status')?.toString()?.trim() || 'ACTIVE';
     const avatarFile  = formData.get('avatar') instanceof File ? formData.get('avatar') as File : null;
 
     if (!email || !password || !name) {
@@ -69,9 +121,45 @@ Deno.serve(async (req: Request) => {
       return jsonError(400, 'Password must be at least 8 characters');
     }
 
+    const employeeId = normalizePis(employeeIdRaw);
+    if (PUNCHING_ROLES.has(role)) {
+      if (!employeeIdRaw || !validatePis(employeeIdRaw)) {
+        return jsonError(400, 'Invalid or missing PIS (11–12 digits) for clock-in roles');
+      }
+    }
+    const clockCredential = resolveClockCredential(clockCredentialRaw, employeeId);
+
+    const cpf = normalizeCpf(cpfRaw);
+    if (cpf && !validateCpf(cpfRaw)) {
+      return jsonError(400, 'Invalid CPF');
+    }
+
     const orgId = callerProfile.organization_id;
 
-    // Create auth user
+    if (employeeId) {
+      const { data: dup } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('employee_id', employeeId)
+        .maybeSingle();
+      if (dup) {
+        return jsonError(409, 'PIS already registered for another employee in this organization');
+      }
+    }
+
+    if (clockCredential) {
+      const { data: dupCred } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('clock_credential', clockCredential)
+        .maybeSingle();
+      if (dupCred) {
+        return jsonError(409, 'Clock credential already registered for another employee in this organization');
+      }
+    }
+
     const { data: authData, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -83,12 +171,10 @@ Deno.serve(async (req: Request) => {
       return jsonError(400, 'Failed to create user: ' + createErr?.message);
     }
 
-    // admin.createUser does NOT auto-send verification email — trigger it explicitly
     await adminClient.auth.resend({ type: 'signup', email });
 
     const userId = authData.user.id;
 
-    // Upload avatar if provided
     let avatarPath: string | null = null;
     if (avatarFile && avatarFile.size > 0) {
       try {
@@ -102,10 +188,9 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Create profile.
-    // NOTE: the `on_auth_user_created` trigger (handle_new_user) already inserts a
-    // minimal profile row when the auth user is created above, so a plain insert
-    // here collides on profiles_pkey. Upsert on `id` to fill in the full details.
+    const clockStatus = initialClockStatus(role);
+    const now = new Date().toISOString();
+
     const { error: profileInsertErr } = await adminClient.from('profiles').upsert({
       id:              userId,
       organization_id: orgId,
@@ -113,6 +198,8 @@ Deno.serve(async (req: Request) => {
       email,
       role,
       employee_id:     employeeId || null,
+      clock_credential: clockCredential || null,
+      cpf:             cpf || null,
       department:      department || null,
       designation:     designation || null,
       line_manager_id: lineManagerId,
@@ -120,18 +207,24 @@ Deno.serve(async (req: Request) => {
       shift_id:        shiftId,
       mobile:          mobile || null,
       joining_date:    joiningDate,
+      employment_type: employmentType,
+      work_type:       workType,
+      location:        location || null,
+      emergency_contact: emergencyContact || null,
+      status:          status,
+      clock_onboarding_status: clockStatus,
+      clock_onboarding_at: clockStatus === 'PENDING_EXPORT' ? now : null,
       avatar:          avatarPath,
       verified:        false,
     }, { onConflict: 'id' });
 
     if (profileInsertErr) {
-      // Rollback auth user
       await adminClient.auth.admin.deleteUser(userId);
       return jsonError(400, 'Failed to create profile: ' + profileInsertErr.message);
     }
 
     return new Response(
-      JSON.stringify({ success: true, userId }),
+      JSON.stringify({ success: true, userId, clockOnboardingStatus: clockStatus }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
 

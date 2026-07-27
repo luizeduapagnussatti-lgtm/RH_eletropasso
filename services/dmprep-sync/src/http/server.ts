@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import pino from 'pino';
 import type { SyncConfig } from '../config.js';
-import { importEmployeesFromDmprep } from '../employees/import.js';
+import { importEmployeesFromDmprep, backfillClockCredentialsFromDmprep } from '../employees/import.js';
 import { exportEmployeesToDmprep, exportEmployeeDischargeFromDmprep } from '../employees/export.js';
 import { loadSyncState } from '../state.js';
 import { runSyncOnce } from '../sync.js';
@@ -25,6 +25,7 @@ export interface ManualSyncResult {
   busy?: boolean;
   punches?: Awaited<ReturnType<typeof runSyncOnce>>;
   employees?: Awaited<ReturnType<typeof importEmployeesFromDmprep>>;
+  credentialBackfill?: Awaited<ReturnType<typeof backfillClockCredentialsFromDmprep>>;
   export?: Awaited<ReturnType<typeof exportEmployeesToDmprep>>;
   discharge?: Awaited<ReturnType<typeof exportEmployeeDischargeFromDmprep>>;
   masters?: Awaited<ReturnType<typeof runWatchCommMasters>>;
@@ -175,6 +176,7 @@ export function startHttpServer(
             return payload;
           }
           if (scope === 'all' || scope === 'employees') {
+            payload.credentialBackfill = await backfillClockCredentialsFromDmprep(config);
             payload.employees = await importEmployeesFromDmprep(config);
           }
           if (scope === 'all' || scope === 'punches') {
