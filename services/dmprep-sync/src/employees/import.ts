@@ -7,9 +7,19 @@ import { employeeIdFromPis, importEmailFromPis, pisLookupKeys, clockCredentialFr
 export interface DmprepFuncionarioRow {
   PIS?: string | number | null;
   Credencial?: string | number | null;
+  /** DMPREP matrícula/ID — used when Credencial is empty. */
+  Codigo?: string | number | null;
   Nome?: string | null;
   Cargo?: string | null;
   DtAdmissao?: string | null;
+}
+
+/** Prefer Credencial; fall back to Codigo (common when Credencial column is blank). */
+export function resolveClockCredentialFromDmprepRow(row: DmprepFuncionarioRow): string {
+  return (
+    clockCredentialFromValue(String(row.Credencial ?? '')) ||
+    clockCredentialFromValue(String(row.Codigo ?? ''))
+  );
 }
 
 export interface EmployeeImportResult {
@@ -126,7 +136,7 @@ export async function backfillClockCredentialsFromDmprep(
 
   for (const row of employees) {
     const pis = employeeIdFromPis(String(row.PIS ?? ''));
-    const cred = clockCredentialFromValue(String(row.Credencial ?? ''));
+    const cred = resolveClockCredentialFromDmprepRow(row);
     if (!pis || !cred) {
       skipped++;
       continue;
@@ -139,7 +149,7 @@ export async function backfillClockCredentialsFromDmprep(
       skipped++;
       continue;
     }
-    if (profile.clock_credential) {
+    if (profile.clock_credential && profile.clock_credential !== pis) {
       skipped++;
       continue;
     }
@@ -195,8 +205,7 @@ export async function importEmployeesFromDmprep(
 
   for (const row of employees) {
     const employeeId = employeeIdFromPis(String(row.PIS ?? ''));
-    const clockCredential =
-      clockCredentialFromValue(String(row.Credencial ?? '')) || employeeId;
+    const clockCredential = resolveClockCredentialFromDmprepRow(row) || employeeId;
     const name = String(row.Nome ?? '').trim();
     const designation = String(row.Cargo ?? '').trim() || null;
     const joiningDate = parseDate(row.DtAdmissao);

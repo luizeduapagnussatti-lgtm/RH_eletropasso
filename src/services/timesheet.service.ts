@@ -370,18 +370,20 @@ export const timesheetService = {
     return count;
   },
 
-  async acknowledgeDay(dayId: string, who: 'employee' | 'manager'): Promise<void> {
-    const payload = who === 'employee' ? { employee_ack: true } : { manager_ack: true };
+  async acknowledgeDay(dayId: string, who: 'employee' | 'manager', acked = true): Promise<void> {
+    const payload =
+      who === 'employee' ? { employee_ack: acked } : { manager_ack: acked };
     const { error } = await supabase.from('timesheet_days').update(payload).eq('id', dayId);
     if (error) throw error;
     apiClient.notify();
   },
 
   /** Bulk manager/employee acknowledgement for selected timesheet days. */
-  async acknowledgeDays(dayIds: string[], who: 'employee' | 'manager'): Promise<number> {
+  async acknowledgeDays(dayIds: string[], who: 'employee' | 'manager', acked = true): Promise<number> {
     const ids = [...new Set(dayIds.filter(Boolean))];
     if (ids.length === 0) return 0;
-    const payload = who === 'employee' ? { employee_ack: true } : { manager_ack: true };
+    const payload =
+      who === 'employee' ? { employee_ack: acked } : { manager_ack: acked };
     const { error, count } = await supabase
       .from('timesheet_days')
       .update(payload, { count: 'exact' })
@@ -408,6 +410,8 @@ export const timesheetService = {
       status: 'ADJUSTED',
       remarks: remarks || existing.remarks,
       updated: new Date().toISOString(),
+      // Editing hours after approval requires a fresh manager ack.
+      manager_ack: false,
     };
     if (typeof adjustment.workedMinutes === 'number') patch.worked_minutes = adjustment.workedMinutes;
     if (typeof adjustment.overtimeMinutes === 'number') patch.overtime_minutes = adjustment.overtimeMinutes;

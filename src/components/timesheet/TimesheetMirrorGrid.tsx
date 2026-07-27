@@ -19,6 +19,7 @@ interface Props {
   onAdjust: (day: TimesheetDay) => void;
   onAckEmployee: (dayId: string) => void;
   onAckManager: (dayId: string) => void;
+  onRevokeManagerAck: (dayId: string) => void;
 }
 
 function formatDayLabel(workDate: string): { primary: string; secondary: string; isWeekend: boolean } {
@@ -55,6 +56,7 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
   onAdjust,
   onAckEmployee,
   onAckManager,
+  onRevokeManagerAck,
 }) => {
   const { t } = useTranslation('ptrp');
 
@@ -147,7 +149,7 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
                     <span className="font-medium text-slate-800">{dayStatusLabel(day.status)}</span>
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 items-center">
                       {!day.managerAck && (isManager || isHr) && !locked && (
                         <button
                           type="button"
@@ -158,12 +160,23 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
                         </button>
                       )}
                       {day.managerAck && (
-                        <span className="text-emerald-700 text-xs font-semibold" title={t('managerAck')}>✓</span>
+                        <>
+                          <span className="text-emerald-700 text-xs font-semibold" title={t('managerAck')}>✓</span>
+                          {(isManager || isHr) && !locked && (
+                            <button
+                              type="button"
+                              className="text-xs px-2 py-1 border border-amber-200 text-amber-900 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
+                              onClick={() => onRevokeManagerAck(day.id)}
+                            >
+                              {t('revokeManagerAck')}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
-                    {isHr && !locked && (
+                    {(isHr || isManager) && !locked && (
                       <button
                         type="button"
                         className="text-primary font-semibold text-sm hover:underline"

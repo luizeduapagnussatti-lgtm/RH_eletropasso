@@ -16,6 +16,33 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-27',
+    title: 'Espelho — desfazer aprovação e modal didático',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Após aprovar a carga horária do dia, gestor/RH pode Desfazer aprovação (grade e modal) para editar de novo; salvar ajuste limpa a aprovação e exige nova conferência.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Modal da carga do dia redesenhado: status de aprovação claro, passos 1–3, +/− 15 min, “Usar prevista” e fluxo simples para corrigir totais.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'Credenciais do relógio a partir do DMPREP',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Atualizou profiles.clock_credential com o Codigo (matrícula/ID) do DIMEP.MDB para 11 colaboradores; o sync passa a usar Codigo quando Credencial vem vazia no MDB.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'README do RH_Eletropasso',
     entries: [
       {

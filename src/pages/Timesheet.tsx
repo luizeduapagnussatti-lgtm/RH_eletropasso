@@ -651,6 +651,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   }) => {
     if (!adjustDay || locked) return;
     try {
+      const wasAcked = adjustDay.managerAck;
       await hrService.applyTimesheetAdjustment(
         adjustDay.id,
         {
@@ -662,7 +663,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         values.remarks
       );
       setAdjustDay(null);
-      showToast(t('adjustSaved'), 'success');
+      showToast(wasAcked ? t('adjustSavedNeedsReack') : t('adjustSaved'), 'success');
       await load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : t('loadFailed');
@@ -973,8 +974,16 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               dayStatusLabel={dayStatusLabel}
               fmtMinutes={mins => fmtMinutes(mins, t)}
               onAdjust={openAdjust}
-              onAckEmployee={id => { void hrService.acknowledgeTimesheetDay(id, 'employee').then(load); }}
-              onAckManager={id => { void hrService.acknowledgeTimesheetDay(id, 'manager').then(load); }}
+              onAckEmployee={id => { void hrService.acknowledgeTimesheetDay(id, 'employee', true).then(load); }}
+              onAckManager={id => { void hrService.acknowledgeTimesheetDay(id, 'manager', true).then(load); }}
+              onRevokeManagerAck={id => {
+                void hrService.acknowledgeTimesheetDay(id, 'manager', false).then(() => {
+                  showToast(t('revokeManagerAckOk'), 'success');
+                  return load();
+                }).catch((e: unknown) => {
+                  showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
+                });
+              }}
             />
           ) : (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
@@ -1087,22 +1096,42 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <span className="font-medium text-slate-800">{dayStatusLabel(d.status)}</span>
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="flex flex-wrap gap-1">
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1 items-center">
                             {!d.managerAck && (isManager || isHr) && !locked && (
                               <button
                                 type="button"
                                 className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200"
-                                onClick={() => hrService.acknowledgeTimesheetDay(d.id, 'manager').then(load)}
+                                onClick={() => hrService.acknowledgeTimesheetDay(d.id, 'manager', true).then(load)}
                               >
                                 {t('managerAck')}
                               </button>
                             )}
-                            {d.managerAck && <span className="text-emerald-700 text-xs font-semibold" title={t('managerAck')}>✓</span>}
+                            {d.managerAck && (
+                              <>
+                                <span className="text-emerald-700 text-xs font-semibold" title={t('managerAck')}>✓</span>
+                                {(isManager || isHr) && !locked && (
+                                  <button
+                                    type="button"
+                                    className="text-xs px-2 py-1 border border-amber-200 text-amber-900 bg-amber-50 rounded-md hover:bg-amber-100"
+                                    onClick={() => {
+                                      void hrService.acknowledgeTimesheetDay(d.id, 'manager', false).then(() => {
+                                        showToast(t('revokeManagerAckOk'), 'success');
+                                        return load();
+                                      }).catch((e: unknown) => {
+                                        showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
+                                      });
+                                    }}
+                                  >
+                                    {t('revokeManagerAck')}
+                                  </button>
+                                )}
+                              </>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          {isHr && !locked && (
+                          {(isHr || isManager) && !locked && (
                             <button
                               type="button"
                               className="text-primary font-semibold text-sm hover:underline"
@@ -1223,8 +1252,16 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           employeeName={empName(adjustDay.employeeId)}
           dayStatusLabel={dayStatusLabel}
           fmtMinutes={mins => fmtMinutes(mins, t)}
+          canManageAck={(isManager || isHr) && !locked}
+          canEditHours={(isHr || isManager) && !locked}
           onClose={() => setAdjustDay(null)}
           onSave={saveAdjust}
+          onSetManagerAck={async (acked) => {
+            await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', acked);
+            setAdjustDay(prev => (prev ? { ...prev, managerAck: acked } : null));
+            showToast(acked ? t('managerAckOk') : t('revokeManagerAckOk'), 'success');
+            await load();
+          }}
         />
       )}
 
