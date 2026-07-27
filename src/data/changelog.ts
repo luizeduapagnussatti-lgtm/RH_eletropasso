@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-27',
+    title: 'README do RH_Eletropasso',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'README.md reescrito para o produto Eletropasso (deixou de ser o texto genérico OpenHR): PrintPoint/WatchComm, console do relógio, PIS×Credencial, papéis ADMIN/HR, branches git, migrations 0001–0036, Edge Functions e scripts da loja.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'Coletar batidas — BOM no resultado WatchComm',
     entries: [
       {
