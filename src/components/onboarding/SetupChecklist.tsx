@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, CheckCircle2, ArrowRight, HelpCircle, PartyPopper, RotateCcw, BookOpen } from 'lucide-react';
 import { useSetupChecklist, SetupStep } from '../../hooks/onboarding/useSetupChecklist';
@@ -85,6 +85,11 @@ const SetupChecklist: React.FC<Props> = ({ user, onNavigate }) => {
   } = useSetupChecklist(user.role);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // When setup is done, stay out of the way — collapsed by default
+  useEffect(() => {
+    if (allComplete) setIsCollapsed(true);
+  }, [allComplete]);
 
   if (!isAdminOrHR) return null;
   if (isLoading) return null;

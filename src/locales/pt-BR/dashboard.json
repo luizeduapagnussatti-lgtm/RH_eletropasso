@@ -43,5 +43,11 @@
   "manager": "Gestor",
   "noManager": "Sem gestor",
   "newRequest": "Nova solicitação",
-  "noAnnouncements": "Nenhum comunicado"
+  "noAnnouncements": "Nenhum comunicado",
+  "todaySnapshot": "Resumo de hoje",
+  "presentTodayLabel": "Presentes hoje",
+  "pendingLeavesLabel": "Licenças pendentes",
+  "teamHeadcountLabel": "Colaboradores",
+  "lateCount": "{{count}} atrasos",
+  "timesheet": "Espelho"
 }

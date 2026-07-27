@@ -101,6 +101,8 @@ export interface DayCalcInput {
   isHoliday: boolean;
   onApprovedLeave: boolean;
   leaveRequestId?: string;
+  /** When a roster is published for this date: WORK forces duty, OFF forces day off. */
+  rosterStatus?: 'WORK' | 'OFF' | null;
 }
 
 export interface DayCalcResult {
@@ -120,9 +122,10 @@ export interface DayCalcResult {
 }
 
 export function calculateDay(input: DayCalcInput): DayCalcResult {
-  const { date, punches, shift, isHoliday, onApprovedLeave, leaveRequestId } = input;
+  const { date, punches, shift, isHoliday, onApprovedLeave, leaveRequestId, rosterStatus } = input;
 
-  if (isHoliday) {
+  // Holiday: only people explicitly rostered to WORK are on duty
+  if (isHoliday && rosterStatus !== 'WORK') {
     return {
       expectedMinutes: 0,
       workedMinutes: 0,
@@ -153,7 +156,11 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
     };
   }
 
-  const working = shift ? isWorkingDay(date, shift.workingDays || []) : true;
+  const shiftWorking = shift ? isWorkingDay(date, shift.workingDays || []) : true;
+  let working = shiftWorking;
+  if (rosterStatus === 'WORK') working = true;
+  if (rosterStatus === 'OFF') working = false;
+
   const daySched = resolveShiftDay(shift, date);
   const expected = working ? daySched.expectedDailyMinutes : 0;
   const breakMins = daySched.breakDurationMinutes;
@@ -174,7 +181,7 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
       overtimeMinutes: 0,
       nightMinutes: 0,
       absenceMinutes: 0,
-      status: 'OK',
+      status: isHoliday ? 'HOLIDAY' : 'OK',
       firstPunchAt: first,
       lastPunchAt: last,
       shiftId: shift?.id,

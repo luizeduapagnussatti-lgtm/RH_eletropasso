@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const booleanFromString = z
   .enum(['true', 'false'])
@@ -20,10 +24,18 @@ const configSchema = z.object({
   REP_ACK_STATUS: z.coerce.number().int().min(200).max(599).default(200),
   REP_ACK_CONTENT_TYPE: z.string().default('text/plain; charset=utf-8'),
   REP_ACK_BODY: z.string().default('OK'),
-  REP_ACK_MODE: z.enum(['plain', 'rsa-pkcs1-probe']).default('plain'),
+  REP_ACK_MODE: z.enum(['plain', 'rsa-pkcs1-probe', 'watchcomm-rsa']).default('plain'),
   REP_ACK_RSA_PLAINTEXT_HEX: z.string().regex(/^(?:[0-9a-fA-F]{2})*$/).default(''),
   REP_ACK_RSA_PROBE_HEX_CANDIDATES: z.string().default('empty'),
   REP_ACK_RSA_PROBE_VARIANTS: z.string().default('pkcs1-binary'),
+  REP_ACK_WATCHCOMM_PROBES: z
+    .string()
+    .default('status-inquiry,inquiry-immediate-status,empty,frame70'),
+  REP_WATCHCOMM_BRIDGE_URL: z.string().url().optional(),
+  REP_WATCHCOMM_SCRIPT_PATH: z.string().default('research/generate-watchcomm-ack.ps1'),
+  REP_WATCHCOMM_POWERSHELL_PATH: z
+    .string()
+    .default('C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe'),
   REP_SECURITY_MODE: z.enum(['discovery', 'verify']).default('discovery'),
   REP_RSA_MODULUS_HEX: z.string().regex(/^[0-9a-fA-F]+$/).optional(),
   REP_RSA_EXPONENT_HEX: z.string().regex(/^[0-9a-fA-F]+$/).default('010001'),
@@ -58,10 +70,14 @@ export type GatewayConfig = {
     status: number;
     contentType: string;
     body: string;
-    mode: 'plain' | 'rsa-pkcs1-probe';
+    mode: 'plain' | 'rsa-pkcs1-probe' | 'watchcomm-rsa';
     rsaPlaintextHex: string;
     rsaProbeHexCandidates: string[];
     rsaProbeVariants: string[];
+    watchcommProbes: string[];
+    watchcommBridgeUrl?: string;
+    watchcommScriptPath: string;
+    watchcommPowershellPath: string;
   };
   security: {
     mode: 'discovery' | 'verify';
@@ -136,6 +152,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
       rsaProbeVariants: parsed.REP_ACK_RSA_PROBE_VARIANTS.split(',')
         .map((variant) => variant.trim())
         .filter(Boolean),
+      watchcommProbes: parsed.REP_ACK_WATCHCOMM_PROBES.split(',')
+        .map((probe) => probe.trim())
+        .filter(Boolean),
+      watchcommBridgeUrl: parsed.REP_WATCHCOMM_BRIDGE_URL,
+      watchcommScriptPath: resolveGatewayPath(parsed.REP_WATCHCOMM_SCRIPT_PATH),
+      watchcommPowershellPath: parsed.REP_WATCHCOMM_POWERSHELL_PATH,
     },
     security: {
       mode: parsed.REP_SECURITY_MODE,
@@ -166,4 +188,9 @@ export function normalizeIp(ip: string): string {
   if (ip.startsWith('::ffff:')) return ip.slice(7);
   if (ip === '::1') return '127.0.0.1';
   return ip;
+}
+
+function resolveGatewayPath(configuredPath: string): string {
+  if (path.isAbsolute(configuredPath)) return configuredPath;
+  return path.resolve(packageRoot, configuredPath);
 }

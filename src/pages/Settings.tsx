@@ -12,9 +12,11 @@ import { useTranslation } from 'react-i18next';
 import { AdminVerificationPanel } from '../components/admin/AdminVerificationPanel';
 import HelpButton from '../components/onboarding/HelpButton';
 import { ReEnableSetupGuide } from '../components/onboarding/SetupChecklist';
+import { LanSharePanel } from '../components/mobile/LanSharePanel';
 import { contactService } from '../services/contact.service';
 import { useToast } from '../context/ToastContext';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../config/branding';
+import { getContactReplyEmailPrefill, isInternalAuthEmail } from '../utils/emailUtils';
 
 interface SettingsProps {
   user: UserType;
@@ -118,10 +120,14 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
     load();
   }, [user.id, user.name, user.email, user.role, user.department, user.designation, user.employeeId]);
 
-  // Pre-fill contact form with user info
+  // Pre-fill contact form with user info (skip internal login-only emails)
   useEffect(() => {
-    if (!contactInitialized && user.name && user.email) {
-      setContactForm(prev => ({ ...prev, name: user.name || '', email: user.email || '' }));
+    if (!contactInitialized && user.name) {
+      setContactForm((prev) => ({
+        ...prev,
+        name: user.name || '',
+        email: getContactReplyEmailPrefill(user.email),
+      }));
       setContactInitialized(true);
     }
   }, [user.name, user.email, contactInitialized]);
@@ -132,6 +138,16 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
 
     if (!contactForm.message.trim()) {
       setContactResult({ type: 'error', message: t('enterMessage') });
+      return;
+    }
+
+    if (!contactForm.email.trim()) {
+      setContactResult({ type: 'error', message: t('enterReplyEmail') });
+      return;
+    }
+
+    if (isInternalAuthEmail(contactForm.email)) {
+      setContactResult({ type: 'error', message: t('internalReplyEmailError') });
       return;
     }
 
@@ -207,6 +223,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
       </header>
 
       <div className="max-w-3xl space-y-6">
+        <LanSharePanel />
         <LanguageSelector />
         <ThemeSelector />
       </div>
@@ -387,6 +404,9 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
             </a>
           </div>
           <p className="text-xs text-slate-400">{t('contactFormReplyHint')}</p>
+          {isInternalAuthEmail(user.email) ? (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{t('internalLoginEmailHint')}</p>
+          ) : null}
           <form onSubmit={handleContactSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
@@ -409,6 +429,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
                     type="email"
                     value={contactForm.email}
                     onChange={e => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder={t('yourReplyEmailPlaceholder')}
+                    required
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light"
                   />
                 </div>

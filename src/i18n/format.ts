@@ -5,6 +5,12 @@ export function getDateLocale(): string {
   return i18n.language?.startsWith('pt') ? 'pt-BR' : 'en-US';
 }
 
+export function formatIsoDateBr(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!m) return formatDate(iso, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 export function formatDate(value: string | number | Date, options?: Intl.DateTimeFormatOptions): string {
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);

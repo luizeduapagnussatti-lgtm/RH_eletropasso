@@ -23,6 +23,59 @@ export interface PunchDaySummary {
   punches: Punch[];
 }
 
+/** Up to two IN/OUT pairs for mirror display (presentation only — not payroll calc). */
+export interface PunchDaySlots {
+  entry1?: string;
+  exit1?: string;
+  entry2?: string;
+  exit2?: string;
+  overflow: Punch[];
+  allPunches: Punch[];
+}
+
+function punchDateKey(punchedAt: string): string {
+  return punchedAt.slice(0, 10);
+}
+
+/** Chronological slots: Entrada1, Saída1, Entrada2, Saída2; extras in overflow. */
+export function pairPunchesToSlots(punches: Punch[], date: string): PunchDaySlots {
+  const dayPunches = punches
+    .filter(p => punchDateKey(p.punchedAt) === date)
+    .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+
+  const slotTimes: (string | undefined)[] = [undefined, undefined, undefined, undefined];
+  const overflow: Punch[] = [];
+
+  for (let i = 0; i < dayPunches.length; i++) {
+    const p = dayPunches[i]!;
+    if (i < 4) slotTimes[i] = p.punchedAt;
+    else overflow.push(p);
+  }
+
+  return {
+    entry1: slotTimes[0],
+    exit1: slotTimes[1],
+    entry2: slotTimes[2],
+    exit2: slotTimes[3],
+    overflow,
+    allPunches: dayPunches,
+  };
+}
+
+export function groupPunchesByDate(punches: Punch[]): Map<string, Punch[]> {
+  const map = new Map<string, Punch[]>();
+  for (const p of punches) {
+    const date = punchDateKey(p.punchedAt);
+    const list = map.get(date) ?? [];
+    list.push(p);
+    map.set(date, list);
+  }
+  for (const [date, list] of map) {
+    map.set(date, [...list].sort((a, b) => a.punchedAt.localeCompare(b.punchedAt)));
+  }
+  return map;
+}
+
 /** Pair punches for a calendar day (local date YYYY-MM-DD). */
 export function consolidatePunchesForDay(punches: Punch[], date: string): PunchDaySummary {
   const dayPunches = punches

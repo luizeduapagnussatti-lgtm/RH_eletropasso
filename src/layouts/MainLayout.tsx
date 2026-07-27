@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, LayoutDashboard, Clock, CalendarDays, UserCircle, Sun, Moon } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Clock, CalendarDays, UserCircle, Sun, Moon, PanelLeftClose, PanelLeftOpen, ClipboardList, CalendarCheck } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import NotificationBell from '../components/notifications/NotificationBell';
 import { useAuth } from '../context/AuthContext';
@@ -8,12 +8,43 @@ import { useTheme } from '../context/ThemeContext';
 import { SubscriptionBanner } from '../components/subscription';
 import { APP_NAME, STORE_LOGO_PATH } from '../config/branding';
 import { isNonPunchingStaff } from '../utils/roles';
+import { useEmployeeMobileShell } from '../hooks/useEmployeeMobileShell';
 
+const SIDEBAR_STORAGE_KEY = 'openhr_sidebar_collapsed';
+
+/** Data-dense screens that need the full content column (no max-w-4xl). */
+const WIDE_CONTENT_PATHS = new Set([
+  'timesheet',
+  'my-timesheet',
+  'my-roster',
+  'roster',
+  'reports',
+  'employees',
+  'attendance-audit',
+  'attendance-logs',
+  'organization',
+  'performance-review',
+]);
+
+function readCollapsedPreference(): boolean {
+  try {
+    const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (saved === '1') return true;
+    if (saved === '0') return false;
+  } catch {
+    /* ignore */
+  }
+  // First visit: collapse on laptop-width desktops to free table space
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(max-width: 1279px)').matches;
+  }
+  return false;
+}
 
 interface MainLayoutProps {
   children: React.ReactNode;
   currentPath: string;
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string, params?: any) => void;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNavigate }) => {
@@ -21,10 +52,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   const { user, logout } = useAuth();
   const { darkMode, setDarkModePreference } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsedPreference);
+  const employeeMobileShell = useEmployeeMobileShell();
   const historyPath = isNonPunchingStaff(user?.role) ? 'attendance-audit' : 'attendance-logs';
+  const isWideContent = WIDE_CONTENT_PATHS.has(currentPath);
 
-  const handleNavigate = (path: string) => {
-    onNavigate(path);
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, sidebarCollapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
+
+  const toggleSidebarCollapsed = () => setSidebarCollapsed((v) => !v);
+
+  const handleNavigate = (path: string, params?: any) => {
+    onNavigate(path, params);
     setIsMobileMenuOpen(false);
   };
 
@@ -44,32 +88,71 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
         {t('skipToContent')}
       </a>
       {/* Mobile Overlay */}
-      <div 
+      <div
         className={`fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] md:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* Sidebar */}
-      <div className={`fixed h-full z-[70] transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar 
-          currentPath={currentPath} 
-          onNavigate={handleNavigate} 
-          onLogout={handleLogout} 
-          role={user.role} 
-          user={user}
-        />
+      {/* Sidebar — mobile drawer always expanded; desktop respects collapse */}
+      <div
+        className={`fixed h-full z-[70] transition-[transform,width] duration-200 ease-out motion-reduce:transition-none md:translate-x-0 ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Mobile drawer */}
+        <div className="md:hidden h-full">
+          <Sidebar
+            currentPath={currentPath}
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            role={user.role}
+            user={user}
+            collapsed={false}
+            showCollapseToggle={false}
+          />
+        </div>
+        {/* Desktop sidebar */}
+        <div className="hidden md:block h-full">
+          <Sidebar
+            currentPath={currentPath}
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            role={user.role}
+            user={user}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapsed}
+            showCollapseToggle
+          />
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-80 flex flex-col min-h-screen max-w-full overflow-hidden">
+      <main
+        className={`flex-1 flex flex-col min-h-screen max-w-full overflow-hidden transition-[margin] duration-200 ease-out motion-reduce:transition-none ${
+          sidebarCollapsed ? 'md:ml-[4.5rem]' : 'md:ml-80'
+        }`}
+      >
         {/* Header */}
         <header className="h-20 bg-[#182230] border-b border-[#243044] flex items-center justify-between gap-2 px-4 sm:px-6 md:px-10 sticky top-0 z-40">
            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
+                type="button"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 -ml-2 text-[#e23d42]/80 md:hidden hover:bg-white/5 hover:text-[#e23d42] rounded-xl transition-all flex-shrink-0"
+                aria-label={isMobileMenuOpen ? t('nav:closeMenu') : t('nav:openMenu')}
               >
                 {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleSidebarCollapsed}
+                className="hidden md:inline-flex p-2 -ml-2 text-[#e23d42]/80 hover:bg-white/5 hover:text-[#e23d42] rounded-xl transition-all flex-shrink-0"
+                title={sidebarCollapsed ? t('nav:expandSidebar') : t('nav:collapseSidebar')}
+                aria-label={sidebarCollapsed ? t('nav:expandSidebar') : t('nav:collapseSidebar')}
+                aria-expanded={!sidebarCollapsed}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen size={22} /> : <PanelLeftClose size={22} />}
               </button>
 
               <div className="flex items-center min-w-0">
@@ -87,6 +170,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
 
            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <button
+                type="button"
                 onClick={() => setDarkModePreference(darkMode ? 'light' : 'dark')}
                 className="p-2.5 rounded-xl text-[#e23d42]/75 hover:text-[#e23d42] hover:bg-white/5 transition-all flex-shrink-0"
                 title={darkMode ? t('theme.toLight') : t('theme.toDark')}
@@ -97,11 +181,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
               <div
                 className="cursor-pointer flex-shrink-0"
                 onClick={() => handleNavigate('profile')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleNavigate('profile');
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 <img
                   src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}`}
                   className="w-10 h-10 rounded-full bg-[#0f1620] object-cover ring-2 ring-transparent hover:ring-[#c41e24] transition-all shadow-sm flex-shrink-0"
-                  alt="Profile"
+                  alt={t('profile')}
                   width={40}
                   height={40}
                 />
@@ -113,43 +205,92 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
         <SubscriptionBanner onUpgradeClick={() => handleNavigate('upgrade')} userRole={user.role} />
 
         {/* Content */}
-        <div id="main-content" className="flex-1 p-6 md:p-12 w-full pb-28 md:pb-12 overflow-x-hidden">
-          <div className="max-w-4xl mx-auto w-full">
+        <div
+          id="main-content"
+          className={`flex-1 w-full pb-28 md:pb-12 ${
+            isWideContent
+              ? 'p-4 sm:p-6 md:p-8 overflow-x-auto'
+              : 'p-6 md:p-12 overflow-x-hidden'
+          }`}
+        >
+          <div className={`mx-auto w-full ${isWideContent ? 'max-w-[1600px]' : 'max-w-4xl'}`}>
             {children}
           </div>
-
         </div>
 
         {/* Bottom Navigation (Mobile) */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around p-4 z-50 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <button 
-            onClick={() => handleNavigate('dashboard')}
-            className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'dashboard' ? 'text-primary' : 'text-slate-400'}`}
-          >
-            <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.home')}</span>
-          </button>
-          <button 
-            onClick={() => handleNavigate(historyPath)}
-            className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'attendance-logs' || currentPath === 'attendance-audit' ? 'text-primary' : 'text-slate-400'}`}
-          >
-            <Clock size={20} className={currentPath === 'attendance-logs' || currentPath === 'attendance-audit' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.history')}</span>
-          </button>
-          <button 
-            onClick={() => handleNavigate('leave')}
-            className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'leave' ? 'text-primary' : 'text-slate-400'}`}
-          >
-            <CalendarDays size={20} className={currentPath === 'leave' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.leave')}</span>
-          </button>
-          <button 
-            onClick={() => handleNavigate('profile')}
-            className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'profile' ? 'text-primary' : 'text-slate-400'}`}
-          >
-            <UserCircle size={20} className={currentPath === 'profile' ? 'scale-110' : ''} />
-            <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.account')}</span>
-          </button>
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around px-2 pt-3 z-50 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          {employeeMobileShell ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleNavigate('dashboard')}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'dashboard' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navHome')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('my-timesheet')}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'my-timesheet' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <ClipboardList size={20} className={currentPath === 'my-timesheet' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navTimesheet')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('my-roster')}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'my-roster' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <CalendarCheck size={20} className={currentPath === 'my-roster' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navRoster')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('profile')}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'profile' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <UserCircle size={20} className={currentPath === 'profile' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navAccount')}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => handleNavigate('dashboard')}
+                className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'dashboard' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.home')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate(historyPath)}
+                className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'attendance-logs' || currentPath === 'attendance-audit' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <Clock size={20} className={currentPath === 'attendance-logs' || currentPath === 'attendance-audit' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.history')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('leave')}
+                className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'leave' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <CalendarDays size={20} className={currentPath === 'leave' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.leave')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('profile')}
+                className={`flex flex-col items-center gap-1 transition-all ${currentPath === 'profile' ? 'text-primary' : 'text-slate-400'}`}
+              >
+                <UserCircle size={20} className={currentPath === 'profile' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('nav:mobile.account')}</span>
+              </button>
+            </>
+          )}
         </nav>
       </main>
     </div>

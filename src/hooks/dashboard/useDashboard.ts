@@ -12,6 +12,8 @@ export interface DashboardData {
   upcomingHoliday: Holiday | null;
   teamMembersCount: number;
   activeTeamMembers: number;
+  lateTodayCount: number;
+  pendingLeaveCount: number;
   teamInfo: Team | null;
   appConfig: AppConfig | null;
   myManager?: Employee;
@@ -88,8 +90,21 @@ export const useDashboard = (user: any) => {
           visibleEmployees = emps.filter(e => me.teamId && e.teamId === me.teamId);
         }
 
-        const visibleIds = visibleEmployees.map(t => t.id);
-        const presentToday = atts.filter(a => a.date === today && visibleIds.includes(a.employeeId));
+        const visibleIds = new Set(visibleEmployees.map(t => t.id));
+        const todayAtts = atts.filter(a => a.date === today && visibleIds.has(a.employeeId));
+        const presentToday = todayAtts.filter(
+          a => a.status === 'PRESENT' || a.status === 'LATE' || a.status === 'EARLY_OUT' || !!a.checkIn
+        );
+        const lateToday = todayAtts.filter(a => a.status === 'LATE');
+
+        const pendingLeaveCount = leaves.filter(l => {
+          if (l.status !== 'PENDING_MANAGER' && l.status !== 'PENDING_HR') return false;
+          if (isAdmin) return true;
+          if (isManager) {
+            return visibleIds.has(l.employeeId) || l.lineManagerId === me.id;
+          }
+          return false;
+        }).length;
 
         // 3. Context Info
         const myManager = emps.find(e => e.id === me.lineManagerId);
@@ -106,6 +121,8 @@ export const useDashboard = (user: any) => {
           upcomingHoliday: futureHols[0] || null,
           teamMembersCount: visibleEmployees.length,
           activeTeamMembers: presentToday.length,
+          lateTodayCount: lateToday.length,
+          pendingLeaveCount,
           teamInfo,
           appConfig: config,
           myManager,

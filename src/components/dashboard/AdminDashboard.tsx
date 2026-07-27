@@ -1,6 +1,17 @@
+
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Users, List, CalendarDays, Network, BarChart3, Settings, UserCircle } from 'lucide-react';
+import {
+  Users,
+  List,
+  CalendarDays,
+  Network,
+  BarChart3,
+  Settings,
+  UserCircle,
+  CalendarRange,
+  type LucideIcon,
+} from 'lucide-react';
 import { DashboardData } from '../../hooks/dashboard/useDashboard';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardStats } from './DashboardStats';
@@ -13,11 +24,42 @@ interface Props {
   onNavigate: (path: string, params?: any) => void;
 }
 
+const navTileClass =
+  'group relative flex flex-col items-center justify-center gap-2 min-h-[4.5rem] px-2 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-sm transition-all duration-200 ease-out motion-reduce:transition-none hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary-light/35 hover:text-primary hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-0 motion-reduce:hover:translate-y-0';
+
+function NavTile({
+  icon: Icon,
+  label,
+  onClick,
+  badge,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  badge?: number;
+}) {
+  return (
+    <button type="button" onClick={onClick} className={navTileClass} aria-label={label}>
+      {badge != null && badge > 0 ? (
+        <span className="absolute top-1.5 right-1.5 min-w-[1.25rem] h-5 px-1 rounded-md bg-[#c41e24] text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      ) : null}
+      <Icon
+        size={20}
+        className="text-[#e23d42]/80 group-hover:text-[#c41e24] transition-colors duration-200"
+        aria-hidden
+      />
+      <span className="truncate max-w-full px-0.5">{label}</span>
+    </button>
+  );
+}
+
 export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate }) => {
   const { t } = useTranslation('dashboard');
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
+    <div className="space-y-8 animate-in fade-in duration-300 motion-reduce:animate-none">
       <DashboardHeader
         user={data.freshUser}
         activeShift={data.activeShift}
@@ -28,65 +70,74 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
       />
 
       <DashboardStats
-        leaveUsed={data.leaveUsed}
+        variant="ops"
+        presentToday={data.activeTeamMembers}
+        teamCount={data.teamMembersCount}
+        pendingLeaveCount={data.pendingLeaveCount}
+        lateTodayCount={data.lateTodayCount}
         upcomingHoliday={data.upcomingHoliday}
         isLoading={isLoading}
+        onNavigate={onNavigate}
       />
 
       <SetupChecklist user={data.freshUser} onNavigate={onNavigate} />
 
-      <div className="space-y-2">
+      <div className="space-y-5">
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('management')}</p>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 p-1 bg-slate-100 rounded-xl">
-            <button
+          <p className="text-xs font-semibold text-slate-500 mb-2 px-0.5">{t('management')}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <NavTile
+              icon={List}
+              label={t('audit')}
               onClick={() => onNavigate('attendance-audit')}
-              className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-            >
-              <List size={16} /> <span className="truncate">{t('audit')}</span>
-            </button>
-            <button
+            />
+            <NavTile
+              icon={CalendarRange}
+              label={t('timesheet')}
+              onClick={() => onNavigate('timesheet')}
+            />
+            <NavTile
+              icon={CalendarDays}
+              label={t('leave')}
               onClick={() => onNavigate('leave')}
-              className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-            >
-              <CalendarDays size={16} /> <span className="truncate">{t('leave')}</span>
-            </button>
-            <button
+              badge={data.pendingLeaveCount}
+            />
+            <NavTile
+              icon={Users}
+              label={t('directory')}
               onClick={() => onNavigate('employees')}
-              className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-            >
-              <Users size={16} /> <span className="truncate">{t('directory')}</span>
-            </button>
-            <button
+            />
+            <NavTile
+              icon={Network}
+              label={t('org')}
               onClick={() => onNavigate('organization')}
-              className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-            >
-              <Network size={16} /> <span className="truncate">{t('org')}</span>
-            </button>
-            <button
+            />
+            <NavTile
+              icon={BarChart3}
+              label={t('reports')}
               onClick={() => onNavigate('reports')}
-              className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-            >
-              <BarChart3 size={16} /> <span className="truncate">{t('reports')}</span>
-            </button>
+            />
           </div>
         </div>
+
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('personal')}</p>
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
-            <button
+          <p className="text-xs font-semibold text-slate-500 mb-2 px-0.5">{t('personal')}</p>
+          <div
+            className={`grid gap-2 ${
+              data.freshUser?.role === 'ADMIN' ? 'grid-cols-2' : 'grid-cols-1 max-w-xs'
+            }`}
+          >
+            <NavTile
+              icon={UserCircle}
+              label={t('profile')}
               onClick={() => onNavigate('profile')}
-              className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-            >
-              <UserCircle size={16} /> <span className="truncate">{t('profile')}</span>
-            </button>
+            />
             {data.freshUser?.role === 'ADMIN' && (
-              <button
+              <NavTile
+                icon={Settings}
+                label={t('settings')}
                 onClick={() => onNavigate('settings')}
-                className="py-3 px-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 hover:bg-white"
-              >
-                <Settings size={16} /> <span className="truncate">{t('settings')}</span>
-              </button>
+              />
             )}
           </div>
         </div>
@@ -94,26 +145,28 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
 
       {!isLoading && (
         <>
-          <div
-            className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between transition-all cursor-pointer hover:bg-slate-50"
+          <button
+            type="button"
+            className="w-full bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-4 text-left transition-all duration-200 ease-out motion-reduce:transition-none hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md hover:bg-primary-light/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-0 motion-reduce:hover:translate-y-0"
             onClick={() => onNavigate('employees')}
           >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-                <Users size={24} />
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-12 h-12 shrink-0 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center">
+                <Users size={22} aria-hidden />
               </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 leading-none">{t('globalDirectory')}</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                  {t('organizationWide')}
-                </p>
+              <div className="min-w-0">
+                <h4 className="font-semibold text-slate-900 leading-tight">{t('globalDirectory')}</h4>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">{t('organizationWide')}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-semibold text-emerald-600">{t('active', { count: data.activeTeamMembers })}</p>
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">{t('outOf', { count: data.teamMembersCount })}</p>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-semibold text-slate-900 tabular-nums leading-none">
+                {data.activeTeamMembers}
+                <span className="text-sm font-medium text-slate-400">/{data.teamMembersCount}</span>
+              </p>
+              <p className="text-xs font-medium text-emerald-700 mt-1">{t('presentTodayLabel')}</p>
             </div>
-          </div>
+          </button>
 
           <AnnouncementWidget user={data.freshUser} onNavigate={onNavigate} />
         </>

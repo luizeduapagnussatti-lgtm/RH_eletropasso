@@ -23,10 +23,10 @@ $Action = New-ScheduledTaskAction `
 $Trigger = New-ScheduledTaskTrigger -AtStartup
 $Trigger.Delay = 'PT5M'
 
+# Sem StartWhenAvailable: evita disparar a tarefa so por re-registrar (e evita loops/UAC).
 $Settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
-  -StartWhenAvailable `
   -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
   -MultipleInstances IgnoreNew
 
@@ -34,13 +34,18 @@ $Settings = New-ScheduledTaskSettingsSet `
 $RunAsUser = $env:USERNAME
 if ($RunAsUser -match '^\s*$') { $RunAsUser = 'Servidor_Eletropasso' }
 
+# Limited: start-rh nao precisa de admin. Highest + Interactive dispara UAC a cada logon.
+$Principal = New-ScheduledTaskPrincipal `
+  -UserId $RunAsUser `
+  -LogonType Interactive `
+  -RunLevel Limited
+
 Register-ScheduledTask `
   -TaskName $TaskName `
   -Action $Action `
   -Trigger $Trigger `
   -Settings $Settings `
-  -User $RunAsUser `
-  -RunLevel Highest `
+  -Principal $Principal `
   -Force | Out-Null
 
 Write-Host "Tarefa registrada: $TaskName"

@@ -23,6 +23,7 @@ import { authService } from '../services/auth.service';
 import { checkSupabaseConnection, isSupabaseConfigured } from '../services/supabase';
 import { useToast } from '../context/ToastContext';
 import { APP_NAME, APP_TAGLINE, STORE_LOGO_PATH } from '../config/branding';
+import { PwaLanBanner } from '../components/mobile/EmployeeMobileShortcuts';
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;
@@ -405,6 +406,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
             {/* Brand Header */}
             <BrandLogo />
 
+            {isMobile && !showForgot && !isInstalled && (
+              <PwaLanBanner variant="dark" />
+            )}
+
             {/* Forgot Password Flow */}
             {showForgot ? (
               <div className="space-y-6">
@@ -625,9 +630,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
         <p className="text-center mt-5 text-xs font-medium text-slate-500">v3.0 · {t('multiTenant')}</p>
       </div>
 
-      {/* Database Connection Indicator */}
+      {/* Database Connection Indicator — visible on all sizes when API unreachable */}
       <div
-        className="fixed top-5 right-5 hidden md:flex items-center gap-2 bg-[var(--chrome-bg)] px-3 py-2 rounded-full border border-[var(--chrome-border)]"
+        className={`fixed top-3 right-3 sm:top-5 sm:right-5 flex items-center gap-2 bg-[var(--chrome-bg)] px-3 py-2 rounded-full border ${
+          connectionStatus === 'disconnected' ? 'border-rose-500/60' : 'border-[var(--chrome-border)]'
+        }`}
         role="status"
         aria-live="polite"
         title={t(`databaseConnection.${connectionStatus}Hint`)}

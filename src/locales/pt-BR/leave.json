@@ -153,5 +153,30 @@
         "Siga a política da empresa em todos os momentos."
       ]
     }
+  },
+  "pdf": {
+    "title": "Solicitação de licença",
+    "sectionApplicant": "Dados do colaborador",
+    "sectionLeave": "Detalhes da licença",
+    "sectionApproval": "Situação da aprovação",
+    "name": "Nome",
+    "employeeId": "Matrícula / PIS",
+    "department": "Departamento",
+    "designation": "Cargo",
+    "type": "Tipo",
+    "startDate": "Data início",
+    "endDate": "Data fim",
+    "totalDays": "Total de dias",
+    "reason": "Motivo",
+    "status": "Status",
+    "manager": "Gestor",
+    "managerRemarks": "Observações do gestor",
+    "approverRemarks": "Observações do RH",
+    "appliedDate": "Data da solicitação",
+    "signatureEmployee": "Assinatura do colaborador",
+    "signatureManager": "Assinatura do gestor / aprovador",
+    "generatedBy": "Gerado pelo {{app}} em {{date}}",
+    "page": "Página {{current}} de {{total}}",
+    "notAvailable": "N/D"
   }
 }

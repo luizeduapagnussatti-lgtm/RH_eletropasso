@@ -95,14 +95,32 @@ Keep elevation quiet: `shadow-sm` / `shadow-md` for sticky header, modals, and d
 
 ## Components
 
-- **App shell**: `MainLayout` + `Sidebar` — chrome `#182230` with brand-red mirror icons; RH circular icon beside user identity in the sidebar; store wordmark in the top header pill (never the reverse).
+- **App shell**: `MainLayout` + `Sidebar` — chrome `#182230` with brand-red mirror icons; RH circular icon beside user identity in the sidebar; store wordmark in the top header pill (never the reverse). Desktop sidebar can collapse to an icon rail (`4.5rem`) via header/sidebar toggle (persisted in `openhr_sidebar_collapsed`); mobile keeps the full drawer. Data-dense routes (timesheet, reports, employees, attendance logs/audit, organization, performance) use `max-w-[1600px]` instead of `max-w-4xl`.
 - **Login**: dark branded entry surface using a flat solid `#0a0e17` canvas and neutral, shadow-free `#181818` card to prevent 8-bit chromatic banding around the red CTA; Eletropasso red remains reserved for the primary action. Store wordmark only; no circular RH icon.
 - **Buttons**: primary filled with `bg-primary` / hover `bg-primary-hover`; secondary outline or muted solid on slate.
 - **Cards / widgets**: flat white (or dark surface) with light border; avoid nested cards.
 - **Forms / tables**: Tailwind form controls; dark overrides already cover inputs. Dense tables are acceptable in Reports / Directories — keep header sticky and actions obvious.
 - **Motion**: existing `slideUp` (~0.3s ease-out) for entrances; respect reduced motion for any new animation.
 
-## Do's and Don'ts
+## PDF exports (jsPDF)
+
+All client-generated PDFs use **`src/utils/reportPdf.ts`** — do not invent per-page headers or indigo table styles.
+
+| Element | Spec |
+|---------|------|
+| Header | Chrome bar `#182230` (8 mm) + brand-red accent `#c41e24` (1.2 mm) |
+| Org block | Logo (max 18 mm) + org name (bold 14 pt) + address (8 pt muted) |
+| Title | Bold 13 pt ink; subtitle 8.5 pt muted; hairline border |
+| Tables | Head: chrome bg + white text; body: ink on white / alternate `#f8fafc` |
+| Metrics | Tinted boxes (`drawMetricStrip`) — present/absent/late/leave semantic colors |
+| Forms | Portrait docs: `drawFormSection` (tinted section header, label/value rows) |
+| Signatures | `drawSignatureBlock` — dual lines for employee + manager |
+| Footer | Muted 7 pt; generated timestamp left; page right; brand-red center tick |
+
+**API:** `createPdfDocument`, `drawReportHeader`, `drawDocumentTitle`, `drawFormSection`, `drawMetricStrip`, `applyStandardTable`, `drawSignatureBlock`, `drawReportFooters`.
+
+Copy via i18n (`leave.pdf.*`, `review.pdf.*`, `employees.export*`, `reports.pdf*`).
+
 
 **Do**
 

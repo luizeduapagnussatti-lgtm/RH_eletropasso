@@ -8,18 +8,18 @@ import { organizationService } from '../../services/organization.service';
 import { LeaveBalance, LeaveRequest, Holiday, AppConfig, Shift, CustomLeaveType } from '../../types';
 import { DEFAULT_LEAVE_TYPES } from '../../constants';
 import { tStatus } from '../../i18n/statusMaps';
-
-
-const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
-  new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const ratio = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
-      resolve({ w: img.naturalWidth * ratio, h: img.naturalHeight * ratio });
-    };
-    img.onerror = () => resolve({ w: maxSize, h: maxSize });
-    img.src = dataUrl;
-  });
+import { formatIsoDateBr } from '../../i18n/format';
+import {
+  APP_NAME,
+  createPdfDocument,
+  drawDocumentTitle,
+  drawFormSection,
+  drawReportFooters,
+  drawReportHeader,
+  drawSignatureBlock,
+  formatGeneratedAt,
+  createPageBreakChecker,
+} from '../../utils/reportPdf';
 
 interface Props {
   user: any;
@@ -122,7 +122,6 @@ const EmployeeLeaveModule: React.FC<Props> = ({ user, balance, history, onRefres
   const generateLeavePdf = async (req: LeaveRequest) => {
     setGeneratingPdfId(req.id);
     try {
-      // Fetch org info
       let orgName = '', orgAddress = '', logoDataUrl: string | null = null;
       try {
         const branding = await organizationService.getOrgBranding();
@@ -131,129 +130,63 @@ const EmployeeLeaveModule: React.FC<Props> = ({ user, balance, history, onRefres
         logoDataUrl = branding.logoDataUrl;
       } catch { /* proceed without org info */ }
 
-      // Fetch manager name
-      let managerName = 'N/A';
+      let managerName = t('pdf.notAvailable');
       try {
         if (req.lineManagerId) {
           const employees = await employeeService.getEmployees();
           const mgr = employees.find(e => e.id === req.lineManagerId);
-          managerName = mgr?.name || 'N/A';
+          managerName = mgr?.name || t('pdf.notAvailable');
         }
-      } catch { /* proceed with N/A */ }
+      } catch { /* proceed */ }
 
-      const jsPDFModule = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-      const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
-      if (autoTableModule.applyPlugin) autoTableModule.applyPlugin(jsPDF);
+      const doc = await createPdfDocument('portrait');
+      let y = await drawReportHeader(doc, {
+        org: { name: orgName, address: orgAddress, logoDataUrl },
+        title: t('pdf.title'),
+        subtitle: `${formatIsoDateBr(req.startDate)} — ${formatIsoDateBr(req.endDate)}`,
+      });
 
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 15;
+      y = drawDocumentTitle(doc, y, t('pdf.title'));
 
-      // Header: logo + org name + address
-      const logoSize = 18;
-      let textStartX = 14;
-      if (logoDataUrl) {
-        try {
-          const logoDims = await getScaledLogoDims(logoDataUrl, logoSize);
-          doc.addImage(logoDataUrl, 'PNG', 14, y - 4, logoDims.w, logoDims.h);
-          textStartX = 14 + logoDims.w + 5;
-        } catch { /* skip logo */ }
-      }
-      if (orgName) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(orgName, textStartX, y + 2);
-        if (orgAddress) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          doc.text(orgAddress, textStartX, y + 8);
-        }
-      }
-      y += 20;
+      const checkPage = createPageBreakChecker(doc, () => y, (next) => { y = next; });
 
-      // HR line
-      doc.setDrawColor(200);
-      doc.setLineWidth(0.5);
-      doc.line(14, y, pageWidth - 14, y);
-      y += 12;
+      y = drawFormSection(doc, y, t('pdf.sectionApplicant'), [
+        { label: t('pdf.name'), value: user.name || '' },
+        { label: t('pdf.employeeId'), value: user.employeeId || '' },
+        { label: t('pdf.department'), value: user.department || '' },
+        { label: t('pdf.designation'), value: user.designation || '' },
+      ], checkPage);
 
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Leave Application', pageWidth / 2, y, { align: 'center' });
-      y += 14;
+      y = drawFormSection(doc, y, t('pdf.sectionLeave'), [
+        { label: t('pdf.type'), value: req.type },
+        { label: t('pdf.startDate'), value: formatIsoDateBr(req.startDate) },
+        { label: t('pdf.endDate'), value: formatIsoDateBr(req.endDate) },
+        { label: t('pdf.totalDays'), value: String(req.totalDays) },
+        { label: t('pdf.reason'), value: req.reason || '' },
+      ], checkPage);
 
-      // Helper for sections
-      const drawSection = (title: string, rows: [string, string][]) => {
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(80, 80, 80);
-        doc.text(title, 14, y);
-        y += 2;
-        doc.setDrawColor(220);
-        doc.line(14, y, pageWidth - 14, y);
-        y += 6;
+      y = drawFormSection(doc, y, t('pdf.sectionApproval'), [
+        { label: t('pdf.status'), value: tStatus(req.status) },
+        { label: t('pdf.manager'), value: managerName },
+        { label: t('pdf.managerRemarks'), value: req.managerRemarks || t('pdf.notAvailable') },
+        { label: t('pdf.approverRemarks'), value: req.approverRemarks || t('pdf.notAvailable') },
+        { label: t('pdf.appliedDate'), value: req.appliedDate ? formatIsoDateBr(req.appliedDate) : t('pdf.notAvailable') },
+      ], checkPage);
 
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        rows.forEach(([label, value]) => {
-          doc.setFont('helvetica', 'bold');
-          doc.text(label + ':', 18, y);
-          doc.setFont('helvetica', 'normal');
-          const lines = doc.splitTextToSize(value || 'N/A', pageWidth - 70);
-          doc.text(lines, 65, y);
-          y += lines.length * 5 + 2;
-        });
-        y += 4;
-      };
-
-      // Applicant Info
-      drawSection('Applicant Information', [
-        ['Name', user.name || ''],
-        ['Employee ID', user.employeeId || ''],
-        ['Department', user.department || ''],
-        ['Designation', user.designation || ''],
+      checkPage(24);
+      y = Math.max(y + 16, 230);
+      drawSignatureBlock(doc, y, [
+        { label: t('pdf.signatureEmployee'), name: user.name || '' },
+        { label: t('pdf.signatureManager'), name: managerName },
       ]);
 
-      // Leave Details
-      drawSection('Leave Details', [
-        ['Type', req.type],
-        ['Start Date', req.startDate],
-        ['End Date', req.endDate],
-        ['Total Days', String(req.totalDays)],
-        ['Reason', req.reason || ''],
-      ]);
+      drawReportFooters(
+        doc,
+        t('pdf.generatedBy', { app: APP_NAME, date: formatGeneratedAt() }),
+        (current, total) => t('pdf.page', { current, total })
+      );
 
-      // Approval Status
-      const statusLabel = req.status.replace('_', ' ');
-      drawSection('Approval Status', [
-        ['Status', statusLabel],
-        ['Manager', managerName],
-        ['Manager Remarks', req.managerRemarks || 'N/A'],
-        ['Approver Remarks', req.approverRemarks || 'N/A'],
-        ['Applied Date', req.appliedDate || ''],
-      ]);
-
-      // Signature lines at bottom
-      const sigY = Math.max(y + 20, 250);
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      // Employee signature
-      doc.line(25, sigY, 90, sigY);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Employee Signature', 35, sigY + 5);
-      doc.setFont('helvetica', 'bold');
-      doc.text(user.name || '', 40, sigY + 10);
-      // Manager signature
-      doc.line(pageWidth - 90, sigY, pageWidth - 25, sigY);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Manager/Approver Signature', pageWidth - 85, sigY + 5);
-      doc.setFont('helvetica', 'bold');
-      doc.text(managerName, pageWidth - 70, sigY + 10);
-
-      doc.save(`Leave_Application_${req.type}_${req.startDate}.pdf`);
+      doc.save(`Solicitacao_Licenca_${req.type}_${req.startDate}.pdf`);
     } catch (err) {
       console.error('Failed to generate leave PDF', err);
     } finally {

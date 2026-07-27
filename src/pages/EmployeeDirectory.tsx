@@ -26,7 +26,9 @@ import {
   Filter,
   CheckSquare,
   Square,
-  ChevronDown
+  ChevronDown,
+  Radio,
+  ArrowRight
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { organizationService } from '../services/organization.service';
@@ -555,6 +557,17 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      {isAdmin && onNavigate && (
+        <button
+          type="button"
+          onClick={() => onNavigate('comunicacao')}
+          className="flex w-full items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-left transition-colors hover:bg-sky-100"
+        >
+          <Radio size={18} className="shrink-0 text-sky-700" />
+          <span className="text-sm text-sky-950">{t('sendToClockHint')}</span>
+          <ArrowRight size={16} className="ml-auto shrink-0 text-sky-700" />
+        </button>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">

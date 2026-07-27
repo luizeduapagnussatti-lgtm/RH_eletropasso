@@ -1,0 +1,18 @@
+{
+  "mdbPath": "C:\\util dimep\\BD ELETROPASSO\\DIMEP.MDB",
+  "movimentPath": "C:\\Program Files (x86)\\Dimep\\DMPREP\\MOVIMENT.txt",
+  "deviceSerial": "00003004820030709",
+  "movimentPrefix": "0001",
+  "ingestUrl": "https://api-rh.eletropasso.local/functions/v1/ingest-punches",
+  "ingestApiKey": "CHANGE_ME",
+  "organizationId": "7e620d63-0d21-4307-9f4e-1f1fa96cbc74",
+  "syncServerUrl": "http://192.168.15.245:3099",
+  "syncApiKey": "CHANGE_ME",
+  "triggerRemoteSync": true,
+  "lookbackDays": 60,
+  "batchSize": 100,
+  "timeoutSeconds": 120,
+  "appendMdbToMoviment": true,
+  "statePath": "C:\\RH_eletropasso\\dmprep-agent\\state.json",
+  "logDir": "C:\\RH_eletropasso\\dmprep-agent\\logs"
+}

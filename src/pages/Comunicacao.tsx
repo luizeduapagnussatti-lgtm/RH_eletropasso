@@ -79,7 +79,11 @@ const Comunicacao: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       )}
 
-      <div className="flex gap-1 overflow-x-auto p-1 bg-slate-100/80 rounded-xl border border-slate-200/80">
+      <div
+        role="tablist"
+        aria-label={t('title')}
+        className="flex gap-1 overflow-x-auto p-1.5 bg-slate-100 rounded-xl border border-slate-200"
+      >
         {TABS.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;

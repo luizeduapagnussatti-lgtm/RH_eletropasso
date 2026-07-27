@@ -23,6 +23,7 @@ import { OrgSystem } from '../components/organization/OrgSystem';
 import { OrgShifts } from '../components/organization/OrgShifts';
 import { OrgNotifications } from '../components/organization/OrgNotifications';
 import HelpButton from '../components/onboarding/HelpButton';
+import { orgTabButtonClass } from '../components/organization/OrgUi';
 
 type OrgTab = 'STRUCTURE' | 'TEAMS' | 'PLACEMENT' | 'SHIFTS' | 'WORKFLOW' | 'LEAVES' | 'HOLIDAYS' | 'NOTIFICATIONS' | 'SYSTEM';
 
@@ -244,43 +245,53 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   if (isLoading) return <div className="flex flex-col items-center justify-center h-64 text-slate-400"><Loader2 className="w-8 h-8 text-primary animate-spin mb-4" /><p className="text-xs font-semibold uppercase tracking-widest">{t('loading')}</p></div>;
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1>
-            <p className="text-sm text-slate-500 font-medium">{t('subtitle')}</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300 motion-reduce:animate-none overflow-x-hidden">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 tracking-tight text-balance">
+              {t('title')}
+            </h1>
+            <HelpButton helpPointId={`org.${activeTab.toLowerCase()}`} />
           </div>
-          <HelpButton helpPointId={`org.${activeTab.toLowerCase()}`} />
+          <p className="text-sm text-slate-500 font-medium mt-1">{t('subtitle')}</p>
         </div>
       </header>
 
-      <div className="space-y-2">
-        {/* Row 1 — Structure & Teams */}
+      <nav className="space-y-4" aria-label={t('title')}>
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('tabGroups.structure')}</p>
-          <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
+          <p className="text-xs font-semibold text-slate-500 mb-2 px-0.5">{t('tabGroups.structure')}</p>
+          <div className="flex gap-1.5 p-1.5 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
             {(['STRUCTURE', 'TEAMS', 'PLACEMENT', 'SHIFTS'] as OrgTab[]).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 md:flex-1 min-w-[90px] py-3 px-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={orgTabButtonClass(activeTab === tab)}
+                aria-current={activeTab === tab ? 'page' : undefined}
+              >
                 {t(`tabs.${tab}`)}
-                {activeTab === tab && <HelpButton helpPointId={`org.${tab.toLowerCase()}`} size={12} variant="inline" />}
               </button>
             ))}
           </div>
         </div>
-        {/* Row 2 — Policies & Config */}
         <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('tabGroups.policies')}</p>
-          <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
+          <p className="text-xs font-semibold text-slate-500 mb-2 px-0.5">{t('tabGroups.policies')}</p>
+          <div className="flex gap-1.5 p-1.5 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
             {(['WORKFLOW', 'LEAVES', 'HOLIDAYS', 'NOTIFICATIONS', 'SYSTEM'] as OrgTab[]).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 md:flex-1 min-w-[100px] py-3 px-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={orgTabButtonClass(activeTab === tab)}
+                aria-current={activeTab === tab ? 'page' : undefined}
+              >
                 {t(`tabs.${tab}`)}
-                {activeTab === tab && <HelpButton helpPointId={`org.${tab.toLowerCase()}`} size={12} variant="inline" />}
               </button>
             ))}
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Subscription Warning */}
       {!canWrite && (
@@ -525,9 +536,9 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                     <input type="checkbox" checked={shiftForm.breakFlexible ?? true} onChange={e => setShiftForm({...shiftForm, breakFlexible: e.target.checked})} className="w-4 h-4 accent-primary" />
                     <span className="text-xs font-bold text-slate-600">{t('breakFlexible')}</span>
                   </label>
-                  <label className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100 cursor-pointer">
-                    <input type="checkbox" checked={shiftForm.overtimeToBank ?? true} onChange={e => setShiftForm({...shiftForm, overtimeToBank: e.target.checked})} className="w-4 h-4 accent-indigo-500" />
-                    <span className="text-xs font-bold text-indigo-700">{t('overtimeToBank')}</span>
+                  <label className="flex items-center gap-3 p-3 bg-primary-light/40 rounded-xl border border-primary/15 cursor-pointer">
+                    <input type="checkbox" checked={shiftForm.overtimeToBank ?? true} onChange={e => setShiftForm({...shiftForm, overtimeToBank: e.target.checked})} className="w-4 h-4 accent-primary" />
+                    <span className="text-xs font-semibold text-slate-700">{t('overtimeToBank')}</span>
                   </label>
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('workingDays')}</label>

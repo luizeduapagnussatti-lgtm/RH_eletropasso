@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FileText, Calendar, Clock, RefreshCw, User as UserIcon, Search, FileSpreadsheet, FileDown, MapPin,
-  Activity, AlertCircle, HelpCircle, CheckCircle2, CheckCircle, Settings2, Mail, CheckSquare, Square, Layout,
+  CheckCircle2, CheckCircle, Settings2, Mail, CheckSquare, Square, Layout,
   TrendingUp, CalendarDays, Users, PieChart
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
@@ -11,41 +11,37 @@ import { emailService } from '../services/emailService';
 import { organizationService } from '../services/organization.service';
 import { User, Employee, Attendance, LeaveRequest, AppConfig, Holiday, Shift, EmployeeAttendanceSummary } from '../types';
 import { consolidateAttendance, getDateRangeFromPreset, calculateEmployeeSummaries, ALL_EMPLOYEES_FILTER, timesheetDaysToAttendance, mergeAttendanceSources } from '../utils/attendanceUtils';
+import { buildTeamSummaryMetrics, topEmployeesByAbsentDays, formatScopeSubtitle } from '../utils/reportMetrics';
+import { ReportsScopeBanner } from '../components/reports/ReportsScopeBanner';
+import { ReportsSummaryMetrics } from '../components/reports/ReportsSummaryMetrics';
+import { EmployeeSummaryTable } from '../components/reports/EmployeeSummaryTable';
+import { ReportsSidePanel } from '../components/reports/ReportsSidePanel';
 import { competenceForDate } from '../utils/payrollPeriod';
 import { DEFAULT_PTRP_POLICY } from '../constants';
 import {
   APP_NAME,
+  applyStandardTable,
+  createPdfDocument,
   drawMetricStrip,
   drawReportFooters,
   drawReportHeader,
   formatGeneratedAt,
   formatReportPeriod,
   PDF_COLORS,
-  SUMMARY_TABLE_BODY_STYLES,
-  SUMMARY_TABLE_HEAD_STYLES,
 } from '../utils/reportPdf';
 import HelpButton from '../components/onboarding/HelpButton';
 import { useToast } from '../context/ToastContext';
 import { isNonPunchingStaff } from '../utils/roles';
 import { formatIsoDateBr } from '../i18n/format';
+import { tStatus } from '../i18n/statusMaps';
 
-
-const getScaledLogoDims = (dataUrl: string, maxSize: number): Promise<{ w: number; h: number }> =>
-  new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const ratio = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
-      resolve({ w: img.naturalWidth * ratio, h: img.naturalHeight * ratio });
-    };
-    img.onerror = () => resolve({ w: maxSize, h: maxSize });
-    img.src = dataUrl;
-  });
 
 interface ReportsProps {
   user: User;
+  onNavigate?: (path: string, params?: any) => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ user }) => {
+const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
   const { t } = useTranslation('reports');
   const { showToast } = useToast();
   const [reportType, setReportType] = useState('ATTENDANCE');
@@ -308,8 +304,8 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                 status: 'ABSENT',
                 checkIn: '-',
                 checkOut: '-',
-                location: { address: 'Not Detected' },
-                remarks: 'System Generated: No punch-in detected.'
+                location: { address: '__EXPORT_NOT_DETECTED__' },
+                remarks: '__EXPORT_SYSTEM_ABSENT__',
               });
             }
           });
@@ -327,7 +323,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         const dateB = b.date || b.startDate;
         return dateB.localeCompare(dateA);
     });
-  }, [reportType, startDate, endDate, selectedDepts, employeeFilter, attendance, employees, leaves, appConfig, holidays]);
+  }, [reportType, startDate, endDate, selectedDepts, employeeFilter, attendance, employees, leaves, appConfig, holidays, shifts, shiftOverrides]);
 
   // Compute per-employee summary for the Summary tab
   const employeeSummaries = useMemo<EmployeeAttendanceSummary[]>(() => {
@@ -369,23 +365,86 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     });
   }, [attendance, leaves, employees, shifts, shiftOverrides, appConfig, holidays, startDate, endDate, selectedDepts, employeeFilter]);
 
+  const teamMetrics = useMemo(
+    () => buildTeamSummaryMetrics(employeeSummaries),
+    [employeeSummaries]
+  );
+
+  const topAbsentEmployees = useMemo(
+    () => topEmployeesByAbsentDays(employeeSummaries, 3),
+    [employeeSummaries]
+  );
+
+  const singleEmployeeName = useMemo(() => {
+    if (employeeFilter === ALL_EMPLOYEES_FILTER) return undefined;
+    return employees.find(e => e.id === employeeFilter)?.name;
+  }, [employeeFilter, employees]);
+
+  const exportNotAvailable = t('export.notAvailable');
+  const exportNoPunch = t('export.noPunch');
+
+  const formatExportLocation = (address?: string) => {
+    if (!address || address === 'N/A' || address === '__EXPORT_NOT_DETECTED__' || address === 'Not Detected') {
+      return t('export.locationNotDetected');
+    }
+    return address;
+  };
+
+  const formatExportRemarks = (remarks?: string) => {
+    if (!remarks) return '';
+    if (remarks === '__EXPORT_SYSTEM_ABSENT__' || remarks === 'System Generated: No punch-in detected.') {
+      return t('export.systemAbsentRemark');
+    }
+    if (remarks.startsWith('[Manual Entry]')) {
+      return remarks.replace('[Manual Entry]', t('export.manualEntryPrefix'));
+    }
+    return remarks;
+  };
+
+  const formatExportStatus = (row: { status?: string; type?: string }) => {
+    const code = row.status || row.type;
+    if (!code) return exportNotAvailable;
+    if (reportType === 'LEAVE') return tStatus('leave', code);
+    return tStatus('attendance', code);
+  };
+
+  const formatExportDate = (value?: string) => {
+    if (!value || value === exportNotAvailable) return exportNotAvailable;
+    if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatIsoDateBr(value.slice(0, 10));
+    return value;
+  };
+
+  const formatExportTime = (value?: string) => {
+    if (!value || value === '-' || value === exportNotAvailable || value === 'N/A') return exportNoPunch;
+    return value;
+  };
+
+  const formatExportCoord = (value?: string | number) => {
+    if (value === undefined || value === null || value === '' || value === 'N/A' || value === 0) {
+      return exportNotAvailable;
+    }
+    return String(value);
+  };
+
   const getCleanReportData = () => {
     return reportData.map((row: any) => {
       const emp = employees.find(e => e.id === row.employeeId);
-      const fullRow: any = {
-        Employee_ID: emp?.employeeId || '',
-        Name: row.employeeName || row.name || 'N/A',
-        Date: row.date || row.startDate || 'N/A',
-        Status_Type: row.status || row.type || 'N/A',
-        Check_In: row.checkIn || 'N/A',
-        Check_Out: row.checkOut || 'N/A',
-        Location: row.location?.address || 'N/A',
-        Latitude: row.location?.lat || 'N/A',
-        Longitude: row.location?.lng || 'N/A',
-        Remarks: row.remarks || row.reason || ''
+      const fullRow: Record<string, string> = {
+        Employee_ID: emp?.employeeId || exportNotAvailable,
+        Name: row.employeeName || row.name || exportNotAvailable,
+        Date: formatExportDate(row.date || row.startDate),
+        Status_Type: formatExportStatus(row),
+        Check_In: formatExportTime(row.checkIn),
+        Check_Out: formatExportTime(row.checkOut),
+        Location: formatExportLocation(row.location?.address),
+        Latitude: formatExportCoord(row.location?.lat),
+        Longitude: formatExportCoord(row.location?.lng),
+        Remarks: formatExportRemarks(row.remarks || row.reason || ''),
       };
-      const filteredRow: any = {};
-      Object.keys(enabledColumns).forEach(col => { if (enabledColumns[col]) filteredRow[col] = fullRow[col]; });
+      const filteredRow: Record<string, string> = {};
+      Object.keys(enabledColumns).forEach(col => {
+        if (enabledColumns[col]) filteredRow[col] = fullRow[col];
+      });
       return filteredRow;
     });
   };
@@ -395,9 +454,13 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     setIsGenerating(true);
     setTimeout(() => {
       const cleanData = getCleanReportData();
-      const headers = Object.keys(cleanData[0]).join(",");
-      const rows = cleanData.map(obj => Object.values(obj).map(val => `"${String(val).replace(/"/g, '""')}"`).join(","));
-      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + "\n" + rows.join("\n");
+      const columns = Object.keys(cleanData[0]);
+      const headers = columns.map(col => {
+        const opt = columnOptions.find(o => o.key === col);
+        return opt ? opt.label : col;
+      });
+      const rows = cleanData.map(obj => columns.map(col => String(obj[col] ?? '')));
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + headers.join(',') + '\n' + rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
       const link = document.createElement("a");
       link.setAttribute("href", encodeURI(csvContent));
       link.setAttribute("download", `RH_Eletropasso_${reportType}_Export.csv`);
@@ -412,19 +475,13 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     if (reportData.length === 0) { showToast(t('noData'), "warning"); return; }
     setIsGeneratingPDF(true);
     try {
-      const jsPDFModule = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-      const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
-      if (autoTableModule.applyPlugin) autoTableModule.applyPlugin(jsPDF);
-
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const doc = await createPdfDocument('landscape');
       const typeLabel = t(`reportTypes.${reportType}`, { defaultValue: reportType });
 
       let cursorY = await drawReportHeader(doc, {
         org: orgInfo,
         title: t('pdfReportTitle', { type: typeLabel }),
         subtitle: t('pdfDateRange', { start: formatIsoDateBr(startDate), end: formatIsoDateBr(endDate) }),
-        getScaledLogoDims,
       });
 
       const totalRecords = reportData.length;
@@ -449,16 +506,10 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
       });
       const tableRows = cleanData.map(row => columns.map(col => String(row[col] ?? '')));
 
-      (doc as any).autoTable({
+      applyStandardTable(doc, {
         startY: cursorY,
         head: [tableHeaders],
         body: tableRows,
-        theme: 'grid',
-        headStyles: SUMMARY_TABLE_HEAD_STYLES,
-        bodyStyles: SUMMARY_TABLE_BODY_STYLES,
-        alternateRowStyles: { fillColor: PDF_COLORS.surfaceAlt },
-        margin: { left: 14, right: 14 },
-        styles: { overflow: 'linebreak', lineColor: PDF_COLORS.border, lineWidth: 0.15 },
       });
 
       drawReportFooters(
@@ -500,7 +551,13 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         s.totalWorkingDays, s.presentDays, s.absentDays, s.lateDays,
         s.leaveDays, s.halfDays, `${s.attendancePercentage}%`
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
-      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+      const m = buildTeamSummaryMetrics(employeeSummaries);
+      const totalRow = [
+        '', t('table.totalRow'), '', '',
+        m.totals.workingDays, m.totals.presentDays, m.totals.absentDays,
+        m.totals.lateDays, m.totals.leaveDays, m.totals.halfDays, '',
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + headers.join(',') + '\n' + rows.join('\n') + '\n' + totalRow;
       const link = document.createElement('a');
       link.setAttribute('href', encodeURI(csvContent));
       link.setAttribute('download', `${APP_NAME}_resumo_ponto_${startDate}_${endDate}.csv`);
@@ -515,41 +572,41 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     if (employeeSummaries.length === 0) { showToast(t('noSummaryData'), "warning"); return; }
     setIsGeneratingPDF(true);
     try {
-      const jsPDFModule = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-      const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
-      if (autoTableModule.applyPlugin) autoTableModule.applyPlugin(jsPDF);
-
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const doc = await createPdfDocument('landscape');
 
       let cursorY = await drawReportHeader(doc, {
         org: orgInfo,
         title: t('pdfEmployeeSummaryTitle'),
-        subtitle: t('pdfPeriodEmployees', {
-          start: formatIsoDateBr(startDate),
-          end: formatIsoDateBr(endDate),
-          count: employeeSummaries.length,
-        }),
-        getScaledLogoDims,
+        subtitle: [
+          t('pdfPeriodEmployees', {
+            start: formatIsoDateBr(startDate),
+            end: formatIsoDateBr(endDate),
+            count: employeeSummaries.length,
+          }),
+          t('pdfTeamTotalsNote', { count: employeeSummaries.length }),
+          formatScopeSubtitle(t, {
+            periodLabel: t(`presets.${periodPreset}`, { defaultValue: periodPreset }),
+            startDate: formatIsoDateBr(startDate),
+            endDate: formatIsoDateBr(endDate),
+            employeeCount: employeeSummaries.length,
+            deptCount: selectedDepts.length,
+            totalDepts: dbDepartments.length,
+            singleEmployeeName,
+          }),
+        ].join('\n'),
       });
 
-      const totalPresent = employeeSummaries.reduce((s, e) => s + e.presentDays, 0);
-      const totalAbsent = employeeSummaries.reduce((s, e) => s + e.absentDays, 0);
-      const totalLate = employeeSummaries.reduce((s, e) => s + e.lateDays, 0);
-      const totalLeave = employeeSummaries.reduce((s, e) => s + e.leaveDays, 0);
-      const avgAttendance = employeeSummaries.length > 0
-        ? Math.round(employeeSummaries.reduce((s, e) => s + e.attendancePercentage, 0) / employeeSummaries.length)
-        : 0;
+      const metrics = buildTeamSummaryMetrics(employeeSummaries);
 
       cursorY = drawMetricStrip(doc, cursorY, [
-        { label: t('stats.totalPresent'), value: totalPresent, tone: 'present' },
-        { label: t('stats.totalAbsent'), value: totalAbsent, tone: 'absent' },
-        { label: t('stats.totalLate'), value: totalLate, tone: 'late' },
-        { label: t('stats.totalLeave'), value: totalLeave, tone: 'leave' },
+        { label: t('stats.totalPresent'), value: metrics.totals.presentDays, tone: 'present' },
+        { label: t('stats.totalAbsent'), value: metrics.totals.absentDays, tone: 'absent' },
+        { label: t('stats.totalLate'), value: metrics.totals.lateDays, tone: 'late' },
+        { label: t('stats.totalLeave'), value: metrics.totals.leaveDays, tone: 'leave' },
         {
-          label: t('stats.avgAttendance'),
-          value: `${avgAttendance}%`,
-          tone: avgAttendance >= 90 ? 'present' : avgAttendance >= 70 ? 'late' : 'absent',
+          label: t('stats.avgAttendanceFull'),
+          value: `${metrics.avgAttendancePct}%`,
+          tone: metrics.avgAttendancePct >= 90 ? 'present' : metrics.avgAttendancePct >= 70 ? 'late' : 'absent',
         },
       ], t('summary'));
 
@@ -578,16 +635,10 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
         `${s.attendancePercentage}%`,
       ]);
 
-      (doc as any).autoTable({
+      applyStandardTable(doc, {
         startY: cursorY,
         head: [tableHeaders],
         body: tableRows,
-        theme: 'grid',
-        headStyles: SUMMARY_TABLE_HEAD_STYLES,
-        bodyStyles: SUMMARY_TABLE_BODY_STYLES,
-        alternateRowStyles: { fillColor: PDF_COLORS.surfaceAlt },
-        margin: { left: 14, right: 14 },
-        styles: { overflow: 'linebreak', lineColor: PDF_COLORS.border, lineWidth: 0.15 },
         columnStyles: {
           0: { cellWidth: 8, halign: 'center' },
           1: { cellWidth: 52 },
@@ -651,7 +702,8 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
     finally { setIsEmailing(false); }
   };
 
-  const handleEmailSummary = async () => {
+  /** E-mail do relatório detalhado (registros linha a linha). */
+  const handleEmailDetailReport = async () => {
     if (reportData.length === 0) { showToast(t('noDataToEmail'), "warning"); return; }
     setIsEmailing(true);
     try {
@@ -688,7 +740,22 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
           <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1><HelpButton helpPointId="reports.generator" /></div>
           <p className="text-slate-500 font-medium text-sm">{t('subtitle')}</p>
         </div>
+        {onNavigate && (user.role === 'ADMIN' || user.role === 'HR') && (
+          <button
+            type="button"
+            onClick={() => onNavigate('apuracao')}
+            className="inline-flex items-center gap-1.5 self-start rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+          >
+            {t('apuracaoIntroCta')}
+          </button>
+        )}
       </header>
+
+      {(user.role === 'ADMIN' || user.role === 'HR') && (
+        <p className="rounded-xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">
+          {t('apuracaoIntro')}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-8">
@@ -778,6 +845,16 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
               </div>
             </div>
 
+            <ReportsScopeBanner
+              periodPreset={periodPreset}
+              startDate={startDate}
+              endDate={endDate}
+              employeeCount={employeeSummaries.length}
+              selectedDeptCount={selectedDepts.length}
+              totalDepts={dbDepartments.length}
+              singleEmployeeName={singleEmployeeName}
+            />
+
             {/* Stat Cards */}
             {employeeSummaries.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-100">
@@ -797,26 +874,22 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { label: t('stats.employees'), value: employeeSummaries.length, color: 'bg-indigo-50 text-indigo-700 border-indigo-100', icon: Users },
-                  { label: t('stats.totalPresent'), value: employeeSummaries.reduce((s: any, e: any) => s + e.presentDays, 0), color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle2 },
-                  { label: t('stats.totalAbsent'), value: employeeSummaries.reduce((s: any, e: any) => s + e.absentDays, 0), color: 'bg-rose-50 text-rose-700 border-rose-100', icon: AlertCircle },
-                  { label: t('stats.totalLate'), value: employeeSummaries.reduce((s: any, e: any) => s + e.lateDays, 0), color: 'bg-amber-50 text-amber-700 border-amber-100', icon: Clock },
-                  { label: t('stats.totalLeave'), value: employeeSummaries.reduce((s: any, e: any) => s + e.leaveDays, 0), color: 'bg-blue-50 text-blue-700 border-blue-100', icon: FileText },
-                  { label: t('stats.avgAttendance'), value: employeeSummaries.length > 0 ? `${Math.round(employeeSummaries.reduce((s: any, e: any) => s + e.attendancePercentage, 0) / employeeSummaries.length)}%` : '—', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: PieChart },
-                ].map((stat: any) => (
-                  <div key={stat.label} className={`${stat.color} rounded-2xl p-4 border text-center`}>
-                    <stat.icon size={18} className="mx-auto mb-1.5 opacity-60" />
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-[8px] font-semibold uppercase tracking-wider mt-0.5">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
+              <ReportsSummaryMetrics metrics={teamMetrics} />
             )}
+
+            {employeeSummaries.length > 0 && (
+              <EmployeeSummaryTable
+                key={`${employeeFilter}-${employeeSummaries.length}`}
+                summaries={employeeSummaries}
+                employeeFilter={employeeFilter}
+              />
+            )}
+
+            {employeeSummaries.length > 0 && (
             <p className="text-[9px] text-slate-400 text-center">
               {t('employeeSummaryHint')}
             </p>
+            )}
 
             {/* Summary Export Buttons */}
             <div className="pt-4 border-t border-slate-50 space-y-3">
@@ -910,7 +983,7 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
                 <button onClick={downloadCSV} disabled={isGenerating || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvExport')}</button>
                 <button onClick={downloadPDF} disabled={isGeneratingPDF || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfExport')}</button>
               </div>
-              <button onClick={handleEmailSummary} disabled={isEmailing || reportData.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailDetailReport')}</button>
+              <button onClick={handleEmailDetailReport} disabled={isEmailing || reportData.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailDetailReport')}</button>
             </div>
             </>
             )}
@@ -918,48 +991,21 @@ const Reports: React.FC<ReportsProps> = ({ user }) => {
 
         </div>
 
-        {/* ===== LIVE PREVIEW SIDEBAR (always summary) ===== */}
-        <div className="bg-[#0f172a] rounded-2xl p-8 text-white shadow-xl space-y-8 flex flex-col sticky top-24 h-fit animate-in zoom-in duration-700">
-           <div className="flex-1 space-y-8">
-             <div className="flex items-center justify-between"><h3 className="text-xl font-semibold flex items-center gap-3"><Search className="text-indigo-400" /> {t('livePreview')}</h3><div className="p-2 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-all" onClick={fetchLogs} title={t('refreshEmailStatus')}><RefreshCw size={16} /></div></div>
-             <div className="p-8 bg-white/5 rounded-xl border border-white/10 text-center space-y-6">
-               <div><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">{t('stats.employees')}</p><p className="text-6xl font-semibold text-white">{employeeSummaries.length}</p></div>
-               {selectedDepts.length === 0 ? (
-                 <p className="text-xs text-amber-300/90 leading-relaxed px-2">{t('selectDepartmentsHint')}</p>
-               ) : null}
-               <div className="grid grid-cols-2 gap-2">
-                 {[
-                   { label: t('present'), count: employeeSummaries.reduce((s, e) => s + e.presentDays, 0), color: 'text-emerald-400' },
-                   { label: t('absent'), count: employeeSummaries.reduce((s, e) => s + e.absentDays, 0), color: 'text-rose-400' },
-                   { label: t('late'), count: employeeSummaries.reduce((s, e) => s + e.lateDays, 0), color: 'text-amber-400' },
-                   { label: t('leave'), count: employeeSummaries.reduce((s, e) => s + e.leaveDays, 0), color: 'text-blue-400' },
-                 ].map(stat => (
-                   <div key={stat.label} className="bg-white/5 rounded-xl p-3 text-center">
-                     <p className={`text-lg font-bold ${stat.color}`}>{stat.count}</p>
-                     <p className="text-[9px] uppercase tracking-wider text-slate-400">{stat.label}</p>
-                   </div>
-                 ))}
-               </div>
-               <div className="h-px bg-white/10 w-1/2 mx-auto"></div>
-               <div>
-                 <p className="text-[8px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">{t('avgAttendance')}</p>
-                 <p className="text-3xl font-bold text-white">
-                   {employeeSummaries.length > 0
-                     ? `${Math.round(employeeSummaries.reduce((s, e) => s + e.attendancePercentage, 0) / employeeSummaries.length)}%`
-                     : '—'}
-                 </p>
-               </div>
-             </div>
-             <div className="space-y-4">
-               <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500"><Activity size={14} className="text-indigo-400" /> {t('recentEmailActivity')}</div>
-               <div className="bg-slate-900 border border-white/10 rounded-3xl p-2 max-h-48 overflow-y-auto no-scrollbar space-y-1">
-                 {emailLogs.length === 0 ? (<p className="text-center text-[9px] font-semibold text-slate-600 uppercase py-4">{t('noRecentActivity')}</p>) : (emailLogs.map(log => (<div key={log.id} className="p-3 bg-white/5 rounded-2xl flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[9px] font-bold text-white truncate">{log.recipient_email}</p><p className="text-[8px] font-medium text-slate-500 truncate">{log.subject}</p></div><div className={`px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase ${log.status === 'SENT' ? 'bg-emerald-500/20 text-emerald-400' : log.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{log.status}</div></div>)))}
-               </div>
-               {emailLogs.some(l => l.status === 'FAILED') && (<div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex gap-2"><AlertCircle size={14} className="text-rose-400 flex-shrink-0" /><p className="text-[9px] font-medium text-rose-300 leading-tight">{t('emailFailedHint')}</p></div>)}
-               {isHookMissing && (<div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-2"><HelpCircle size={14} className="text-amber-400 flex-shrink-0" /><div className="space-y-1"><p className="text-[9px] font-bold text-amber-300 leading-tight uppercase">{t('hookMissingTitle')}</p><p className="text-[8px] font-medium text-amber-400/80 leading-tight">{t('hookMissingHint')}</p></div></div>)}
-             </div>
-           </div>
-           <div className="p-6 bg-indigo-500/10 rounded-xl border border-indigo-500/20"><p className="text-[9px] font-semibold text-indigo-300 uppercase tracking-[0.3em] mb-2">{t('technicalInfo')}</p><div className="space-y-1 text-[10px] font-bold text-slate-300 uppercase"><p>{t('formatCsvPdf')}</p><p>{t('modeSummaryDetail')}</p></div></div>
+        {/* ===== SIDE PANEL ===== */}
+        <div className="sticky top-24 h-fit">
+        <ReportsSidePanel
+          periodPreset={periodPreset}
+          startDate={startDate}
+          endDate={endDate}
+          employeeCount={employeeSummaries.length}
+          selectedDeptCount={selectedDepts.length}
+          totalDepts={dbDepartments.length}
+          singleEmployeeName={singleEmployeeName}
+          topAbsent={topAbsentEmployees}
+          emailLogs={emailLogs}
+          isHookMissing={isHookMissing}
+          onRefreshLogs={fetchLogs}
+        />
         </div>
       </div>
     </div>

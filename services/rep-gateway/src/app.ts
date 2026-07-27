@@ -11,6 +11,10 @@ import { forwardPunches } from './ingest/client.js';
 import { normalizeCapture } from './protocol/normalize.js';
 import { ReplayGuard } from './security/replay.js';
 import { encryptRsaProbeVariant, evaluateRequestSignature } from './security/rsa.js';
+import {
+  encryptWatchCommAck,
+  type WatchCommEncryptOptions,
+} from './security/watchcommRsa.js';
 import type { QuarantineStore } from './storage/quarantine.js';
 import type { CapturedRequest, SanitizedHeaders } from './types.js';
 
@@ -19,6 +23,7 @@ export interface AppDependencies {
   logger: Logger;
   quarantine: QuarantineStore;
   forward?: typeof forwardPunches;
+  encryptWatchCommAck?: (options: WatchCommEncryptOptions) => Promise<Buffer>;
 }
 
 export function createApp(dependencies: AppDependencies) {
@@ -40,7 +45,14 @@ export function createApp(dependencies: AppDependencies) {
     processingFailures: 0,
   };
   let rsaProbeIndex = 0;
-  let lastRsaProbe: { index: number; plaintextHex: string; variant: string } | null = null;
+  let lastAckProbe: {
+    index: number;
+    mode: GatewayConfig['ack']['mode'];
+    plaintextHex?: string;
+    variant?: string;
+    watchcommProbe?: string;
+  } | null = null;
+  const watchcommEncrypt = dependencies.encryptWatchCommAck ?? encryptWatchCommAck;
   app.disable('x-powered-by');
   app.set('trust proxy', false);
 
@@ -117,16 +129,18 @@ export function createApp(dependencies: AppDependencies) {
       return;
     }
 
-    if (req.path === '/v1/confirmcommand' && lastRsaProbe) {
+    if (req.path === '/v1/confirmcommand' && lastAckProbe) {
       logger.info(
         {
-          probeIndex: lastRsaProbe.index,
-          plaintextHex: lastRsaProbe.plaintextHex || 'empty',
-          variant: lastRsaProbe.variant,
+          probeIndex: lastAckProbe.index,
+          ackMode: lastAckProbe.mode,
+          plaintextHex: lastAckProbe.plaintextHex || 'empty',
+          variant: lastAckProbe.variant,
+          watchcommProbe: lastAckProbe.watchcommProbe,
           command: firstQueryValue(req.query.command),
           deviceError: firstQueryValue(req.query.error),
         },
-        'REP RSA probe result',
+        'REP handshake probe result',
       );
     }
 
@@ -142,7 +156,13 @@ export function createApp(dependencies: AppDependencies) {
 
     // ACK before downstream work: the REP must not retry because Supabase is slow.
     try {
-      let probe: { index: number; plaintextHex: string; variant: string } | null = null;
+      let probe: {
+        index: number;
+        mode: GatewayConfig['ack']['mode'];
+        plaintextHex?: string;
+        variant?: string;
+        watchcommProbe?: string;
+      } | null = null;
       if (config.ack.mode === 'rsa-pkcs1-probe' && req.path === '/v1/identification') {
         const candidates =
           config.ack.rsaProbeHexCandidates.length > 0
@@ -156,23 +176,39 @@ export function createApp(dependencies: AppDependencies) {
         const index = rsaProbeIndex % combinations;
         probe = {
           index,
+          mode: config.ack.mode,
           plaintextHex: candidates[index % candidates.length] ?? '',
           variant: variants[Math.floor(index / candidates.length)] ?? 'pkcs1-binary',
         };
         rsaProbeIndex++;
-        lastRsaProbe = probe;
+        lastAckProbe = probe;
+      } else if (config.ack.mode === 'watchcomm-rsa' && req.path === '/v1/identification') {
+        const probes =
+          config.ack.watchcommProbes.length > 0
+            ? config.ack.watchcommProbes
+            : ['status-inquiry'];
+        const index = rsaProbeIndex % probes.length;
+        probe = {
+          index,
+          mode: config.ack.mode,
+          watchcommProbe: probes[index] ?? 'status-inquiry',
+        };
+        rsaProbeIndex++;
+        lastAckProbe = probe;
       }
-      const ackBody = buildAckBody(req.path, config, probe?.plaintextHex, probe?.variant);
+      const ackBody = await buildAckBody(config, req.path, probe, watchcommEncrypt);
       res.status(config.ack.status).type(config.ack.contentType).send(ackBody);
       if (probe) {
         logger.info(
           {
             probeIndex: probe.index,
+            ackMode: probe.mode,
             plaintextHex: probe.plaintextHex || 'empty',
             variant: probe.variant,
+            watchcommProbe: probe.watchcommProbe,
             cipherBytes: Buffer.isBuffer(ackBody) ? ackBody.length : 0,
           },
-          'REP RSA probe sent',
+          'REP handshake probe sent',
         );
       }
     } catch (error) {
@@ -305,22 +341,37 @@ function firstQueryValue(value: unknown): string | undefined {
   return undefined;
 }
 
-function buildAckBody(
-  pathname: string,
+async function buildAckBody(
   config: GatewayConfig,
-  probePlaintextHex?: string,
-  probeVariant = 'pkcs1-binary',
-): string | Buffer {
+  pathname: string,
+  probe: {
+    plaintextHex?: string;
+    variant?: string;
+    watchcommProbe?: string;
+  } | null,
+  watchcommEncryptFn: (options: WatchCommEncryptOptions) => Promise<Buffer>,
+): Promise<string | Buffer> {
   if (config.ack.mode === 'plain' || pathname !== '/v1/identification') {
     return config.ack.body;
   }
   if (!config.security.modulusHex) {
     throw new Error('RSA modulus is required for encrypted ACK probe');
   }
+  if (config.ack.mode === 'watchcomm-rsa') {
+    const probeName = probe?.watchcommProbe ?? config.ack.watchcommProbes[0] ?? 'status-inquiry';
+    return watchcommEncryptFn({
+      probe: probeName,
+      modulusHex: config.security.modulusHex,
+      exponentHex: config.security.exponentHex,
+      bridgeUrl: config.ack.watchcommBridgeUrl,
+      scriptPath: config.ack.watchcommScriptPath,
+      powershellPath: config.ack.watchcommPowershellPath,
+    });
+  }
   return encryptRsaProbeVariant(
-    Buffer.from(probePlaintextHex ?? config.ack.rsaPlaintextHex, 'hex'),
+    Buffer.from(probe?.plaintextHex ?? config.ack.rsaPlaintextHex, 'hex'),
     config.security.modulusHex,
     config.security.exponentHex,
-    probeVariant,
+    probe?.variant ?? 'pkcs1-binary',
   );
 }

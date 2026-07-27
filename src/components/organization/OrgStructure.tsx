@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Network, Briefcase, Plus, Edit3, Trash2 } from 'lucide-react';
+import { Network, Briefcase } from 'lucide-react';
+import { OrgListRow, OrgPanel } from './OrgUi';
 
 interface Props {
   departments: string[];
@@ -13,43 +14,58 @@ interface Props {
 
 export const OrgStructure: React.FC<Props> = ({ departments, designations, onAdd, onEdit, onDelete }) => {
   const { t } = useTranslation('org');
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-      <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-5 md:p-6 bg-primary text-white flex justify-between items-center">
-          <div className="flex items-center gap-3"><Network size={20} /><h3 className="text-xs md:text-sm font-semibold uppercase tracking-wider">{t('departments')}</h3></div>
-          <button onClick={() => onAdd('DEPT')} className="p-2 bg-white/10 rounded-lg transition-colors hover:bg-white/20"><Plus size={18} /></button>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <OrgPanel
+        icon={Network}
+        title={t('departments')}
+        countLabel={t('itemCount', { count: departments.length })}
+        actionLabel={t('addItem')}
+        onAction={() => onAdd('DEPT')}
+      >
+        <div className="p-3 md:p-4 space-y-2 flex-1 overflow-y-auto max-h-[500px] no-scrollbar">
+          {departments.length === 0 ? (
+            <p className="py-10 text-center text-sm text-slate-500">{t('emptyDepartments')}</p>
+          ) : (
+            departments.map((dept, i) => (
+              <OrgListRow
+                key={`${dept}-${i}`}
+                label={dept}
+                onEdit={() => onEdit('DEPT', i)}
+                onDelete={() => onDelete('DEPT', i)}
+                editLabel={t('editItem')}
+                deleteLabel={t('removeItem')}
+              />
+            ))
+          )}
         </div>
-        <div className="p-4 md:p-6 space-y-2 flex-1 overflow-y-auto max-h-[500px] no-scrollbar">
-          {departments.map((dept, i) => (
-            <div key={i} className="flex items-center justify-between p-3 md:p-4 bg-slate-50 border border-slate-100 rounded-2xl group hover:bg-white transition-all">
-              <span className="font-bold text-slate-800 break-words max-w-[70%]">{dept}</span>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 md:opacity-100 transition-opacity">
-                <button onClick={() => onEdit('DEPT', i)} className="p-2 text-slate-400 hover:text-primary"><Edit3 size={16} /></button>
-                <button onClick={() => onDelete('DEPT', i)} className="p-2 text-slate-400 hover:text-rose-500"><Trash2 size={16} /></button>
-              </div>
-            </div>
-          ))}
+      </OrgPanel>
+
+      <OrgPanel
+        icon={Briefcase}
+        title={t('designations')}
+        countLabel={t('itemCount', { count: designations.length })}
+        actionLabel={t('addItem')}
+        onAction={() => onAdd('DESIG')}
+      >
+        <div className="p-3 md:p-4 space-y-2 flex-1 overflow-y-auto max-h-[500px] no-scrollbar">
+          {designations.length === 0 ? (
+            <p className="py-10 text-center text-sm text-slate-500">{t('emptyDesignations')}</p>
+          ) : (
+            designations.map((des, i) => (
+              <OrgListRow
+                key={`${des}-${i}`}
+                label={des}
+                onEdit={() => onEdit('DESIG', i)}
+                onDelete={() => onDelete('DESIG', i)}
+                editLabel={t('editItem')}
+                deleteLabel={t('removeItem')}
+              />
+            ))
+          )}
         </div>
-      </section>
-      
-      <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-5 md:p-6 bg-primary text-white flex justify-between items-center">
-          <div className="flex items-center gap-3"><Briefcase size={20} /><h3 className="text-xs md:text-sm font-semibold uppercase tracking-wider">{t('designations')}</h3></div>
-          <button onClick={() => onAdd('DESIG')} className="p-2 bg-white/10 rounded-lg transition-colors hover:bg-white/20"><Plus size={18} /></button>
-        </div>
-        <div className="p-4 md:p-6 space-y-2 flex-1 overflow-y-auto max-h-[500px] no-scrollbar">
-          {designations.map((des, i) => (
-            <div key={i} className="flex items-center justify-between p-3 md:p-4 bg-slate-50 border border-slate-100 rounded-2xl group hover:bg-white transition-all">
-              <span className="font-bold text-slate-800 break-words max-w-[70%]">{des}</span>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 md:opacity-100 transition-opacity">
-                <button onClick={() => onEdit('DESIG', i)} className="p-2 text-slate-400 hover:text-primary"><Edit3 size={16} /></button>
-                <button onClick={() => onDelete('DESIG', i)} className="p-2 text-slate-400 hover:text-rose-500"><Trash2 size={16} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      </OrgPanel>
     </div>
   );
 };

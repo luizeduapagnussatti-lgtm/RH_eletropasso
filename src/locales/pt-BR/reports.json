@@ -1,6 +1,8 @@
 {
   "title": "Relatórios",
   "subtitle": "Resumo de ponto por colaborador e extração detalhada de registros",
+  "apuracaoIntro": "Use os relatórios após apurar a competência (Operação → Apuração) para garantir números conferidos e aprovados.",
+  "apuracaoIntroCta": "Ir para Apuração",
   "attendanceReport": "Relatório de ponto",
   "leaveReport": "Relatório de licenças",
   "dateRange": "Período",
@@ -32,7 +34,8 @@
   "recipients": "Destinatário(s)",
   "recipientsPlaceholder": "email1@exemplo.com, email2@exemplo.com",
   "employeeSummaryTitle": "Relatório resumido por colaborador",
-  "employeeSummaryHint": "Detalhamento por colaborador incluído na exportação CSV/PDF e no e-mail.",
+  "employeeSummaryHint": "Expanda a tabela abaixo ou exporte CSV/PDF para o detalhamento completo.",
+  "employeeTableHint": "Soma das colunas = totais dos cards acima. Clique nos cabeçalhos para ordenar.",
   "perEmployeeBreakdown": "Detalhamento por colaborador",
   "noEmployeeData": "Sem dados de colaboradores neste período",
   "adjustFilters": "Ajuste o período ou os filtros de departamento.",
@@ -43,7 +46,36 @@
     "totalAbsent": "Dias de ausência",
     "totalLate": "Dias de atraso",
     "totalLeave": "Dias de licença",
-    "avgAttendance": "Méd. presença"
+    "avgAttendance": "Méd. presença",
+    "teamTotal": "Total da equipe · {{count}} colaboradores",
+    "avgPerEmployee": "Média: {{avg}} dias/colaborador",
+    "avgAttendanceFull": "Média de presença (entre colaboradores)",
+    "unweightedAvg": "Média aritmética entre colaboradores"
+  },
+  "scope": {
+    "title": "O que você está vendo",
+    "periodLine": "{{preset}} · {{start}} a {{end}}",
+    "teamLine": "{{count}} colaboradores · {{depts}}/{{totalDepts}} departamentos",
+    "singleEmployee": "Colaborador: {{name}}",
+    "clockFacingNote": "Apenas colaboradores que batem ponto no relógio (Admin, RH e Diretoria excluídos).",
+    "inScope": "No escopo",
+    "teamTotalsNote": "Os números grandes são totais da equipe — soma de todos no escopo, não de uma pessoa."
+  },
+  "metricsHelp": {
+    "presentDays": "Dias úteis com status Presente no espelho de ponto.",
+    "absentDays": "Dia útil sem batida e sem licença aprovada (inclui falta inferida pelo sistema).",
+    "lateDays": "Dias com status Atraso no espelho de ponto.",
+    "leaveDays": "Dias úteis cobertos por licença aprovada no período.",
+    "attendancePct": "Por colaborador: (presentes + atrasos) ÷ (dias úteis − licenças). O card mostra a média aritmética entre colaboradores."
+  },
+  "table": {
+    "totalRow": "TOTAL"
+  },
+  "sidePanel": {
+    "title": "Resumo rápido",
+    "topAbsent": "Top 3 — mais ausências no período",
+    "noAbsent": "Nenhuma ausência no escopo selecionado.",
+    "absentDaysCount": "{{count}} dias"
   },
   "csvSummary": "CSV resumo",
   "pdfSummary": "PDF resumo",
@@ -66,6 +98,7 @@
   "exportFailed": "Falha na exportação.",
   "emailDetailReport": "Enviar detalhes por e-mail",
   "livePreview": "Prévia ao vivo",
+  "sidePanelTitle": "Resumo rápido",
   "refreshEmailStatus": "Atualizar status de e-mail",
   "present": "Dias presentes",
   "absent": "Dias de ausência",
@@ -104,8 +137,16 @@
   "pdfDateRange": "Período: {{start}} a {{end}}",
   "pdfEmployeeSummaryTitle": "Resumo de ponto por colaborador",
   "pdfPeriodEmployees": "Período: {{start}} a {{end}}  ·  {{count}} colaboradores",
+  "pdfTeamTotalsNote": "Totais da equipe (soma de {{count}} colaboradores no escopo)",
   "pdfGeneratedBy": "Gerado pelo RH_Eletropasso em {{date}}",
   "pdfPage": "Página {{current}} de {{total}}",
+  "export": {
+    "notAvailable": "N/D",
+    "noPunch": "—",
+    "locationNotDetected": "Não detectado",
+    "systemAbsentRemark": "Gerado pelo sistema: nenhuma batida de entrada registrada.",
+    "manualEntryPrefix": "[Lançamento manual]"
+  },
   "pdf": {
     "metrics": {
       "total": "Total",

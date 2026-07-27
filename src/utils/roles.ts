@@ -15,9 +15,17 @@ export function isStaffAdmin(role?: string | null): boolean {
   return role === 'ADMIN' || role === 'HR';
 }
 
-/** Staff who administer the app and should not use clock-in UX. */
+/**
+ * Profiles that do not punch the clock / do not need DMPREP admission.
+ * ADMIN = app owner; HR = RH assistant; MANAGEMENT = Diretoria (não CLT / sem ponto).
+ */
 export function isNonPunchingStaff(role?: string | null): boolean {
-  return role === 'ADMIN' || role === 'HR';
+  return role === 'ADMIN' || role === 'HR' || role === 'MANAGEMENT';
+}
+
+/** Roles that require REP/DMPREP admission checklist after create. */
+export function needsClockAdmission(role?: string | null): boolean {
+  return role === 'EMPLOYEE' || role === 'MANAGER' || role === 'TEAM_LEAD';
 }
 
 /** Roles an actor may assign when creating/editing users. */
@@ -41,4 +49,9 @@ export function canManageEmployeeRecord(
   if (actorRole === 'ADMIN') return true;
   if (actorRole === 'HR') return targetRole !== 'ADMIN' && targetRole !== 'SUPER_ADMIN';
   return false;
+}
+
+/** Saturday / holiday work roster — Admin, RH and store managers. */
+export function canManageRoster(role?: string | null): boolean {
+  return role === 'ADMIN' || role === 'HR' || role === 'MANAGER';
 }

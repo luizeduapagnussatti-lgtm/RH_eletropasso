@@ -56,6 +56,9 @@ const Announcements = lazyWithReload(() => import('./pages/Announcements'));
 const AdminNotifications = lazyWithReload(() => import('./pages/AdminNotifications'));
 const Timesheet = lazyWithReload(() => import('./pages/Timesheet'));
 const Payroll = lazyWithReload(() => import('./pages/Payroll'));
+const PontoHub = lazyWithReload(() => import('./pages/PontoHub'));
+const Apuracao = lazyWithReload(() => import('./pages/Apuracao'));
+const Comunicacao = lazyWithReload(() => import('./pages/Comunicacao'));
 const WorkRoster = lazyWithReload(() => import('./pages/WorkRoster'));
 const MyTimesheet = lazyWithReload(() => import('./pages/MyTimesheet'));
 const MyRoster = lazyWithReload(() => import('./pages/MyRoster'));
@@ -553,18 +556,33 @@ const AppContent: React.FC = () => {
         }
         return <AttendanceLogs user={user} viewMode="MY" />;
       case 'attendance-audit': return <AttendanceLogs user={user} viewMode="AUDIT" />;
-      case 'timesheet': return <Timesheet user={user} />;
+      case 'timesheet': return <Timesheet user={user} onNavigate={handleNavigate} />;
       case 'my-timesheet':
         if (needsClockAdmission(user.role)) {
           return <MyTimesheet user={user} onNavigate={handleNavigate} />;
         }
-        return <Timesheet user={user} />;
+        return <Timesheet user={user} onNavigate={handleNavigate} />;
       case 'my-roster':
         if (needsClockAdmission(user.role)) {
           return <MyRoster user={user} onNavigate={handleNavigate} />;
         }
         return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'payroll': return <Payroll user={user} onNavigate={handleNavigate} />;
+      case 'ponto':
+        if (['ADMIN', 'HR', 'MANAGER', 'TEAM_LEAD', 'MANAGEMENT'].includes(user.role)) {
+          return <PontoHub user={user} onNavigate={handleNavigate} />;
+        }
+        return <Dashboard user={user} onNavigate={handleNavigate} />;
+      case 'apuracao':
+        if (user.role === 'ADMIN' || user.role === 'HR') {
+          return <Apuracao user={user} onNavigate={handleNavigate} />;
+        }
+        return <Dashboard user={user} onNavigate={handleNavigate} />;
+      case 'comunicacao':
+        if (user.role === 'ADMIN') {
+          return <Comunicacao user={user} onNavigate={handleNavigate} />;
+        }
+        return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'roster':
         if (user.role === 'ADMIN' || user.role === 'HR' || user.role === 'MANAGER') {
           return <WorkRoster user={user} />;
@@ -579,7 +597,7 @@ const AppContent: React.FC = () => {
           return <Settings user={user} onNavigate={handleNavigate} />;
         }
         return <Settings user={user} onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} />;
-      case 'reports': return <Reports user={user} />;
+      case 'reports': return <Reports user={user} onNavigate={handleNavigate} />;
       case 'organization': return <Organization initialTab={navParams?.tab} />;
       default: return <Dashboard user={user} onNavigate={handleNavigate} />;
     }

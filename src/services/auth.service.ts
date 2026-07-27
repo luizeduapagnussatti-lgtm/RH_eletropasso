@@ -21,17 +21,31 @@ const profileToUser = (profile: Record<string, any>): User => ({
     : undefined,
 });
 
+/** Map Supabase/network errors to readable pt-BR messages for login UI. */
+export function mapLoginError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('fetch') || m.includes('network') || m.includes('failed to load')) {
+    return 'Não foi possível contactar o servidor (api-rh.eletropasso.local). Confira hosts, certificado e se aparece "Banco conectado" no login.';
+  }
+  if (m.includes('invalid login') || m.includes('invalid credentials')) {
+    return 'E-mail ou senha incorretos.';
+  }
+  return message;
+}
+
 export const authService = {
   async login(email: string, pass: string): Promise<{ user: User | null; error?: string }> {
     if (!isSupabaseConfigured()) return { user: null, error: 'Supabase not configured.' };
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password: pass,
     });
 
     if (authError || !authData.user) {
-      return { user: null, error: authError?.message || 'Login failed.' };
+      return { user: null, error: mapLoginError(authError?.message || 'Login failed.') };
     }
 
     // Fetch profile row

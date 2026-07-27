@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Plus, Building2, Trash2 } from 'lucide-react';
+import { MapPin, Building2, Trash2 } from 'lucide-react';
 import { OfficeLocation } from '../../types';
+import { OrgPanel, orgInteractive } from './OrgUi';
 
 interface Props {
   locations: OfficeLocation[];
@@ -12,30 +13,54 @@ interface Props {
 
 export const OrgPlacement: React.FC<Props> = ({ locations, onAdd, onEdit, onDelete }) => {
   const { t } = useTranslation('org');
+
   return (
-    <div className="space-y-6 animate-in zoom-in duration-500">
-      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 bg-primary text-white flex justify-between items-center">
-           <div className="flex items-center gap-3"><MapPin size={20} /><h3 className="text-sm font-semibold uppercase tracking-wider">{t('officeGeofences')}</h3></div>
-           <button onClick={onAdd} className="p-2 bg-white/10 rounded-lg hover:bg-white/20"><Plus size={18} /></button>
-        </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-           {locations.map((loc, i) => (
-             <div key={i} className="p-5 bg-slate-50 border border-slate-100 rounded-[2rem] relative group hover:bg-white transition-all">
-                <div className="flex justify-between items-start mb-2">
-                   <h4 className="font-bold text-slate-900">{loc.name}</h4>
-                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => onEdit(i)} className="p-1.5 text-slate-400 hover:text-primary"><Building2 size={14}/></button>
-                      <button onClick={() => onDelete(i)} className="p-1.5 text-slate-400 hover:text-rose-500"><Trash2 size={14}/></button>
-                   </div>
-                </div>
-                <p className="text-[10px] font-mono text-slate-500">{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</p>
-                <p className="text-[10px] font-bold text-primary mt-1 uppercase tracking-wider">{t('radiusLabel', { radius: loc.radius })}</p>
-             </div>
-           ))}
-           {locations.length === 0 && <p className="col-span-full text-center text-slate-400 text-xs font-bold uppercase tracking-widest py-10">{t('noLocations')}</p>}
-        </div>
+    <OrgPanel
+      icon={MapPin}
+      title={t('officeGeofences')}
+      countLabel={t('itemCount', { count: locations.length })}
+      actionLabel={t('addItem')}
+      onAction={onAdd}
+    >
+      <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {locations.map((loc, i) => (
+          <div
+            key={`${loc.name}-${i}`}
+            className={`p-4 bg-slate-50 border border-slate-100 rounded-xl relative group ${orgInteractive}`}
+          >
+            <div className="flex justify-between items-start mb-2 gap-2">
+              <h4 className="font-semibold text-slate-900 text-sm">{loc.name}</h4>
+              <div className="flex gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onEdit(i)}
+                  aria-label={t('editItem')}
+                  className="min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-white/80 transition-colors"
+                >
+                  <Building2 size={14} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(i)}
+                  aria-label={t('removeItem')}
+                  className="min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  <Trash2 size={14} aria-hidden />
+                </button>
+              </div>
+            </div>
+            <p className="text-xs font-mono text-slate-500 tabular-nums">
+              {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
+            </p>
+            <p className="text-xs font-medium text-primary mt-1.5">
+              {t('radiusLabel', { radius: loc.radius })}
+            </p>
+          </div>
+        ))}
+        {locations.length === 0 && (
+          <p className="col-span-full text-center text-slate-500 text-sm py-12">{t('noLocations')}</p>
+        )}
       </div>
-    </div>
+    </OrgPanel>
   );
 };

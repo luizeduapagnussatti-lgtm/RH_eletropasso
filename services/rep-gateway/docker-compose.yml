@@ -17,6 +17,7 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - rep_gateway_internal
+      - eletropasso_edge
     healthcheck:
       test:
         [
@@ -34,3 +35,5 @@ networks:
   rep_gateway_internal:
     name: rep_gateway_internal
     driver: bridge
+  eletropasso_edge:
+    external: true

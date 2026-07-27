@@ -116,7 +116,7 @@ export const emailService = {
         `<td class="d c">${s.department.substring(0, 15)}</td>` +
         `<td class="d r">${s.totalWorkingDays}</td>` +
         `<td class="d r g">${s.presentDays}</td>` +
-        `<td class="d r r">${s.absentDays}</td>` +
+        `<td class="d r rr">${s.absentDays}</td>` +
         `<td class="d r a">${s.lateDays}</td>` +
         `<td class="d r b">${s.leaveDays}</td>` +
         `<td class="d r"><span class="${pctColor}">${s.attendancePercentage}%</span></td>` +
@@ -136,55 +136,67 @@ export const emailService = {
 
     const html = `
       <!DOCTYPE html>
-      <html>
+      <html lang="pt-BR">
       <head>
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; font-size: 12px; }
-          .w { max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-          .h { background: #0f172a; color: white; padding: 15px; text-align: center; }
-          .h h1 { margin: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
-          .h p { margin: 5px 0 0; font-size: 10px; color: #94a3b8; }
-          .s { background: #f8fafc; padding: 10px; }
-          .stat { display: inline-block; padding: 6px 14px; margin: 4px; border-radius: 6px; font-size: 10px; font-weight: bold; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; font-size: 12px; }
+          .w { max-width: 720px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+          .bar { height: 4px; background: #c41e24; }
+          .h { background: #182230; color: white; padding: 18px 16px; }
+          .h h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+          .h p { margin: 6px 0 0; font-size: 11px; color: #94a3b8; }
+          .s { background: #f8fafc; padding: 12px 14px; border-bottom: 1px solid #e2e8f0; }
+          .stat { display: inline-block; padding: 6px 12px; margin: 3px; border-radius: 6px; font-size: 10px; font-weight: 600; }
           .st-p { background: #d1fae5; color: #065f46; }
           .st-a { background: #fee2e2; color: #991b1b; }
           .st-l { background: #fef3c7; color: #92400e; }
           .st-lv { background: #dbeafe; color: #1e40af; }
           table { width: 100%; border-collapse: collapse; }
-          th { background: #f1f5f9; padding: 8px; font-size: 9px; text-align: left; text-transform: uppercase; color: #64748b; }
-          .d { padding: 7px 6px; border-bottom: 1px solid #f1f5f9; font-size: 10px; }
+          th { background: #182230; padding: 9px 7px; font-size: 9px; text-align: left; text-transform: uppercase; letter-spacing: 0.04em; color: #fff; }
+          th.r { text-align: center; }
+          .d { padding: 8px 7px; border-bottom: 1px solid #e2e8f0; font-size: 11px; }
           .r { text-align: center; }
-          .c { text-align: center; color: #64748b; font-size: 9px; }
+          .c { text-align: center; color: #64748b; font-size: 10px; }
           .r0 { background: #ffffff; }
           .r1 { background: #f8fafc; }
-          .g { color: #059669; font-weight: bold; }
-          .r { color: #dc2626; font-weight: bold; }
-          .a { color: #d97706; font-weight: bold; }
-          .b { color: #2563eb; font-weight: bold; }
-          .c-g { color: #059669; font-weight: bold; background: #d1fae5; padding: 2px 6px; border-radius: 4px; }
-          .c-a { color: #d97706; font-weight: bold; background: #fef3c7; padding: 2px 6px; border-radius: 4px; }
-          .c-r { color: #dc2626; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; }
-          .f { background: #f8fafc; padding: 10px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+          .g { color: #059669; font-weight: 600; }
+          .rr { color: #dc2626; font-weight: 600; }
+          .a { color: #d97706; font-weight: 600; }
+          .b { color: #2563eb; font-weight: 600; }
+          .c-g { color: #059669; font-weight: 700; background: #d1fae5; padding: 2px 6px; border-radius: 4px; }
+          .c-a { color: #d97706; font-weight: 700; background: #fef3c7; padding: 2px 6px; border-radius: 4px; }
+          .c-r { color: #dc2626; font-weight: 700; background: #fee2e2; padding: 2px 6px; border-radius: 4px; }
+          .f { background: #f8fafc; padding: 12px; text-align: center; font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; }
         </style>
       </head>
       <body>
         <div class="w">
+          <div class="bar"></div>
           <div class="h">
-            <h1>Employee Attendance Summary</h1>
-            <p>${periodLabel} • ${dateRange} • ${totalEmployees} Employees</p>
+            <h1>Resumo de ponto por colaborador</h1>
+            <p>${periodLabel} · ${dateRange} · ${totalEmployees} colaboradores</p>
           </div>
           <div class="s">
-            <span class="stat st-p">Present: ${totalPresent}</span>
-            <span class="stat st-a">Absent: ${totalAbsent}</span>
-            <span class="stat st-l">Late: ${totalLate}</span>
-            <span class="stat st-lv">Leave: ${totalLeave}</span>
-            <span style="font-size:10px;color:#64748b;margin-left:8px;">Avg. Attendance: <strong>${avgAttendance}%</strong></span>
+            <span class="stat st-p">Presentes: ${totalPresent}</span>
+            <span class="stat st-a">Ausentes: ${totalAbsent}</span>
+            <span class="stat st-l">Atrasos: ${totalLate}</span>
+            <span class="stat st-lv">Licenças: ${totalLeave}</span>
+            <span style="font-size:11px;color:#64748b;margin-left:6px;">Méd. presença: <strong>${avgAttendance}%</strong></span>
           </div>
           <table>
-            <tr><th>Name</th><th class="r">Dept</th><th class="r">Days</th><th class="r">Present</th><th class="r">Absent</th><th class="r">Late</th><th class="r">Leave</th><th class="r">%</th></tr>
+            <tr>
+              <th>Colaborador</th>
+              <th class="r">Depto.</th>
+              <th class="r">Dias</th>
+              <th class="r">Presente</th>
+              <th class="r">Ausente</th>
+              <th class="r">Atraso</th>
+              <th class="r">Licença</th>
+              <th class="r">%</th>
+            </tr>
             ${rows}
           </table>
-          <div class="f">Generated by OpenHR • Employee Attendance Summary Report</div>
+          <div class="f">Gerado pelo RH_Eletropasso · Resumo de ponto</div>
         </div>
       </body>
       </html>
@@ -193,7 +205,7 @@ export const emailService = {
     try {
       const result = await hrService.sendCustomEmail({
         recipientEmail,
-        subject: `[Employee Summary] ${periodLabel} — ${dateRange}`,
+        subject: `[RH_Eletropasso] Resumo de ponto — ${periodLabel} (${dateRange})`,
         html,
         type: 'SYSTEM_REPORT'
       });

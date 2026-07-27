@@ -43,5 +43,11 @@
   "manager": "Manager",
   "noManager": "No manager",
   "newRequest": "New request",
-  "noAnnouncements": "No announcements"
+  "noAnnouncements": "No announcements",
+  "todaySnapshot": "Today at a glance",
+  "presentTodayLabel": "Present today",
+  "pendingLeavesLabel": "Pending leave",
+  "teamHeadcountLabel": "Headcount",
+  "lateCount": "{{count}} late",
+  "timesheet": "Timesheet"
 }

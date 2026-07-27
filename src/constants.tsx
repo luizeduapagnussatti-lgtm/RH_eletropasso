@@ -215,7 +215,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   dutyLabel2: "Fábrica",
   ptrpPolicy: {
     bankEnabled: false,
-    periodStartDay: 1,
+    periodStartDay: 26,
     weeklyOtThresholdMinutes: 2400,
     defaultBreakMinutes: 60,
   },
@@ -223,7 +223,7 @@ export const DEFAULT_CONFIG: AppConfig = {
 
 export const DEFAULT_PTRP_POLICY: PtrpPolicy = {
   bankEnabled: false,
-  periodStartDay: 1,
+  periodStartDay: 26,
   weeklyOtThresholdMinutes: 2400,
   defaultBreakMinutes: 60,
 };

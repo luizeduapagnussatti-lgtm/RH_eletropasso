@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "test": "node --import tsx --test test/**/*.test.ts",
+    "test:credentials": "node --import tsx --test ../../src/utils/employeeCredentials.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
