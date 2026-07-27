@@ -196,6 +196,8 @@
       "passwordShort": "Password must be at least 8 characters.",
       "credentialInvalid": "Invalid clock credential — use up to 12 numeric digits."
     },
+    "emailLoginPlaceholder": "name@company.com",
+    "emailLoginHint": "This is the system login email. Replace any technical import address (@import.eletropasso.local) with the employee's real email.",
     "save": "Save employee",
     "saving": "Saving…",
     "next": "Next",

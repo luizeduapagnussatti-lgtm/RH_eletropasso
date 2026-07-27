@@ -276,11 +276,12 @@ export const StepAccess: React.FC<Props & { showPassword: boolean; onTogglePassw
         <input
           type="email"
           required
-          disabled={mode === 'edit'}
-          className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-60"
+          className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
           value={form.email}
           onChange={e => onChange({ email: e.target.value })}
+          placeholder={t('onboarding.emailLoginPlaceholder')}
         />
+        <p className="text-[10px] text-slate-400 mt-1">{t('onboarding.emailLoginHint')}</p>
       </label>
       <label className="md:col-span-2">
         <span className="text-xs font-semibold text-slate-500 uppercase">

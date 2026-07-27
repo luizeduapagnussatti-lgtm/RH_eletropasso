@@ -199,6 +199,8 @@
       "emailRequired": "Informe o e-mail corporativo.",
       "passwordShort": "A senha deve ter pelo menos 8 caracteres."
     },
+    "emailLoginPlaceholder": "nome@eletropasso.com.br",
+    "emailLoginHint": "Este é o e-mail de login do sistema. Substitua o endereço técnico de importação (@import.eletropasso.local) pelo e-mail real do colaborador.",
     "save": "Salvar colaborador",
     "saving": "Salvando…",
     "next": "Próximo",

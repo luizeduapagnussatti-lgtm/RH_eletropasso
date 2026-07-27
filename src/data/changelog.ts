@@ -21,7 +21,22 @@ export const changelog: ChangelogRelease[] = [
       {
         type: 'fix',
         description:
+          'Relógio de Ponto / abas (Org, Espelho): opções não selecionadas deixavam de ler no dark mode — texto claro sobre barra clara (`bg-slate-100/80` sem override). Barra opaca + texto slate-700 e override dark para `/80`.',
+      },
+      {
+        type: 'fix',
+        description:
           'Espelho/Folha: o alerta âmbar "Pendências folha" some quando não há gaps de cadastro (antes ficava visível com a mensagem verde "Nenhuma pendência").',
+      },
+      {
+        type: 'fix',
+        description:
+          'ADMIN, Auxiliar de RH e Diretoria (contas de administração, sem ponto) saem do Espelho, recalcular período, lock readiness, pendências folha, consolidação e diff do console Relógio.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Editar colaborador: e-mail corporativo editável (é o login). Troca sincroniza auth + profiles; redefinição de senha por Admin/RH em outra conta passa pela Edge update-employee-access.',
       },
       {
         type: 'breaking',

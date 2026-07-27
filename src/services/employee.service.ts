@@ -243,15 +243,34 @@ export const employeeService = {
       }
     }
 
-    // Self-service password change via supabase.auth.updateUser.
-    // Only works for the currently authenticated user changing their own password.
-    if (updates.password) {
-      const { data: { session } } = await supabase.auth.getSession();
+    const nextEmail = typeof updates.email === 'string' ? updates.email.trim().toLowerCase() : '';
+    const nextPassword = typeof updates.password === 'string' ? updates.password : '';
+    const { data: { session } } = await supabase.auth.getSession();
+    const isSelf = session?.user?.id === id;
+
+    // Admin/HR changing another user's login (email and/or password) via Edge Function.
+    if (!isSelf && (nextEmail || nextPassword) && SUPABASE_FUNCTIONS_URL && session?.access_token) {
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/update-employee-access`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: id,
+          ...(nextEmail ? { email: nextEmail } : {}),
+          ...(nextPassword ? { password: nextPassword } : {}),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || json.message || 'Failed to update employee login');
+      }
+    } else if (isSelf && nextPassword) {
+      // Self-service password change via supabase.auth.updateUser.
       if (!session?.user?.email) {
         throw new Error('No active session. Please log in again.');
       }
-
-      // Verify current password before allowing change
       if (updates.oldPassword) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: session.user.email,
@@ -261,16 +280,34 @@ export const employeeService = {
           throw new Error('Current password is incorrect.');
         }
       }
-
       const { error: updateError } = await supabase.auth.updateUser({
-        password: updates.password,
+        password: nextPassword,
       });
       if (updateError) throw updateError;
+    } else if (isSelf && nextEmail && nextEmail !== session?.user?.email?.toLowerCase()) {
+      // Changing own login email also needs the admin Edge Function (or invite flow).
+      if (!SUPABASE_FUNCTIONS_URL || !session?.access_token) {
+        throw new Error('Cannot update email without Edge Function');
+      }
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/update-employee-access`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ employeeId: id, email: nextEmail }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || json.message || 'Failed to update email');
+      }
     }
 
     console.log('[EmployeeService] Updating profile:', id, payload);
-    const { error } = await supabase.from('profiles').update(payload).eq('id', id);
-    if (error) throw error;
+    if (Object.keys(payload).length > 0) {
+      const { error } = await supabase.from('profiles').update(payload).eq('id', id);
+      if (error) throw error;
+    }
 
     employeeService.clearCache();
     apiClient.notify();
