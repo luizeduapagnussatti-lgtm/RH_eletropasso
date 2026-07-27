@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-27',
+    title: 'Coletar batidas — BOM no resultado WatchComm',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Coletar batidas falhava porque o poller gravava last-cycle-result.json com BOM UTF-8 (PowerShell Set-Content) e o dmprep-sync fazia JSON.parse sem strip — corrigido no trigger e na gravação do poller; toast do sync trata resposta não-JSON com mensagem clara.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'Credencial do relógio separada do PIS',
     entries: [
       {
