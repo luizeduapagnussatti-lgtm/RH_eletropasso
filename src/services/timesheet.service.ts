@@ -4,9 +4,14 @@ import {
   TimesheetDay,
   TimesheetPeriod,
   TimesheetPeriodStatus,
+  TimesheetEmployeeReview,
+  TimesheetEmployeeReviewStatus,
   Holiday,
   LeaveRequest,
+  Employee,
 } from '../types';
+import { notificationService } from './notification.service';
+import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
 import { shiftService } from './shift.service';
 import { punchService } from './punch.service';
 import { calculateDay } from './timeCalculation.service';
@@ -14,13 +19,20 @@ import { hourBankService } from './hourBank.service';
 import { employeeService } from './employee.service';
 import { leaveService } from './leave.service';
 import { organizationService } from './organization.service';
+import { rosterService } from './roster.service';
 import {
   competenceForDate,
   eachDateInRange,
+  minIsoDate,
   normalizePeriodStartDay,
   periodBoundsForCompetence,
+  todayIsoLocal,
 } from '../utils/payrollPeriod';
+import { isNonPunchingStaff } from '../utils/roles';
+import { convertToWebP } from '../utils/imageConvert';
 import { DEFAULT_PTRP_POLICY } from '../constants';
+
+const TIMESHEET_SIGN_BUCKET = 'timesheet-signatures';
 
 const mapPeriod = (r: any): TimesheetPeriod => ({
   id: r.id,
@@ -34,6 +46,43 @@ const mapPeriod = (r: any): TimesheetPeriod => ({
   approvedAt: r.approved_at || undefined,
   notes: r.notes || undefined,
 });
+
+const mapReview = (r: any): TimesheetEmployeeReview => ({
+  id: r.id,
+  organizationId: r.organization_id,
+  periodId: r.period_id,
+  employeeId: r.employee_id,
+  profileId: r.profile_id || undefined,
+  status: r.status,
+  submittedAt: r.submitted_at || undefined,
+  submittedBy: r.submitted_by || undefined,
+  approvedAt: r.approved_at || undefined,
+  approvedBy: r.approved_by || undefined,
+  employeeSignedAt: r.employee_signed_at || undefined,
+  employeeSelfiePath: r.employee_selfie_path || undefined,
+  employeeSignaturePath: r.employee_signature_path || undefined,
+  employeeSignMetadata: r.employee_sign_metadata || undefined,
+});
+
+function resolveEmployeeRecord(employees: Employee[], employeeKey: string): Employee | undefined {
+  return employees.find(
+    e => e.id === employeeKey || e.employeeId === employeeKey
+  );
+}
+
+function punchKeyForEmployee(emp: Employee | undefined, employeeKey: string): string {
+  return emp?.employeeId || employeeKey;
+}
+
+function daysForEmployee(allDays: TimesheetDay[], emp: Employee | undefined, employeeKey: string): TimesheetDay[] {
+  const punchKey = punchKeyForEmployee(emp, employeeKey);
+  return allDays.filter(
+    d =>
+      d.employeeId === employeeKey ||
+      d.employeeId === emp?.id ||
+      d.employeeId === punchKey
+  );
+}
 
 const mapDay = (r: any): TimesheetDay => ({
   id: r.id,
@@ -196,11 +245,16 @@ export const timesheetService = {
     const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId);
     const punchKey = emp?.employeeId || employeeId;
 
-    const [punches, shift, holidays, leaves] = await Promise.all([
+    const employeeKeys = [emp?.id, emp?.employeeId, employeeId, punchKey].filter(
+      (k): k is string => !!k
+    );
+
+    const [punches, shift, holidays, leaves, rosterStatus] = await Promise.all([
       punchService.listPunches({ employeeId: punchKey, startDate: date, endDate: date }),
       shiftService.resolveShiftForEmployee(emp?.id || employeeId, emp?.shiftId, date),
       organizationService.getHolidays().catch(() => [] as Holiday[]),
       leaveService.getLeaves().catch(() => [] as LeaveRequest[]),
+      rosterService.getStatusForEmployee(date, employeeKeys).catch(() => null),
     ]);
 
     const isHoliday = holidays.some(h => h.date === date);
@@ -219,6 +273,7 @@ export const timesheetService = {
       isHoliday,
       onApprovedLeave: !!approvedLeave,
       leaveRequestId: approvedLeave?.id,
+      rosterStatus,
     });
 
     const row = {
@@ -300,9 +355,11 @@ export const timesheetService = {
     const employees = await employeeService.getEmployees();
     const targets = employeeIds?.length
       ? employees.filter(e => employeeIds.includes(e.id) || employeeIds.includes(e.employeeId || ''))
-      : employees.filter(e => e.role !== 'SUPER_ADMIN');
+      : employees.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN');
 
-    const dates = eachDateInRange(period.startDate, period.endDate);
+    const today = todayIsoLocal();
+    const endCap = minIsoDate(period.endDate, today);
+    const dates = eachDateInRange(period.startDate, endCap);
     let count = 0;
     for (const emp of targets) {
       for (const date of dates) {
@@ -318,6 +375,20 @@ export const timesheetService = {
     const { error } = await supabase.from('timesheet_days').update(payload).eq('id', dayId);
     if (error) throw error;
     apiClient.notify();
+  },
+
+  /** Bulk manager/employee acknowledgement for selected timesheet days. */
+  async acknowledgeDays(dayIds: string[], who: 'employee' | 'manager'): Promise<number> {
+    const ids = [...new Set(dayIds.filter(Boolean))];
+    if (ids.length === 0) return 0;
+    const payload = who === 'employee' ? { employee_ack: true } : { manager_ack: true };
+    const { error, count } = await supabase
+      .from('timesheet_days')
+      .update(payload, { count: 'exact' })
+      .in('id', ids);
+    if (error) throw error;
+    apiClient.notify();
+    return count ?? ids.length;
   },
 
   async applyManualAdjustment(
@@ -382,6 +453,351 @@ export const timesheetService = {
       );
     }
     return lines.join('\n');
+  },
+
+  async listEmployeeReviews(periodId: string): Promise<TimesheetEmployeeReview[]> {
+    if (!isSupabaseConfigured()) return [];
+    const { data, error } = await supabase
+      .from('timesheet_employee_reviews')
+      .select('*')
+      .eq('period_id', periodId)
+      .order('employee_id');
+    if (error) throw error;
+    return (data ?? []).map(mapReview);
+  },
+
+  async getEmployeeReview(periodId: string, employeeKey: string): Promise<TimesheetEmployeeReview | null> {
+    if (!isSupabaseConfigured()) return null;
+    const employees = await employeeService.getEmployees();
+    const emp = resolveEmployeeRecord(employees, employeeKey);
+    const punchKey = punchKeyForEmployee(emp, employeeKey);
+    const keys = [...new Set([employeeKey, emp?.id, punchKey].filter(Boolean))];
+
+    for (const key of keys) {
+      const { data, error } = await supabase
+        .from('timesheet_employee_reviews')
+        .select('*')
+        .eq('period_id', periodId)
+        .eq('employee_id', key)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return mapReview(data);
+    }
+    return null;
+  },
+
+  async submitEmployeeReview(
+    periodId: string,
+    employeeKey: string,
+    submittedBy: string,
+    options?: { skipNotifications?: boolean }
+  ): Promise<TimesheetEmployeeReview> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) throw new Error('No organization ID');
+
+    const employees = await employeeService.getEmployees();
+    const emp = resolveEmployeeRecord(employees, employeeKey);
+    if (!emp) throw new Error('Employee not found');
+
+    const punchKey = punchKeyForEmployee(emp, employeeKey);
+    const allDays = await this.listDays(periodId, punchKey);
+    const scoped = daysForEmployee(allDays, emp, employeeKey);
+    const validation = validateTimesheetEmployeeReview(scoped);
+    if (!validation.canSubmit) {
+      throw new Error(validation.blockingErrors[0] || 'reviewSubmitBlocked');
+    }
+
+    const now = new Date().toISOString();
+    const row = {
+      organization_id: orgId,
+      period_id: periodId,
+      employee_id: punchKey,
+      profile_id: emp.id,
+      status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
+      submitted_at: now,
+      submitted_by: submittedBy,
+      updated: now,
+    };
+
+    const { data, error } = await supabase
+      .from('timesheet_employee_reviews')
+      .upsert(row, { onConflict: 'period_id,employee_id' })
+      .select()
+      .single();
+    if (error) throw error;
+
+    if (!options?.skipNotifications) {
+      await this.notifyTimesheetReviewSubmitted(emp, periodId, punchKey);
+    }
+
+    apiClient.notify();
+    return mapReview(data);
+  },
+
+  async approveEmployeeReview(
+    periodId: string,
+    employeeKey: string,
+    approvedBy: string,
+    options?: { skipNotifications?: boolean }
+  ): Promise<TimesheetEmployeeReview> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) throw new Error('No organization ID');
+
+    const employees = await employeeService.getEmployees();
+    const emp = resolveEmployeeRecord(employees, employeeKey);
+    if (!emp) throw new Error('Employee not found');
+
+    const punchKey = punchKeyForEmployee(emp, employeeKey);
+    const allDays = await this.listDays(periodId, punchKey);
+    const scoped = daysForEmployee(allDays, emp, employeeKey);
+    const validation = validateTimesheetEmployeeReview(scoped);
+    if (!validation.canApprove) {
+      throw new Error(validation.blockingErrors[0] || 'reviewApproveBlocked');
+    }
+
+    const existing = await this.getEmployeeReview(periodId, employeeKey);
+    if (existing?.status === 'APPROVED') {
+      return existing;
+    }
+    if (existing?.status !== 'EMPLOYEE_SIGNED') {
+      throw new Error('reviewApproveNeedsEmployeeSign');
+    }
+
+    const now = new Date().toISOString();
+    const upsertBase = {
+      organization_id: orgId,
+      period_id: periodId,
+      employee_id: punchKey,
+      profile_id: emp.id,
+      status: 'APPROVED' as TimesheetEmployeeReviewStatus,
+      approved_at: now,
+      approved_by: approvedBy,
+      updated: now,
+    };
+
+    const { data, error } = existing
+      ? await supabase
+          .from('timesheet_employee_reviews')
+          .update({
+            status: 'APPROVED',
+            approved_at: now,
+            approved_by: approvedBy,
+            updated: now,
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
+      : await supabase
+          .from('timesheet_employee_reviews')
+          .upsert(upsertBase, { onConflict: 'period_id,employee_id' })
+          .select()
+          .single();
+    if (error) throw error;
+
+    if (!options?.skipNotifications) {
+      await this.notifyTimesheetReviewApproved(emp, periodId);
+    }
+
+    apiClient.notify();
+    return mapReview(data);
+  },
+
+  async getPeriodLockReadiness(periodId: string): Promise<{
+    totalEmployees: number;
+    approvedCount: number;
+    inReviewCount: number;
+    openCount: number;
+    canLock: boolean;
+  }> {
+    const employees = (await employeeService.getEmployees()).filter(
+      e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN',
+    );
+    const reviewByKey = new Map<string, TimesheetEmployeeReview>();
+    for (const r of reviews) {
+      reviewByKey.set(r.employeeId, r);
+      if (r.profileId) reviewByKey.set(r.profileId, r);
+    }
+
+    let approvedCount = 0;
+    let inReviewCount = 0;
+    let openCount = 0;
+
+    for (const emp of employees) {
+      const key = emp.employeeId || emp.id;
+      const rev =
+        reviewByKey.get(key) ||
+        reviewByKey.get(emp.id) ||
+        reviewByKey.get(emp.employeeId || '');
+      if (!rev || rev.status === 'OPEN') openCount++;
+      else if (rev.status === 'IN_REVIEW' || rev.status === 'EMPLOYEE_SIGNED') inReviewCount++;
+      else if (rev.status === 'APPROVED') approvedCount++;
+    }
+
+    const totalEmployees = employees.length;
+    const canLock = totalEmployees > 0 && approvedCount === totalEmployees;
+
+    return { totalEmployees, approvedCount, inReviewCount, openCount, canLock };
+  },
+
+  async lockPeriod(periodId: string, approvedBy: string, force = false): Promise<void> {
+    if (!force) {
+      const readiness = await this.getPeriodLockReadiness(periodId);
+      if (!readiness.canLock) {
+        throw new Error('reviewLockNotReady');
+      }
+    }
+    await this.setPeriodStatus(periodId, 'LOCKED', approvedBy);
+    await this.notifyTimesheetPeriodLocked(periodId);
+  },
+
+  async notifyTimesheetReviewSubmitted(emp: Employee, periodId: string, punchKey: string): Promise<void> {
+    const period = (await this.listPeriods()).find(p => p.id === periodId);
+    const label = period ? `${String(period.month).padStart(2, '0')}/${period.year}` : '';
+
+    const bulk: Parameters<typeof notificationService.createBulkNotifications>[0] = [];
+    if (emp.lineManagerId) {
+      bulk.push({
+        userId: emp.lineManagerId,
+        type: 'ATTENDANCE' as const,
+        title: 'Aprovar espelho de ponto',
+        message: `O espelho de ${emp.name} (${label}) aguarda sua aprovação.`,
+        referenceId: periodId,
+        referenceType: 'timesheet_review',
+        actionUrl: 'timesheet',
+        metadata: { employeeId: punchKey, periodId, employeeName: emp.name },
+      });
+    }
+    if (bulk.length === 0) return;
+    await notificationService.createBulkNotifications(bulk);
+  },
+
+  async notifyTimesheetReviewApproved(emp: Employee, periodId: string): Promise<void> {
+    const period = (await this.listPeriods()).find(p => p.id === periodId);
+    const label = period ? `${String(period.month).padStart(2, '0')}/${period.year}` : '';
+    await notificationService.createNotification({
+      userId: emp.id,
+      type: 'ATTENDANCE',
+      title: 'Espelho aprovado',
+      message: `Seu espelho de ponto da competência ${label} foi aprovado pelo gestor/RH.`,
+      referenceId: periodId,
+      referenceType: 'timesheet_review',
+      actionUrl: 'timesheet',
+    });
+  },
+
+  async notifyTimesheetPeriodLocked(periodId: string): Promise<void> {
+    const period = (await this.listPeriods()).find(p => p.id === periodId);
+    if (!period) return;
+    const label = `${String(period.month).padStart(2, '0')}/${period.year}`;
+    const employees = (await employeeService.getEmployees()).filter(
+      e => e.role === 'ADMIN' || e.role === 'HR'
+    );
+    if (employees.length === 0) return;
+    await notificationService.createBulkNotifications(
+      employees.map(e => ({
+        userId: e.id,
+        type: 'ATTENDANCE' as const,
+        title: 'Competência bloqueada',
+        message: `A competência ${label} foi bloqueada para folha. Nenhuma edição adicional no espelho.`,
+        referenceId: periodId,
+        referenceType: 'timesheet_period',
+        actionUrl: 'timesheet',
+      }))
+    );
+  },
+
+  async signEmployeeReview(
+    periodId: string,
+    employeeKey: string,
+    payload: { selfieDataUrl: string; signatureDataUrl: string }
+  ): Promise<TimesheetEmployeeReview> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) throw new Error('No organization ID');
+
+    const employees = await employeeService.getEmployees();
+    const emp = resolveEmployeeRecord(employees, employeeKey);
+    if (!emp) throw new Error('Employee not found');
+
+    const punchKey = punchKeyForEmployee(emp, employeeKey);
+    const existing = await this.getEmployeeReview(periodId, employeeKey);
+    if (!existing || existing.status !== 'IN_REVIEW') {
+      throw new Error('reviewNotInReview');
+    }
+
+    const basePath = `${orgId}/${periodId}/${emp.id}`;
+    const selfieBlob = await convertToWebP(payload.selfieDataUrl, 0.65, 720);
+    const signatureBlob = await convertToWebP(payload.signatureDataUrl, 0.85, 800);
+
+    const selfiePath = `${basePath}/selfie.webp`;
+    const signaturePath = `${basePath}/signature.webp`;
+
+    const { error: selfieErr } = await supabase.storage
+      .from(TIMESHEET_SIGN_BUCKET)
+      .upload(selfiePath, selfieBlob, { upsert: true, contentType: 'image/webp' });
+    if (selfieErr) throw selfieErr;
+
+    const { error: signErr } = await supabase.storage
+      .from(TIMESHEET_SIGN_BUCKET)
+      .upload(signaturePath, signatureBlob, { upsert: true, contentType: 'image/webp' });
+    if (signErr) throw signErr;
+
+    const now = new Date().toISOString();
+    const metadata = {
+      signedAt: now,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    };
+
+    const { data, error } = await supabase
+      .from('timesheet_employee_reviews')
+      .update({
+        status: 'EMPLOYEE_SIGNED',
+        employee_signed_at: now,
+        employee_selfie_path: selfiePath,
+        employee_signature_path: signaturePath,
+        employee_sign_metadata: metadata,
+        updated: now,
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    await this.notifyTimesheetReviewSigned(emp, periodId, punchKey);
+    apiClient.notify();
+    return mapReview(data);
+  },
+
+  async getTimesheetSignatureUrl(path?: string): Promise<string | null> {
+    if (!path || !isSupabaseConfigured()) return null;
+    const { data, error } = await supabase.storage
+      .from(TIMESHEET_SIGN_BUCKET)
+      .createSignedUrl(path, 3600);
+    if (error) return null;
+    return data.signedUrl;
+  },
+
+  async notifyTimesheetReviewSigned(emp: Employee, periodId: string, punchKey: string): Promise<void> {
+    const period = (await this.listPeriods()).find(p => p.id === periodId);
+    const label = period ? `${String(period.month).padStart(2, '0')}/${period.year}` : '';
+    const bulk = [];
+    if (emp.lineManagerId) {
+      bulk.push({
+        userId: emp.lineManagerId,
+        type: 'ATTENDANCE' as const,
+        title: 'Espelho assinado — aprovar',
+        message: `${emp.name} assinou o espelho da competência ${label}. Aprove no espelho PTRP.`,
+        referenceId: periodId,
+        referenceType: 'timesheet_review',
+        actionUrl: 'timesheet',
+        metadata: { employeeId: punchKey, periodId, employeeName: emp.name },
+      });
+    }
+    if (bulk.length > 0) {
+      await notificationService.createBulkNotifications(bulk);
+    }
   },
 
   async generateEsocialStub(periodId: string): Promise<{ id: string; payload: Record<string, unknown> }> {

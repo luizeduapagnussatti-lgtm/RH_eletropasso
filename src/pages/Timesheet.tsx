@@ -1,21 +1,33 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  CalendarDays, RefreshCw, Download, Lock, CheckCircle2, Scale, FileJson,
+  CalendarDays, RefreshCw, Download, Lock, CheckCircle2, Scale, FileJson, Send, FileText,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import {
-  Employee, Punch, TimesheetDay, TimesheetPeriod, TimesheetPeriodStatus, User,
+  Employee, Punch, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User,
 } from '../types';
 import { useToast } from '../context/ToastContext';
 import HelpButton from '../components/onboarding/HelpButton';
+import { TimesheetMirrorGrid } from '../components/timesheet/TimesheetMirrorGrid';
+import { TimesheetAdjustModal } from '../components/timesheet/TimesheetAdjustModal';
+import TimesheetReviewModal from '../components/timesheet/TimesheetReviewModal';
+import TimesheetReviewSummaryPanel, { ReviewRow } from '../components/timesheet/TimesheetReviewSummaryPanel';
+import { orgTabButtonClass } from '../components/organization/OrgUi';
 import { formatDateTime, formatIsoDateBr, getDateLocale } from '../i18n/format';
 import { competenceForDate, eachDateInRange, todayIsoLocal } from '../utils/payrollPeriod';
 import { DEFAULT_PTRP_POLICY } from '../constants';
+import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
+import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
+import { isNonPunchingStaff } from '../utils/roles';
 
 interface Props {
   user: User;
+  onNavigate?: (path: string, params?: any) => void;
 }
+
+type TimesheetViewMode = 'summary' | 'mirror';
+type ReviewModalMode = 'submit' | 'approve' | 'lock';
 
 function fmtMinutes(mins: number, t: (k: string, o?: object) => string) {
   const h = Math.floor(Math.abs(mins) / 60);
@@ -31,6 +43,13 @@ const statusLabelKey: Record<TimesheetPeriodStatus, string> = {
   LOCKED: 'statusLocked',
 };
 
+const employeeReviewStatusKey: Record<string, string> = {
+  OPEN: 'reviewStatus_OPEN',
+  IN_REVIEW: 'reviewStatus_IN_REVIEW',
+  EMPLOYEE_SIGNED: 'reviewStatus_EMPLOYEE_SIGNED',
+  APPROVED: 'reviewStatus_APPROVED',
+};
+
 const dayStatusKey: Record<string, string> = {
   OK: 'dayStatus_OK',
   ABSENT: 'dayStatus_ABSENT',
@@ -40,7 +59,7 @@ const dayStatusKey: Record<string, string> = {
   ADJUSTED: 'dayStatus_ADJUSTED',
 };
 
-const Timesheet: React.FC<Props> = ({ user }) => {
+const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const { t } = useTranslation('ptrp');
   const { showToast } = useToast();
   const isHr = user.role === 'ADMIN' || user.role === 'HR';
@@ -64,8 +83,8 @@ const Timesheet: React.FC<Props> = ({ user }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isRecalc, setIsRecalc] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [adjustDay, setAdjustDay] = useState<TimesheetDay | null>(null);
-  const [adjustForm, setAdjustForm] = useState({ workedMinutes: 0, overtimeMinutes: 0, lateMinutes: 0, remarks: '' });
   const [showManualPunch, setShowManualPunch] = useState(false);
   const [punchForm, setPunchForm] = useState({
     employeeId: '',
@@ -74,9 +93,17 @@ const Timesheet: React.FC<Props> = ({ user }) => {
   });
   const [selectedDayIds, setSelectedDayIds] = useState<string[]>([]);
   const [isBulkAck, setIsBulkAck] = useState(false);
+  const [viewMode, setViewMode] = useState<TimesheetViewMode>('summary');
+  const [employeeReviews, setEmployeeReviews] = useState<TimesheetEmployeeReview[]>([]);
+  const [reviewModal, setReviewModal] = useState<ReviewModalMode | null>(null);
+  const [lockReadiness, setLockReadiness] = useState<Awaited<
+    ReturnType<typeof hrService.getTimesheetPeriodLockReadiness>
+  > | null>(null);
+  const [isReviewWorking, setIsReviewWorking] = useState(false);
 
   const locked = period?.status === 'LOCKED';
   const mustPickEmployee = isHr || isManager;
+  const isSingleEmployee = Boolean(employeeFilter && employeeFilter !== 'ALL');
 
   const clearResults = useCallback(() => {
     setDays([]);
@@ -87,8 +114,9 @@ const Timesheet: React.FC<Props> = ({ user }) => {
     setHasQuery(false);
   }, []);
 
-  const load = useCallback(async () => {
-    if (mustPickEmployee && !employeeFilter) {
+  const load = useCallback(async (employeeOverride?: string) => {
+    const activeEmployee = employeeOverride ?? employeeFilter;
+    if (mustPickEmployee && !activeEmployee) {
       showToast(t('selectEmployeeToLoad'), 'warning');
       return;
     }
@@ -98,41 +126,41 @@ const Timesheet: React.FC<Props> = ({ user }) => {
         hrService.getEmployees(),
         hrService.getOrCreateTimesheetPeriod(year, month),
       ]);
-      const staff = emps.filter(e => e.role !== 'SUPER_ADMIN');
+      const staff = emps.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN');
       setEmployees(staff);
       setPeriod(p);
 
       const empId =
-        employeeFilter === 'ALL'
+        activeEmployee === 'ALL'
           ? undefined
-          : staff.find(e => e.id === employeeFilter)?.employeeId ||
-            employeeFilter;
+          : staff.find(e => e.id === activeEmployee)?.employeeId ||
+            activeEmployee;
 
       const list = await hrService.listTimesheetDays(p.id, empId);
       const filtered =
-        employeeFilter === 'ALL'
+        activeEmployee === 'ALL'
           ? list
           : list.filter(d => {
-              const emp = staff.find(e => e.id === employeeFilter || e.employeeId === employeeFilter);
+              const emp = staff.find(e => e.id === activeEmployee || e.employeeId === activeEmployee);
               return (
-                d.employeeId === employeeFilter ||
+                d.employeeId === activeEmployee ||
                 d.employeeId === emp?.id ||
                 d.employeeId === emp?.employeeId
               );
             });
-      setDays(employeeFilter === 'ALL' ? list : filtered);
+      setDays(activeEmployee === 'ALL' ? list : filtered);
 
       const bankEmp =
-        employeeFilter === 'ALL'
+        activeEmployee === 'ALL'
           ? user.employeeId || user.id
-          : staff.find(e => e.id === employeeFilter)?.employeeId || employeeFilter;
+          : staff.find(e => e.id === activeEmployee)?.employeeId || activeEmployee;
       const start = p.startDate;
       const end = p.endDate;
       const [bal, entries, punchList] = await Promise.all([
         hrService.getHourBankBalance(bankEmp),
         hrService.listHourBankEntries(bankEmp, start, end),
         hrService.listPunches({
-          employeeId: employeeFilter === 'ALL' ? undefined : bankEmp,
+          employeeId: activeEmployee === 'ALL' ? undefined : bankEmp,
           startDate: start,
           endDate: end,
         }),
@@ -141,9 +169,12 @@ const Timesheet: React.FC<Props> = ({ user }) => {
       setBankEntries(entries);
       setPunches(punchList);
 
+      const reviews = await hrService.listTimesheetEmployeeReviews(p.id);
+      setEmployeeReviews(reviews);
+
       // Auto-recalc days that have clock punches but no espelho row yet (REP ingest).
       if (
-        employeeFilter !== 'ALL' &&
+        activeEmployee !== 'ALL' &&
         bankEmp &&
         punchList.length > 0 &&
         p.status !== 'LOCKED'
@@ -167,17 +198,17 @@ const Timesheet: React.FC<Props> = ({ user }) => {
           );
           const refreshed = await hrService.listTimesheetDays(p.id, empId);
           const refFiltered =
-            employeeFilter === 'ALL'
+            activeEmployee === 'ALL'
               ? refreshed
               : refreshed.filter(d => {
-                  const emp = staff.find(e => e.id === employeeFilter || e.employeeId === employeeFilter);
+                  const emp = staff.find(e => e.id === activeEmployee || e.employeeId === activeEmployee);
                   return (
-                    d.employeeId === employeeFilter ||
+                    d.employeeId === activeEmployee ||
                     d.employeeId === emp?.id ||
                     d.employeeId === emp?.employeeId
                   );
                 });
-          setDays(employeeFilter === 'ALL' ? refreshed : refFiltered);
+          setDays(activeEmployee === 'ALL' ? refreshed : refFiltered);
         }
       }
 
@@ -201,7 +232,7 @@ const Timesheet: React.FC<Props> = ({ user }) => {
           hrService.getOrCreateTimesheetPeriod(year, month),
         ]);
         if (cancelled) return;
-        setEmployees(emps.filter(e => e.role !== 'SUPER_ADMIN'));
+        setEmployees(emps.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN'));
         setPeriod(p);
       } catch (e) {
         console.error(e);
@@ -221,12 +252,16 @@ const Timesheet: React.FC<Props> = ({ user }) => {
   }, []);
 
   const filtersPrimed = useRef(false);
+  const skipNextFilterClear = useRef(false);
   useEffect(() => {
     setDayFilter('ALL');
     setSelectedDayIds([]);
-    // Skip first run so employee auto-load is not wiped; later filter changes require Apply.
     if (!filtersPrimed.current) {
       filtersPrimed.current = true;
+      return;
+    }
+    if (skipNextFilterClear.current) {
+      skipNextFilterClear.current = false;
       return;
     }
     clearResults();
@@ -372,6 +407,116 @@ const Timesheet: React.FC<Props> = ({ user }) => {
     return (id: string) => map.get(id) || id;
   }, [employees]);
 
+  const selectedEmployee = useMemo(
+    () => employees.find(e => e.id === employeeFilter),
+    [employees, employeeFilter]
+  );
+
+  const currentEmployeeReview = useMemo(() => {
+    if (!selectedEmployee || employeeFilter === 'ALL') return null;
+    const punchKey = selectedEmployee.employeeId || selectedEmployee.id;
+    return (
+      employeeReviews.find(r => r.employeeId === punchKey) ||
+      employeeReviews.find(r => r.profileId === selectedEmployee.id) ||
+      employeeReviews.find(r => r.employeeId === selectedEmployee.id) ||
+      null
+    );
+  }, [employeeReviews, selectedEmployee, employeeFilter]);
+
+  const employeeReviewValidation = useMemo(
+    () => validateTimesheetEmployeeReview(elapsedDays),
+    [elapsedDays]
+  );
+
+  const canApproveSelectedEmployee = useMemo(() => {
+    if (!selectedEmployee || locked) return false;
+    if (currentEmployeeReview?.status === 'APPROVED') return false;
+    if (currentEmployeeReview?.status !== 'EMPLOYEE_SIGNED') return false;
+    if (!employeeReviewValidation.canApprove) return false;
+    if (isHr) return true;
+    return isManager && selectedEmployee.lineManagerId === user.id;
+  }, [selectedEmployee, currentEmployeeReview, locked, employeeReviewValidation.canApprove, isHr, isManager, user.id]);
+
+  const reviewSummaryRows = useMemo((): ReviewRow[] => {
+    if (employeeFilter !== 'ALL' || !hasQuery) return [];
+    const today = todayIsoLocal();
+    const reviewByKey = new Map<string, TimesheetEmployeeReview>();
+    for (const r of employeeReviews) {
+      reviewByKey.set(r.employeeId, r);
+      if (r.profileId) reviewByKey.set(r.profileId, r);
+    }
+    return employees.map(employee => {
+      const punchKey = employee.employeeId || employee.id;
+      const review =
+        reviewByKey.get(punchKey) ||
+        reviewByKey.get(employee.id) ||
+        null;
+      const employeeDays = days.filter(d => {
+        if (d.workDate > today) return false;
+        return (
+          d.employeeId === punchKey ||
+          d.employeeId === employee.id ||
+          d.employeeId === employee.employeeId
+        );
+      });
+      return {
+        employee,
+        review,
+        employeeDays,
+        pendingManagerAck: employeeDays.filter(d => !d.managerAck).length,
+      };
+    });
+  }, [employeeFilter, hasQuery, employeeReviews, employees, days]);
+
+  const openReviewModal = async (mode: ReviewModalMode) => {
+    if (mode === 'lock') {
+      if (!period) return;
+      try {
+        const readiness = await hrService.getTimesheetPeriodLockReadiness(period.id);
+        setLockReadiness(readiness);
+        setReviewModal('lock');
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : t('loadFailed');
+        showToast(message, 'error');
+      }
+      return;
+    }
+    if (!isSingleEmployee) {
+      showToast(t('reviewSelectEmployeeFirst'), 'warning');
+      return;
+    }
+    setReviewModal(mode);
+  };
+
+  const confirmReviewModal = async () => {
+    if (!period || !reviewModal) return;
+    setIsReviewWorking(true);
+    try {
+      if (reviewModal === 'submit') {
+        if (!employeeFilter || employeeFilter === 'ALL') return;
+        await hrService.submitTimesheetEmployeeReview(period.id, employeeFilter, user.id);
+        showToast(t('reviewSubmitOk'), 'success');
+      } else if (reviewModal === 'approve') {
+        if (!employeeFilter || employeeFilter === 'ALL') return;
+        await hrService.approveTimesheetEmployeeReview(period.id, employeeFilter, user.id);
+        showToast(t('reviewApproveOk'), 'success');
+      } else if (reviewModal === 'lock') {
+        const force = !(lockReadiness?.canLock);
+        await hrService.lockTimesheetPeriod(period.id, user.id, force);
+        showToast(t('reviewLockOk'), 'success');
+      }
+      setReviewModal(null);
+      setLockReadiness(null);
+      await load();
+    } catch (e: unknown) {
+      const raw = e instanceof Error ? e.message : t('loadFailed');
+      const msg = raw.startsWith('review') ? t(raw) : raw;
+      showToast(msg, 'error');
+    } finally {
+      setIsReviewWorking(false);
+    }
+  };
+
   const handleRecalc = async () => {
     if (locked) return;
     setIsRecalc(true);
@@ -387,17 +532,6 @@ const Timesheet: React.FC<Props> = ({ user }) => {
       showToast(e?.message || t('recalcFailed'), 'error');
     } finally {
       setIsRecalc(false);
-    }
-  };
-
-  const setStatus = async (status: TimesheetPeriodStatus) => {
-    if (!period) return;
-    try {
-      await hrService.setTimesheetPeriodStatus(period.id, status, user.id);
-      showToast(t('periodStatusOk'), 'success');
-      await load();
-    } catch (e: any) {
-      showToast(e?.message || t('loadFailed'), 'error');
     }
   };
 
@@ -418,51 +552,135 @@ const Timesheet: React.FC<Props> = ({ user }) => {
     }
   };
 
-  const handleEsocial = async () => {
-    if (!period) return;
+  const handleExportMirrorPdf = async () => {
+    if (!period || !hasQuery) return;
+    if (!['APPROVED', 'LOCKED'].includes(period.status)) {
+      showToast(t('mirrorPdfPeriodRequired'), 'warning');
+      return;
+    }
+    setIsExportingPdf(true);
     try {
-      const stub = await hrService.generateEsocialStub(period.id);
-      const blob = new Blob([JSON.stringify(stub.payload ?? stub, null, 2)], { type: 'application/json' });
+      const labels = {
+        title: t('pdf.title'),
+        periodRange: t('pdf.periodRange'),
+        employeeSection: t('pdf.employeeSection'),
+        name: t('pdf.name'),
+        employeeId: t('pdf.employeeId'),
+        cpf: t('pdf.cpf'),
+        department: t('pdf.department'),
+        reviewStatus: t('pdf.reviewStatus'),
+        reviewApproved: t('pdf.reviewApproved'),
+        reviewPending: t('pdf.reviewPending'),
+        colDay: t('pdf.colDay'),
+        colEntry1: t('pdf.colEntry1'),
+        colExit1: t('pdf.colExit1'),
+        colEntry2: t('pdf.colEntry2'),
+        colExit2: t('pdf.colExit2'),
+        colWorked: t('pdf.colWorked'),
+        colOvertime: t('pdf.colOvertime'),
+        colLate: t('pdf.colLate'),
+        colAbsence: t('pdf.colAbsence'),
+        colStatus: t('pdf.colStatus'),
+        colEmployee: t('pdf.colEmployee'),
+        metricWorked: t('pdf.metricWorked'),
+        metricOvertime: t('pdf.metricOvertime'),
+        metricLate: t('pdf.metricLate'),
+        metricAbsence: t('pdf.metricAbsence'),
+        summarySection: t('pdf.summarySection'),
+        generatedBy: t('pdf.generatedBy'),
+        page: t('pdf.page'),
+        notAvailable: t('pdf.notAvailable'),
+      };
+      const { blob, filename } = await hrService.exportTimesheetMirrorPdf({
+        period,
+        employeeFilter,
+        employees,
+        days,
+        punches,
+        reviews: employeeReviews,
+        labels,
+        dayStatusLabel,
+        reviewStatusLabel: (code: string) => t(`reviewStatus_${code}`, { defaultValue: code }),
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `esocial_stub_${year}_${String(month).padStart(2, '0')}.json`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
       showToast(t('exportOk'), 'success');
-    } catch (e: any) {
-      showToast(e?.message || t('loadFailed'), 'error');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handlePrePayrollExport = async () => {
+    if (!period) return;
+    try {
+      if (!['APPROVED', 'LOCKED'].includes(period.status)) {
+        showToast(t('prePayrollPeriodRequired'), 'warning');
+        return;
+      }
+      await hrService.buildPayrollConsolidation(period.id);
+      const data = await hrService.buildPayrollExportV1(period.id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pre-folha_${year}_${String(month).padStart(2, '0')}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(t('exportOk'), 'success');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
     }
   };
 
   const openAdjust = (day: TimesheetDay) => {
     setAdjustDay(day);
-    setAdjustForm({
-      workedMinutes: day.workedMinutes,
-      overtimeMinutes: day.overtimeMinutes,
-      lateMinutes: day.lateMinutes,
-      remarks: day.remarks || '',
-    });
   };
 
-  const saveAdjust = async () => {
+  const saveAdjust = async (values: {
+    workedMinutes: number;
+    overtimeMinutes: number;
+    lateMinutes: number;
+    absenceMinutes: number;
+    remarks: string;
+  }) => {
     if (!adjustDay || locked) return;
     try {
       await hrService.applyTimesheetAdjustment(
         adjustDay.id,
         {
-          workedMinutes: adjustForm.workedMinutes,
-          overtimeMinutes: adjustForm.overtimeMinutes,
-          lateMinutes: adjustForm.lateMinutes,
+          workedMinutes: values.workedMinutes,
+          overtimeMinutes: values.overtimeMinutes,
+          lateMinutes: values.lateMinutes,
+          absenceMinutes: values.absenceMinutes,
         },
-        adjustForm.remarks
+        values.remarks
       );
       setAdjustDay(null);
+      showToast(t('adjustSaved'), 'success');
       await load();
-    } catch (e: any) {
-      showToast(e?.message || t('loadFailed'), 'error');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : t('loadFailed');
+      throw new Error(message);
     }
   };
+
+  const adjustDayPunches = useMemo(() => {
+    if (!adjustDay) return [] as Punch[];
+    const date = adjustDay.workDate;
+    return punches.filter(p => {
+      if (p.punchedAt.slice(0, 10) !== date) return false;
+      return (
+        p.employeeId === adjustDay.employeeId ||
+        p.employeeId === employees.find(e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId)?.employeeId
+      );
+    });
+  }, [adjustDay, punches, employees]);
 
   const saveManualPunch = async () => {
     if (!punchForm.employeeId || !punchForm.punchedAt) return;
@@ -496,9 +714,23 @@ const Timesheet: React.FC<Props> = ({ user }) => {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {isHr && onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('apuracao')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+            >
+              <Scale size={14} aria-hidden /> {t('goToApuracao')}
+            </button>
+          )}
           {period && (
             <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700">
               {t(statusLabelKey[period.status])}
+            </span>
+          )}
+          {isSingleEmployee && currentEmployeeReview && (
+            <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-violet-100 text-violet-800">
+              {t('reviewBadgeLabel')}: {t(employeeReviewStatusKey[currentEmployeeReview.status])}
             </span>
           )}
           {locked ? (
@@ -513,6 +745,8 @@ const Timesheet: React.FC<Props> = ({ user }) => {
         <p className="font-semibold">{t('dataSourceTitle')}</p>
         <p className="text-xs mt-1 text-sky-800">{t('dataSourceBody')}</p>
       </div>
+
+      {isHr && period && <PayrollPendenciesPanel periodId={period.id} />}
 
       {(punches.length === 0 || showRecalcHint) && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -634,34 +868,35 @@ const Timesheet: React.FC<Props> = ({ user }) => {
             </button>
             <button
               type="button"
-              onClick={handleEsocial}
-              className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50"
+              onClick={() => void handleExportMirrorPdf()}
+              disabled={!period || !hasQuery || !['APPROVED', 'LOCKED'].includes(period.status) || isExportingPdf}
+              className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 disabled:opacity-60"
             >
-              <FileJson size={14} aria-hidden /> {t('esocialStub')}
+              <FileText size={14} className={isExportingPdf ? 'animate-pulse' : ''} aria-hidden />
+              {isExportingPdf ? t('exportingMirrorPdf') : t('exportMirrorPdf')}
             </button>
-            {period && period.status === 'OPEN' && (
+            <button
+              type="button"
+              onClick={() => void handlePrePayrollExport()}
+              disabled={!period || !['APPROVED', 'LOCKED'].includes(period.status)}
+              className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 disabled:opacity-60"
+            >
+              <FileJson size={14} aria-hidden /> {t('exportPrePayroll')}
+            </button>
+            {isSingleEmployee && !locked && hasQuery && canApproveSelectedEmployee && (
               <button
                 type="button"
-                onClick={() => setStatus('IN_REVIEW')}
-                className="h-10 px-4 border border-slate-200 rounded-lg text-xs font-semibold"
+                onClick={() => void openReviewModal('approve')}
+                className="h-10 px-4 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-emerald-50"
               >
-                {t('setInReview')}
+                <CheckCircle2 size={14} aria-hidden /> {t('approveEmployee')}
               </button>
             )}
-            {period && period.status === 'IN_REVIEW' && (
+            {period && period.status !== 'LOCKED' && isHr && hasQuery && (
               <button
                 type="button"
-                onClick={() => setStatus('APPROVED')}
-                className="h-10 px-4 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1"
-              >
-                <CheckCircle2 size={14} aria-hidden /> {t('setApproved')}
-              </button>
-            )}
-            {period && period.status === 'APPROVED' && (
-              <button
-                type="button"
-                onClick={() => setStatus('LOCKED')}
-                className="h-10 px-4 border border-amber-200 text-amber-700 rounded-lg text-xs font-semibold flex items-center gap-1"
+                onClick={() => void openReviewModal('lock')}
+                className="h-10 px-4 border border-amber-200 text-amber-700 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-amber-50"
               >
                 <Lock size={14} aria-hidden /> {t('setLocked')}
               </button>
@@ -671,9 +906,78 @@ const Timesheet: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
+      <nav className="flex gap-1.5 p-1.5 bg-slate-100 rounded-xl w-full sm:w-fit" aria-label={t('viewModeLabel')}>
+        <button
+          type="button"
+          onClick={() => setViewMode('summary')}
+          className={orgTabButtonClass(viewMode === 'summary')}
+          aria-current={viewMode === 'summary' ? 'page' : undefined}
+        >
+          {t('viewSummary')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('mirror')}
+          className={orgTabButtonClass(viewMode === 'mirror')}
+          aria-current={viewMode === 'mirror' ? 'page' : undefined}
+        >
+          {t('viewMirror')}
+        </button>
+      </nav>
+
+      {employeeFilter === 'ALL' && hasQuery && reviewSummaryRows.length > 0 && (
+        <TimesheetReviewSummaryPanel
+          rows={reviewSummaryRows}
+          locked={locked}
+          onSelectEmployee={id => {
+            skipNextFilterClear.current = true;
+            setEmployeeFilter(id);
+            void load(id);
+          }}
+        />
+      )}
+
       {/* Primary mirror + secondary rail */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_17.5rem] gap-4 items-start">
-        <div className="min-w-0 bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="min-w-0">
+          {isLoading || isBootstrapping ? (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-10 flex justify-center">
+              <RefreshCw className="animate-spin text-primary" aria-hidden />
+            </div>
+          ) : !hasQuery ? (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-10 text-center space-y-2">
+              <p className="text-sm font-semibold text-slate-700">{t('idleTitle')}</p>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">{t('idleHint')}</p>
+            </div>
+          ) : viewMode === 'mirror' && !isSingleEmployee ? (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-10 text-center space-y-2">
+              <p className="text-sm font-semibold text-slate-700">{t('mirrorNeedEmployeeTitle')}</p>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">{t('mirrorNeedEmployee')}</p>
+            </div>
+          ) : days.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-10 text-center text-slate-500 text-sm">
+              {t('noDays')}
+            </div>
+          ) : visibleDays.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-10 text-center text-slate-500 text-sm">
+              {t('allDays')}: {t('noDays')}
+            </div>
+          ) : viewMode === 'mirror' ? (
+            <TimesheetMirrorGrid
+              days={visibleDays}
+              punches={punches}
+              user={user}
+              locked={locked}
+              isHr={isHr}
+              isManager={isManager}
+              dayStatusLabel={dayStatusLabel}
+              fmtMinutes={mins => fmtMinutes(mins, t)}
+              onAdjust={openAdjust}
+              onAckEmployee={id => { void hrService.acknowledgeTimesheetDay(id, 'employee').then(load); }}
+              onAckManager={id => { void hrService.acknowledgeTimesheetDay(id, 'manager').then(load); }}
+            />
+          ) : (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-3 justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <CalendarDays size={16} className="text-primary shrink-0" aria-hidden />
@@ -707,18 +1011,6 @@ const Timesheet: React.FC<Props> = ({ user }) => {
               </div>
             )}
           </div>
-          {isLoading || isBootstrapping ? (
-            <div className="p-10 flex justify-center"><RefreshCw className="animate-spin text-primary" aria-hidden /></div>
-          ) : !hasQuery ? (
-            <div className="p-10 text-center space-y-2">
-              <p className="text-sm font-semibold text-slate-700">{t('idleTitle')}</p>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">{t('idleHint')}</p>
-            </div>
-          ) : days.length === 0 ? (
-            <p className="p-10 text-center text-slate-500 text-sm">{t('noDays')}</p>
-          ) : visibleDays.length === 0 ? (
-            <p className="p-10 text-center text-slate-500 text-sm">{t('allDays')}: {t('noDays')}</p>
-          ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[52rem] text-left text-sm border-collapse">
                 <thead className="bg-slate-50 text-slate-500 sticky top-0 z-[1]">
@@ -797,17 +1089,7 @@ const Timesheet: React.FC<Props> = ({ user }) => {
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <div className="flex flex-wrap gap-1">
-                            {!d.employeeAck && (d.employeeId === user.id || d.employeeId === user.employeeId) && !locked && (
-                              <button
-                                type="button"
-                                className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200"
-                                onClick={() => hrService.acknowledgeTimesheetDay(d.id, 'employee').then(load)}
-                              >
-                                {t('employeeAck')}
-                              </button>
-                            )}
-                            {d.employeeAck && <span className="text-emerald-700 text-xs font-semibold" title={t('employeeAck')}>E✓</span>}
-                            {!d.managerAck && isManager && !locked && (
+                            {!d.managerAck && (isManager || isHr) && !locked && (
                               <button
                                 type="button"
                                 className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200"
@@ -816,7 +1098,7 @@ const Timesheet: React.FC<Props> = ({ user }) => {
                                 {t('managerAck')}
                               </button>
                             )}
-                            {d.managerAck && <span className="text-emerald-700 text-xs font-semibold" title={t('managerAck')}>G✓</span>}
+                            {d.managerAck && <span className="text-emerald-700 text-xs font-semibold" title={t('managerAck')}>✓</span>}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
@@ -836,6 +1118,7 @@ const Timesheet: React.FC<Props> = ({ user }) => {
                 </tbody>
               </table>
             </div>
+        </div>
           )}
         </div>
 
@@ -889,6 +1172,7 @@ const Timesheet: React.FC<Props> = ({ user }) => {
             </ul>
           </div>
 
+          {viewMode === 'summary' && (
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-800">{t('punchesTitle')}</h3>
@@ -928,35 +1212,20 @@ const Timesheet: React.FC<Props> = ({ user }) => {
               </ul>
             )}
           </div>
+          )}
         </aside>
       </div>
 
       {adjustDay && (
-        <div className="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
-            <h3 className="font-semibold text-slate-900">{t('adjust')} — {formatIsoDateBr(adjustDay.workDate)}</h3>
-            <label className="block text-xs space-y-1">
-              <span className="text-slate-400 uppercase font-semibold">{t('worked')}</span>
-              <input type="number" className="w-full px-3 py-2 border rounded-xl" value={adjustForm.workedMinutes} onChange={e => setAdjustForm({ ...adjustForm, workedMinutes: Number(e.target.value) })} />
-            </label>
-            <label className="block text-xs space-y-1">
-              <span className="text-slate-400 uppercase font-semibold">{t('overtime')}</span>
-              <input type="number" className="w-full px-3 py-2 border rounded-xl" value={adjustForm.overtimeMinutes} onChange={e => setAdjustForm({ ...adjustForm, overtimeMinutes: Number(e.target.value) })} />
-            </label>
-            <label className="block text-xs space-y-1">
-              <span className="text-slate-400 uppercase font-semibold">{t('late')}</span>
-              <input type="number" className="w-full px-3 py-2 border rounded-xl" value={adjustForm.lateMinutes} onChange={e => setAdjustForm({ ...adjustForm, lateMinutes: Number(e.target.value) })} />
-            </label>
-            <label className="block text-xs space-y-1">
-              <span className="text-slate-400 uppercase font-semibold">{t('remarks')}</span>
-              <input className="w-full px-3 py-2 border rounded-xl" value={adjustForm.remarks} onChange={e => setAdjustForm({ ...adjustForm, remarks: e.target.value })} />
-            </label>
-            <div className="flex gap-2 pt-2">
-              <button className="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-semibold" onClick={() => setAdjustDay(null)}>{t('common:cancel')}</button>
-              <button className="flex-1 py-3 bg-primary text-white rounded-xl text-xs font-semibold" onClick={saveAdjust}>{t('saveAdjust')}</button>
-            </div>
-          </div>
-        </div>
+        <TimesheetAdjustModal
+          day={adjustDay}
+          punches={adjustDayPunches}
+          employeeName={empName(adjustDay.employeeId)}
+          dayStatusLabel={dayStatusLabel}
+          fmtMinutes={mins => fmtMinutes(mins, t)}
+          onClose={() => setAdjustDay(null)}
+          onSave={saveAdjust}
+        />
       )}
 
       {showManualPunch && (
@@ -976,6 +1245,22 @@ const Timesheet: React.FC<Props> = ({ user }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {reviewModal && (
+        <TimesheetReviewModal
+          mode={reviewModal}
+          employeeName={selectedEmployee?.name}
+          validation={reviewModal === 'lock' ? null : employeeReviewValidation}
+          lockReadiness={lockReadiness ?? undefined}
+          isWorking={isReviewWorking}
+          onConfirm={() => void confirmReviewModal()}
+          onClose={() => {
+            if (isReviewWorking) return;
+            setReviewModal(null);
+            setLockReadiness(null);
+          }}
+        />
       )}
     </div>
   );

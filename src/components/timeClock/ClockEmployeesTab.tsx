@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type { ClockEmployeeOnDevice, Employee } from '../../types';
 import { extractCommandData, normalizePis, runClockOp } from './clockCommandUi';
+import { isNonPunchingStaff, needsClockAdmission } from '../../utils/roles';
 
 type DiffKind = 'both' | 'onlyClock' | 'onlyRh';
 type FilterKind = 'all' | DiffKind | 'fingerprint';
@@ -116,6 +117,9 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
       const clockByPis = new Map(clockEmployees.map((e) => [e.pis, e]));
       const rhByPis = new Map<string, Employee>();
       for (const emp of rhEmployees) {
+        if (isNonPunchingStaff(emp.role) || emp.role === 'SUPER_ADMIN' || !needsClockAdmission(emp.role)) {
+          continue;
+        }
         const pis = normalizePis(emp.employeeId);
         if (pis) rhByPis.set(pis, emp);
       }
