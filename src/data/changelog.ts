@@ -19,6 +19,11 @@ export const changelog: ChangelogRelease[] = [
     title: 'Credencial do relógio separada do PIS',
     entries: [
       {
+        type: 'fix',
+        description:
+          'Espelho/Folha: o alerta âmbar "Pendências folha" some quando não há gaps de cadastro (antes ficava visível com a mensagem verde "Nenhuma pendência").',
+      },
+      {
         type: 'breaking',
         description:
           'profiles.clock_credential: ID/Matrícula do PrintPoint (funções 91/92) fica separado do PIS (employee_id, folha/eSocial). Cadastro, guias e botão Copiar usam a Credencial — o relógio não aceita PIS no teclado.',
