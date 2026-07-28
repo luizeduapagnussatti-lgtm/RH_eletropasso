@@ -10,12 +10,14 @@ $RepoScripts = 'C:\xampp\htdocs\RH_eletropasso\scripts'
 $DeployScripts = 'E:\RH_eletropasso\scripts'
 $TaskName = 'RH_Eletropasso_AutoStart'
 $WatchdogTaskName = 'RH_Eletropasso_DmprepSync_Watchdog'
+$FrontendWatchdogTaskName = 'RH_Eletropasso_Frontend_Watchdog'
 
 New-Item -ItemType Directory -Force -Path $DeployScripts | Out-Null
 Copy-Item -Path (Join-Path $RepoScripts 'start-rh.ps1') -Destination (Join-Path $DeployScripts 'start-rh.ps1') -Force
 Copy-Item -Path (Join-Path $RepoScripts 'start-rh-delayed.ps1') -Destination (Join-Path $DeployScripts 'start-rh-delayed.ps1') -Force
 Copy-Item -Path (Join-Path $RepoScripts 'run-dmprep-sync.ps1') -Destination (Join-Path $DeployScripts 'run-dmprep-sync.ps1') -Force
 Copy-Item -Path (Join-Path $RepoScripts 'Ensure-DmprepSync.ps1') -Destination (Join-Path $DeployScripts 'Ensure-DmprepSync.ps1') -Force
+Copy-Item -Path (Join-Path $RepoScripts 'Ensure-Frontend.ps1') -Destination (Join-Path $DeployScripts 'Ensure-Frontend.ps1') -Force
 
 $DelayedScript = Join-Path $DeployScripts 'start-rh-delayed.ps1'
 $Action = New-ScheduledTaskAction `
@@ -62,7 +64,7 @@ $WatchdogScript = Join-Path $DeployScripts 'Ensure-DmprepSync.ps1'
 $WatchdogAction = New-ScheduledTaskAction `
   -Execute 'powershell.exe' `
   -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$WatchdogScript`""
-$WatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
+$WatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
 $WatchdogSettings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
@@ -79,6 +81,24 @@ Register-ScheduledTask `
 
 Write-Host "Tarefa registrada: $WatchdogTaskName (a cada 5 min)"
 Write-Host ""
+
+# Watchdog: a cada 5 min garante frontend Vite (:3000) — evita 502 no NPM
+$FrontendWatchdogScript = Join-Path $DeployScripts 'Ensure-Frontend.ps1'
+$FrontendWatchdogAction = New-ScheduledTaskAction `
+  -Execute 'powershell.exe' `
+  -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$FrontendWatchdogScript`""
+$FrontendWatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
+Register-ScheduledTask `
+  -TaskName $FrontendWatchdogTaskName `
+  -Action $FrontendWatchdogAction `
+  -Trigger $FrontendWatchdogTrigger `
+  -Settings $WatchdogSettings `
+  -Principal $Principal `
+  -Force | Out-Null
+
+Write-Host "Tarefa registrada: $FrontendWatchdogTaskName (a cada 5 min)"
+Write-Host ""
 Write-Host "Testar agora (manual):"
 Write-Host "  powershell -ExecutionPolicy Bypass -File `"$DelayedScript`""
 Write-Host "  powershell -ExecutionPolicy Bypass -File `"$WatchdogScript`""
+Write-Host "  powershell -ExecutionPolicy Bypass -File `"$FrontendWatchdogScript`""
