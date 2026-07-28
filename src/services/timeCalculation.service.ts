@@ -110,7 +110,7 @@ export function resolveShiftDay(shift: Shift | null, date: string): {
 /** Measured break from BREAK_START/BREAK_END pair, or null if incomplete. */
 export function measureBreakMinutesFromPunches(punches: Punch[], date: string): number | null {
   const dayPunches = punches
-    .filter((p) => punchLocalDateKey(p.punchedAt) === date)
+    .filter((p) => !p.ignoredForCalc && punchLocalDateKey(p.punchedAt) === date)
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
   const starts = dayPunches.filter((p) => p.direction === 'BREAK_START');

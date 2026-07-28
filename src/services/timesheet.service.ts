@@ -12,8 +12,9 @@ import {
 } from '../types';
 import { notificationService } from './notification.service';
 import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
+import { syncAbsenceFromWorked } from '../utils/timesheetAdjust';
 import { shiftService } from './shift.service';
-import { punchService } from './punch.service';
+import { punchService, planProximityAutoIgnores } from './punch.service';
 import { calculateDay } from './timeCalculation.service';
 import { hourBankService } from './hourBank.service';
 import { employeeService } from './employee.service';
@@ -249,13 +250,23 @@ export const timesheetService = {
       (k): k is string => !!k
     );
 
-    const [punches, shift, holidays, leaves, rosterStatus] = await Promise.all([
+    const [punchesRaw, shift, holidays, leaves, rosterStatus] = await Promise.all([
       punchService.listPunches({ employeeId: punchKey, startDate: date, endDate: date }),
       shiftService.resolveShiftForEmployee(emp?.id || employeeId, emp?.shiftId, date),
       organizationService.getHolidays().catch(() => [] as Holiday[]),
       leaveService.getLeaves().catch(() => [] as LeaveRequest[]),
       rosterService.getStatusForEmployee(date, employeeKeys).catch(() => null),
     ]);
+
+    // Auto-dedupe accidental double CLOCK punches (<10 min); never overrides MANUAL.
+    const proximityPlan = planProximityAutoIgnores(punchesRaw, date);
+    if (proximityPlan.toIgnore.length > 0 || proximityPlan.toClear.length > 0) {
+      await punchService.applyProximityAutoIgnorePlan(proximityPlan);
+    }
+    const punches =
+      proximityPlan.toIgnore.length > 0 || proximityPlan.toClear.length > 0
+        ? await punchService.listPunches({ employeeId: punchKey, startDate: date, endDate: date })
+        : punchesRaw;
 
     const isHoliday = holidays.some(h => h.date === date);
     const approvedLeave = leaves.find(
@@ -471,18 +482,26 @@ export const timesheetService = {
       .single();
     if (fetchErr) throw fetchErr;
 
+    const synced: Record<string, unknown> = { ...adjustment };
+    if (typeof synced.workedMinutes === 'number') {
+      synced.absenceMinutes = syncAbsenceFromWorked(
+        Number(existing.expected_minutes ?? 0),
+        synced.workedMinutes as number,
+      );
+    }
+
     const patch: any = {
-      manual_adjustment: adjustment,
+      manual_adjustment: synced,
       status: 'ADJUSTED',
       remarks: remarks || existing.remarks,
       updated: new Date().toISOString(),
       // Editing hours after approval requires a fresh manager ack.
       manager_ack: false,
     };
-    if (typeof adjustment.workedMinutes === 'number') patch.worked_minutes = adjustment.workedMinutes;
-    if (typeof adjustment.overtimeMinutes === 'number') patch.overtime_minutes = adjustment.overtimeMinutes;
-    if (typeof adjustment.lateMinutes === 'number') patch.late_minutes = adjustment.lateMinutes;
-    if (typeof adjustment.absenceMinutes === 'number') patch.absence_minutes = adjustment.absenceMinutes;
+    if (typeof synced.workedMinutes === 'number') patch.worked_minutes = synced.workedMinutes;
+    if (typeof synced.overtimeMinutes === 'number') patch.overtime_minutes = synced.overtimeMinutes;
+    if (typeof synced.lateMinutes === 'number') patch.late_minutes = synced.lateMinutes;
+    if (typeof synced.absenceMinutes === 'number') patch.absence_minutes = synced.absenceMinutes;
 
     const { error } = await supabase.from('timesheet_days').update(patch).eq('id', dayId);
     if (error) throw error;

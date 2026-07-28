@@ -204,6 +204,11 @@
       "version": "0040",
       "file": "0040_clock_biometric_registered.sql",
       "title": "profiles.clock_biometric_registered — biometria confirmada pelo RH"
+    },
+    {
+      "version": "0041",
+      "file": "0041_punches_ignored_for_calc.sql",
+      "title": "punches.ignored_for_calc — ignorar batida só na apuração (RPC)"
     }
   ]
 }

@@ -1,6 +1,9 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient } from './api.client';
-import { Punch, PunchDirection, PunchSource } from '../types';
+import { Punch, PunchDirection, PunchIgnoreSource, PunchSource } from '../types';
+
+/** Window for auto-ignoring accidental double CLOCK punches (keep first). */
+export const PUNCH_PROXIMITY_DEDUP_MINUTES = 10;
 
 const mapPunch = (r: any): Punch => ({
   id: r.id,
@@ -13,6 +16,10 @@ const mapPunch = (r: any): Punch => ({
   nsr: r.nsr || undefined,
   rawPayload: r.raw_payload || undefined,
   timesheetDayId: r.timesheet_day_id || undefined,
+  ignoredForCalc: !!r.ignored_for_calc,
+  ignoreSource: (r.ignore_source as PunchIgnoreSource | null) || undefined,
+  ignoredAt: r.ignored_at || undefined,
+  ignoredBy: r.ignored_by || undefined,
 });
 
 export interface PunchDaySummary {
@@ -31,6 +38,13 @@ export interface PunchDaySlots {
   exit2?: string;
   overflow: Punch[];
   allPunches: Punch[];
+}
+
+export interface ProximityAutoIgnorePlan {
+  /** Punch ids that should be ignored with ignore_source=AUTO */
+  toIgnore: string[];
+  /** Punch ids currently AUTO-ignored that should be cleared */
+  toClear: string[];
 }
 
 /** Calendar day in the browser's local timezone (YYYY-MM-DD). */
@@ -64,9 +78,65 @@ function punchDateKey(punchedAt: string): string {
   return punchLocalDateKey(punchedAt);
 }
 
-/** Chronological slots: Entrada1, Saída1, Entrada2, Saída2; extras in overflow. */
+/** Punches that count for mirror slots and day calculation. */
+export function punchesForApuration(punches: Punch[]): Punch[] {
+  return punches.filter(p => !p.ignoredForCalc);
+}
+
+function minutesBetweenIso(a: string, b: string): number {
+  return Math.abs(new Date(b).getTime() - new Date(a).getTime()) / 60000;
+}
+
+/**
+ * Plan AUTO proximity ignores: keep first CLOCK/IMPORT in a &lt;window cluster;
+ * never mutate punches with ignore_source=MANUAL.
+ */
+export function planProximityAutoIgnores(
+  punches: Punch[],
+  date: string,
+  windowMinutes: number = PUNCH_PROXIMITY_DEDUP_MINUTES,
+): ProximityAutoIgnorePlan {
+  const day = punches
+    .filter(p => punchDateKey(p.punchedAt) === date)
+    .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+
+  const eligible = day.filter(p => p.source === 'CLOCK' || p.source === 'IMPORT');
+  const shouldIgnore = new Set<string>();
+  let lastKept: Punch | null = null;
+
+  for (const p of eligible) {
+    if (p.ignoreSource === 'MANUAL') {
+      if (!p.ignoredForCalc) lastKept = p;
+      continue;
+    }
+    if (!lastKept) {
+      lastKept = p;
+      continue;
+    }
+    if (minutesBetweenIso(lastKept.punchedAt, p.punchedAt) <= windowMinutes) {
+      shouldIgnore.add(p.id);
+    } else {
+      lastKept = p;
+    }
+  }
+
+  const toIgnore: string[] = [];
+  const toClear: string[] = [];
+  for (const p of eligible) {
+    if (p.ignoreSource === 'MANUAL') continue;
+    const want = shouldIgnore.has(p.id);
+    const currentlyAuto =
+      !!p.ignoredForCalc && (p.ignoreSource === 'AUTO' || !p.ignoreSource);
+    if (want && !currentlyAuto) toIgnore.push(p.id);
+    if (!want && currentlyAuto) toClear.push(p.id);
+  }
+
+  return { toIgnore, toClear };
+}
+
+/** Chronological slots from non-ignored punches: Entrada1…Saída2; extras in overflow. */
 export function pairPunchesToSlots(punches: Punch[], date: string): PunchDaySlots {
-  const dayPunches = punches
+  const dayPunches = punchesForApuration(punches)
     .filter(p => punchDateKey(p.punchedAt) === date)
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
@@ -103,9 +173,9 @@ export function groupPunchesByDate(punches: Punch[]): Map<string, Punch[]> {
   return map;
 }
 
-/** Pair punches for a calendar day (local date YYYY-MM-DD). */
+/** Pair punches for a calendar day (local date YYYY-MM-DD) — ignores ignored_for_calc. */
 export function consolidatePunchesForDay(punches: Punch[], date: string): PunchDaySummary {
-  const dayPunches = punches
+  const dayPunches = punchesForApuration(punches)
     .filter(p => punchDateKey(p.punchedAt) === date)
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
@@ -146,6 +216,37 @@ export const punchService = {
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapPunch);
+  },
+
+  /**
+   * Manager override: ignore/include a punch for apuration only (CLOCK stays in audit).
+   * Uses SECURITY DEFINER RPC — does not open generic CLOCK updates.
+   */
+  async setPunchIgnoredForCalc(id: string, ignored: boolean): Promise<Punch> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const { data, error } = await supabase.rpc('set_punch_ignored_for_calc', {
+      p_id: id,
+      p_ignored: ignored,
+    });
+    if (error) throw error;
+    apiClient.notify();
+    return mapPunch(data);
+  },
+
+  /**
+   * Apply AUTO proximity plan without touching MANUAL decisions.
+   * Uses SECURITY DEFINER RPC for CLOCK rows.
+   */
+  async applyProximityAutoIgnorePlan(plan: ProximityAutoIgnorePlan): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    if (plan.toIgnore.length === 0 && plan.toClear.length === 0) return;
+
+    const { error } = await supabase.rpc('apply_punch_proximity_auto_ignore', {
+      p_ignore_ids: plan.toIgnore,
+      p_clear_ids: plan.toClear,
+    });
+    if (error) throw error;
+    apiClient.notify();
   },
 
   async createManualPunch(input: {

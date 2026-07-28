@@ -566,6 +566,8 @@ export interface RosterSwapRequest {
 
 export type PunchDirection = 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'UNKNOWN';
 export type PunchSource = 'CLOCK' | 'MANUAL' | 'IMPORT' | 'SYSTEM';
+/** Who set ignored_for_calc — AUTO from proximity dedupe; MANUAL from manager override. */
+export type PunchIgnoreSource = 'AUTO' | 'MANUAL';
 
 export interface Punch {
   id: string;
@@ -578,6 +580,11 @@ export interface Punch {
   nsr?: string;
   rawPayload?: Record<string, unknown>;
   timesheetDayId?: string;
+  /** When true, punch stays in audit but is excluded from slots/calc. */
+  ignoredForCalc?: boolean;
+  ignoreSource?: PunchIgnoreSource;
+  ignoredAt?: string;
+  ignoredBy?: string;
 }
 
 export type TimesheetPeriodStatus = 'OPEN' | 'IN_REVIEW' | 'APPROVED' | 'LOCKED';

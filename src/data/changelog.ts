@@ -16,6 +16,48 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — Falta sincronizada, ignorar CLOCK e dedupe',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Ao salvar ajuste manual, Falta passa a ser sempre max(0, Esperado − Trabalhado); o modal atualiza Falta ao vivo e o campo fica somente leitura derivado.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Gestor pode ignorar batida CLOCK só na apuração (sem apagar auditoria/NSR), via RPC set_punch_ignored_for_calc. Slots e cálculo respeitam ignored_for_calc.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Auto-dedupe de batidas CLOCK/IMPORT com menos de 10 minutos: mantém a primeira e marca as seguintes como AUTO. Decisão MANUAL do gestor não é sobrescrita.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Infra — estabilidade Vite + API (varredura Chat)',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Frontend na loja passa a preferir vite preview (build estável) em vez de HMR. Ensure-Frontend.ps1 Mode=auto/preview/dev; watchdogs NPM IPv4 e saúde Supabase a cada 5 min. Chat (3001/8082) não conflita com RH (3000/54321) — compartilham só o NPM.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Login “Banco indisponível”: o build de produção herdava VITE_SUPABASE_URL=http://127.0.0.1:54321 (bloqueado em página HTTPS). Ensure-Frontend força a URL do .env (api-rh.eletropasso.local) no npm run build.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Watchdogs RH sem flash de PowerShell: tarefas usam Run-HiddenPs1.vbs (wscript, janela 0). Frontend de 1 min → 5 min (supervisor contínuo cobre o restante). Apply-SilentWatchdogs.ps1 reaplica.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Infra — API RH via IPv4 no NPM',
     entries: [
       {

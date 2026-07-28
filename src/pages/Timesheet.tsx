@@ -768,6 +768,32 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     await load();
   };
 
+  const setPunchIgnoredFromModal = async (punchId: string, ignored: boolean) => {
+    if (!adjustDay || locked) throw new Error(t('lockedHint'));
+    if (adjustDay.managerAck) {
+      await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', false);
+    }
+    const updated = await hrService.setPunchIgnoredForCalc(punchId, ignored);
+    setPunches(prev => prev.map(p => (p.id === punchId ? updated : p)));
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId
+    );
+    const recalcKey = emp?.id || adjustDay.employeeId;
+    const recalculated = await hrService.recalculateTimesheetDay(recalcKey, adjustDay.workDate, period || undefined);
+    await hrService.acknowledgeTimesheetDay(recalculated.id, 'manager', false);
+    setAdjustDay({ ...recalculated, managerAck: false });
+    setDays(prev =>
+      prev.map(d =>
+        d.id === recalculated.id ||
+        (d.workDate === recalculated.workDate && d.employeeId === recalculated.employeeId)
+          ? { ...recalculated, managerAck: false }
+          : d
+      )
+    );
+    showToast(ignored ? t('adjustPunchIgnoredRecalc') : t('adjustPunchConsideredRecalc'), 'success');
+    await load();
+  };
+
   const updatePunchFromModal = async (
     punchId: string,
     input: { punchedAtTime: string; direction: Punch['direction'] },
@@ -1532,6 +1558,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           onAddPunch={addPunchFromModal}
           onUpdatePunch={updatePunchFromModal}
           onDeletePunch={deletePunchFromModal}
+          onSetPunchIgnoredForCalc={setPunchIgnoredFromModal}
           onApplyFixedBreak={applyFixedBreakFromModal}
         />
       )}

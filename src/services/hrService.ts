@@ -122,6 +122,7 @@ export const hrService = {
   createManualPunch: punchService.createManualPunch,
   updateManualPunch: punchService.updateManualPunch.bind(punchService),
   deletePunch: punchService.deletePunch.bind(punchService),
+  setPunchIgnoredForCalc: punchService.setPunchIgnoredForCalc.bind(punchService),
   applyFixedBreakPunches: punchService.applyFixedBreakPunches.bind(punchService),
   getOrCreateTimesheetPeriod: timesheetService.getOrCreatePeriod.bind(timesheetService),
   listTimesheetPeriods: timesheetService.listPeriods.bind(timesheetService),
