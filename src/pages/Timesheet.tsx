@@ -592,6 +592,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         reviewStatus: t('pdf.reviewStatus'),
         reviewApproved: t('pdf.reviewApproved'),
         reviewPending: t('pdf.reviewPending'),
+        managerAckSummary: t('pdf.managerAckSummary'),
         colDay: t('pdf.colDay'),
         colEntry1: t('pdf.colEntry1'),
         colExit1: t('pdf.colExit1'),

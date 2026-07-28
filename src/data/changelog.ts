@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — competência amarra o dia certo',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'listDays filtra work_date pelo intervalo da competência; recalculateDay sempre resolve o período da data (não grava dia fora do range no período OPEN da varredura).',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho PDF — observações, totais e assinaturas',
     entries: [
       {

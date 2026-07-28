@@ -262,6 +262,7 @@
     "reviewStatus": "Aprovação gestor/RH",
     "reviewApproved": "Aprovado",
     "reviewPending": "Pendente",
+    "managerAckSummary": "Dias com OK do gestor",
     "colDay": "Data",
     "colEntry1": "Entrada 1",
     "colExit1": "Saída 1",

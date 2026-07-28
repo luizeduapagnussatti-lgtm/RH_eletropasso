@@ -262,6 +262,7 @@
     "reviewStatus": "Manager/HR approval",
     "reviewApproved": "Approved",
     "reviewPending": "Pending",
+    "managerAckSummary": "Days with manager OK",
     "colDay": "Date",
     "colEntry1": "In 1",
     "colExit1": "Out 1",

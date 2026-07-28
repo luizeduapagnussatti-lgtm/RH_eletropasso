@@ -183,6 +183,7 @@ export const timesheetPdfExportService = {
   }): Promise<Blob> {
     const { period, org, employee, days, punches, review, labels, statusLabel, reviewStatusLabel: revLabel } = opts;
     const doc = await createPdfDocument('landscape');
+    const periodDays = daysInPeriod(days, period).sort((a, b) => a.workDate.localeCompare(b.workDate));
     const punchesByDate = groupPunchesByDate(punches);
 
     const subtitle = `${labels.periodRange}: ${formatIsoDateBr(period.startDate)} — ${formatIsoDateBr(period.endDate)} · ${employee.name}`;
@@ -193,6 +194,8 @@ export const timesheetPdfExportService = {
       subtitle,
     });
 
+    const managerAcked = periodDays.filter(d => d.managerAck).length;
+
     y = drawFormSection(doc, y, labels.employeeSection, [
       { label: labels.name, value: employee.name || labels.notAvailable },
       { label: labels.employeeId, value: employee.employeeId || labels.notAvailable },
@@ -202,25 +205,33 @@ export const timesheetPdfExportService = {
         label: labels.reviewStatus,
         value: reviewStatusLabel(review, labels, revLabel),
       },
+      {
+        label: labels.managerAckSummary || 'Aprovação gestor',
+        value: `${managerAcked}/${periodDays.length}`,
+      },
     ]);
 
     const totals = {
-      worked: days.reduce((s, d) => s + (d.workedMinutes || 0), 0),
-      overtime: days.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
-      late: days.reduce((s, d) => s + (d.lateMinutes || 0), 0),
-      absence: days.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
+      worked: periodDays.reduce((s, d) => s + (d.workedMinutes || 0), 0),
+      overtime: periodDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
+      late: periodDays.reduce((s, d) => s + (d.lateMinutes || 0), 0),
+      absence: periodDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
     };
 
     y = drawMetricStrip(doc, y, [
       { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
       { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
       { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
-      { label: labels.metricAbsence, value: minutesToDisplay(totals.absence), tone: 'absent' },
+      {
+        label: labels.metricAbsence,
+        value: minutesToDisplay(totals.absence),
+        tone: totals.absence > 0 ? 'absent' : 'present',
+      },
     ]);
 
     const noteLines: string[] = [];
 
-    const tableRows = days.map(day => {
+    const tableRows = periodDays.map(day => {
       const slots = pairPunchesToSlots(punchesByDate.get(day.workDate) ?? [], day.workDate);
       const exit2 = slotTime(slots.exit2);
       const exit2Cell =
@@ -230,7 +241,14 @@ export const timesheetPdfExportService = {
 
       if (slots.overflow.length > 0) {
         const times = slots.overflow
-          .map(p => formatTime(p.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false }))
+          .map(p =>
+            formatTime(p.punchedAt, {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'America/Sao_Paulo',
+            }),
+          )
           .join(' · ');
         noteLines.push(
           interpolateLabel(labels.extraPunchesLine, {
@@ -373,7 +391,7 @@ export const timesheetPdfExportService = {
 
     const perEmployee = employees
       .map(emp => {
-        const empDays = daysForEmployee(days, emp);
+        const empDays = daysInPeriod(daysForEmployee(days, emp), period);
         if (!empDays.length) return null;
         const review = resolveReview(reviews, emp);
         const worked = empDays.reduce((s, d) => s + (d.workedMinutes || 0), 0);
@@ -488,7 +506,7 @@ export const timesheetPdfExportService = {
         e => e.id === opts.employeeFilter || e.employeeId === opts.employeeFilter
       );
       if (!employee) throw new Error('employee_not_found');
-      const empDays = daysForEmployee(opts.days, employee);
+      const empDays = daysInPeriod(daysForEmployee(opts.days, employee), opts.period);
       if (!empDays.length) throw new Error('employee_no_days');
       const punchKey = employee.employeeId || employee.id;
       const empPunches = opts.punches.filter(p => p.employeeId === punchKey || p.employeeId === employee.id);
