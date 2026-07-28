@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — exportar PDF sem bloquear por competência OPEN',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Botão “Exportar espelho PDF” deixava de funcionar em períodos OPEN (exigia APPROVED/LOCKED). Agora exporta com espelho carregado; pré-folha JSON continua exigindo competência aprovada/bloqueada.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho — competência amarra o dia certo',
     entries: [
       {
