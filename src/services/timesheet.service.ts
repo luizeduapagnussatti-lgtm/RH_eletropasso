@@ -257,8 +257,17 @@ export const timesheetService = {
 
   async listDays(periodId: string, employeeId?: string): Promise<TimesheetDay[]> {
     if (!isSupabaseConfigured()) return [];
+    const { data: periodRow, error: periodErr } = await supabase
+      .from('timesheet_periods')
+      .select('start_date, end_date')
+      .eq('id', periodId)
+      .maybeSingle();
+    if (periodErr) throw periodErr;
+
     let q = supabase.from('timesheet_days').select('*').eq('period_id', periodId).order('work_date');
     if (employeeId) q = q.eq('employee_id', employeeId);
+    if (periodRow?.start_date) q = q.gte('work_date', periodRow.start_date);
+    if (periodRow?.end_date) q = q.lte('work_date', periodRow.end_date);
     const { data, error } = await q.limit(5000);
     if (error) throw error;
     const rows = data ?? [];
@@ -291,9 +300,17 @@ export const timesheetService = {
 
     const d = new Date(`${date}T12:00:00`);
     let p = period;
-    if (!p) {
-      const startDay = await resolvePeriodStartDay();
-      const c = competenceForDate(d, startDay);
+    // Always bind the day to the competence that owns this calendar date.
+    // Passing an OPEN period from a sweep must not attach out-of-range dates.
+    const startDay = await resolvePeriodStartDay();
+    const c = competenceForDate(d, startDay);
+    if (
+      !p ||
+      p.year !== c.year ||
+      p.month !== c.month ||
+      date < p.startDate ||
+      date > p.endDate
+    ) {
       p = await this.getOrCreatePeriod(c.year, c.month);
     }
     if (p.status === 'LOCKED') throw new Error('Period is locked');
