@@ -76,25 +76,51 @@ html.dark body {
 .dark .bg-slate-100\/80 { background-color: #2a384c !important; }
 .dark .bg-slate-200 { background-color: #475569 !important; }
 .dark .bg-slate-200\/80 { background-color: #334155 !important; }
+.dark .bg-slate-300 { background-color: #64748b !important; }
+.dark .disabled\:bg-slate-300:disabled { background-color: #475569 !important; }
+.dark .disabled\:text-slate-600:disabled { color: #94a3b8 !important; }
 .dark .bg-gray-50 { background-color: #1e293b !important; }
 .dark .bg-gray-100 { background-color: #334155 !important; }
 .dark .bg-emerald-50 { background-color: #064e3b !important; }
+.dark .bg-emerald-50\/80 { background-color: #064e3b !important; }
 .dark .bg-rose-50 { background-color: #4c1d2e !important; }
+/* Amber alerts: dark brown ground + near-white text (readable banners) */
 .dark .bg-amber-50 { background-color: #451a03 !important; }
+.dark .bg-amber-50\/60 { background-color: rgba(69, 26, 3, 0.92) !important; }
+.dark .bg-amber-50\/80 { background-color: rgba(69, 26, 3, 0.95) !important; }
+.dark .bg-sky-50 { background-color: #0c4a6e !important; }
+.dark .bg-sky-50\/80 { background-color: #0c4a6e !important; }
 .dark .bg-indigo-50 { background-color: #1e1b4b !important; }
 .dark .text-indigo-700 { color: #a5b4fc !important; }
-/* Semantic *-950 text on remapped *-50 backgrounds (otherwise invisible in dark) */
-.dark .text-amber-950 { color: #fde68a !important; }
-.dark .text-amber-900 { color: #fcd34d !important; }
-.dark .text-emerald-950 { color: #a7f3d0 !important; }
-.dark .text-emerald-900 { color: #6ee7b7 !important; }
+/* Semantic amber/sky text on remapped *-50 backgrounds */
+.dark .text-amber-950 { color: #fffbeb !important; }
+.dark .text-amber-900 { color: #fef3c7 !important; }
+.dark .text-amber-800 { color: #fde68a !important; }
+.dark .text-amber-700 { color: #fde68a !important; }
+.dark .text-amber-600 { color: #fcd34d !important; }
+.dark .text-emerald-950 { color: #d1fae5 !important; }
+.dark .text-emerald-900 { color: #a7f3d0 !important; }
 .dark .text-rose-950 { color: #fecdd3 !important; }
 .dark .text-rose-900 { color: #fda4af !important; }
+.dark .text-sky-950 { color: #f0f9ff !important; }
+.dark .text-sky-900 { color: #e0f2fe !important; }
+.dark .text-sky-800 { color: #bae6fd !important; }
 .dark .bg-emerald-100 { background-color: #064e3b !important; }
 .dark .bg-amber-100 { background-color: #78350f !important; }
 .dark .border-amber-100 { border-color: #92400e !important; }
 .dark .border-amber-200 { border-color: #b45309 !important; }
+.dark .border-amber-300 { border-color: #d97706 !important; }
+.dark .border-amber-600 { border-color: #f59e0b !important; }
+.dark .border-amber-700 { border-color: #fbbf24 !important; }
 .dark .border-emerald-100 { border-color: #065f46 !important; }
+.dark .border-emerald-200 { border-color: #059669 !important; }
+.dark .border-emerald-600 { border-color: #34d399 !important; }
+.dark .border-sky-300 { border-color: #38bdf8 !important; }
+.dark .hover\:bg-amber-100:hover { background-color: #92400e !important; }
+.dark .bg-amber-600 { background-color: #d97706 !important; }
+.dark .hover\:bg-amber-700:hover { background-color: #b45309 !important; }
+.dark .bg-violet-100 { background-color: #4c1d95 !important; }
+.dark .text-violet-900 { color: #ddd6fe !important; }
 
 /* Hover backgrounds */
 .dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }

@@ -1035,7 +1035,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             selectedEmployee.joiningDate &&
             selectedEmployee.joiningDate > period.startDate &&
             selectedEmployee.joiningDate <= period.endDate && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 mt-2 inline-block">
+              <p className="text-xs font-medium text-amber-950 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 mt-2 inline-block">
                 {t('midPeriodHireHint', {
                   name: selectedEmployee.name,
                   date: selectedEmployee.joiningDate,
@@ -1075,22 +1075,22 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             </span>
           )}
           {locked ? (
-            <span className="text-xs text-amber-700 font-medium flex items-center gap-1">
+            <span className="text-xs text-amber-950 font-semibold flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 border border-amber-200">
               <Lock size={14} aria-hidden /> {t('lockedHint')}
             </span>
           ) : null}
         </div>
       </div>
 
-      <div className="rounded-xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">
+      <div className="rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950">
         <p className="font-semibold">{t('dataSourceTitle')}</p>
-        <p className="text-xs mt-1 text-sky-800">{t('dataSourceBody')}</p>
+        <p className="text-xs mt-1 text-sky-900">{t('dataSourceBody')}</p>
       </div>
 
       {isHr && period && <PayrollPendenciesPanel periodId={period.id} />}
 
       {(punches.length === 0 || showRecalcHint) && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">
           {punches.length === 0 ? t('noPunchesDetail') : t('hasPunchesNoWork', { count: punches.length })}
         </div>
       )}

@@ -45,26 +45,26 @@ export const PayrollPendenciesPanel: React.FC<Props> = ({ periodId }) => {
   if (gaps.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-4 space-y-3">
+    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="font-semibold text-amber-900 flex items-center gap-2 text-sm">
-            <AlertTriangle size={16} aria-hidden /> {t('pendenciesTitle')}
+          <h4 className="font-semibold text-amber-950 flex items-center gap-2 text-sm">
+            <AlertTriangle size={16} aria-hidden className="text-amber-800 shrink-0" /> {t('pendenciesTitle')}
           </h4>
-          <p className="text-xs text-amber-800 mt-1">{t('pendenciesHint')}</p>
+          <p className="text-xs text-amber-900 mt-1 font-medium">{t('pendenciesHint')}</p>
         </div>
         <button
           type="button"
           onClick={exportCsv}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-xs font-semibold text-amber-900"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-xs font-semibold text-amber-950"
         >
           <Download size={14} aria-hidden /> {t('exportPendenciesCsv')}
         </button>
       </div>
       {loading ? (
-        <p className="text-xs text-amber-800">…</p>
+        <p className="text-xs text-amber-900">…</p>
       ) : (
-        <ul className="text-xs text-amber-900 space-y-1 max-h-40 overflow-y-auto">
+        <ul className="text-xs text-amber-950 space-y-1 max-h-40 overflow-y-auto font-medium">
           {gaps.map(g => (
             <li key={g.employeeId}>
               <strong>{g.employeeName}</strong> ({g.dayCount}d)
