@@ -16,6 +16,7 @@
   "missingCpf": "CPF ausente ou inválido",
   "missingPis": "PIS/credencial ausente",
   "missingJoiningDate": "Data de admissão ausente",
+  "missingTerminationDate": "Inativo sem data de demissão",
   "exportPendenciesCsv": "Exportar pendências CSV",
   "buildPrePayroll": "Gerar resumo de horas",
   "buildingPrePayroll": "Gerando…",

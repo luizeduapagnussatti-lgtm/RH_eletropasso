@@ -274,9 +274,25 @@ export const timesheetService = {
       onApprovedLeave: !!approvedLeave,
       leaveRequestId: approvedLeave?.id,
       rosterStatus,
+      joiningDate: emp?.joiningDate || undefined,
+      terminationDate: emp?.terminationDate || undefined,
     });
 
-    const row = {
+    // Keep manual adjustments: recalculation must not wipe manager edits.
+    const { data: existingDay } = await supabase
+      .from('timesheet_days')
+      .select('id, manual_adjustment, status, remarks, employee_ack, manager_ack')
+      .eq('organization_id', orgId)
+      .eq('employee_id', punchKey)
+      .eq('work_date', date)
+      .maybeSingle();
+
+    const hasManual =
+      existingDay?.manual_adjustment &&
+      typeof existingDay.manual_adjustment === 'object' &&
+      Object.keys(existingDay.manual_adjustment as object).length > 0;
+
+    const row: Record<string, unknown> = {
       organization_id: orgId,
       period_id: p.id,
       employee_id: punchKey,
@@ -297,6 +313,20 @@ export const timesheetService = {
       calc_version: 1,
       updated: new Date().toISOString(),
     };
+
+    if (hasManual) {
+      const adj = existingDay.manual_adjustment as Record<string, unknown>;
+      row.manual_adjustment = adj;
+      row.status = 'ADJUSTED';
+      if (typeof adj.workedMinutes === 'number') row.worked_minutes = adj.workedMinutes;
+      if (typeof adj.overtimeMinutes === 'number') row.overtime_minutes = adj.overtimeMinutes;
+      if (typeof adj.lateMinutes === 'number') row.late_minutes = adj.lateMinutes;
+      if (typeof adj.absenceMinutes === 'number') row.absence_minutes = adj.absenceMinutes;
+      if (existingDay.remarks) row.remarks = existingDay.remarks;
+      // Keep acknowledgements when preserving a manual edit.
+      if (typeof existingDay.employee_ack === 'boolean') row.employee_ack = existingDay.employee_ack;
+      if (typeof existingDay.manager_ack === 'boolean') row.manager_ack = existingDay.manager_ack;
+    }
 
     const { data, error } = await supabase
       .from('timesheet_days')
@@ -348,26 +378,62 @@ export const timesheetService = {
     return day;
   },
 
-  async recalculatePeriod(year: number, month: number, employeeIds?: string[]): Promise<number> {
+  async recalculatePeriod(
+    year: number,
+    month: number,
+    employeeIds?: string[],
+  ): Promise<{ count: number; failed: number; firstError?: string }> {
     const period = await this.getOrCreatePeriod(year, month);
     if (period.status === 'LOCKED') throw new Error('Period is locked');
 
     const employees = await employeeService.getEmployees();
     const targets = employeeIds?.length
       ? employees.filter(e => employeeIds.includes(e.id) || employeeIds.includes(e.employeeId || ''))
-      : employees.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN');
+      : employees.filter(e => {
+          if (isNonPunchingStaff(e.role) || e.role === 'SUPER_ADMIN') return false;
+          // Hired after this competence ends — nothing to calculate
+          if (e.joiningDate && e.joiningDate > period.endDate) return false;
+          // Left before this competence starts — skip full-period sweep
+          if (
+            e.status === 'INACTIVE' &&
+            e.terminationDate &&
+            e.terminationDate < period.startDate
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+    if (targets.length === 0) {
+      throw new Error('No employees to recalculate');
+    }
 
     const today = todayIsoLocal();
     const endCap = minIsoDate(period.endDate, today);
     const dates = eachDateInRange(period.startDate, endCap);
     let count = 0;
+    let failed = 0;
+    let firstError: string | undefined;
+
     for (const emp of targets) {
       for (const date of dates) {
-        await this.recalculateDay(emp.id, date, period);
-        count++;
+        try {
+          await this.recalculateDay(emp.id, date, period);
+          count++;
+        } catch (e: unknown) {
+          failed++;
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!firstError) firstError = `${emp.name || emp.id} @ ${date}: ${msg}`;
+          console.error('[timesheet] recalculateDay failed', emp.id, date, e);
+        }
       }
     }
-    return count;
+
+    if (count === 0 && failed > 0) {
+      throw new Error(firstError || 'recalcFailed');
+    }
+
+    return { count, failed, firstError };
   },
 
   async acknowledgeDay(dayId: string, who: 'employee' | 'manager', acked = true): Promise<void> {
@@ -618,6 +684,7 @@ export const timesheetService = {
     const employees = (await employeeService.getEmployees()).filter(
       e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN',
     );
+    const reviews = await this.listEmployeeReviews(periodId);
     const reviewByKey = new Map<string, TimesheetEmployeeReview>();
     for (const r of reviews) {
       reviewByKey.set(r.employeeId, r);

@@ -16,6 +16,27 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — janela de admissão/demissão',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Recálculo do espelho respeita data de admissão e demissão: dias fora do vínculo não geram falta (ABSENT) nem débito de banco.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Cadastro da equipe: campos editáveis de data de admissão e demissão; baixa grava termination_date (migration 0039).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Espelho avisa quando admissão/demissão cai no meio da competência; folha sinaliza inativo sem data de demissão. DMPREP continua só com DtAdmissao.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Modal carga horária — contraste no dark mode',
     entries: [
       {

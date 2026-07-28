@@ -5,6 +5,8 @@
   "period": "Competência",
   "year": "Ano",
   "periodHint": "Competência = mês de fechamento. Ex.: julho = 26/06 a 25/07.",
+  "midPeriodHireHint": "{{name}} admitido(a) em {{date}}: dias anteriores à admissão não contam como falta.",
+  "midPeriodTermHint": "{{name}} demitido(a) em {{date}}: dias posteriores à demissão não contam como falta.",
   "applyFilters": "Aplicar filtros",
   "loadingFilters": "Carregando…",
   "selectEmployeePlaceholder": "Selecione o colaborador",

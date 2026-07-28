@@ -70,6 +70,7 @@ export const EmployeeProfilePanel: React.FC<Props> = ({ user, employeeId, onEdit
     [t('designation'), employee.designation],
     [t('assignedShift'), shiftName || t('noShiftAssigned')],
     [t('joiningDate'), employee.joiningDate || t('notAvailable')],
+    [t('terminationDate'), employee.terminationDate || t('notAvailable')],
     [t('onboarding.mobile'), employee.mobile || t('notAvailable')],
     [t('status'), t(employee.status === 'ACTIVE' ? 'active' : 'inactive')],
   ];

@@ -5,6 +5,8 @@
   "period": "Period",
   "year": "Year",
   "periodHint": "Competence = closing month. E.g. July = 26/06 to 25/07.",
+  "midPeriodHireHint": "{{name}} hired on {{date}}: days before hire do not count as absence.",
+  "midPeriodTermHint": "{{name}} terminated on {{date}}: days after termination do not count as absence.",
   "applyFilters": "Apply filters",
   "loadingFilters": "Loading…",
   "selectEmployeePlaceholder": "Select employee",

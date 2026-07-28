@@ -49,7 +49,7 @@
     "openMirror": "View mirror",
     "openReports": "Go to reports",
     "goPayroll": "Payroll & accounting",
-    "statusHintOPEN": "Period open: recalculate and review the mirror before approving.",
+    "statusHintOPEN": "Period open: recalculate and review the mirror before approving. Mid-period hire/termination does not create absence outside employment.",
     "statusHintIN_REVIEW": "In review: check pending items in the mirror and approve when ready.",
     "statusHintAPPROVED": "Approved: generate reports/payroll or lock to close the period.",
     "statusHintLOCKED": "Locked: period closed. Use reports for consultation.",

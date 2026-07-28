@@ -194,6 +194,11 @@
       "version": "0038",
       "file": "0038_punches_manual_only_mutate.sql",
       "title": "RLS — update/delete de batidas só para source MANUAL"
+    },
+    {
+      "version": "0039",
+      "file": "0039_termination_date.sql",
+      "title": "profiles.termination_date — último dia empregado (espelho)"
     }
   ]
 }

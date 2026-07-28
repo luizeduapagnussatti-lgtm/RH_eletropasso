@@ -241,6 +241,7 @@ export const superAdminService = {
         designation: r.designation || 'Staff',
         avatar: r.avatar ? getSupabaseStorageUrl('avatars', r.avatar) : undefined,
         joiningDate: r.joining_date || '',
+        terminationDate: r.termination_date || undefined,
         mobile: r.mobile || '',
         emergencyContact: r.emergency_contact || '',
         salary: r.salary || 0,

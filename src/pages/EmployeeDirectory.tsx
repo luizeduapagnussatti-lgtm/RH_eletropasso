@@ -205,6 +205,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
     designation: '',
     avatar: '',
     joiningDate: new Date().toISOString().split('T')[0],
+    terminationDate: '',
     mobile: '',
     emergencyContact: '',
     salary: 0,
@@ -305,6 +306,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
       designation: emp.designation || '',
       avatar: emp.avatar || '',
       joiningDate: emp.joiningDate || new Date().toISOString().split('T')[0],
+      terminationDate: emp.terminationDate || '',
       mobile: emp.mobile || '',
       emergencyContact: emp.emergencyContact || '',
       salary: emp.salary || 0,
@@ -342,7 +344,10 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
     if (!lifecycleModal?.deleteId) return;
     const emp = employees.find(e => e.id === lifecycleModal.deleteId);
     if (emp && needsClockAdmission(emp.role) && emp.employeeId) {
-      await hrService.updateProfile(emp.id, { status: 'INACTIVE' }).catch(() => {});
+      const terminationDate = new Date().toISOString().split('T')[0];
+      await hrService
+        .updateProfile(emp.id, { status: 'INACTIVE', terminationDate })
+        .catch(() => {});
       try {
         await hrService.triggerDmprepSync('export-employee-discharge', emp.id);
       } catch {
@@ -1035,6 +1040,27 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                   <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light" value={formState.designation} onChange={e => setFormState({...formState, designation: e.target.value})}>
                     {desigs.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('joiningDate')}</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light"
+                    value={formState.joiningDate}
+                    onChange={e => setFormState({ ...formState, joiningDate: e.target.value })}
+                  />
+                  <p className="text-[10px] text-slate-400 px-1">{t('joiningDateHint')}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('terminationDate')}</label>
+                  <input
+                    type="date"
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light"
+                    value={formState.terminationDate || ''}
+                    onChange={e => setFormState({ ...formState, terminationDate: e.target.value })}
+                  />
+                  <p className="text-[10px] text-slate-400 px-1">{t('terminationDateHint')}</p>
                 </div>
               </div>
 

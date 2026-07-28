@@ -28,6 +28,7 @@ function mapProfileToEmployee(r: any): Employee {
     designation: r.designation || 'Staff',
     avatar: r.avatar ? getSupabaseStorageUrl('avatars', r.avatar) : undefined,
     joiningDate: r.joining_date || '',
+    terminationDate: r.termination_date || undefined,
     mobile: r.mobile || '',
     emergencyContact: r.emergency_contact || '',
     salary: r.salary || 0,
@@ -205,7 +206,10 @@ export const employeeService = {
       payload.cpf = cpf || null;
     }
     if (updates.mobile !== undefined)      payload.mobile = updates.mobile;
-    if (updates.joiningDate !== undefined) payload.joining_date = updates.joiningDate;
+    if (updates.joiningDate !== undefined) payload.joining_date = updates.joiningDate || null;
+    if (updates.terminationDate !== undefined) {
+      payload.termination_date = updates.terminationDate || null;
+    }
     if (updates.employmentType !== undefined) payload.employment_type = updates.employmentType;
     if (updates.workType !== undefined)    payload.work_type = updates.workType;
     if (updates.salary !== undefined)      payload.salary = updates.salary;

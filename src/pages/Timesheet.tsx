@@ -956,6 +956,29 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           {periodSummary ? (
             <p className="text-xs text-slate-400 mt-0.5">{periodSummary}</p>
           ) : null}
+          {period &&
+            selectedEmployee &&
+            selectedEmployee.joiningDate &&
+            selectedEmployee.joiningDate > period.startDate &&
+            selectedEmployee.joiningDate <= period.endDate && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 mt-2 inline-block">
+                {t('midPeriodHireHint', {
+                  name: selectedEmployee.name,
+                  date: selectedEmployee.joiningDate,
+                })}
+              </p>
+            )}
+          {period &&
+            selectedEmployee?.terminationDate &&
+            selectedEmployee.terminationDate >= period.startDate &&
+            selectedEmployee.terminationDate < period.endDate && (
+              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-md px-2 py-1.5 mt-2 inline-block">
+                {t('midPeriodTermHint', {
+                  name: selectedEmployee.name,
+                  date: selectedEmployee.terminationDate,
+                })}
+              </p>
+            )}
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {isHr && onNavigate && (

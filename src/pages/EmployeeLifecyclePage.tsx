@@ -31,6 +31,9 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [simpleConfirming, setSimpleConfirming] = useState(false);
+  const [terminationDate, setTerminationDate] = useState(
+    () => new Date().toISOString().split('T')[0],
+  );
 
   const goDirectory = () => onNavigate('employees');
 
@@ -81,8 +84,11 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
 
   const confirmDischarge = async () => {
     if (!employee) return;
+    const term = terminationDate || new Date().toISOString().split('T')[0];
+    await hrService
+      .updateProfile(employee.id, { status: 'INACTIVE', terminationDate: term })
+      .catch(() => {});
     if (needsClockAdmission(employee.role) && employee.employeeId) {
-      await hrService.updateProfile(employee.id, { status: 'INACTIVE' }).catch(() => {});
       try {
         await hrService.triggerDmprepSync('export-employee-discharge', employee.id);
       } catch {
@@ -147,6 +153,18 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
         <p className="text-sm text-slate-600 dark:text-slate-300">
           {t('lifecycle.simpleDischargeHint', { name: employee.name, role: employee.role })}
         </p>
+        <div className="space-y-1.5 max-w-xs">
+          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+            {t('terminationDate')}
+          </label>
+          <input
+            type="date"
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+            value={terminationDate}
+            onChange={e => setTerminationDate(e.target.value)}
+          />
+          <p className="text-[10px] text-slate-400">{t('terminationDateHint')}</p>
+        </div>
         <div className="flex flex-wrap gap-2 pt-2">
           <button
             type="button"
@@ -195,14 +213,29 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
       </div>
 
       {mode === 'discharge' ? (
-        <DmprepLifecyclePanel
-          type="discharge"
-          employeeName={employee.name}
-          punchKey={punchKey}
-          clockCredential={credDisplay}
-          onCancel={goDirectory}
-          onConfirm={confirmDischarge}
-        />
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-5 space-y-2">
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              {t('terminationDate')}
+            </label>
+            <input
+              type="date"
+              required
+              className="w-full max-w-xs px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+              value={terminationDate}
+              onChange={e => setTerminationDate(e.target.value)}
+            />
+            <p className="text-[10px] text-slate-400">{t('terminationDateHint')}</p>
+          </div>
+          <DmprepLifecyclePanel
+            type="discharge"
+            employeeName={employee.name}
+            punchKey={punchKey}
+            clockCredential={credDisplay}
+            onCancel={goDirectory}
+            onConfirm={confirmDischarge}
+          />
+        </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-6 space-y-4">
           <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">

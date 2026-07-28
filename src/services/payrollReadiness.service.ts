@@ -13,6 +13,7 @@ export interface PayrollReadinessGap {
   missingCpf: boolean;
   missingPis: boolean;
   missingJoiningDate: boolean;
+  missingTerminationDate: boolean;
   dayCount: number;
 }
 
@@ -38,7 +39,8 @@ export const payrollReadinessService = {
       const cpfOk = emp.cpf ? validateCpf(emp.cpf).ok : false;
       const pisOk = emp.employeeId ? validatePis(emp.employeeId).ok : false;
       const joinOk = !!emp.joiningDate;
-      if (cpfOk && pisOk && joinOk) continue;
+      const termOk = emp.status !== 'INACTIVE' || !!emp.terminationDate;
+      if (cpfOk && pisOk && joinOk && termOk) continue;
       gaps.push({
         employeeId: emp.id || key,
         employeeName: emp.name || key,
@@ -46,6 +48,7 @@ export const payrollReadinessService = {
         missingCpf: !cpfOk,
         missingPis: !pisOk,
         missingJoiningDate: !joinOk,
+        missingTerminationDate: !termOk,
         dayCount,
       });
     }
@@ -53,7 +56,16 @@ export const payrollReadinessService = {
   },
 
   exportGapsCsv(gaps: PayrollReadinessGap[]): string {
-    const headers = ['employee_id', 'name', 'pis', 'missing_cpf', 'missing_pis', 'missing_joining_date', 'days'];
+    const headers = [
+      'employee_id',
+      'name',
+      'pis',
+      'missing_cpf',
+      'missing_pis',
+      'missing_joining_date',
+      'missing_termination_date',
+      'days',
+    ];
     const lines = [headers.join(',')];
     for (const g of gaps) {
       lines.push(
@@ -64,6 +76,7 @@ export const payrollReadinessService = {
           g.missingCpf,
           g.missingPis,
           g.missingJoiningDate,
+          g.missingTerminationDate,
           g.dayCount,
         ].join(',')
       );

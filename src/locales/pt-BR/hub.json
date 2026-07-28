@@ -49,7 +49,7 @@
     "openMirror": "Ver espelho",
     "openReports": "Ir para relatórios",
     "goPayroll": "Folha & contabilidade",
-    "statusHintOPEN": "Competência aberta: recalcule e confira o espelho antes de aprovar.",
+    "statusHintOPEN": "Competência aberta: recalcule e confira o espelho antes de aprovar. Admissão/demissão no meio do período não geram falta fora do vínculo.",
     "statusHintIN_REVIEW": "Em revisão: confira as pendências no espelho e aprove quando estiver tudo certo.",
     "statusHintAPPROVED": "Aprovada: gere relatórios/folha ou bloqueie para encerrar a competência.",
     "statusHintLOCKED": "Bloqueada: competência encerrada. Use os relatórios para consulta.",

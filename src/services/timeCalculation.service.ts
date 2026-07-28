@@ -145,6 +145,10 @@ export interface DayCalcInput {
   leaveRequestId?: string;
   /** When a roster is published for this date: WORK forces duty, OFF forces day off. */
   rosterStatus?: 'WORK' | 'OFF' | null;
+  /** ISO date (YYYY-MM-DD). Days before this are outside employment — no absence. */
+  joiningDate?: string;
+  /** ISO date (YYYY-MM-DD). Days after this are outside employment — no absence. */
+  terminationDate?: string;
 }
 
 export interface DayCalcResult {
@@ -163,8 +167,47 @@ export interface DayCalcResult {
   shiftId?: string;
 }
 
+const ZERO_OK_DAY = (shiftId?: string): DayCalcResult => ({
+  expectedMinutes: 0,
+  workedMinutes: 0,
+  breakMinutes: 0,
+  lateMinutes: 0,
+  earlyOutMinutes: 0,
+  overtimeMinutes: 0,
+  nightMinutes: 0,
+  absenceMinutes: 0,
+  status: 'OK',
+  shiftId,
+});
+
+/** True when the calendar day is outside the employment window. */
+export function isOutsideEmploymentWindow(
+  date: string,
+  joiningDate?: string | null,
+  terminationDate?: string | null,
+): boolean {
+  if (joiningDate && date < joiningDate) return true;
+  if (terminationDate && date > terminationDate) return true;
+  return false;
+}
+
 export function calculateDay(input: DayCalcInput): DayCalcResult {
-  const { date, punches, shift, isHoliday, onApprovedLeave, leaveRequestId, rosterStatus } = input;
+  const {
+    date,
+    punches,
+    shift,
+    isHoliday,
+    onApprovedLeave,
+    leaveRequestId,
+    rosterStatus,
+    joiningDate,
+    terminationDate,
+  } = input;
+
+  // Outside employment window: not expected to work, never ABSENT.
+  if (isOutsideEmploymentWindow(date, joiningDate, terminationDate)) {
+    return ZERO_OK_DAY(shift?.id);
+  }
 
   // Holiday: only people explicitly rostered to WORK are on duty
   if (isHoliday && rosterStatus !== 'WORK') {

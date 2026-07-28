@@ -16,6 +16,7 @@
   "missingCpf": "Missing or invalid CPF",
   "missingPis": "Missing PIS/credential",
   "missingJoiningDate": "Missing joining date",
+  "missingTerminationDate": "Inactive without termination date",
   "exportPendenciesCsv": "Export gaps CSV",
   "buildPrePayroll": "Build hour summary",
   "buildingPrePayroll": "Building…",

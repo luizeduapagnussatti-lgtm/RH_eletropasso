@@ -328,6 +328,8 @@ export interface User {
 
 export interface Employee extends User {
   joiningDate: string;
+  /** Last day employed (inclusive). Days after this are outside employment. */
+  terminationDate?: string;
   mobile: string;
   emergencyContact: string;
   salary: number;

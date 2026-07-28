@@ -71,6 +71,7 @@ export const PayrollPendenciesPanel: React.FC<Props> = ({ periodId }) => {
               {g.missingCpf ? ` — ${t('missingCpf')}` : ''}
               {g.missingPis ? ` — ${t('missingPis')}` : ''}
               {g.missingJoiningDate ? ` — ${t('missingJoiningDate')}` : ''}
+              {g.missingTerminationDate ? ` — ${t('missingTerminationDate')}` : ''}
             </li>
           ))}
         </ul>
