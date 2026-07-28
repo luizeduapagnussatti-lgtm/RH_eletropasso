@@ -332,6 +332,7 @@
     "syncing": "Sincronizando…",
     "success": "Sincronização concluída.",
     "failed": "Falha na sincronização com o relógio.",
+    "serviceDown": "Serviço dmprep-sync indisponível no servidor. Aguarde alguns segundos e tente de novo (reinício automático). Se persistir, execute start-rh.ps1.",
     "busy": "Já existe uma sincronização em andamento. Tente novamente em instantes.",
     "readOnly": "Assinatura expirada: sincronização indisponível em modo somente leitura.",
     "employeesResult": "Cadastros: {{created}} novos, {{updated}} atualizados, {{failed}} falhas",

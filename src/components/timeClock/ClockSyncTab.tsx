@@ -7,6 +7,13 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import type { DmprepSyncScope } from '../../services/dmprepSync.service';
 import { isClockBusyError } from './clockCommandUi';
 
+function mapClockSyncError(message: string, t: (key: string) => string): string {
+  if (/Could not reach the DMPREP|dmprep-sync is running/i.test(message)) {
+    return t('comunicacao.serviceDown');
+  }
+  return message;
+}
+
 interface ActionCard {
   scope: Extract<DmprepSyncScope, 'punches' | 'employees' | 'all'>;
   icon: LucideIcon;
@@ -89,7 +96,7 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange }) => {
       if (isClockBusyError(message)) {
         showToast(t('comunicacao.busy'), 'warning');
       } else {
-        showToast(message, 'error');
+        showToast(mapClockSyncError(message, t), 'error');
       }
     } finally {
       setLoadingScope(null);

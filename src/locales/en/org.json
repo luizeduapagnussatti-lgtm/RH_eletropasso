@@ -332,6 +332,7 @@
     "syncing": "Syncing…",
     "success": "Sync completed.",
     "failed": "Clock sync failed.",
+    "serviceDown": "dmprep-sync service is unreachable. Wait a few seconds and retry (auto-restart). If it persists, run start-rh.ps1.",
     "busy": "A sync is already running. Try again shortly.",
     "readOnly": "Subscription expired: sync is unavailable in read-only mode.",
     "employeesResult": "Employees: {{created}} created, {{updated}} updated, {{failed}} failed",

@@ -70,10 +70,11 @@ export const DmprepSyncPanel: React.FC = () => {
       }
     } catch (error) {
       console.error('DMPREP sync failed:', error);
-      showToast(
-        error instanceof Error ? error.message : t('dmprepSync.failed'),
-        'error',
-      );
+      const raw = error instanceof Error ? error.message : t('dmprepSync.failed');
+      const message = /Could not reach the DMPREP|dmprep-sync is running/i.test(raw)
+        ? t('dmprepSync.serviceDown')
+        : raw;
+      showToast(message, 'error');
     } finally {
       setLoadingScope(null);
     }

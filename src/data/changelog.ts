@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'dmprep-sync — resiliência da coleta de batidas',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Coletar batidas falhava com “Could not reach the DMPREP sync service” quando o processo :3099 caía. run-dmprep-sync.ps1 agora reinicia sozinho; Ensure-DmprepSync.ps1 + tarefa RH_Eletropasso_DmprepSync_Watchdog (5 min) recoloca o serviço; toast em pt-BR explica a falha.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Intervalo fixo no turno e edição segura de batidas',
     entries: [
       {
