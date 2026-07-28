@@ -139,7 +139,7 @@
       },
       "step4": {
         "title": "Validate punches in HR",
-        "detail": "After the first punch, status becomes Ready. Automatic collection ~1 h or Organization → System → Collect punches."
+        "detail": "After the first punch, status becomes Ready. Automatic collection 09:00 / 15:00 / 19:00 or Organization → System → Collect punches."
       }
     },
     "discharge": {
@@ -266,7 +266,7 @@
       },
       "step4": {
         "title": "Validate punch in HR",
-        "detail": "After the first punch, status becomes Ready automatically. Automatic collection ~1 h or Organization → System → Collect punches."
+        "detail": "After the first punch, status becomes Ready automatically. Automatic collection 09:00 / 15:00 / 19:00 or Organization → System → Collect punches."
       }
     },
     "discharge": {

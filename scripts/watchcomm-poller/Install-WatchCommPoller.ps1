@@ -1,19 +1,29 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Instala Task Scheduler do poller WatchComm no host .245 (padrao: a cada 1 hora).
+  Instala Task Scheduler do poller WatchComm no host .245.
+
+.DESCRIPTION
+  Padrao: coleta estrategica as 09:00, 15:00 e 19:00 (horario local).
+  Alternativa: -IntervalHours N para repeticao horaria (legado).
+
+  O watchdog dmprep-sync (cada 5 min) e independente — so garante o servico :3099.
 #>
 [CmdletBinding()]
 param(
   [string]$TaskName = 'OpenHR-WatchComm-Poller',
-  [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
-  [int]$IntervalHours = 1,
+  [string]$ConfigPath = '',
+  # Strategic daily times (local). Empty + IntervalHours > 0 => hourly legacy.
+  [int[]]$ScheduleHours = @(9, 15, 19),
+  [int]$IntervalHours = 0,
   [switch]$Bootstrap
 )
 
 $ErrorActionPreference = 'Stop'
 
-if ($IntervalHours -lt 1) { throw 'IntervalHours deve ser >= 1' }
+if (-not $ConfigPath) {
+  $ConfigPath = Join-Path $PSScriptRoot 'config.json'
+}
 
 if (-not (Test-Path -LiteralPath $ConfigPath)) {
   $example = Join-Path $PSScriptRoot 'config.example.json'
@@ -26,20 +36,69 @@ if (-not (Test-Path -LiteralPath $ConfigPath)) {
 $cmd = Join-Path $PSScriptRoot 'Run-Poller.cmd'
 if (-not (Test-Path -LiteralPath $cmd)) { throw "Run-Poller.cmd nao encontrado: $cmd" }
 
-$ErrorActionPreference = 'Continue'
-schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
+$useHourly = $IntervalHours -ge 1
+if (-not $useHourly) {
+  if (-not $ScheduleHours -or $ScheduleHours.Count -eq 0) {
+    throw 'Informe -ScheduleHours (ex.: 9,15,19) ou -IntervalHours 1'
+  }
+  foreach ($h in $ScheduleHours) {
+    if ($h -lt 0 -or $h -gt 23) { throw "ScheduleHours invalido: $h (0-23)" }
+  }
+}
 
-# TR curto via .cmd evita truncamento do schtasks e paths com espacos
-$tr = "`"$cmd`""
-$createOut = schtasks /Create /TN $TaskName /TR $tr /SC HOURLY /MO $IntervalHours /F 2>&1
-$createCode = $LASTEXITCODE
-$ErrorActionPreference = 'Stop'
-Write-Host ($createOut | Out-String)
+# Preserve existing principal when reinstalling
+$existingUser = $env:USERNAME
+$existingLogon = 'Interactive'
+$existingRunLevel = 'Limited'
+try {
+  $prev = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  if ($prev -and $prev.Principal.UserId) {
+    $existingUser = $prev.Principal.UserId
+    if ($prev.Principal.LogonType) { $existingLogon = [string]$prev.Principal.LogonType }
+    if ($prev.Principal.RunLevel -eq 'Highest') { $existingRunLevel = 'Highest' }
+  }
+} catch {}
 
-if ($createCode -ne 0) {
-  Write-Host "AVISO: schtasks create falhou (exit=$createCode). Execute como Administrador."
-} else {
+Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+
+$action = New-ScheduledTaskAction -Execute $cmd
+$settings = New-ScheduledTaskSettingsSet `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries `
+  -StartWhenAvailable `
+  -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+
+$principal = New-ScheduledTaskPrincipal `
+  -UserId $existingUser `
+  -LogonType $existingLogon `
+  -RunLevel $existingRunLevel
+
+if ($useHourly) {
+  $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddMinutes(5) `
+    -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)
+  Register-ScheduledTask `
+    -TaskName $TaskName `
+    -Action $action `
+    -Trigger $trigger `
+    -Settings $settings `
+    -Principal $principal `
+    -Force | Out-Null
   Write-Host ("Task '$TaskName' instalada (a cada {0} h)." -f $IntervalHours)
+} else {
+  $triggers = foreach ($h in ($ScheduleHours | Sort-Object -Unique)) {
+    $at = Get-Date -Hour $h -Minute 0 -Second 0
+    New-ScheduledTaskTrigger -Daily -At $at
+  }
+  Register-ScheduledTask `
+    -TaskName $TaskName `
+    -Action $action `
+    -Trigger $triggers `
+    -Settings $settings `
+    -Principal $principal `
+    -Force | Out-Null
+  $label = ($ScheduleHours | Sort-Object -Unique | ForEach-Object { '{0:D2}:00' -f $_ }) -join ', '
+  Write-Host ("Task '$TaskName' instalada (diaria: {0})." -f $label)
 }
 
 if ($Bootstrap) {
@@ -52,3 +111,4 @@ if ($Bootstrap) {
 
 Write-Host "Config: $ConfigPath"
 Write-Host 'Logs: E:\RH_eletropasso\logs\rep-gateway\watchcomm-poller'
+Write-Host 'Coleta manual continua disponivel em Comunicacao com o relogio.'

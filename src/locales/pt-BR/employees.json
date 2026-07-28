@@ -145,7 +145,7 @@
       },
       "step4": {
         "title": "Validar batidas no RH",
-        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática ou Organização → Sistema → Coletar batidas."
+        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática 09:00 / 15:00 / 19:00 ou Organização → Sistema → Coletar batidas."
       }
     },
     "discharge": {
@@ -269,7 +269,7 @@
       },
       "step4": {
         "title": "Validar batida no RH",
-        "detail": "Após a primeira batida, o status muda para Pronto automaticamente. Coleta automática ~1 h ou Organização → Sistema → Coletar batidas."
+        "detail": "Após a primeira batida, o status muda para Pronto automaticamente. Coleta automática 09:00 / 15:00 / 19:00 ou Organização → Sistema → Coletar batidas."
       }
     },
     "discharge": {

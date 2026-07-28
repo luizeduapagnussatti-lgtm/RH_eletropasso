@@ -1,10 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Poller WatchComm TCP — coleta MRP no PrintPoint (:3000) e envia ao ingest-punches.
+  Coleta MRP no PrintPoint (:3000) e envia ao ingest-punches.
 
   Deve rodar sob PowerShell x86 (SysWOW64) por causa do WatchComm.dll 32-bit.
-  Agendado tipicamente a cada 1 hora via Task Scheduler.
+  Agendado tipicamente as 09:00, 15:00 e 19:00 via Task Scheduler (coleta estrategica).
 #>
 [CmdletBinding()]
 param(

@@ -16,6 +16,28 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Modal carga horária — contraste no dark mode',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Modal Carga horária do dia: cards de batida, faixa âmbar vazia e botões apagados no dark mode — superfícies slate-100, banners legíveis, botões sólidos (sem opacity-60 em seções) e overrides amber/sky/emerald.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Coleta automática — 09:00, 15:00 e 19:00',
+    entries: [
+      {
+        type: 'change',
+        description:
+          'Poller WatchComm deixa de rodar de hora em hora: coleta estratégica diária às 09:00, 15:00 e 19:00. Watchdog dmprep-sync (5 min) permanece só para manter o serviço no ar. Coleta manual na tela Comunicação continua disponível.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Diagnóstico — contraste no dark mode e erros em português',
     entries: [
       {
@@ -179,6 +201,11 @@ export const changelog: ChangelogRelease[] = [
         type: 'fix',
         description:
           'Relógio de Ponto / abas (Org, Espelho): opções não selecionadas deixavam de ler no dark mode — texto claro sobre barra clara (`bg-slate-100/80` sem override). Barra opaca + texto slate-700 e override dark para `/80`.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Modal Carga horária do dia: cards de batida, faixa âmbar vazia e botões apagados no dark mode — superfícies slate-100, banners legíveis, botões sólidos (sem opacity-60 em seções) e overrides amber/sky/emerald.',
       },
       {
         type: 'fix',

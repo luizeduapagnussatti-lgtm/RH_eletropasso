@@ -71,7 +71,7 @@
     "syncAllDesc": "Envia cadastros e coleta batidas em uma única operação.",
     "syncAllCta": "Sincronizar tudo",
     "statusTitle": "Status / última sincronização",
-    "statusDesc": "Acompanhe a última coleta (manual ou automática) e o histórico recente. A coleta agendada também aparece aqui.",
+    "statusDesc": "Acompanhe a última coleta (manual ou automática às 09:00 / 15:00 / 19:00) e o histórico recente.",
     "refreshStatus": "Atualizar status",
     "statusLoading": "Carregando status…",
     "statusLoadFailed": "Não foi possível carregar o status da sincronização.",

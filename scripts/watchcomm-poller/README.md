@@ -21,8 +21,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-WatchCommPoller.ps
 
 A instalacao:
 
-- Cria a tarefa `OpenHR-WatchComm-Poller` (**a cada 1 hora**; ajuste com `-IntervalHours` no Install)
+- Cria a tarefa `OpenHR-WatchComm-Poller` (**09:00, 15:00 e 19:00** por padrao)
+- Legado horario: `Install-WatchCommPoller.ps1 -IntervalHours 1`
+- Horarios custom: `Install-WatchCommPoller.ps1 -ScheduleHours 8,12,18`
 - Com `-Bootstrap`: grava watermark NSR **sem** enviar historico ao RH (so na primeira instalacao)
+
+> O watchdog `RH_Eletropasso_DmprepSync_Watchdog` (a cada 5 min) **nao coleta batidas** —
+> so reinicia o servico dmprep-sync se a porta 3099 cair.
 
 ## Ciclo operacional
 
