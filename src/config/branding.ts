@@ -18,9 +18,16 @@ export const CHROME_BORDER = '#243044';
 /**
  * Eletropasso store wordmark — used in app screen headers and login.
  * Source: public/img/logo-eletropasso-source.png
+ * PASSO/tagline are light (for dark chrome).
  */
 export const STORE_LOGO_PATH = '/img/logo-header.webp';
 export const STORE_LOGO_FALLBACK = '/img/logo.webp';
+
+/**
+ * Print / PDF wordmark — red ELETRO + black PASSO on transparent background.
+ * Use on white paper so the full brand stays visible (not the light UI logo).
+ */
+export const PDF_LOGO_PATH = '/img/logo-pdf.png';
 
 /**
  * Circular RH system icon — PWA install, favicon, sidebar, HTML, exports.

@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'PDFs — logo Eletropasso com PASSO preto',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Todos os PDFs (espelho, relatórios, licença, avaliação, diretório) passam a usar logo-pdf.png (ELETRO vermelho + PASSO preto em fundo transparente), em vez da marca clara do chrome escuro que sumia no papel branco.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho — exportar PDF sem bloquear por competência OPEN',
     entries: [
       {

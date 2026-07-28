@@ -1,4 +1,4 @@
-import { APP_NAME, BRAND_RED, CHROME_BG, STORE_LOGO_FALLBACK, STORE_LOGO_PATH } from '../config/branding';
+import { APP_NAME, BRAND_RED, CHROME_BG, PDF_LOGO_PATH, STORE_LOGO_FALLBACK, STORE_LOGO_PATH } from '../config/branding';
 import { formatIsoDateBr, getDateLocale } from '../i18n/format';
 /** Eletropasso PDF design tokens — mirror DESIGN.md (chrome + brand red + slate ink). */
 export const PDF_COLORS = {
@@ -145,10 +145,11 @@ export async function dataUrlToPngForPdf(dataUrl: string): Promise<{ dataUrl: st
   });
 }
 
-/** Eletropasso wordmark with transparent background — used on all PDF exports. */
+/** Eletropasso print wordmark (black PASSO) — used on all PDF exports. */
 export async function loadTransparentBrandLogo(): Promise<string | null> {
   if (cachedBrandLogoPng) return cachedBrandLogoPng;
-  const candidates = [STORE_LOGO_PATH, STORE_LOGO_FALLBACK, '/img/logo-eletropasso-source.png'];
+  // Prefer dark-letter print asset; UI logos keep light PASSO for dark chrome.
+  const candidates = [PDF_LOGO_PATH, STORE_LOGO_PATH, STORE_LOGO_FALLBACK, '/img/logo-eletropasso-source.png'];
   for (const path of candidates) {
     try {
       const resp = await fetch(path);
