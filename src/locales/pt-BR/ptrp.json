@@ -19,6 +19,8 @@
   "exportMirrorPdf": "Exportar espelho PDF",
   "exportingMirrorPdf": "Gerando PDF…",
   "mirrorPdfPeriodRequired": "Aprove ou bloqueie a competência antes de exportar o espelho PDF.",
+  "mirrorPdfNoDays": "Aplique os filtros e carregue o espelho antes de exportar o PDF.",
+  "mirrorPdfEmployeeRequired": "Selecione um colaborador para exportar o espelho individual.",
   "exportPrePayroll": "Exportar pré-folha JSON",
   "prePayrollPeriodRequired": "Aprove ou bloqueie a competência antes de exportar a pré-folha.",
   "esocialStub": "Gerar stub eSocial (legado)",

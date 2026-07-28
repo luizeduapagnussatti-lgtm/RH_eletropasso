@@ -19,6 +19,8 @@
   "exportMirrorPdf": "Export mirror PDF",
   "exportingMirrorPdf": "Generating PDF…",
   "mirrorPdfPeriodRequired": "Approve or lock the period before exporting the mirror PDF.",
+  "mirrorPdfNoDays": "Apply filters and load the mirror before exporting the PDF.",
+  "mirrorPdfEmployeeRequired": "Select an employee to export an individual mirror PDF.",
   "exportPrePayroll": "Export pre-payroll JSON",
   "prePayrollPeriodRequired": "Approve or lock the period before exporting pre-payroll.",
   "esocialStub": "Generate eSocial stub (legacy)",

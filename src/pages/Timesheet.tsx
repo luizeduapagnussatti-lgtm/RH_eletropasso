@@ -575,8 +575,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
 
   const handleExportMirrorPdf = async () => {
     if (!period || !hasQuery) return;
-    if (!['APPROVED', 'LOCKED'].includes(period.status)) {
-      showToast(t('mirrorPdfPeriodRequired'), 'warning');
+    if (days.length === 0) {
+      showToast(t('mirrorPdfNoDays'), 'warning');
       return;
     }
     setIsExportingPdf(true);
@@ -638,7 +638,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       URL.revokeObjectURL(url);
       showToast(t('exportOk'), 'success');
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
+      const raw = e instanceof Error ? e.message : String(e);
+      if (raw === 'employee_not_found') {
+        showToast(t('mirrorPdfEmployeeRequired'), 'warning');
+      } else if (raw === 'employee_no_days') {
+        showToast(t('mirrorPdfNoDays'), 'warning');
+      } else {
+        showToast(raw || t('loadFailed'), 'error');
+      }
     } finally {
       setIsExportingPdf(false);
     }
@@ -1191,7 +1198,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             <button
               type="button"
               onClick={() => void handleExportMirrorPdf()}
-              disabled={!period || !hasQuery || !['APPROVED', 'LOCKED'].includes(period.status) || isExportingPdf}
+              disabled={!period || !hasQuery || days.length === 0 || isExportingPdf}
+              title={
+                !hasQuery || days.length === 0
+                  ? t('mirrorPdfNoDays')
+                  : undefined
+              }
               className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 disabled:opacity-60"
             >
               <FileText size={14} className={isExportingPdf ? 'animate-pulse' : ''} aria-hidden />
