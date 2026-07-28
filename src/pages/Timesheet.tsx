@@ -589,10 +589,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         employeeId: t('pdf.employeeId'),
         cpf: t('pdf.cpf'),
         department: t('pdf.department'),
+        designation: t('pdf.designation'),
         reviewStatus: t('pdf.reviewStatus'),
         reviewApproved: t('pdf.reviewApproved'),
         reviewPending: t('pdf.reviewPending'),
+        reviewPartial: t('pdf.reviewPartial'),
         managerAckSummary: t('pdf.managerAckSummary'),
+        metricsSection: t('pdf.metricsSection'),
+        periodStatus: t('pdf.periodStatus'),
         colDay: t('pdf.colDay'),
         colEntry1: t('pdf.colEntry1'),
         colExit1: t('pdf.colExit1'),
@@ -628,7 +632,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         reviews: employeeReviews,
         labels,
         dayStatusLabel,
-        reviewStatusLabel: (code: string) => t(`reviewStatus_${code}`, { defaultValue: code }),
+        reviewStatusLabel: (code: string) => {
+          const key = employeeReviewStatusKey[code];
+          return key ? t(key) : t('pdf.reviewPending');
+        },
+        periodStatusLabel: (code: string) => {
+          const key = statusLabelKey[code as TimesheetPeriodStatus];
+          return key ? t(key) : code;
+        },
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

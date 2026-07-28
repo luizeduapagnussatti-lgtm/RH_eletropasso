@@ -1,7 +1,7 @@
 import { pairPunchesToSlots, groupPunchesByDate } from './punch.service';
 import { organizationService } from './organization.service';
 import { formatIsoDateBr, formatTime, getDateLocale } from '../i18n/format';
-import { normalizeCpf } from '../utils/employeeCredentials';
+import { formatCpfDisplay, formatPisDisplay } from '../utils/employeeCredentials';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
 import { APP_NAME } from '../config/branding';
 import {
@@ -31,10 +31,14 @@ export type TimesheetPdfLabels = {
   employeeId: string;
   cpf: string;
   department: string;
+  designation: string;
   reviewStatus: string;
   reviewApproved: string;
   reviewPending: string;
+  reviewPartial?: string;
   managerAckSummary?: string;
+  metricsSection?: string;
+  periodStatus?: string;
   colDay: string;
   colEntry1: string;
   colExit1: string;
@@ -61,6 +65,25 @@ export type TimesheetPdfLabels = {
   signatureManager: string;
   totalsRow: string;
 };
+
+/** Strip English sentinel fallbacks from employee.service / session mapping. */
+const EMPTY_FIELD_SENTINELS = new Set([
+  '',
+  'unassigned',
+  'não atribuído',
+  'nao atribuido',
+  'staff',
+  'no name',
+  'n/a',
+  'n/d',
+]);
+
+function displayField(value: string | undefined | null, fallback: string): string {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return fallback;
+  if (EMPTY_FIELD_SENTINELS.has(trimmed.toLowerCase())) return fallback;
+  return trimmed;
+}
 
 function minutesToDisplay(mins: number): string {
   if (!mins) return '—';
@@ -131,12 +154,26 @@ function daysForEmployee(allDays: TimesheetDay[], employee: Employee): Timesheet
 
 function reviewStatusLabel(
   review: TimesheetEmployeeReview | null,
+  periodDays: TimesheetDay[],
   labels: TimesheetPdfLabels,
   statusLabel: (code: string) => string
 ): string {
-  if (!review || review.status === 'OPEN') return labels.reviewPending;
-  if (review.status === 'APPROVED') return labels.reviewApproved;
-  return statusLabel(review.status);
+  if (review?.status === 'APPROVED') return labels.reviewApproved;
+
+  const total = periodDays.length;
+  const acked = periodDays.filter(d => d.managerAck).length;
+  // Day-level manager OK is the operational approval used in the mirror UI.
+  if (total > 0 && acked === total) return labels.reviewApproved;
+
+  if (review && review.status !== 'OPEN') return statusLabel(review.status);
+
+  if (acked > 0 && labels.reviewPartial) {
+    return interpolateLabel(labels.reviewPartial, {
+      done: String(acked),
+      total: String(total),
+    });
+  }
+  return labels.reviewPending;
 }
 
 function interpolateLabel(template: string, vars: Record<string, string>): string {
@@ -180,8 +217,22 @@ export const timesheetPdfExportService = {
     labels: TimesheetPdfLabels;
     statusLabel: (dayStatus: string) => string;
     reviewStatusLabel: (code: string) => string;
+    periodStatusLabel?: (code: string) => string;
+    managerName?: string;
   }): Promise<Blob> {
-    const { period, org, employee, days, punches, review, labels, statusLabel, reviewStatusLabel: revLabel } = opts;
+    const {
+      period,
+      org,
+      employee,
+      days,
+      punches,
+      review,
+      labels,
+      statusLabel,
+      reviewStatusLabel: revLabel,
+      periodStatusLabel,
+      managerName,
+    } = opts;
     const doc = await createPdfDocument('landscape');
     const periodDays = daysInPeriod(days, period).sort((a, b) => a.workDate.localeCompare(b.workDate));
     const punchesByDate = groupPunchesByDate(punches);
@@ -195,21 +246,37 @@ export const timesheetPdfExportService = {
     });
 
     const managerAcked = periodDays.filter(d => d.managerAck).length;
+    const na = labels.notAvailable;
+    const cpfDisplay = formatCpfDisplay(employee.cpf || '') || na;
+    const pisDisplay = formatPisDisplay(employee.employeeId) || displayField(employee.employeeId, na);
+    const approval = reviewStatusLabel(review, periodDays, labels, revLabel);
+    const periodStatus =
+      labels.periodStatus && periodStatusLabel
+        ? periodStatusLabel(period.status)
+        : period.status;
 
-    y = drawFormSection(doc, y, labels.employeeSection, [
-      { label: labels.name, value: employee.name || labels.notAvailable },
-      { label: labels.employeeId, value: employee.employeeId || labels.notAvailable },
-      { label: labels.cpf, value: normalizeCpf(employee.cpf || '') || labels.notAvailable },
-      { label: labels.department, value: employee.department || labels.notAvailable },
-      {
-        label: labels.reviewStatus,
-        value: reviewStatusLabel(review, labels, revLabel),
-      },
-      {
-        label: labels.managerAckSummary || 'Aprovação gestor',
-        value: `${managerAcked}/${periodDays.length}`,
-      },
-    ]);
+    y = drawFormSection(
+      doc,
+      y,
+      labels.employeeSection,
+      [
+        { label: labels.name, value: displayField(employee.name, na) },
+        { label: labels.employeeId, value: pisDisplay },
+        { label: labels.cpf, value: cpfDisplay },
+        { label: labels.department, value: displayField(employee.department, na) },
+        { label: labels.designation, value: displayField(employee.designation, na) },
+        { label: labels.reviewStatus, value: approval },
+        {
+          label: labels.managerAckSummary || labels.reviewStatus,
+          value: `${managerAcked}/${periodDays.length}`,
+        },
+        ...(labels.periodStatus
+          ? [{ label: labels.periodStatus, value: periodStatus }]
+          : []),
+      ],
+      undefined,
+      { columns: 2 },
+    );
 
     const totals = {
       worked: periodDays.reduce((s, d) => s + (d.workedMinutes || 0), 0),
@@ -218,16 +285,21 @@ export const timesheetPdfExportService = {
       absence: periodDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
     };
 
-    y = drawMetricStrip(doc, y, [
-      { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
-      { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
-      { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
-      {
-        label: labels.metricAbsence,
-        value: minutesToDisplay(totals.absence),
-        tone: totals.absence > 0 ? 'absent' : 'present',
-      },
-    ]);
+    y = drawMetricStrip(
+      doc,
+      y,
+      [
+        { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
+        { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
+        { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
+        {
+          label: labels.metricAbsence,
+          value: minutesToDisplay(totals.absence),
+          tone: totals.absence > 0 ? 'absent' : 'present',
+        },
+      ],
+      labels.metricsSection,
+    );
 
     const noteLines: string[] = [];
 
@@ -348,8 +420,8 @@ export const timesheetPdfExportService = {
 
     afterY = ensureSpace(doc, afterY, 22);
     drawSignatureBlock(doc, afterY, [
-      { label: labels.signatureEmployee, name: employee.name || '' },
-      { label: labels.signatureManager, name: '' },
+      { label: labels.signatureEmployee, name: displayField(employee.name, '') },
+      { label: labels.signatureManager, name: displayField(managerName, '') },
     ]);
 
     const generated = interpolateLabel(labels.generatedBy, {
@@ -406,7 +478,7 @@ export const timesheetPdfExportService = {
             minutesToDisplay(overtime),
             minutesToDisplay(late),
             minutesToDisplay(absence),
-            reviewStatusLabel(review, labels, revLabel),
+            reviewStatusLabel(review, empDays, labels, revLabel),
           ],
           worked,
           overtime,
@@ -497,6 +569,7 @@ export const timesheetPdfExportService = {
     labels: TimesheetPdfLabels;
     dayStatusLabel: (status: string) => string;
     reviewStatusLabel: (code: string) => string;
+    periodStatusLabel?: (code: string) => string;
   }): Promise<{ blob: Blob; filename: string }> {
     const org = await this.getOrgInfo();
     const ym = `${opts.period.year}_${String(opts.period.month).padStart(2, '0')}`;
@@ -510,6 +583,9 @@ export const timesheetPdfExportService = {
       if (!empDays.length) throw new Error('employee_no_days');
       const punchKey = employee.employeeId || employee.id;
       const empPunches = opts.punches.filter(p => p.employeeId === punchKey || p.employeeId === employee.id);
+      const manager = employee.lineManagerId
+        ? opts.employees.find(e => e.id === employee.lineManagerId)
+        : undefined;
       const blob = await this.buildEmployeeMirrorPdf({
         period: opts.period,
         org,
@@ -520,6 +596,8 @@ export const timesheetPdfExportService = {
         labels: opts.labels,
         statusLabel: opts.dayStatusLabel,
         reviewStatusLabel: opts.reviewStatusLabel,
+        periodStatusLabel: opts.periodStatusLabel,
+        managerName: manager?.name,
       });
       const safeName = (employee.name || punchKey).replace(/[^\w.-]+/g, '_');
       return { blob, filename: `espelho_ponto_${safeName}_${ym}.pdf` };

@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho PDF — departamento, aprovação e português',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'PDF do espelho: departamento/cargo reais (sem “Unassigned”), aprovação “Aprovado” quando todos os dias têm OK do gestor, layout em duas colunas com totais e status da competência, e rótulos só em português (sem códigos em inglês).',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'PDFs — logo Eletropasso com PASSO preto',
     entries: [
       {

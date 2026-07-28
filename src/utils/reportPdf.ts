@@ -281,46 +281,81 @@ export function drawDocumentTitle(
   return ny + 4;
 }
 
-/** Label/value section — flat tinted header, no side-stripe accents. */
+/** Label/value section — flat tinted header; optional 2-column layout for landscape. */
 export function drawFormSection(
   doc: JsPdfDoc,
   y: number,
   title: string,
   rows: PdfFormRow[],
-  onPageBreak?: (neededMm: number) => void
+  onPageBreak?: (neededMm: number) => void,
+  opts?: { columns?: 1 | 2 }
 ): number {
   const margin = PDF_MARGIN;
   const pageWidth = doc.internal.pageSize.getWidth();
-  const labelX = margin + 3;
-  const valueX = margin + 52;
-  const valueWidth = pageWidth - valueX - margin;
+  const columns = opts?.columns === 2 ? 2 : 1;
+  const gap = 8;
+  const usable = pageWidth - margin * 2;
+  const colW = columns === 2 ? (usable - gap) / 2 : usable;
+  const labelW = columns === 2 ? 36 : 48;
+  const rowH = (row: PdfFormRow, valueWidth: number) => {
+    const lines = doc.splitTextToSize(row.value || '—', valueWidth);
+    return Math.max(lines.length * 4.2, 5) + 1.5;
+  };
 
-  onPageBreak?.(12 + rows.length * 6);
+  const rowPairs: PdfFormRow[][] = [];
+  if (columns === 2) {
+    for (let i = 0; i < rows.length; i += 2) {
+      rowPairs.push(rows.slice(i, i + 2));
+    }
+  } else {
+    rowPairs.push(...rows.map(r => [r]));
+  }
+
+  const estimatedH =
+    12 +
+    rowPairs.reduce((sum, pair) => {
+      const heights = pair.map(r => rowH(r, colW - labelW - 6));
+      return sum + Math.max(...heights, 6);
+    }, 0);
+
+  onPageBreak?.(estimatedH);
 
   doc.setFillColor(...PDF_COLORS.surfaceAlt);
   doc.setDrawColor(...PDF_COLORS.border);
   doc.setLineWidth(0.2);
-  doc.rect(margin, y, pageWidth - margin * 2, 7, 'FD');
+  doc.rect(margin, y, usable, 7, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.ink);
-  doc.text(title, labelX, y + 5);
+  doc.text(title, margin + 3, y + 5);
   y += 10;
 
-  rows.forEach(({ label, value }) => {
-    onPageBreak?.(8);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...PDF_COLORS.muted);
-    doc.text(`${label}:`, labelX, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...PDF_COLORS.ink);
-    const lines = doc.splitTextToSize(value || '—', valueWidth);
-    doc.text(lines, valueX, y);
-    y += Math.max(lines.length * 4.2, 5) + 1.5;
-  });
+  for (const pair of rowPairs) {
+    const heights = pair.map(r => rowH(r, colW - labelW - 6));
+    const lineH = Math.max(...heights, 6);
+    onPageBreak?.(lineH + 2);
+
+    pair.forEach((row, colIdx) => {
+      const colX = margin + colIdx * (colW + gap);
+      const labelX = colX + 3;
+      const valueX = colX + labelW;
+      const valueWidth = colW - labelW - 6;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...PDF_COLORS.muted);
+      doc.text(`${row.label}:`, labelX, y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...PDF_COLORS.ink);
+      const lines = doc.splitTextToSize(row.value || '—', valueWidth);
+      doc.text(lines, valueX, y);
+    });
+
+    y += lineH;
+  }
 
   return y + 4;
 }

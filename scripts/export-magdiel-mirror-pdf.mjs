@@ -106,35 +106,39 @@ for (const d of sampleDates) {
 }
 
 const labels = {
-  title: 'Espelho de ponto',
-  periodRange: 'Período',
-  employeeSection: 'Colaborador',
+  title: 'Espelho de ponto — PTRP',
+  periodRange: 'Competência',
+  employeeSection: 'Dados do colaborador',
   name: 'Nome',
-  employeeId: 'Matrícula / ID',
+  employeeId: 'Matrícula (PIS)',
   cpf: 'CPF',
   department: 'Departamento',
-  reviewStatus: 'Status da revisão',
+  designation: 'Cargo',
+  reviewStatus: 'Aprovação do gestor',
   reviewApproved: 'Aprovado',
   reviewPending: 'Pendente',
+  reviewPartial: 'Parcial ({{done}}/{{total}})',
   managerAckSummary: 'Dias com OK do gestor',
-  colDay: 'Dia',
+  metricsSection: 'Totais da competência',
+  periodStatus: 'Status da competência',
+  colDay: 'Data',
   colEntry1: 'Entrada 1',
   colExit1: 'Saída 1',
   colEntry2: 'Entrada 2',
   colExit2: 'Saída 2',
-  colWorked: 'Trab.',
+  colWorked: 'Trabalhado',
   colOvertime: 'HE',
   colLate: 'Atraso',
   colAbsence: 'Falta',
-  colStatus: 'Status',
+  colStatus: 'Situação',
   colEmployee: 'Colaborador',
-  metricWorked: 'Trabalhado',
-  metricOvertime: 'HE',
-  metricLate: 'Atraso',
-  metricAbsence: 'Falta',
+  metricWorked: 'Total trabalhado',
+  metricOvertime: 'Total HE',
+  metricLate: 'Total atraso',
+  metricAbsence: 'Total falta',
   summarySection: 'Resumo',
   generatedBy: 'Gerado em {{date}} — {{app}}',
-  page: 'Página {{current}} / {{total}}',
+  page: 'Página {{current}} de {{total}}',
   notAvailable: '—',
   notesSection: 'Observações e batidas extras',
   extraPunchesLine: '{{date}} — batidas extras: {{times}}',
@@ -148,11 +152,19 @@ const dayStatusLabel = (s) =>
   ({
     OK: 'Normal',
     LATE: 'Atraso',
-    ABSENT: 'Falta',
+    ABSENT: 'Ausente',
     INCOMPLETE: 'Incompleto',
     LEAVE: 'Licença',
     HOLIDAY: 'Feriado',
     ADJUSTED: 'Ajustado',
+  })[s] || s;
+
+const periodStatusLabel = (s) =>
+  ({
+    OPEN: 'Aberto',
+    IN_REVIEW: 'Em revisão',
+    APPROVED: 'Aprovado',
+    LOCKED: 'Bloqueado',
   })[s] || s;
 
 const { blob, filename } = await timesheetPdfExportService.exportMirrorPdf({
@@ -164,8 +176,19 @@ const { blob, filename } = await timesheetPdfExportService.exportMirrorPdf({
   reviews,
   labels,
   dayStatusLabel,
-  reviewStatusLabel: (code) => code,
+  reviewStatusLabel: (code) =>
+    ({
+      OPEN: 'Aberto',
+      IN_REVIEW: 'Em revisão',
+      EMPLOYEE_SIGNED: 'Assinado pelo colaborador',
+      APPROVED: 'Aprovado',
+    })[code] || 'Pendente',
+  periodStatusLabel,
 });
+
+console.log('department', employee.department, 'designation', employee.designation);
+const review = reviews.find((r) => r.employeeId === punchKey || r.profileId === employee.id);
+console.log('review', review?.status, 'managerAck', acked);
 
 const outDir = path.join(process.cwd(), 'tmp');
 fs.mkdirSync(outDir, { recursive: true });
