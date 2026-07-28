@@ -10,6 +10,8 @@ export interface OnboardingFormState {
   email: string;
   employeeId: string;
   clockCredential: string;
+  /** RH confirms fingerprint enrolled on PrintPoint. */
+  clockBiometricRegistered: boolean;
   cpf: string;
   password: string;
   role: Employee['role'];
@@ -33,6 +35,7 @@ export const emptyOnboardingForm = (defaultShiftId = ''): OnboardingFormState =>
   email: '',
   employeeId: '',
   clockCredential: '',
+  clockBiometricRegistered: false,
   cpf: '',
   password: '',
   role: 'EMPLOYEE',
@@ -111,6 +114,24 @@ export const StepIdentity: React.FC<Props> = ({
         />
         <p className="text-[10px] text-slate-400 mt-1">{t('clockCredentialHint')}</p>
       </label>
+      {needsClockAdmission(form.role) && (
+        <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 px-4 py-3 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-1 rounded border-slate-300 text-primary focus:ring-primary"
+            checked={form.clockBiometricRegistered}
+            onChange={e => onChange({ clockBiometricRegistered: e.target.checked })}
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {t('clockBiometricRegistered')}
+            </span>
+            <span className="block text-[11px] text-slate-500 mt-0.5">
+              {t('clockBiometricRegisteredHint')}
+            </span>
+          </span>
+        </label>
+      )}
       <label>
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('joiningDate')}</span>
         <input
@@ -336,6 +357,12 @@ export const StepReview: React.FC<{ form: OnboardingFormState; teams: Team[]; sh
         resolveClockCredential(form.clockCredential, form.employeeId)
       ) || t('notAvailable'),
     ],
+    ...(needsClockAdmission(form.role)
+      ? [[
+          t('clockBiometricRegistered'),
+          form.clockBiometricRegistered ? t('clockBiometricOk') : t('clockBiometricPending'),
+        ] as [string, string]]
+      : []),
     [t('onboarding.cpf'), form.cpf ? formatCpfDisplay(form.cpf) : t('notAvailable')],
     [t('department'), form.department || t('unassigned')],
     [t('designation'), form.designation || t('unassigned')],

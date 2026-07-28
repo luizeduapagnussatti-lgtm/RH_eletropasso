@@ -199,6 +199,11 @@
       "version": "0039",
       "file": "0039_termination_date.sql",
       "title": "profiles.termination_date — último dia empregado (espelho)"
+    },
+    {
+      "version": "0040",
+      "file": "0040_clock_biometric_registered.sql",
+      "title": "profiles.clock_biometric_registered — biometria confirmada pelo RH"
     }
   ]
 }

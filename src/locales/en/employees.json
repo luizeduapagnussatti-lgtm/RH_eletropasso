@@ -107,6 +107,10 @@
   "exportWillExport_one": "{{count}} employee will be exported",
   "exportWillExport_other": "{{count}} employees will be exported",
   "employeeIdPisHint": "PIS/NIS with 11–12 digits (payroll/eSocial). Not the number typed on the clock.",
+  "clockBiometricRegistered": "Biometric enrolled on the clock",
+  "clockBiometricRegisteredHint": "Check when the fingerprint is already enrolled on the PrintPoint (function 91). This is an RH confirmation — the device cannot reliably list fingerprints.",
+  "clockBiometricOk": "Biometric OK",
+  "clockBiometricPending": "No biometric",
   "dmprepChecklist": {
     "admissionTitle": "Admission checklist — HR + clock",
     "dischargeTitle": "Offboarding checklist — clock + HR",

@@ -109,6 +109,9 @@
     "onlyRh": "RH only",
     "withFingerprint": "Has fingerprint",
     "noFingerprint": "No fingerprint",
+    "bioOkRh": "Biometric OK (HR)",
+    "bioPendingRh": "Pending (HR)",
+    "bioRhSourceHint": "The biometric column uses the confirmation from the employee record in HR (not the device fingerprint inventory).",
     "selected": "{{count}} selected",
     "sendSelected": "Send selected",
     "removeSelected": "Remove from clock",
@@ -123,7 +126,7 @@
     "excludeFpOk": "Fingerprint excluded.",
     "excludeOrphansOk": "Orphan fingerprints excluded.",
     "empty": "No results. Load the clock lists first.",
-    "fingerprintUnsupported": "Fingerprint read is not supported on this device.",
+    "fingerprintUnsupported": "Fingerprint read is not supported on this device — use the confirmation on the RH employee record.",
     "selectOne": "Select at least one item."
   },
   "datetime": {

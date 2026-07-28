@@ -16,6 +16,22 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Biometria no cadastro do colaborador',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Campo “Biometria cadastrada no relógio” no formulário/ficha do colaborador (profiles.clock_biometric_registered). RH marca após cadastrar a digital no PrintPoint; lista da equipe e aba Empregados do relógio usam essa confirmação.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Colaboradores ativos com ponto (EMPLOYEE/MANAGER/TEAM_LEAD) iniciam com biometria OK (migration 0040). Leitura de digitais do equipamento deixa de ser a fonte da coluna — evita “sem digital” falso no SmartPoint B.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho — janela de admissão/demissão',
     entries: [
       {

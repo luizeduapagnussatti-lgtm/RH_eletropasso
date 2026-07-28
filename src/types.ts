@@ -339,6 +339,8 @@ export interface Employee extends User {
   cpf?: string;
   /** PrintPoint / DMP REP Credencial (Matrícula). May differ from PIS (employeeId). */
   clockCredential?: string;
+  /** RH confirms fingerprint was enrolled on the PrintPoint (function 91). */
+  clockBiometricRegistered?: boolean;
   nid?: string;
   password?: string;
   lineManagerId?: string;

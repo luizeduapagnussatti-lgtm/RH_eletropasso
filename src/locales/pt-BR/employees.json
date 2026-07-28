@@ -110,6 +110,10 @@
   "clockCredential": "Credencial do relógio (ID/Matrícula)",
   "clockCredentialPlaceholder": "Ex.: 20 (ID curto do DMP REP)",
   "clockCredentialHint": "Número que o PrintPoint aceita nas funções 91/92 (Matrícula do DMP REP). Se vazio, usa o PIS. Pode ser diferente do PIS.",
+  "clockBiometricRegistered": "Biometria cadastrada no relógio",
+  "clockBiometricRegisteredHint": "Marque quando a digital já estiver cadastrada no PrintPoint (função 91). Esta informação é do RH — o equipamento não lista digitais de forma confiável.",
+  "clockBiometricOk": "Biometria OK",
+  "clockBiometricPending": "Sem biometria",
   "dmprepChecklist": {
     "admissionTitle": "Checklist de admissão — RH + relógio",
     "dischargeTitle": "Checklist de desligamento — relógio + RH",

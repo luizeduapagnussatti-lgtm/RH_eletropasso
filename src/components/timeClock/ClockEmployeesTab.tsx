@@ -16,7 +16,10 @@ interface DiffRow {
   pis: string;
   name: string;
   kind: DiffKind;
+  /** RH-confirmed biometric (preferred) or device fingerprint list when available. */
   hasFingerprint: boolean;
+  /** true when status comes from RH flag, not device inventory */
+  bioFromRh: boolean;
   rh?: Employee;
   clock?: ClockEmployeeOnDevice;
 }
@@ -137,7 +140,10 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
           pis,
           name: clock?.name || rh?.name || '',
           kind,
-          hasFingerprint: fpPis.has(pis),
+          hasFingerprint: rh
+            ? !!rh.clockBiometricRegistered
+            : fpPis.has(pis),
+          bioFromRh: !!rh,
           rh,
           clock,
         });
@@ -281,6 +287,7 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
           {fpUnsupported && (
             <p className="text-xs text-amber-700 mt-1">{t('employees.fingerprintUnsupported')}</p>
           )}
+          <p className="text-xs text-slate-500 mt-1">{t('employees.bioRhSourceHint')}</p>
         </div>
         <button
           type="button"
@@ -395,7 +402,9 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-xs text-slate-600">
-                      {row.hasFingerprint ? t('employees.withFingerprint') : t('employees.noFingerprint')}
+                      {row.hasFingerprint
+                        ? t(row.bioFromRh ? 'employees.bioOkRh' : 'employees.withFingerprint')
+                        : t(row.bioFromRh ? 'employees.bioPendingRh' : 'employees.noFingerprint')}
                     </td>
                   </tr>
                 ))}

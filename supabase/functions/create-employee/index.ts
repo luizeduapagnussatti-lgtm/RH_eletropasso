@@ -112,6 +112,8 @@ Deno.serve(async (req: Request) => {
     const emergencyContact = formData.get('emergencyContact')?.toString()?.trim() ?? '';
     const cpfRaw      = formData.get('cpf')?.toString()?.trim() ?? '';
     const status      = formData.get('status')?.toString()?.trim() || 'ACTIVE';
+    const clockBiometricRegistered =
+      (formData.get('clockBiometricRegistered')?.toString() ?? '').toLowerCase() === 'true';
     const avatarFile  = formData.get('avatar') instanceof File ? formData.get('avatar') as File : null;
 
     if (!email || !password || !name) {
@@ -214,6 +216,7 @@ Deno.serve(async (req: Request) => {
       status:          status,
       clock_onboarding_status: clockStatus,
       clock_onboarding_at: clockStatus === 'PENDING_EXPORT' ? now : null,
+      clock_biometric_registered: clockBiometricRegistered,
       avatar:          avatarPath,
       verified:        false,
     }, { onConflict: 'id' });

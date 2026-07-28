@@ -48,7 +48,7 @@ import {
   DmprepLifecycleModal,
   type DmprepLifecycleType,
 } from '../components/employees/DmprepLifecycleModal';
-import { ClockStatusBadge } from '../components/employees/ClockOnboardingPanel';
+import { ClockBiometricBadge, ClockStatusBadge } from '../components/employees/ClockOnboardingPanel';
 import { formatIsoDateBr } from '../i18n/format';
 import {
   applyStandardTable,
@@ -777,6 +777,9 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                     {tRole(emp.role)}
                   </span>
                   <ClockStatusBadge status={emp.clockOnboardingStatus} />
+                  {needsClockAdmission(emp.role) && (
+                    <ClockBiometricBadge registered={!!emp.clockBiometricRegistered} />
+                  )}
                 </div>
               </div>
             </div>

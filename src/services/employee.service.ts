@@ -38,6 +38,7 @@ function mapProfileToEmployee(r: any): Employee {
     workType: r.work_type || 'OFFICE',
     cpf: r.cpf || undefined,
     clockCredential: r.clock_credential || undefined,
+    clockBiometricRegistered: !!r.clock_biometric_registered,
     verified: !!r.verified,
     clockOnboardingStatus: r.clock_onboarding_status as ClockOnboardingStatus | undefined,
     clockOnboardingAt: r.clock_onboarding_at || undefined,
@@ -152,6 +153,9 @@ export const employeeService = {
     if (emp.emergencyContact) formData.append('emergencyContact', emp.emergencyContact);
     if (emp.cpf)         formData.append('cpf', normalizeCpf(emp.cpf));
     if (emp.status)      formData.append('status', emp.status);
+    if (emp.clockBiometricRegistered !== undefined) {
+      formData.append('clockBiometricRegistered', emp.clockBiometricRegistered ? 'true' : 'false');
+    }
 
     // Avatar: data URL → Blob
     if (emp.avatar && typeof emp.avatar === 'string' && emp.avatar.startsWith('data:')) {
@@ -222,6 +226,9 @@ export const employeeService = {
     }
     if (updates.clockOnboardingNotes !== undefined) {
       payload.clock_onboarding_notes = updates.clockOnboardingNotes;
+    }
+    if (updates.clockBiometricRegistered !== undefined) {
+      payload.clock_biometric_registered = !!updates.clockBiometricRegistered;
     }
 
     const lmId = updates.lineManagerId ?? updates.line_manager_id;

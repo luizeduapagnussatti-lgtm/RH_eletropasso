@@ -86,6 +86,7 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
     setMarkingBio(true);
     try {
       await hrService.updateProfile(employee.id, {
+        clockBiometricRegistered: true,
         clockOnboardingNotes: 'Biometria registrada no relógio — aguardando batida de teste',
       });
       await onRefresh();
@@ -98,7 +99,15 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
   const steps = [
     { key: 'rh', done: step >= 1, title: t('clockOnboarding.stepRh'), detail: t('clockOnboarding.stepRhDetail', { pis, credential: credDisplay }) },
     { key: 'export', done: step >= 2, title: t('clockOnboarding.stepExport'), detail: t('clockOnboarding.stepExportDetail') },
-    { key: 'bio', done: (employee.clockOnboardingNotes || '').includes('Biometria') || current === 'READY', title: t('clockOnboarding.stepBio'), detail: t('clockOnboarding.stepBioDetail', { pis: credDisplay, credential: credDisplay }) },
+    {
+      key: 'bio',
+      done:
+        !!employee.clockBiometricRegistered ||
+        (employee.clockOnboardingNotes || '').includes('Biometria') ||
+        current === 'READY',
+      title: t('clockOnboarding.stepBio'),
+      detail: t('clockOnboarding.stepBioDetail', { pis: credDisplay, credential: credDisplay }),
+    },
     { key: 'punch', done: current === 'READY', title: t('clockOnboarding.stepPunch'), detail: t('clockOnboarding.stepPunchDetail') },
   ];
 
@@ -206,6 +215,21 @@ export function ClockStatusBadge({ status }: { status?: ClockOnboardingStatus })
   return (
     <span className={`inline-flex text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${colors[status] || 'bg-slate-100'}`}>
       {t(`clockOnboarding.badge.${status}`)}
+    </span>
+  );
+}
+
+/** Biometric confirmation badge (RH-managed). */
+export function ClockBiometricBadge({ registered }: { registered?: boolean }) {
+  const { t } = useTranslation('employees');
+  if (registered === undefined) return null;
+  return (
+    <span
+      className={`inline-flex text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+        registered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+      }`}
+    >
+      {registered ? t('clockBiometricOk') : t('clockBiometricPending')}
     </span>
   );
 }

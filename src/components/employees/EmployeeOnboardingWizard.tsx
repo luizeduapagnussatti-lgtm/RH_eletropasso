@@ -86,6 +86,7 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
           email: emp.email,
           employeeId: emp.employeeId,
           clockCredential: emp.clockCredential || '',
+          clockBiometricRegistered: !!emp.clockBiometricRegistered,
           cpf: emp.cpf || '',
           password: '',
           role: emp.role,

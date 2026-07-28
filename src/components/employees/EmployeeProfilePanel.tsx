@@ -63,6 +63,12 @@ export const EmployeeProfilePanel: React.FC<Props> = ({ user, employeeId, onEdit
         resolveClockCredential(employee.clockCredential, employee.employeeId)
       ) || t('notAvailable'),
     ],
+    ...(needsClockAdmission(employee.role)
+      ? [[
+          t('clockBiometricRegistered'),
+          employee.clockBiometricRegistered ? t('clockBiometricOk') : t('clockBiometricPending'),
+        ] as [string, string]]
+      : []),
     [t('onboarding.cpf'), employee.cpf ? formatCpfDisplay(employee.cpf) : t('notAvailable')],
     [t('workEmail'), employee.email],
     [t('accessLevel'), tRole(employee.role)],

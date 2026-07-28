@@ -109,6 +109,9 @@
     "onlyRh": "Só no RH",
     "withFingerprint": "Com digital",
     "noFingerprint": "Sem digital",
+    "bioOkRh": "Biometria OK (RH)",
+    "bioPendingRh": "Pendente (RH)",
+    "bioRhSourceHint": "A coluna de biometria usa a confirmação do cadastro no RH (não a leitura do equipamento).",
     "selected": "{{count}} selecionado(s)",
     "sendSelected": "Enviar selecionados",
     "removeSelected": "Remover do relógio",
@@ -123,7 +126,7 @@
     "excludeFpOk": "Digital excluída.",
     "excludeOrphansOk": "Digitais órfãs excluídas.",
     "empty": "Nenhum resultado. Carregue as listas do relógio.",
-    "fingerprintUnsupported": "Leitura de digitais não suportada neste equipamento.",
+    "fingerprintUnsupported": "Leitura de digitais não suportada neste equipamento — use a confirmação no cadastro do RH.",
     "selectOne": "Selecione ao menos um item."
   },
   "datetime": {
