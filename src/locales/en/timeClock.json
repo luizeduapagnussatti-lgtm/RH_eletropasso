@@ -27,17 +27,63 @@
   "diagnosis": {
     "title": "Device diagnosis",
     "hint": "Read-only — these actions do not change the clock.",
+    "hintFriendly": "Use this screen to check whether the clock is responding, the employer data is correct, and basic features (card, keyboard, capacity) are active. If a sync operation fails, test here what is offline.",
     "status": "Status",
     "identity": "Identity",
     "employer": "Employer",
+    "connectivity": "Connection / identity",
+    "operation": "Operation",
+    "runAll": "Test everything",
     "runStatus": "Read status",
     "runIdentity": "Read identity",
     "runEmployer": "Read employer",
+    "allDone": "Diagnosis finished.",
     "serial": "Serial number",
     "firmware": "Firmware",
-    "mac": "MAC",
+    "mac": "MAC address",
+    "memory": "Memory / plot",
+    "deviceMessage": "Device message",
+    "employerName": "Legal name",
+    "employerDoc": "Document",
+    "employerCei": "CEI / CAEPF",
+    "employerAddress": "Address",
+    "deviceId": "Device ID",
+    "capacity": "Employee capacity",
+    "authMode": "Authentication mode",
+    "flagCard": "Card",
+    "flagKeyboard": "Keyboard",
+    "yes": "On",
+    "no": "Off",
+    "unknown": "Unknown",
     "empty": "Run a read to see device data.",
-    "raw": "Details"
+    "emptyFriendly": "Click “Test everything” to read status, identity and employer from the clock.",
+    "notReadYet": "Not read in this session yet.",
+    "lastChecked": "Last check",
+    "raw": "Details",
+    "rawToggle": "Technical details (JSON)",
+    "rawHint": "For support / IT",
+    "toneOk": "OK",
+    "toneWarn": "Warning",
+    "toneError": "Error",
+    "toneIdle": "Pending",
+    "overall": {
+      "idle": {
+        "title": "No test in this session",
+        "body": "Run “Test everything” to see if the clock is online and answering RH."
+      },
+      "ok": {
+        "title": "Clock responding normally",
+        "body": "Reads completed. If punch collection still fails, the issue is usually the sync service on the server — not the device."
+      },
+      "warn": {
+        "title": "Partial response or warnings",
+        "body": "The clock answered, but some reads were incomplete or returned errors. Check the cards below."
+      },
+      "error": {
+        "title": "Failed to talk to the clock",
+        "body": "One or more reads failed. Check PrintPoint power/network, cable/IP, and that dmprep-sync is running on the server."
+      }
+    }
   },
   "employees": {
     "title": "Employees on the clock",

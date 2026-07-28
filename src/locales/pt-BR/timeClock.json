@@ -27,17 +27,63 @@
   "diagnosis": {
     "title": "Diagnóstico do equipamento",
     "hint": "Leituras somente — não alteram o relógio.",
+    "hintFriendly": "Use esta tela para verificar se o relógio está respondendo, se o empregador está correto e se funções básicas (cartão, teclado, capacidade) estão ativas. Se uma operação falhar na sincronização, teste aqui o que está fora do ar.",
     "status": "Status",
     "identity": "Identidade",
     "employer": "Empregador",
+    "connectivity": "Conexão / identidade",
+    "operation": "Funcionamento",
+    "runAll": "Testar tudo",
     "runStatus": "Ler status",
     "runIdentity": "Ler identidade",
     "runEmployer": "Ler empregador",
+    "allDone": "Diagnóstico concluído.",
     "serial": "Número de série",
     "firmware": "Firmware",
-    "mac": "MAC",
+    "mac": "Endereço MAC",
+    "memory": "Memória / plot",
+    "deviceMessage": "Mensagem do equipamento",
+    "employerName": "Razão social",
+    "employerDoc": "Documento",
+    "employerCei": "CEI / CAEPF",
+    "employerAddress": "Endereço",
+    "deviceId": "ID do dispositivo",
+    "capacity": "Capacidade de empregados",
+    "authMode": "Modo de autenticação",
+    "flagCard": "Cartão",
+    "flagKeyboard": "Teclado",
+    "yes": "Ativo",
+    "no": "Inativo",
+    "unknown": "Não informado",
     "empty": "Execute uma leitura para ver os dados.",
-    "raw": "Detalhes"
+    "emptyFriendly": "Clique em “Testar tudo” para ler status, identidade e empregador do relógio.",
+    "notReadYet": "Ainda não lido nesta sessão.",
+    "lastChecked": "Última verificação",
+    "raw": "Detalhes",
+    "rawToggle": "Detalhes técnicos (JSON)",
+    "rawHint": "Para suporte / TI",
+    "toneOk": "OK",
+    "toneWarn": "Atenção",
+    "toneError": "Erro",
+    "toneIdle": "Pendente",
+    "overall": {
+      "idle": {
+        "title": "Nenhum teste nesta sessão",
+        "body": "Execute “Testar tudo” para saber se o relógio está no ar e respondendo ao RH."
+      },
+      "ok": {
+        "title": "Relógio respondendo normalmente",
+        "body": "As leituras foram concluídas. Se a coleta de batidas falhar mesmo assim, o problema costuma ser o serviço de sincronização no servidor — não o equipamento."
+      },
+      "warn": {
+        "title": "Resposta parcial ou com avisos",
+        "body": "O relógio respondeu, mas alguma leitura veio incompleta ou com erro. Veja os cartões abaixo para saber o que conferir."
+      },
+      "error": {
+        "title": "Falha ao falar com o relógio",
+        "body": "Não foi possível concluir uma ou mais leituras. Verifique energia/rede do PrintPoint, o cabo/IP e se o dmprep-sync está no ar no servidor."
+      }
+    }
   },
   "employees": {
     "title": "Empregados no relógio",

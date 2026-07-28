@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Diagnóstico do relógio — visão amigável para o admin',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Aba Diagnóstico deixa de mostrar JSON bruto: banner OK/Atenção/Erro, cartões Conexão/Empregador/Funcionamento com rótulos claros, botão “Testar tudo” e JSON só em detalhes técnicos recolhíveis.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'dmprep-sync — resiliência da coleta de batidas',
     entries: [
       {
