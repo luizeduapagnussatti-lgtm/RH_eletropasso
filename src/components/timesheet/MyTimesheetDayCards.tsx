@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Punch, TimesheetDay } from '../../types';
 import { pairPunchesToSlots, groupPunchesByDate } from '../../services/punch.service';
+import { displayAbsenceMinutes } from '../../utils/timesheetDisplay';
 import { formatIsoDateBr, formatTime } from '../../i18n/format';
 
 interface Props {
@@ -72,20 +73,28 @@ export const MyTimesheetDayCards: React.FC<Props> = ({ days, punches, fmtMinutes
               </div>
             </div>
 
-            {(day.overtimeMinutes > 0 || day.absenceMinutes > 0) && (
+            {(() => {
+              const absence = displayAbsenceMinutes(day);
+              if (day.overtimeMinutes <= 0 && absence <= 0) return null;
+              return (
               <div className="flex flex-wrap gap-2 mt-2 text-[10px] font-semibold">
                 {day.overtimeMinutes > 0 && (
                   <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                     HE {fmtMinutes(day.overtimeMinutes)}
                   </span>
                 )}
-                {day.absenceMinutes > 0 && (
+                {absence > 0 ? (
                   <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md">
-                    {t('mobile:absenceHours')} {fmtMinutes(day.absenceMinutes)}
+                    {t('mobile:absenceHours')} {fmtMinutes(absence)}
                   </span>
-                )}
+                ) : day.status === 'ADJUSTED' ? (
+                  <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    {t('mobile:absenceHours')} {fmtMinutes(0)}
+                  </span>
+                ) : null}
               </div>
-            )}
+              );
+            })()}
           </article>
         );
       })}

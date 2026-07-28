@@ -101,6 +101,7 @@
   "periodRange": "{{start}} to {{end}}",
   "night": "Night",
   "absence": "Absence",
+  "absenceClosedHint": "Day closed — no absence shortfall.",
   "status": "Status",
   "ack": "Ack",
   "employeeAck": "Employee ack",

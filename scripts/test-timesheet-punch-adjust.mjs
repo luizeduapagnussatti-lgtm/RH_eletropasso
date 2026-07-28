@@ -15,6 +15,28 @@ assert.equal(syncAbsenceFromWorked(480, 480), 0);
 assert.equal(syncAbsenceFromWorked(480, 240), 240);
 assert.equal(syncAbsenceFromWorked(480, 500), 0);
 assert.equal(syncAbsenceFromWorked(0, 100), 0);
+
+// Display helper: ADJUSTED derives Falta from worked even if stored absence is stale
+import { displayAbsenceMinutes } from '../src/utils/timesheetDisplay.ts';
+assert.equal(
+  displayAbsenceMinutes({
+    status: 'ADJUSTED',
+    expectedMinutes: 480,
+    workedMinutes: 480,
+    absenceMinutes: 251, // stale
+  }),
+  0,
+);
+assert.equal(
+  displayAbsenceMinutes({
+    status: 'OK',
+    expectedMinutes: 480,
+    workedMinutes: 240,
+    absenceMinutes: 240,
+  }),
+  240,
+);
+
 assert.equal(PUNCH_PROXIMITY_DEDUP_MINUTES, 10);
 
 const date = '2026-07-08';

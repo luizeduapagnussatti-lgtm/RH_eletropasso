@@ -202,20 +202,39 @@ export const punchService = {
     if (!orgId) return [];
 
     // America/Sao_Paulo offset so evening punches near UTC midnight stay in-range.
-    let query = supabase
-      .from('punches')
-      .select('*')
-      .eq('organization_id', orgId)
-      .gte('punched_at', `${opts.startDate}T00:00:00.000-03:00`)
-      .lte('punched_at', `${opts.endDate}T23:59:59.999-03:00`)
-      .order('punched_at', { ascending: true })
-      .limit(5000);
+    const buildQuery = () => {
+      let q = supabase
+        .from('punches')
+        .select('*')
+        .eq('organization_id', orgId)
+        .gte('punched_at', `${opts.startDate}T00:00:00.000-03:00`)
+        .lte('punched_at', `${opts.endDate}T23:59:59.999-03:00`)
+        .order('punched_at', { ascending: true })
+        .limit(5000);
+      if (opts.employeeId) q = q.eq('employee_id', opts.employeeId);
+      return q;
+    };
 
-    if (opts.employeeId) query = query.eq('employee_id', opts.employeeId);
-
-    const { data, error } = await query;
+    const { data, error } = await buildQuery();
     if (error) throw error;
-    return (data ?? []).map(mapPunch);
+    let mapped = (data ?? []).map(mapPunch);
+
+    // Auto-mark near-duplicate CLOCK punches so the mirror slots update without a full period recalc.
+    const dates = [...new Set(mapped.map(p => punchLocalDateKey(p.punchedAt)))];
+    let changed = false;
+    for (const date of dates) {
+      const plan = planProximityAutoIgnores(mapped, date);
+      if (plan.toIgnore.length > 0 || plan.toClear.length > 0) {
+        await this.applyProximityAutoIgnorePlan(plan);
+        changed = true;
+      }
+    }
+    if (changed) {
+      const { data: again, error: err2 } = await buildQuery();
+      if (err2) throw err2;
+      mapped = (again ?? []).map(mapPunch);
+    }
+    return mapped;
   },
 
   /**

@@ -85,31 +85,83 @@ function daysForEmployee(allDays: TimesheetDay[], emp: Employee | undefined, emp
   );
 }
 
-const mapDay = (r: any): TimesheetDay => ({
-  id: r.id,
-  organizationId: r.organization_id,
-  periodId: r.period_id,
-  employeeId: r.employee_id,
-  workDate: r.work_date,
-  shiftId: r.shift_id || undefined,
-  expectedMinutes: r.expected_minutes,
-  workedMinutes: r.worked_minutes,
-  breakMinutes: r.break_minutes,
-  lateMinutes: r.late_minutes,
-  earlyOutMinutes: r.early_out_minutes,
-  overtimeMinutes: r.overtime_minutes,
-  nightMinutes: r.night_minutes,
-  absenceMinutes: r.absence_minutes,
-  status: r.status,
-  leaveRequestId: r.leave_request_id || undefined,
-  firstPunchAt: r.first_punch_at || undefined,
-  lastPunchAt: r.last_punch_at || undefined,
-  calcVersion: r.calc_version,
-  manualAdjustment: r.manual_adjustment || undefined,
-  employeeAck: !!r.employee_ack,
-  managerAck: !!r.manager_ack,
-  remarks: r.remarks || undefined,
-});
+const mapDay = (r: any): TimesheetDay => {
+  const expectedMinutes = Number(r.expected_minutes ?? 0);
+  const workedMinutes = Number(r.worked_minutes ?? 0);
+  const status = r.status as string;
+  // ADJUSTED rows historically could store stale absence independent of worked.
+  // Always derive Falta from Esperado − Trabalhado for consistent mirror UI.
+  const absenceMinutes =
+    status === 'ADJUSTED'
+      ? syncAbsenceFromWorked(expectedMinutes, workedMinutes)
+      : Number(r.absence_minutes ?? 0);
+
+  return {
+    id: r.id,
+    organizationId: r.organization_id,
+    periodId: r.period_id,
+    employeeId: r.employee_id,
+    workDate: r.work_date,
+    shiftId: r.shift_id || undefined,
+    expectedMinutes,
+    workedMinutes,
+    breakMinutes: r.break_minutes,
+    lateMinutes: r.late_minutes,
+    earlyOutMinutes: r.early_out_minutes,
+    overtimeMinutes: r.overtime_minutes,
+    nightMinutes: r.night_minutes,
+    absenceMinutes,
+    status: r.status,
+    leaveRequestId: r.leave_request_id || undefined,
+    firstPunchAt: r.first_punch_at || undefined,
+    lastPunchAt: r.last_punch_at || undefined,
+    calcVersion: r.calc_version,
+    manualAdjustment: r.manual_adjustment || undefined,
+    employeeAck: !!r.employee_ack,
+    managerAck: !!r.manager_ack,
+    remarks: r.remarks || undefined,
+  };
+};
+
+/** Persist synced Falta on ADJUSTED rows that still carry a stale absence_minutes. */
+async function repairStaleAdjustedAbsence(rows: any[]): Promise<void> {
+  const patches = rows.filter((r) => {
+    if (r.status !== 'ADJUSTED') return false;
+    const synced = syncAbsenceFromWorked(
+      Number(r.expected_minutes ?? 0),
+      Number(r.worked_minutes ?? 0),
+    );
+    return synced !== Number(r.absence_minutes ?? 0);
+  });
+  if (patches.length === 0) return;
+
+  await Promise.all(
+    patches.map(async (r) => {
+      const synced = syncAbsenceFromWorked(
+        Number(r.expected_minutes ?? 0),
+        Number(r.worked_minutes ?? 0),
+      );
+      const adj =
+        r.manual_adjustment && typeof r.manual_adjustment === 'object'
+          ? { ...(r.manual_adjustment as Record<string, unknown>) }
+          : {};
+      adj.workedMinutes = Number(r.worked_minutes ?? 0);
+      adj.absenceMinutes = synced;
+      const { error } = await supabase
+        .from('timesheet_days')
+        .update({
+          absence_minutes: synced,
+          manual_adjustment: adj,
+          updated: new Date().toISOString(),
+        })
+        .eq('id', r.id);
+      if (!error) {
+        r.absence_minutes = synced;
+        r.manual_adjustment = adj;
+      }
+    }),
+  );
+}
 
 async function resolvePeriodStartDay(): Promise<number> {
   try {
@@ -209,7 +261,9 @@ export const timesheetService = {
     if (employeeId) q = q.eq('employee_id', employeeId);
     const { data, error } = await q.limit(5000);
     if (error) throw error;
-    return (data ?? []).map(mapDay);
+    const rows = data ?? [];
+    await repairStaleAdjustedAbsence(rows);
+    return rows.map(mapDay);
   },
 
   async listDaysInRange(startDate: string, endDate: string): Promise<TimesheetDay[]> {
@@ -225,7 +279,9 @@ export const timesheetService = {
     if (orgId) q = q.eq('organization_id', orgId);
     const { data, error } = await q;
     if (error) throw error;
-    return (data ?? []).map(mapDay);
+    const rows = data ?? [];
+    await repairStaleAdjustedAbsence(rows);
+    return rows.map(mapDay);
   },
 
   async recalculateDay(employeeId: string, date: string, period?: TimesheetPeriod): Promise<TimesheetDay> {
@@ -326,7 +382,13 @@ export const timesheetService = {
     };
 
     if (hasManual) {
-      const adj = existingDay.manual_adjustment as Record<string, unknown>;
+      const adj = { ...(existingDay.manual_adjustment as Record<string, unknown>) };
+      if (typeof adj.workedMinutes === 'number') {
+        adj.absenceMinutes = syncAbsenceFromWorked(
+          Number(row.expected_minutes ?? calc.expectedMinutes ?? 0),
+          adj.workedMinutes as number,
+        );
+      }
       row.manual_adjustment = adj;
       row.status = 'ADJUSTED';
       if (typeof adj.workedMinutes === 'number') row.worked_minutes = adj.workedMinutes;

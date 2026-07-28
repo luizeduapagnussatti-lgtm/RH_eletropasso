@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CalendarDays } from 'lucide-react';
 import { Punch, TimesheetDay, User } from '../../types';
 import { pairPunchesToSlots, groupPunchesByDate } from '../../services/punch.service';
+import { displayAbsenceMinutes } from '../../utils/timesheetDisplay';
 import { formatIsoDateBr, formatTime, getDateLocale } from '../../i18n/format';
 
 type FmtMinutes = (mins: number) => string;
@@ -65,7 +66,7 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
   const totals = useMemo(() => ({
     worked: days.reduce((s, d) => s + (d.workedMinutes || 0), 0),
     overtime: days.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
-    absence: days.reduce((s, d) => s + (d.absenceMinutes || 0), 0),
+    absence: days.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
   }), [days]);
 
   return (
@@ -137,13 +138,27 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
                     {day.overtimeMinutes ? fmtMinutes(day.overtimeMinutes) : '—'}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
-                    {day.absenceMinutes ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-medium">
-                        {fmtMinutes(day.absenceMinutes)}
-                      </span>
-                    ) : (
-                      '—'
-                    )}
+                    {(() => {
+                      const absence = displayAbsenceMinutes(day);
+                      if (absence > 0) {
+                        return (
+                          <span className="inline-flex px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-medium">
+                            {fmtMinutes(absence)}
+                          </span>
+                        );
+                      }
+                      if (day.status === 'ADJUSTED' || (day.expectedMinutes > 0 && day.workedMinutes > 0)) {
+                        return (
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-medium"
+                            title={t('absenceClosedHint')}
+                          >
+                            {fmtMinutes(0)}
+                          </span>
+                        );
+                      }
+                      return <span className="text-slate-400">—</span>;
+                    })()}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     <span className="font-medium text-slate-800">{dayStatusLabel(day.status)}</span>

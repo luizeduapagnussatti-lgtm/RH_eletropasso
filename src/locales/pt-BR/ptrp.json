@@ -101,6 +101,7 @@
   "periodRange": "{{start}} a {{end}}",
   "night": "Noturno",
   "absence": "Falta",
+  "absenceClosedHint": "Jornada fechada — sem falta neste dia.",
   "status": "Status",
   "ack": "Ciência",
   "employeeAck": "Ciência colaborador",

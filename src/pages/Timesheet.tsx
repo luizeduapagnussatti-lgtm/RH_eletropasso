@@ -22,6 +22,7 @@ import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesP
 import { isNonPunchingStaff } from '../utils/roles';
 import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
 import { resolveShiftDay } from '../services/timeCalculation.service';
+import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
 
 interface Props {
   user: User;
@@ -1377,13 +1378,24 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                           {d.overtimeMinutes ? fmtMinutes(d.overtimeMinutes, t) : '—'}
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
-                          {d.absenceMinutes ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-medium">
-                              {fmtMinutes(d.absenceMinutes, t)}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
+                          {(() => {
+                            const absence = displayAbsenceMinutes(d);
+                            if (absence > 0) {
+                              return (
+                                <span className="inline-flex px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-medium">
+                                  {fmtMinutes(absence, t)}
+                                </span>
+                              );
+                            }
+                            if (d.status === 'ADJUSTED' || (d.expectedMinutes > 0 && d.workedMinutes > 0)) {
+                              return (
+                                <span className="inline-flex px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-medium">
+                                  {fmtMinutes(0, t)}
+                                </span>
+                              );
+                            }
+                            return <span className="text-slate-400">—</span>;
+                          })()}
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <span className="font-medium text-slate-800">{dayStatusLabel(d.status)}</span>

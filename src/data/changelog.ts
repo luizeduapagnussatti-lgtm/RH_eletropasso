@@ -16,6 +16,22 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — UI de Falta coerente com ajuste',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Coluna Falta em dias Ajustado passa a exibir max(0, Esperado − Trabalhado) mesmo com absence_minutes antigo no banco; badge verde (0h) quando a jornada fecha. Recalc preserva ajuste re-sincronizando Falta no JSON.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Ao carregar batidas do espelho, auto-dedupe ≤10 min aplica ignored_for_calc sem exigir recalc manual — grade Entrada/Saída deixa de tratar batida duplicada como saída.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho — Falta sincronizada, ignorar CLOCK e dedupe',
     entries: [
       {
