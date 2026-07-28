@@ -227,6 +227,7 @@ export const hrService = {
 
   // DMPREP integration
   triggerDmprepSync: dmprepSyncService.triggerSync.bind(dmprepSyncService),
+  getDmprepSyncStatus: dmprepSyncService.getStatus.bind(dmprepSyncService),
 
   // PrintPoint WatchComm commands (ADMIN console)
   runClockCommand: clockCommandService.run.bind(clockCommandService),

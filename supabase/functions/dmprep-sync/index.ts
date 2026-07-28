@@ -37,9 +37,6 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-  if (req.method !== 'POST') {
-    return jsonError(405, 'Method not allowed');
-  }
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return jsonError(401, 'Missing Authorization header');
@@ -66,13 +63,51 @@ Deno.serve(async (req: Request) => {
 
   if (profileErr || !callerProfile) return jsonError(403, 'Caller profile not found');
   if (!['ADMIN', 'HR', 'SUPER_ADMIN'].includes(callerProfile.role)) {
-    return jsonError(403, 'Only ADMIN or HR can trigger DMPREP sync');
+    return jsonError(403, 'Only ADMIN or HR can access DMPREP sync');
   }
 
   const syncBaseUrl = Deno.env.get('DMPREP_SYNC_URL');
   const syncApiKey = Deno.env.get('DMPREP_SYNC_API_KEY');
   if (!syncBaseUrl || !syncApiKey) {
     return jsonError(503, 'DMPREP sync service is not configured on this deployment');
+  }
+
+  // Status of last punch collect + recent syncs (manual + scheduled).
+  if (req.method === 'GET') {
+    try {
+      const response = await fetch(`${syncBaseUrl.replace(/\/$/, '')}/status`, {
+        method: 'GET',
+        headers: { 'x-dmprep-sync-key': syncApiKey },
+        signal: AbortSignal.timeout(Number(Deno.env.get('DMPREP_SYNC_TIMEOUT_MS') ?? '15000')),
+      });
+      const text = await response.text();
+      let payload: Record<string, unknown> = {};
+      try {
+        payload = text ? JSON.parse(text) : {};
+      } catch {
+        payload = { error: text.slice(0, 500) };
+      }
+      if (!response.ok) {
+        return new Response(JSON.stringify(payload), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('[DMPREP-SYNC] Status proxy failed:', error);
+      return jsonError(
+        502,
+        'Could not reach the DMPREP sync service. Ensure dmprep-sync is running on the server.',
+      );
+    }
+  }
+
+  if (req.method !== 'POST') {
+    return jsonError(405, 'Method not allowed');
   }
 
   let scope: SyncScope = 'all';

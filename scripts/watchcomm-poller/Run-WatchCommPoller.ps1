@@ -9,6 +9,8 @@
 [CmdletBinding()]
 param(
   [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
+  [ValidateSet('manual', 'scheduled')]
+  [string]$Trigger = 'scheduled',
   [switch]$Bootstrap
 )
 
@@ -21,7 +23,8 @@ if ([IntPtr]::Size -ne 4) {
   $argList = @(
     '-NoProfile', '-ExecutionPolicy', 'Bypass',
     '-File', $PSCommandPath,
-    '-ConfigPath', $ConfigPath
+    '-ConfigPath', $ConfigPath,
+    '-Trigger', $Trigger
   )
   if ($Bootstrap) { $argList += '-Bootstrap' }
   $p = Start-Process -FilePath $x86 -ArgumentList $argList -Wait -PassThru -NoNewWindow
@@ -69,7 +72,8 @@ function Write-CycleResult(
   [int]$Forwarded,
   [int]$Inserted,
   [int]$LastNsr,
-  [string]$ErrorMessage = ''
+  [string]$ErrorMessage = '',
+  [string]$TriggerName = 'scheduled'
 ) {
   if (-not $ResultPath) { return }
   $duplicates = [Math]::Max(0, $Forwarded - $Inserted)
@@ -84,6 +88,7 @@ function Write-CycleResult(
     skippedEmployeeIds = @()
     lastNsr   = $LastNsr
     finishedAt = (Get-Date).ToString('o')
+    trigger   = $TriggerName
     error     = $(if ($ErrorMessage) { $ErrorMessage } else { $null })
   }) $ResultPath
 }
@@ -224,7 +229,7 @@ if (-not (Test-Path -LiteralPath $outJson)) {
   Write-Log ("collect nao gerou JSON (exit={0})" -f $collectExit) 'ERROR'
   Write-CycleResult -ResultPath $resultPath -Success $false -ExitCode 1 `
     -Collected 0 -Forwarded 0 -Inserted 0 -LastNsr ([int]$state.lastNsr) `
-    -ErrorMessage ("collect failed exit={0}" -f $collectExit)
+    -ErrorMessage ("collect failed exit={0}" -f $collectExit) -TriggerName $Trigger
   exit 1
 }
 
@@ -273,7 +278,8 @@ if ($doBootstrap) {
   Save-JsonFile $state $statePath
   Write-Log ("bootstrap OK watermark lastNsr={0} (historico nao enviado)" -f $state.lastNsr)
   Write-CycleResult -ResultPath $resultPath -Success $true -ExitCode 0 `
-    -Collected $punches.Count -Forwarded 0 -Inserted 0 -LastNsr ([int]$state.lastNsr)
+    -Collected $punches.Count -Forwarded 0 -Inserted 0 -LastNsr ([int]$state.lastNsr) `
+    -TriggerName $Trigger
   exit 0
 }
 
@@ -296,7 +302,7 @@ if ($forwardEnabled -and $toSend.Count -gt 0) {
       Write-Log ("ingest FAIL: {0}" -f $_.Exception.Message) 'ERROR'
       Write-CycleResult -ResultPath $resultPath -Success $false -ExitCode 2 `
         -Collected $punches.Count -Forwarded $toSend.Count -Inserted 0 -LastNsr ([int]$state.lastNsr) `
-        -ErrorMessage $_.Exception.Message
+        -ErrorMessage $_.Exception.Message -TriggerName $Trigger
       exit 2
     }
   }
@@ -313,7 +319,8 @@ $state.lastPunchCount = $punches.Count
 $state.lastIngestInserted = $inserted
 Save-JsonFile $state $statePath
 Write-CycleResult -ResultPath $resultPath -Success $true -ExitCode 0 `
-  -Collected $punches.Count -Forwarded $toSend.Count -Inserted $inserted -LastNsr ([int]$state.lastNsr)
+  -Collected $punches.Count -Forwarded $toSend.Count -Inserted $inserted -LastNsr ([int]$state.lastNsr) `
+  -TriggerName $Trigger
 
 # limpa JSON intermediario antigo (mantem o ultimo)
 Get-ChildItem -LiteralPath $logDir -Filter 'collect-*.json' |

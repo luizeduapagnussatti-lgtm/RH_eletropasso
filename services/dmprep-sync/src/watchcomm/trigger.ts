@@ -13,6 +13,9 @@ export interface WatchCommCycleResult {
   skippedPunches?: number;
   skippedEmployeeIds?: string[];
   lastNsr?: number;
+  finishedAt?: string;
+  /** Set by poller: manual (HTTP sync) or scheduled (Task Scheduler). */
+  trigger?: 'manual' | 'scheduled' | 'unknown';
   error?: string;
 }
 
@@ -45,6 +48,7 @@ async function readCycleResult(resultPath: string): Promise<WatchCommCycleResult
 export async function runWatchCommCollect(
   config: SyncConfig,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  trigger: 'manual' | 'scheduled' = 'manual',
 ): Promise<SyncRunResult> {
   const { pollerScript, configPath, resultPath } = config.watchcomm;
 
@@ -59,6 +63,8 @@ export async function runWatchCommCollect(
         pollerScript,
         '-ConfigPath',
         configPath,
+        '-Trigger',
+        trigger,
       ],
       { windowsHide: true },
     );

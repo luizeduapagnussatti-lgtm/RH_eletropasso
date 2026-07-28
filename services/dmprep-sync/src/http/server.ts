@@ -9,6 +9,12 @@ import { runWatchCommCollect } from '../watchcomm/trigger.js';
 import { runWatchCommMasters, type WatchCommMaster } from '../watchcomm/sendMasters.js';
 import { runWatchCommCommand } from '../watchcomm/command.js';
 import { isSyncLocked, withSyncLock } from '../syncLock.js';
+import {
+  appendSyncHistory,
+  mergeLastCycleIntoHistory,
+  readLastCycleFile,
+  type SyncHistoryKind,
+} from '../syncHistory.js';
 
 export type SyncScope =
   | 'all'
@@ -120,6 +126,8 @@ export function startHttpServer(
 
       if (req.method === 'GET' && req.url === '/status') {
         const state = await loadSyncState(config.statePath);
+        const lastPunchCycle = await readLastCycleFile(config.watchcomm.resultPath);
+        const history = await mergeLastCycleIntoHistory(config.statePath, lastPunchCycle);
         sendJson(res, 200, {
           ok: true,
           busy: isSyncLocked(),
@@ -129,6 +137,8 @@ export function startHttpServer(
           mdbPath: config.mdbPath,
           watchcomm: config.watchcomm,
           state,
+          lastPunchCycle,
+          recentSyncs: history.entries,
         });
         return;
       }
@@ -182,7 +192,7 @@ export function startHttpServer(
           if (scope === 'all' || scope === 'punches') {
             payload.punches = config.movimentEnabled
               ? await runSyncOnce(config, logger)
-              : await runWatchCommCollect(config);
+              : await runWatchCommCollect(config, undefined, 'manual');
           }
           return payload;
         });
@@ -190,6 +200,31 @@ export function startHttpServer(
         if (result && 'busy' in result && result.busy) {
           sendJson(res, 409, { error: 'Sync already running', busy: true });
           return;
+        }
+
+        const manualResult = result as ManualSyncResult;
+        if (manualResult && (scope === 'all' || scope === 'punches' || scope === 'employees')) {
+          const kind: SyncHistoryKind =
+            scope === 'all' ? 'all' : scope === 'punches' ? 'punches' : 'employees';
+          try {
+            await appendSyncHistory(config.statePath, {
+              at: new Date().toISOString(),
+              kind,
+              trigger: 'manual',
+              success: !manualResult.error,
+              collected: manualResult.punches?.scannedLines,
+              forwarded: manualResult.punches?.newRecords,
+              inserted: manualResult.punches?.inserted,
+              duplicates: manualResult.punches?.duplicates,
+              skippedPunches: manualResult.punches?.skippedPunches,
+              employeesCreated: manualResult.employees?.created,
+              employeesUpdated: manualResult.employees?.updated,
+              employeesFailed: manualResult.employees?.failed,
+              error: manualResult.error,
+            });
+          } catch (historyError) {
+            logger.warn({ err: historyError }, 'Failed to append sync history');
+          }
         }
 
         logger.info(result, 'Manual DMPREP sync completed');

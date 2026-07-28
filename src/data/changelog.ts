@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Monitoramento — histórico de sincronizações',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Aba Comunicação/Monitoramento mostra serviço online/ocupado/fora do ar, última coleta de batidas (manual ou automática) e lista das sincronizações recentes — deixa de depender só da sessão do browser.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Diagnóstico do relógio — visão amigável para o admin',
     entries: [
       {

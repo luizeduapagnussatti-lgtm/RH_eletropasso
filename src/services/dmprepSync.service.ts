@@ -58,7 +58,84 @@ export interface DmprepSyncResponse {
   };
 }
 
+export interface DmprepPunchCycleStatus {
+  success?: boolean;
+  collected?: number;
+  forwarded?: number;
+  inserted?: number;
+  duplicates?: number;
+  skippedPunches?: number;
+  lastNsr?: number;
+  finishedAt?: string;
+  trigger?: 'manual' | 'scheduled' | 'unknown';
+  error?: string | null;
+}
+
+export interface DmprepSyncHistoryEntry {
+  id: string;
+  at: string;
+  kind: 'punches' | 'employees' | 'all';
+  trigger: 'manual' | 'scheduled' | 'unknown';
+  success: boolean;
+  collected?: number;
+  forwarded?: number;
+  inserted?: number;
+  duplicates?: number;
+  skippedPunches?: number;
+  employeesCreated?: number;
+  employeesUpdated?: number;
+  employeesFailed?: number;
+  lastNsr?: number;
+  error?: string;
+}
+
+export interface DmprepSyncStatusResponse {
+  ok?: boolean;
+  busy?: boolean;
+  punchSource?: string;
+  lastPunchCycle?: DmprepPunchCycleStatus | null;
+  recentSyncs?: DmprepSyncHistoryEntry[];
+  state?: {
+    lastSyncAt?: string;
+    lastError?: string;
+    recordCount?: number;
+  };
+  error?: string;
+}
+
 export const dmprepSyncService = {
+  async getStatus(): Promise<DmprepSyncStatusResponse> {
+    if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) {
+      throw new Error('Supabase is not configured');
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Not authenticated');
+    }
+
+    const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/dmprep-sync`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    const text = await res.text();
+    let json: DmprepSyncStatusResponse & { message?: string };
+    try {
+      json = (text ? JSON.parse(text) : {}) as DmprepSyncStatusResponse & { message?: string };
+    } catch {
+      throw new Error(
+        `Clock status returned non-JSON (HTTP ${res.status}). Check API gateway and dmprep-sync.`,
+      );
+    }
+    if (!res.ok) {
+      throw new Error(json.error || json.message || 'Failed to load DMPREP sync status');
+    }
+    return json;
+  },
+
   async triggerSync(
     scope: DmprepSyncScope = 'all',
     profileId?: string,
