@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Infra — API RH via IPv4 no NPM',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          '“Banco indisponível” no login: Nginx Proxy Manager resolvia host.docker.internal em IPv6 inacessível. Forward de rh/api-rh fixado em 192.168.15.245 (IPv4). Script scripts/fix-npm-rh-ipv4.py.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Infra — Vite reinicia sozinho (anti-502)',
     entries: [
       {
