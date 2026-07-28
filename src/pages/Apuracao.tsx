@@ -37,6 +37,43 @@ const STATUS_LABEL: Record<TimesheetPeriodStatus, string> = {
   LOCKED: 'statusLocked',
 };
 
+/** Map technical/service errors to user-facing i18n copy. */
+function friendlyApuracaoError(
+  err: unknown,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  tPtrp: (key: string, opts?: Record<string, unknown>) => string,
+  fallbackKey: string,
+): string {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  const msg = raw.trim();
+  if (!msg) return t(fallbackKey);
+
+  const known: Record<string, string> = {
+    'Period is locked': t('apuracao.errPeriodLocked'),
+    periodLocked: t('apuracao.errPeriodLocked'),
+    reviewLockNotReady: tPtrp('reviewLockNotReady'),
+    'Supabase not configured': t('apuracao.errConfig'),
+    'No organization ID': t('apuracao.errNoOrg'),
+    'Employee not found': t('apuracao.errEmployeeNotFound'),
+    'No employees to recalculate': t('apuracao.errNoEmployees'),
+  };
+  if (known[msg]) return known[msg];
+
+  // Raw ReferenceError / JS internals — never show to users
+  if (/is not defined|Cannot read propert|undefined is not|TypeError:/i.test(msg)) {
+    return t(fallbackKey);
+  }
+  // Postgres / PostgREST noise
+  if (/^PGRST|^42[0-9A-Z]{3}|permission denied|JWT|RLS/i.test(msg)) {
+    return t('apuracao.errPermission');
+  }
+  // Already looks like a short human sentence (pt/en)
+  if (msg.length <= 120 && !/[{\\[\]}]/.test(msg) && !/^[a-z]+Error:/i.test(msg)) {
+    return msg;
+  }
+  return t(fallbackKey);
+}
+
 const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
   const { t } = useTranslation('hub');
   const { t: tPtrp } = useTranslation('ptrp');
@@ -62,13 +99,21 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
     try {
       const p = await hrService.getOrCreateTimesheetPeriod(year, month);
       setPeriod(p);
-      setReadiness(await hrService.getTimesheetPeriodLockReadiness(p.id));
+      try {
+        setReadiness(await hrService.getTimesheetPeriodLockReadiness(p.id));
+      } catch (readyErr: unknown) {
+        setReadiness(null);
+        console.error('[Apuracao] readiness', readyErr);
+        showToast(friendlyApuracaoError(readyErr, t, tPtrp, 'apuracao.loadReadinessFailed'), 'error');
+      }
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('apuracao.loadFailed'), 'error');
+      setPeriod(null);
+      setReadiness(null);
+      showToast(friendlyApuracaoError(e, t, tPtrp, 'apuracao.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [year, month, showToast, t]);
+  }, [year, month, showToast, t, tPtrp]);
 
   useEffect(() => {
     void load();
@@ -79,13 +124,32 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
 
   const handleRecalc = async () => {
     if (!period || locked) return;
+    const range = `${period.startDate} → ${period.endDate}`;
+    if (
+      !window.confirm(
+        t('apuracao.confirmRecalc', { period: periodLabel, range }),
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     try {
-      const count = await hrService.recalculateTimesheetPeriod(year, month);
-      showToast(t('apuracao.recalcOk', { count }), 'success');
+      const result = await hrService.recalculateTimesheetPeriod(year, month);
+      if (result.failed > 0) {
+        showToast(
+          t('apuracao.recalcPartial', {
+            count: result.count,
+            failed: result.failed,
+          }),
+          'warning',
+        );
+      } else {
+        showToast(t('apuracao.recalcOk', { count: result.count }), 'success');
+      }
       await load();
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('apuracao.recalcFailed'), 'error');
+      console.error('[Apuracao] recalc', e);
+      showToast(friendlyApuracaoError(e, t, tPtrp, 'apuracao.recalcFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -100,7 +164,7 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
       showToast(t('apuracao.approveOk'), 'success');
       await load();
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('apuracao.statusFailed'), 'error');
+      showToast(friendlyApuracaoError(e, t, tPtrp, 'apuracao.statusFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -115,7 +179,7 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
       showToast(t('apuracao.reopenOk'), 'success');
       await load();
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('apuracao.statusFailed'), 'error');
+      showToast(friendlyApuracaoError(e, t, tPtrp, 'apuracao.statusFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -131,7 +195,7 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
       showToast(t('apuracao.lockOk'), 'success');
       await load();
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('apuracao.statusFailed'), 'error');
+      showToast(friendlyApuracaoError(e, t, tPtrp, 'apuracao.statusFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -195,11 +259,21 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
         >
           {tPtrp('applyFilters')}
         </button>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('apuracao.statusLabel')}</span>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${STATUS_STYLE[status]}`}>
-            {tPtrp(STATUS_LABEL[status])}
-          </span>
+        <div className="ml-auto flex flex-col items-end gap-1">
+          {period && (
+            <span className="text-xs text-slate-500">
+              {t('apuracao.periodRange', {
+                start: period.startDate,
+                end: period.endDate,
+              })}
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('apuracao.statusLabel')}</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${STATUS_STYLE[status]}`}>
+              {tPtrp(STATUS_LABEL[status])}
+            </span>
+          </div>
         </div>
       </div>
 
