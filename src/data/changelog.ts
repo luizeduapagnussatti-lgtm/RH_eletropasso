@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — contraste dos banners no tema escuro',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Banners âmbar/azul do espelho (sem batidas, pendências, dicas) usam texto claro sobre fundo escuro no dark mode, corrigindo laranja-sobre-laranja ilegível.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho — status LATE em português',
     entries: [
       {
