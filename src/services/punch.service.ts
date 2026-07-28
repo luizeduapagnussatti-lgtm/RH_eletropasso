@@ -173,10 +173,123 @@ export const punchService = {
     return mapPunch(data);
   },
 
-  async deletePunch(id: string): Promise<void> {
+  async updateManualPunch(
+    id: string,
+    input: { punchedAt?: string; direction?: PunchDirection; remarks?: string },
+  ): Promise<Punch> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
-    const { error } = await supabase.from('punches').delete().eq('id', id);
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from('punches')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (fetchErr) throw fetchErr;
+    if (!existing || existing.source !== 'MANUAL') {
+      throw new Error('Only MANUAL punches can be edited');
+    }
+
+    const payload: Record<string, unknown> = {
+      updated: new Date().toISOString(),
+    };
+    if (input.punchedAt !== undefined) payload.punched_at = input.punchedAt;
+    if (input.direction !== undefined) payload.direction = input.direction;
+    if (input.remarks !== undefined) {
+      payload.raw_payload = input.remarks
+        ? { ...(existing.raw_payload || {}), remarks: input.remarks }
+        : existing.raw_payload;
+    }
+
+    const { data, error } = await supabase
+      .from('punches')
+      .update(payload)
+      .eq('id', id)
+      .eq('source', 'MANUAL')
+      .select()
+      .single();
     if (error) throw error;
     apiClient.notify();
+    return mapPunch(data);
+  },
+
+  async deletePunch(id: string): Promise<void> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from('punches')
+      .select('id, source')
+      .eq('id', id)
+      .single();
+    if (fetchErr) throw fetchErr;
+    if (!existing || existing.source !== 'MANUAL') {
+      throw new Error('Only MANUAL punches can be deleted');
+    }
+
+    const { error } = await supabase.from('punches').delete().eq('id', id).eq('source', 'MANUAL');
+    if (error) throw error;
+    apiClient.notify();
+  },
+
+  /**
+   * Insert MANUAL BREAK_START/BREAK_END for a fixed shift window.
+   * Refuses if the employee already has CLOCK break punches that day.
+   * Replaces existing MANUAL break punches when replaceManual is true.
+   */
+  async applyFixedBreakPunches(input: {
+    employeeId: string;
+    workDate: string;
+    breakStartHm: string;
+    breakEndHm: string;
+    existingPunches: Punch[];
+    replaceManual?: boolean;
+  }): Promise<Punch[]> {
+    const dayPunches = input.existingPunches.filter(
+      (p) => punchLocalDateKey(p.punchedAt) === input.workDate,
+    );
+    const clockBreaks = dayPunches.filter(
+      (p) =>
+        (p.direction === 'BREAK_START' || p.direction === 'BREAK_END') &&
+        p.source === 'CLOCK',
+    );
+    if (clockBreaks.length > 0) {
+      throw new Error('CLOCK_BREAK_EXISTS');
+    }
+
+    const manualBreaks = dayPunches.filter(
+      (p) =>
+        (p.direction === 'BREAK_START' || p.direction === 'BREAK_END') &&
+        p.source === 'MANUAL',
+    );
+    if (manualBreaks.length > 0 && !input.replaceManual) {
+      throw new Error('MANUAL_BREAK_EXISTS');
+    }
+    for (const p of manualBreaks) {
+      await this.deletePunch(p.id);
+    }
+
+    const startIso = localWorkDateTimeToIso(input.workDate, input.breakStartHm);
+    const endIso = localWorkDateTimeToIso(input.workDate, input.breakEndHm);
+    if (new Date(endIso) <= new Date(startIso)) {
+      throw new Error('Invalid fixed break window');
+    }
+
+    const created: Punch[] = [];
+    created.push(
+      await this.createManualPunch({
+        employeeId: input.employeeId,
+        punchedAt: startIso,
+        direction: 'BREAK_START',
+        remarks: 'Fixed break (shift)',
+      }),
+    );
+    created.push(
+      await this.createManualPunch({
+        employeeId: input.employeeId,
+        punchedAt: endIso,
+        direction: 'BREAK_END',
+        remarks: 'Fixed break (shift)',
+      }),
+    );
+    return created;
   },
 };

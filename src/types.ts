@@ -476,6 +476,8 @@ export interface ShiftDaySchedule {
   startTime: string;
   endTime: string;
   breakDurationMinutes?: number;
+  breakEarliestStart?: string;
+  breakLatestEnd?: string;
   expectedDailyMinutes?: number;
 }
 

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import {
-  Employee, Punch, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User,
+  Employee, Punch, Shift, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User,
 } from '../types';
 import { useToast } from '../context/ToastContext';
 import HelpButton from '../components/onboarding/HelpButton';
@@ -21,6 +21,7 @@ import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidat
 import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
 import { isNonPunchingStaff } from '../utils/roles';
 import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
+import { resolveShiftDay } from '../services/timeCalculation.service';
 
 interface Props {
   user: User;
@@ -73,6 +74,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const [period, setPeriod] = useState<TimesheetPeriod | null>(null);
   const [days, setDays] = useState<TimesheetDay[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   /** Managers/HR start with no employee selected — data loads only after Apply. */
   const [employeeFilter, setEmployeeFilter] = useState(
     isHr || isManager ? '' : user.id
@@ -225,13 +227,15 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     (async () => {
       setIsBootstrapping(true);
       try {
-        const [emps, p] = await Promise.all([
+        const [emps, p, shiftList] = await Promise.all([
           hrService.getEmployees(),
           hrService.getOrCreateTimesheetPeriod(year, month),
+          hrService.getShifts(),
         ]);
         if (cancelled) return;
         setEmployees(emps.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN'));
         setPeriod(p);
+        setShifts(shiftList);
       } catch (e) {
         console.error(e);
       } finally {
@@ -474,7 +478,13 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         setLockReadiness(readiness);
         setReviewModal('lock');
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : t('loadFailed');
+        const raw = e instanceof Error ? e.message : '';
+        const message =
+          raw === 'reviewLockNotReady'
+            ? t('reviewLockNotReady')
+            : /is not defined|TypeError:/i.test(raw)
+              ? t('loadFailed')
+              : raw || t('loadFailed');
         showToast(message, 'error');
       }
       return;
@@ -523,11 +533,22 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         employeeFilter === 'ALL'
           ? undefined
           : [employeeFilter];
-      const count = await hrService.recalculateTimesheetPeriod(year, month, ids);
-      showToast(t('recalcOk', { count }), 'success');
+      const result = await hrService.recalculateTimesheetPeriod(year, month, ids);
+      if (result.failed > 0) {
+        showToast(t('recalcPartial', { count: result.count, failed: result.failed }), 'warning');
+      } else {
+        showToast(t('recalcOk', { count: result.count }), 'success');
+      }
       await load();
-    } catch (e: any) {
-      showToast(e?.message || t('recalcFailed'), 'error');
+    } catch (e: unknown) {
+      const raw = e instanceof Error ? e.message : '';
+      const message =
+        raw === 'Period is locked'
+          ? t('periodLocked', { defaultValue: t('recalcFailed') })
+          : /is not defined|TypeError:/i.test(raw)
+            ? t('recalcFailed')
+            : raw || t('recalcFailed');
+      showToast(message, 'error');
     } finally {
       setIsRecalc(false);
     }
@@ -747,6 +768,130 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     await load();
   };
 
+  const updatePunchFromModal = async (
+    punchId: string,
+    input: { punchedAtTime: string; direction: Punch['direction'] },
+  ) => {
+    if (!adjustDay || locked) throw new Error(t('lockedHint'));
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId,
+    );
+    const punchedAt = localWorkDateTimeToIso(adjustDay.workDate, input.punchedAtTime);
+    if (adjustDay.managerAck) {
+      await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', false);
+    }
+    const updated = await hrService.updateManualPunch(punchId, {
+      punchedAt,
+      direction: input.direction,
+    });
+    setPunches(prev =>
+      prev
+        .map(p => (p.id === punchId ? updated : p))
+        .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt)),
+    );
+    const recalcKey = emp?.id || adjustDay.employeeId;
+    const recalculated = await hrService.recalculateTimesheetDay(
+      recalcKey,
+      adjustDay.workDate,
+      period || undefined,
+    );
+    await hrService.acknowledgeTimesheetDay(recalculated.id, 'manager', false);
+    setAdjustDay({ ...recalculated, managerAck: false });
+    setDays(prev =>
+      prev.map(d =>
+        d.id === recalculated.id ||
+        (d.workDate === recalculated.workDate && d.employeeId === recalculated.employeeId)
+          ? { ...recalculated, managerAck: false }
+          : d,
+      ),
+    );
+    showToast(t('adjustPunchUpdatedRecalc'), 'success');
+    await load();
+  };
+
+  const applyFixedBreakFromModal = async () => {
+    if (!adjustDay || locked) throw new Error(t('lockedHint'));
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId,
+    );
+    const shift =
+      shifts.find(s => s.id === adjustDay.shiftId) ||
+      shifts.find(s => s.id === emp?.shiftId) ||
+      null;
+    const daySched = resolveShiftDay(shift, adjustDay.workDate);
+    if (
+      daySched.breakFlexible ||
+      !daySched.breakEarliestStart ||
+      !daySched.breakLatestEnd
+    ) {
+      throw new Error(t('adjustFixedBreakUnavailable'));
+    }
+
+    const punchEmployeeId = emp?.employeeId || adjustDay.employeeId;
+    const dayPunches = punches.filter(p => {
+      if (punchLocalDateKey(p.punchedAt) !== adjustDay.workDate) return false;
+      return (
+        p.employeeId === punchEmployeeId ||
+        p.employeeId === adjustDay.employeeId ||
+        p.employeeId === emp?.id
+      );
+    });
+
+    const hasManualBreak = dayPunches.some(
+      p =>
+        (p.direction === 'BREAK_START' || p.direction === 'BREAK_END') &&
+        p.source === 'MANUAL',
+    );
+    let replaceManual = false;
+    if (hasManualBreak) {
+      if (!window.confirm(t('adjustApplyFixedBreakReplaceConfirm'))) return;
+      replaceManual = true;
+    }
+
+    if (adjustDay.managerAck) {
+      await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', false);
+    }
+
+    try {
+      const created = await hrService.applyFixedBreakPunches({
+        employeeId: punchEmployeeId,
+        workDate: adjustDay.workDate,
+        breakStartHm: daySched.breakEarliestStart,
+        breakEndHm: daySched.breakLatestEnd,
+        existingPunches: dayPunches,
+        replaceManual,
+      });
+      setPunches(prev =>
+        [...prev.filter(p => !dayPunches.some(d => d.id === p.id && (d.direction === 'BREAK_START' || d.direction === 'BREAK_END') && d.source === 'MANUAL')), ...created]
+          .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt)),
+      );
+    } catch (e: unknown) {
+      const code = e instanceof Error ? e.message : '';
+      if (code === 'CLOCK_BREAK_EXISTS') throw new Error(t('adjustApplyFixedBreakBlockedClock'));
+      if (code === 'MANUAL_BREAK_EXISTS') throw new Error(t('adjustApplyFixedBreakReplaceConfirm'));
+      throw e;
+    }
+
+    const recalcKey = emp?.id || adjustDay.employeeId;
+    const recalculated = await hrService.recalculateTimesheetDay(
+      recalcKey,
+      adjustDay.workDate,
+      period || undefined,
+    );
+    await hrService.acknowledgeTimesheetDay(recalculated.id, 'manager', false);
+    setAdjustDay({ ...recalculated, managerAck: false });
+    setDays(prev =>
+      prev.map(d =>
+        d.id === recalculated.id ||
+        (d.workDate === recalculated.workDate && d.employeeId === recalculated.employeeId)
+          ? { ...recalculated, managerAck: false }
+          : d,
+      ),
+    );
+    showToast(t('adjustFixedBreakApplied'), 'success');
+    await load();
+  };
+
   const adjustDayPunches = useMemo(() => {
     if (!adjustDay) return [] as Punch[];
     const date = adjustDay.workDate;
@@ -760,6 +905,26 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       );
     });
   }, [adjustDay, punches, employees]);
+
+  const adjustFixedBreak = useMemo(() => {
+    if (!adjustDay) return null;
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId,
+    );
+    const shift =
+      shifts.find(s => s.id === adjustDay.shiftId) ||
+      shifts.find(s => s.id === emp?.shiftId) ||
+      null;
+    const daySched = resolveShiftDay(shift, adjustDay.workDate);
+    if (
+      daySched.breakFlexible ||
+      !daySched.breakEarliestStart ||
+      !daySched.breakLatestEnd
+    ) {
+      return null;
+    }
+    return { start: daySched.breakEarliestStart, end: daySched.breakLatestEnd };
+  }, [adjustDay, employees, shifts]);
 
   const saveManualPunch = async () => {
     if (!punchForm.employeeId || !punchForm.punchedAt) return;
@@ -1332,6 +1497,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           fmtMinutes={mins => fmtMinutes(mins, t)}
           canManageAck={(isManager || isHr) && !locked}
           canEditHours={(isHr || isManager) && !locked}
+          fixedBreak={adjustFixedBreak}
           onClose={() => setAdjustDay(null)}
           onSave={saveAdjust}
           onSetManagerAck={async (acked) => {
@@ -1341,7 +1507,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             await load();
           }}
           onAddPunch={addPunchFromModal}
+          onUpdatePunch={updatePunchFromModal}
           onDeletePunch={deletePunchFromModal}
+          onApplyFixedBreak={applyFixedBreakFromModal}
         />
       )}
 

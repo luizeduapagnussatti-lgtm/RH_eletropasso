@@ -15,6 +15,43 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-28',
+    title: 'Intervalo fixo no turno e edição segura de batidas',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Turno: intervalo fixo com horário início/fim (além da duração). Espelho: atalho “Aplicar intervalo fixo” cria BREAK_START/END manuais; edição in-place só de batidas MANUAL.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Cálculo do dia usa intervalo medido quando há par BREAK_START/BREAK_END; senão mantém desconto da duração do turno. RLS e serviço bloqueiam update/delete de batidas CLOCK/IMPORT.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Apuração — recálculo e mensagens de erro',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Corrigido ReferenceError "reviews is not defined" em getPeriodLockReadiness (faltava listar timesheet_employee_reviews), que quebrava o carregamento da Apuração após recalcular.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Toasts da Apuração passam a mapear erros técnicos para mensagens amigáveis em pt-BR; falha no resumo de aprovações não impede mais carregar a competência.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Recálculo da competência continua nos dias com erro (não aborta no primeiro), preserva dias com ajuste manual (ADJUSTED) e pede confirmação com o intervalo da competência.',
+      },
+    ],
+  },
+  {
     date: '2026-07-27',
     title: 'Espelho — revisão do modal de batidas',
     entries: [

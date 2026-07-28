@@ -189,6 +189,11 @@
       "version": "0037",
       "file": "0037_punches_manager_delete.sql",
       "title": "RLS — MANAGER pode apagar batidas (correção manual no espelho)"
+    },
+    {
+      "version": "0038",
+      "file": "0038_punches_manual_only_mutate.sql",
+      "title": "RLS — update/delete de batidas só para source MANUAL"
     }
   ]
 }

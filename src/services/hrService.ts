@@ -120,7 +120,9 @@ export const hrService = {
   // PTRP — punches / timesheet / hour bank
   listPunches: punchService.listPunches,
   createManualPunch: punchService.createManualPunch,
-  deletePunch: punchService.deletePunch,
+  updateManualPunch: punchService.updateManualPunch.bind(punchService),
+  deletePunch: punchService.deletePunch.bind(punchService),
+  applyFixedBreakPunches: punchService.applyFixedBreakPunches.bind(punchService),
   getOrCreateTimesheetPeriod: timesheetService.getOrCreatePeriod.bind(timesheetService),
   listTimesheetPeriods: timesheetService.listPeriods.bind(timesheetService),
   setTimesheetPeriodStatus: timesheetService.setPeriodStatus.bind(timesheetService),

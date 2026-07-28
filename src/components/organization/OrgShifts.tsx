@@ -84,9 +84,17 @@ export const OrgShifts: React.FC<Props> = ({
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('earlyOut')}</p>
                   <p className="text-xs font-semibold text-slate-700">{t('minutesAbbr', { count: shift.earlyOutGracePeriod })}</p>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-slate-100/50">
+                <div className="bg-white p-2.5 rounded-xl border border-slate-100/50 col-span-2">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('breakLabel')}</p>
-                  <p className="text-xs font-semibold text-slate-700">{t('minutesAbbr', { count: shift.breakDurationMinutes ?? 60 })}</p>
+                  <p className="text-xs font-semibold text-slate-700">
+                    {!(shift.breakFlexible ?? true) && shift.breakEarliestStart && shift.breakLatestEnd
+                      ? t('breakFixedSummary', {
+                          start: shift.breakEarliestStart,
+                          end: shift.breakLatestEnd,
+                          minutes: shift.breakDurationMinutes ?? 60,
+                        })
+                      : t('breakFlexibleSummary', { minutes: shift.breakDurationMinutes ?? 60 })}
+                  </p>
                 </div>
                 <div className="bg-white p-2.5 rounded-xl border border-slate-100/50">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('dailyLoad')}</p>

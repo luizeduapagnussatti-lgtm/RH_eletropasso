@@ -4,8 +4,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Coffee,
   Info,
   Minus,
+  Pencil,
   Plus,
   RotateCcw,
   Trash2,
@@ -30,6 +32,16 @@ export interface TimesheetAddPunchInput {
   remarks?: string;
 }
 
+export interface TimesheetUpdatePunchInput {
+  punchedAtTime: string; // HH:MM
+  direction: PunchDirection;
+}
+
+export interface FixedBreakWindow {
+  start: string;
+  end: string;
+}
+
 interface Props {
   day: TimesheetDay;
   punches: Punch[];
@@ -38,11 +50,14 @@ interface Props {
   fmtMinutes: (mins: number) => string;
   canManageAck: boolean;
   canEditHours: boolean;
+  fixedBreak?: FixedBreakWindow | null;
   onClose: () => void;
   onSave: (values: TimesheetAdjustValues) => Promise<void>;
   onSetManagerAck: (acked: boolean) => Promise<void>;
   onAddPunch: (input: TimesheetAddPunchInput) => Promise<void>;
+  onUpdatePunch: (punchId: string, input: TimesheetUpdatePunchInput) => Promise<void>;
   onDeletePunch: (punchId: string) => Promise<void>;
+  onApplyFixedBreak: () => Promise<void>;
 }
 
 interface DurationParts {
@@ -209,11 +224,14 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   fmtMinutes,
   canManageAck,
   canEditHours,
+  fixedBreak,
   onClose,
   onSave,
   onSetManagerAck,
   onAddPunch,
+  onUpdatePunch,
   onDeletePunch,
+  onApplyFixedBreak,
 }) => {
   const { t } = useTranslation('ptrp');
   const [isSaving, setIsSaving] = useState(false);
@@ -232,6 +250,9 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   const [newPunchTime, setNewPunchTime] = useState('');
   const [newPunchDir, setNewPunchDir] = useState<PunchDirection>(() => suggestNextDirection(punches));
   const [newPunchNote, setNewPunchNote] = useState('');
+  const [editingPunchId, setEditingPunchId] = useState<string | null>(null);
+  const [editPunchTime, setEditPunchTime] = useState('');
+  const [editPunchDir, setEditPunchDir] = useState<PunchDirection>('IN');
 
   const dayPunches = useMemo(
     () =>
@@ -330,12 +351,68 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
     setIsPunchBusy(true);
     try {
       await onDeletePunch(punchId);
+      if (editingPunchId === punchId) setEditingPunchId(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('punchFailed'));
     } finally {
       setIsPunchBusy(false);
     }
   };
+
+  const startEditPunch = (p: Punch) => {
+    const d = new Date(p.punchedAt);
+    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    setEditingPunchId(p.id);
+    setEditPunchTime(hhmm);
+    setEditPunchDir(p.direction);
+    setError(null);
+  };
+
+  const handleSaveEditPunch = async () => {
+    if (!editingPunchId || punchEditLocked) return;
+    if (!/^\d{2}:\d{2}$/.test(editPunchTime)) {
+      setError(t('adjustPunchTimeInvalid'));
+      return;
+    }
+    setError(null);
+    setIsPunchBusy(true);
+    try {
+      await onUpdatePunch(editingPunchId, {
+        punchedAtTime: editPunchTime,
+        direction: editPunchDir,
+      });
+      setEditingPunchId(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('punchFailed'));
+    } finally {
+      setIsPunchBusy(false);
+    }
+  };
+
+  const handleApplyFixedBreak = async () => {
+    if (punchEditLocked) {
+      setError(t('adjustNeedUnapproveFirst'));
+      return;
+    }
+    if (!fixedBreak) {
+      setError(t('adjustFixedBreakUnavailable'));
+      return;
+    }
+    setError(null);
+    setIsPunchBusy(true);
+    try {
+      await onApplyFixedBreak();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('punchFailed'));
+    } finally {
+      setIsPunchBusy(false);
+    }
+  };
+
+  const hasClockBreak = dayPunches.some(
+    (p) =>
+      (p.direction === 'BREAK_START' || p.direction === 'BREAK_END') && p.source === 'CLOCK',
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -494,32 +571,91 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
             {dayPunches.length > 0 ? (
               <ul className="rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
                 {dayPunches.map(p => (
-                  <li key={p.id} className="flex items-center gap-2 px-3 py-2 bg-white text-sm">
-                    <span className="font-semibold tabular-nums text-slate-900 w-14 shrink-0">
-                      {formatTime(p.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false })}
-                    </span>
-                    <span className="text-xs font-semibold text-slate-700 w-16 shrink-0">
-                      {directionLabel(p.direction, t)}
-                    </span>
-                    <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
-                      p.source === 'MANUAL'
-                        ? 'bg-violet-100 text-violet-900'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {p.source === 'MANUAL' ? t('punchSourceManual') : t('punchSourceClock')}
-                    </span>
-                    <span className="flex-1" />
-                    {canEditHours && p.source === 'MANUAL' && !localAck && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => { void handleDeletePunch(p.id); }}
-                        className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50 flex items-center justify-center disabled:opacity-50"
-                        aria-label={t('adjustDeletePunch')}
-                        title={t('adjustDeletePunch')}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                  <li key={p.id} className="px-3 py-2 bg-white text-sm space-y-2">
+                    {editingPunchId === p.id ? (
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-semibold uppercase text-slate-600">{t('adjustPunchTime')}</label>
+                          <input
+                            type="time"
+                            value={editPunchTime}
+                            onChange={e => setEditPunchTime(e.target.value)}
+                            disabled={busy}
+                            className="h-9 px-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold tabular-nums"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-semibold uppercase text-slate-600">{t('direction')}</label>
+                          <select
+                            value={editPunchDir}
+                            onChange={e => setEditPunchDir(e.target.value as PunchDirection)}
+                            disabled={busy}
+                            className="h-9 px-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold"
+                          >
+                            <option value="IN">{t('punchDirIn')}</option>
+                            <option value="OUT">{t('punchDirOut')}</option>
+                            <option value="BREAK_START">{t('punchDirBreakStart')}</option>
+                            <option value="BREAK_END">{t('punchDirBreakEnd')}</option>
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => { void handleSaveEditPunch(); }}
+                          className="h-9 px-3 rounded-lg bg-slate-900 text-white text-xs font-semibold disabled:opacity-50"
+                        >
+                          {t('adjustSavePunchEdit')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setEditingPunchId(null)}
+                          className="h-9 px-3 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold"
+                        >
+                          {t('adjustCancelPunchEdit')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold tabular-nums text-slate-900 w-14 shrink-0">
+                          {formatTime(p.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-700 w-24 shrink-0">
+                          {directionLabel(p.direction, t)}
+                        </span>
+                        <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                          p.source === 'MANUAL'
+                            ? 'bg-violet-100 text-violet-900'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {p.source === 'MANUAL' ? t('punchSourceManual') : t('punchSourceClock')}
+                        </span>
+                        <span className="flex-1" />
+                        {canEditHours && p.source === 'MANUAL' && !localAck && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => startEditPunch(p)}
+                              className="h-8 w-8 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center justify-center disabled:opacity-50"
+                              aria-label={t('adjustEditPunch')}
+                              title={t('adjustEditPunch')}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => { void handleDeletePunch(p.id); }}
+                              className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50 flex items-center justify-center disabled:opacity-50"
+                              aria-label={t('adjustDeletePunch')}
+                              title={t('adjustDeletePunch')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </li>
                 ))}
@@ -528,6 +664,34 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               <p className="text-xs font-medium text-amber-950 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
                 {t('adjustNoPunchesHint')}
               </p>
+            )}
+
+            {canEditHours && fixedBreak && (
+              <div className={`rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 space-y-2 ${punchEditLocked ? 'opacity-60' : ''}`}>
+                <div className="flex items-start gap-2">
+                  <Coffee size={16} className="text-emerald-800 shrink-0 mt-0.5" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-emerald-950">{t('adjustApplyFixedBreak')}</p>
+                    <p className="text-[11px] text-emerald-900 leading-snug mt-0.5">
+                      {t('adjustApplyFixedBreakHint', { start: fixedBreak.start, end: fixedBreak.end })}
+                    </p>
+                    {hasClockBreak && (
+                      <p className="text-[11px] font-semibold text-amber-950 mt-1">
+                        {t('adjustApplyFixedBreakBlockedClock')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={punchEditLocked || busy || hasClockBreak}
+                  onClick={() => { void handleApplyFixedBreak(); }}
+                  className="h-9 px-3 rounded-lg bg-emerald-800 text-white text-xs font-semibold hover:bg-emerald-900 disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  <Coffee size={14} aria-hidden />
+                  {isPunchBusy ? t('adjustPunchWorking') : t('adjustApplyFixedBreak')}
+                </button>
+              </div>
             )}
 
             {canEditHours && (
@@ -571,6 +735,8 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                     >
                       <option value="IN">{t('punchDirIn')}</option>
                       <option value="OUT">{t('punchDirOut')}</option>
+                      <option value="BREAK_START">{t('punchDirBreakStart')}</option>
+                      <option value="BREAK_END">{t('punchDirBreakEnd')}</option>
                     </select>
                   </div>
                   <button
@@ -603,9 +769,10 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-600 ml-7">{t('adjustSectionCalculatedHint')}</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 ml-0 sm:ml-0">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 ml-0 sm:ml-0">
               {[
                 { label: t('worked'), value: fmtMinutes(day.workedMinutes) },
+                { label: t('colBreak'), value: day.breakMinutes ? fmtMinutes(day.breakMinutes) : '—' },
                 { label: t('overtimeFull'), value: day.overtimeMinutes ? fmtMinutes(day.overtimeMinutes) : '—' },
                 { label: t('late'), value: day.lateMinutes ? fmtMinutes(day.lateMinutes) : '—' },
                 { label: t('absence'), value: day.absenceMinutes ? fmtMinutes(day.absenceMinutes) : '—' },

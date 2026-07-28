@@ -173,6 +173,17 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         next.overrides[overrideForm.employeeId] = overrideValues;
         await updateLeavePolicy(next);
       } else if (modalType === 'SHIFT') {
+        if (!(shiftForm.breakFlexible ?? true)) {
+          const start = shiftForm.breakEarliestStart || '';
+          const end = shiftForm.breakLatestEnd || '';
+          const [sh, sm] = start.split(':').map(Number);
+          const [eh, em] = end.split(':').map(Number);
+          if (!start || !end || Number.isNaN(sh) || Number.isNaN(eh) || (eh * 60 + em) <= (sh * 60 + sm)) {
+            showToast(t('breakFixedWindowRequired'), 'error');
+            return;
+          }
+          shiftForm.breakDurationMinutes = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+        }
         if (editIndex !== null) {
           const shiftId = shifts[editIndex].id;
           await hrService.updateShift(shiftId, shiftForm);
@@ -532,10 +543,81 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                       <input type="time" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.nightEnd || '05:00'} onChange={e => setShiftForm({...shiftForm, nightEnd: e.target.value})} />
                     </div>
                   </div>
-                  <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
-                    <input type="checkbox" checked={shiftForm.breakFlexible ?? true} onChange={e => setShiftForm({...shiftForm, breakFlexible: e.target.checked})} className="w-4 h-4 accent-primary" />
-                    <span className="text-xs font-bold text-slate-600">{t('breakFlexible')}</span>
-                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={shiftForm.breakFlexible ?? true}
+                        onChange={e => {
+                          const flexible = e.target.checked;
+                          setShiftForm({
+                            ...shiftForm,
+                            breakFlexible: flexible,
+                            ...(flexible
+                              ? {}
+                              : {
+                                  breakEarliestStart: shiftForm.breakEarliestStart || '12:00',
+                                  breakLatestEnd: shiftForm.breakLatestEnd || '13:30',
+                                  breakDurationMinutes: (() => {
+                                    const start = shiftForm.breakEarliestStart || '12:00';
+                                    const end = shiftForm.breakLatestEnd || '13:30';
+                                    const [sh, sm] = start.split(':').map(Number);
+                                    const [eh, em] = end.split(':').map(Number);
+                                    return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+                                  })(),
+                                }),
+                          });
+                        }}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      <span className="text-xs font-bold text-slate-600">{t('breakFlexible')}</span>
+                    </label>
+                    <p className="text-[10px] text-slate-500 px-1 leading-relaxed">{t('breakFixedHint')}</p>
+                    {!(shiftForm.breakFlexible ?? true) && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('breakEarliestStart')}</label>
+                          <input
+                            type="time"
+                            required
+                            className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                            value={shiftForm.breakEarliestStart || '12:00'}
+                            onChange={e => {
+                              const start = e.target.value;
+                              const end = shiftForm.breakLatestEnd || '13:30';
+                              const [sh, sm] = start.split(':').map(Number);
+                              const [eh, em] = end.split(':').map(Number);
+                              setShiftForm({
+                                ...shiftForm,
+                                breakEarliestStart: start,
+                                breakDurationMinutes: Math.max(0, (eh * 60 + em) - (sh * 60 + sm)),
+                              });
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('breakLatestEnd')}</label>
+                          <input
+                            type="time"
+                            required
+                            className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                            value={shiftForm.breakLatestEnd || '13:30'}
+                            onChange={e => {
+                              const end = e.target.value;
+                              const start = shiftForm.breakEarliestStart || '12:00';
+                              const [sh, sm] = start.split(':').map(Number);
+                              const [eh, em] = end.split(':').map(Number);
+                              setShiftForm({
+                                ...shiftForm,
+                                breakLatestEnd: end,
+                                breakDurationMinutes: Math.max(0, (eh * 60 + em) - (sh * 60 + sm)),
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <label className="flex items-center gap-3 p-3 bg-primary-light/40 rounded-xl border border-primary/15 cursor-pointer">
                     <input type="checkbox" checked={shiftForm.overtimeToBank ?? true} onChange={e => setShiftForm({...shiftForm, overtimeToBank: e.target.checked})} className="w-4 h-4 accent-primary" />
                     <span className="text-xs font-semibold text-slate-700">{t('overtimeToBank')}</span>

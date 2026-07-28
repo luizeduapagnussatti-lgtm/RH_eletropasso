@@ -4,7 +4,7 @@
  */
 
 import { Punch, Shift, ShiftDaySchedule, ShiftWeekday, TimesheetDayStatus } from '../types';
-import { consolidatePunchesForDay } from './punch.service';
+import { consolidatePunchesForDay, punchLocalDateKey } from './punch.service';
 
 export function parseHmToMinutes(hm: string | undefined | null): number | null {
   if (!hm) return null;
@@ -67,20 +67,62 @@ export function resolveShiftDay(shift: Shift | null, date: string): {
   startTime?: string;
   endTime?: string;
   breakDurationMinutes: number;
+  breakFlexible: boolean;
+  breakEarliestStart?: string;
+  breakLatestEnd?: string;
   expectedDailyMinutes: number;
 } {
   if (!shift) {
-    return { breakDurationMinutes: 60, expectedDailyMinutes: 480 };
+    return {
+      breakDurationMinutes: 60,
+      breakFlexible: true,
+      expectedDailyMinutes: 480,
+    };
   }
   const weekday = getWeekdayName(date);
   const override: ShiftDaySchedule | undefined = shift.daySchedules?.[weekday];
+  const breakEarliestStart = override?.breakEarliestStart || shift.breakEarliestStart;
+  const breakLatestEnd = override?.breakLatestEnd || shift.breakLatestEnd;
+  let breakDurationMinutes =
+    override?.breakDurationMinutes ?? shift.breakDurationMinutes ?? 60;
+  const breakFlexible = shift.breakFlexible ?? true;
+  if (!breakFlexible && breakEarliestStart && breakLatestEnd) {
+    const startM = parseHmToMinutes(breakEarliestStart);
+    const endM = parseHmToMinutes(breakLatestEnd);
+    if (startM != null && endM != null && endM > startM) {
+      // Prefer explicit override duration when set; otherwise sync from window.
+      if (override?.breakDurationMinutes == null) {
+        breakDurationMinutes = endM - startM;
+      }
+    }
+  }
   return {
     startTime: override?.startTime || shift.startTime,
     endTime: override?.endTime || shift.endTime,
-    breakDurationMinutes: override?.breakDurationMinutes ?? shift.breakDurationMinutes ?? 60,
+    breakDurationMinutes,
+    breakFlexible,
+    breakEarliestStart,
+    breakLatestEnd,
     expectedDailyMinutes: override?.expectedDailyMinutes ?? shift.expectedDailyMinutes ?? 480,
   };
 }
+
+/** Measured break from BREAK_START/BREAK_END pair, or null if incomplete. */
+export function measureBreakMinutesFromPunches(punches: Punch[], date: string): number | null {
+  const dayPunches = punches
+    .filter((p) => punchLocalDateKey(p.punchedAt) === date)
+    .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+
+  const starts = dayPunches.filter((p) => p.direction === 'BREAK_START');
+  const ends = dayPunches.filter((p) => p.direction === 'BREAK_END');
+  if (!starts.length || !ends.length) return null;
+
+  const startAt = starts[0]!.punchedAt;
+  const end = ends.find((e) => e.punchedAt > startAt) ?? ends[ends.length - 1];
+  if (!end || end.punchedAt <= startAt) return null;
+  return minutesBetween(startAt, end.punchedAt);
+}
+
 
 export function isWorkingDay(date: string, workingDays: string[]): boolean {
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -163,13 +205,15 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
 
   const daySched = resolveShiftDay(shift, date);
   const expected = working ? daySched.expectedDailyMinutes : 0;
-  const breakMins = daySched.breakDurationMinutes;
+  const scheduledBreakMins = daySched.breakDurationMinutes;
   const grace = shift?.lateGracePeriod ?? 0;
   const earlyGrace = shift?.earlyOutGracePeriod ?? 0;
 
   const summary = consolidatePunchesForDay(punches, date);
   const first = summary.firstIn;
   const last = summary.lastOut;
+  const measuredBreak = measureBreakMinutesFromPunches(punches, date);
+  const breakMins = measuredBreak ?? scheduledBreakMins;
 
   if (!working) {
     return {
