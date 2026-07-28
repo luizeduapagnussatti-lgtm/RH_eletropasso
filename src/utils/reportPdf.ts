@@ -73,6 +73,7 @@ export type JsPdfDoc = {
   addImage: (data: string, format: string, x: number, y: number, w: number, h: number) => void;
   splitTextToSize: (text: string, maxWidth: number) => string[];
   save: (filename: string) => void;
+  output: (type: 'blob' | 'arraybuffer' | 'datauristring') => Blob | ArrayBuffer | string;
   autoTable?: (opts: Record<string, unknown>) => void;
   lastAutoTable?: { finalY: number };
 };

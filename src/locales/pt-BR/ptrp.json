@@ -188,7 +188,7 @@
   "adjustSectionPunchesHint": "Inclua a batida que faltou (ex.: saída às 17:45). O sistema recalcula automaticamente trabalhado, HE, atraso e falta.",
   "adjustNoPunchesHint": "Nenhuma batida neste dia — lance a entrada/saída manualmente abaixo ou sincronize o relógio.",
   "adjustAddPunchTitle": "Lançar batida esquecida",
-  "adjustAddPunchHint": "Informe o horário e se é entrada ou saída. A carga horária é recalculada na hora.",
+  "adjustAddPunchHint": "Informe o horário e se é entrada ou saída. A carga é recalculada na hora e em seguida você pode aprovar o dia.",
   "adjustAddPunch": "Adicionar batida",
   "adjustPunchTime": "Horário",
   "adjustPunchTimeInvalid": "Informe um horário válido (HH:MM).",
@@ -196,6 +196,8 @@
   "adjustPunchWorking": "Salvando batida…",
   "adjustDeletePunch": "Remover batida manual",
   "adjustPunchAddedRecalc": "Batida lançada e carga horária recalculada.",
+  "offerApproveDayAfterRecalc": "Carga do dia recalculada. Deseja aprovar este dia agora?",
+  "punchSavedRecalc": "Marcação salva e carga horária recalculada.",
   "adjustPunchDeletedRecalc": "Batida removida e carga horária recalculada.",
   "adjustPunchDuplicate": "Já existe uma batida neste horário. Escolha outro horário ou remova a batida manual.",
   "adjustDeletePunchConfirm": "Remover esta batida manual e recalcular a carga do dia?",
@@ -276,8 +278,14 @@
     "metricLate": "Total atraso",
     "metricAbsence": "Total falta",
     "summarySection": "Resumo de todos os colaboradores",
-    "generatedBy": "Gerado em {{date}} — OpenHR",
+    "generatedBy": "Gerado em {{date}} — {{app}}",
     "page": "Página {{current}} de {{total}}",
-    "notAvailable": "—"
+    "notAvailable": "—",
+    "notesSection": "Observações e batidas extras",
+    "extraPunchesLine": "{{date}} — batidas extras: {{times}}",
+    "remarksLine": "{{date}} — {{text}}",
+    "signatureEmployee": "Colaborador",
+    "signatureManager": "Gestor / RH",
+    "totalsRow": "Totais"
   }
 }

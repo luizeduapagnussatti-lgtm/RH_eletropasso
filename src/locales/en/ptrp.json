@@ -188,7 +188,7 @@
   "adjustSectionPunchesHint": "Add a missing punch (e.g. clock-out at 17:45). The system recalculates worked time, OT, late and absence automatically.",
   "adjustNoPunchesHint": "No punches on this day — add clock-in/out manually below or sync the clock.",
   "adjustAddPunchTitle": "Add forgotten punch",
-  "adjustAddPunchHint": "Enter the time and whether it is in or out. Day hours recalculate immediately.",
+  "adjustAddPunchHint": "Enter the time and whether it is in or out. Day hours recalculate immediately, then you can approve the day.",
   "adjustAddPunch": "Add punch",
   "adjustPunchTime": "Time",
   "adjustPunchTimeInvalid": "Enter a valid time (HH:MM).",
@@ -196,6 +196,8 @@
   "adjustPunchWorking": "Saving punch…",
   "adjustDeletePunch": "Remove manual punch",
   "adjustPunchAddedRecalc": "Punch added and day hours recalculated.",
+  "offerApproveDayAfterRecalc": "Day hours recalculated. Approve this day now?",
+  "punchSavedRecalc": "Punch saved and day hours recalculated.",
   "adjustPunchDeletedRecalc": "Punch removed and day hours recalculated.",
   "adjustPunchDuplicate": "A punch already exists at this time. Pick another time or remove the manual punch.",
   "adjustDeletePunchConfirm": "Remove this manual punch and recalculate the day hours?",
@@ -276,8 +278,14 @@
     "metricLate": "Total late",
     "metricAbsence": "Total absence",
     "summarySection": "All employees summary",
-    "generatedBy": "Generated on {{date}} — OpenHR",
+    "generatedBy": "Generated on {{date}} — {{app}}",
     "page": "Page {{current}} of {{total}}",
-    "notAvailable": "—"
+    "notAvailable": "—",
+    "notesSection": "Notes and extra punches",
+    "extraPunchesLine": "{{date}} — extra punches: {{times}}",
+    "remarksLine": "{{date}} — {{text}}",
+    "signatureEmployee": "Employee",
+    "signatureManager": "Manager / HR",
+    "totalsRow": "Totals"
   }
 }

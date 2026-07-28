@@ -118,8 +118,9 @@ export const hrService = {
   cancelRosterSwapRequest: rosterSwapService.cancelRequest.bind(rosterSwapService),
 
   // PTRP — punches / timesheet / hour bank
-  listPunches: punchService.listPunches,
-  createManualPunch: punchService.createManualPunch,
+  // listPunches uses `this.applyProximityAutoIgnorePlan` — must keep punchService as `this`
+  listPunches: punchService.listPunches.bind(punchService),
+  createManualPunch: punchService.createManualPunch.bind(punchService),
   updateManualPunch: punchService.updateManualPunch.bind(punchService),
   deletePunch: punchService.deletePunch.bind(punchService),
   setPunchIgnoredForCalc: punchService.setPunchIgnoredForCalc.bind(punchService),

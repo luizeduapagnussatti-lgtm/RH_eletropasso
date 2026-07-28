@@ -138,6 +138,7 @@ export function planProximityAutoIgnores(
 export function pairPunchesToSlots(punches: Punch[], date: string): PunchDaySlots {
   const dayPunches = punchesForApuration(punches)
     .filter(p => punchDateKey(p.punchedAt) === date)
+    .filter(p => p.direction !== 'BREAK_START' && p.direction !== 'BREAK_END')
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
   const slotTimes: (string | undefined)[] = [undefined, undefined, undefined, undefined];
@@ -177,16 +178,24 @@ export function groupPunchesByDate(punches: Punch[]): Map<string, Punch[]> {
 export function consolidatePunchesForDay(punches: Punch[], date: string): PunchDaySummary {
   const dayPunches = punchesForApuration(punches)
     .filter(p => punchDateKey(p.punchedAt) === date)
+    .filter(p => p.direction !== 'BREAK_START' && p.direction !== 'BREAK_END')
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
-  const ins = dayPunches.filter(p => p.direction === 'IN' || p.direction === 'UNKNOWN');
-  const outs = dayPunches.filter(p => p.direction === 'OUT');
+  // Prefer last punch of the last complete chronological pair (not an early midday OUT
+  // when afternoon punches still exist).
+  const pairCount = Math.floor(dayPunches.length / 2);
+  const lastOut =
+    pairCount > 0
+      ? dayPunches[pairCount * 2 - 1]?.punchedAt
+      : dayPunches.length > 1
+        ? dayPunches[dayPunches.length - 1]?.punchedAt
+        : undefined;
 
   return {
     employeeId: dayPunches[0]?.employeeId || '',
     date,
-    firstIn: (ins[0] || dayPunches[0])?.punchedAt,
-    lastOut: (outs[outs.length - 1] || (dayPunches.length > 1 ? dayPunches[dayPunches.length - 1] : undefined))?.punchedAt,
+    firstIn: dayPunches[0]?.punchedAt,
+    lastOut,
     punches: dayPunches,
   };
 }
@@ -225,7 +234,8 @@ export const punchService = {
     for (const date of dates) {
       const plan = planProximityAutoIgnores(mapped, date);
       if (plan.toIgnore.length > 0 || plan.toClear.length > 0) {
-        await this.applyProximityAutoIgnorePlan(plan);
+        // Call via module export path-safe style: avoid `this` when method is detached on hrService
+        await punchService.applyProximityAutoIgnorePlan(plan);
         changed = true;
       }
     }

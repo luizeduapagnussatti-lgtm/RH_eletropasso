@@ -16,6 +16,50 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho PDF — observações, totais e assinaturas',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'PDF do espelho: data com dia da semana, totais no rodapé da tabela, falta alinhada a dias ADJUSTED, batidas extras e observações do gestor, linhas de assinatura colaborador/gestor, marca RH_Eletropasso. Slots ignoram BREAK_START/END.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Espelho — recálculo em massa + 3 batidas',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Competência 26/06–25/07: recalculados 172 dias (pares + limpeza de AUTO indevido); 49 dias ADJUSTED do gestor preservados. Dias com exatamente 3 batidas (falta 1 do almoço) usam 1ª→última − intervalo, sem subcontar a tarde.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Espelho — batida manual recalcula por pares',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Carga do dia passa a somar pares cronológicos (manhã+tarde). Saída de almoço MANUAL deixa de “fechar” o dia e zerar a tarde. Após lançar batida, o sistema recalcula e pergunta se aprova a carga.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Espelho — falha ao carregar batidas',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          '“Falha ao carregar espelho” ao aplicar filtros: hrService.listPunches sem .bind perdia this e quebrava applyProximityAutoIgnorePlan no auto-dedupe de batidas próximas.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho — UI de Falta coerente com ajuste',
     entries: [
       {
@@ -64,6 +108,11 @@ export const changelog: ChangelogRelease[] = [
         type: 'fix',
         description:
           'Login “Banco indisponível”: o build de produção herdava VITE_SUPABASE_URL=http://127.0.0.1:54321 (bloqueado em página HTTPS). Ensure-Frontend força a URL do .env (api-rh.eletropasso.local) no npm run build.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Espelho: “Falha ao carregar” ao aplicar filtros — hrService.listPunches sem .bind perdia this e quebrava o auto-dedupe de batidas (applyProximityAutoIgnorePlan).',
       },
       {
         type: 'fix',

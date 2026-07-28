@@ -4,7 +4,7 @@
  */
 
 import { Punch, Shift, ShiftDaySchedule, ShiftWeekday, TimesheetDayStatus } from '../types';
-import { consolidatePunchesForDay, punchLocalDateKey } from './punch.service';
+import { punchLocalDateKey } from './punch.service';
 
 export function parseHmToMinutes(hm: string | undefined | null): number | null {
   if (!hm) return null;
@@ -107,6 +107,156 @@ export function resolveShiftDay(shift: Shift | null, date: string): {
   };
 }
 
+/** Pair chronological work punches (excluding break marks) into IN→OUT segments. */
+export function computeWorkSegmentsFromPunches(
+  punches: Punch[],
+  date: string,
+): {
+  firstIn?: string;
+  lastOut?: string;
+  /** Sum of complete pair durations (lunch gaps already outside pairs). */
+  pairedWorkMinutes: number;
+  pairCount: number;
+  punchCount: number;
+  /** Gap between end of 1st pair and start of 2nd (measured lunch), if any. */
+  gapBetweenPairsMinutes: number | null;
+  incomplete: boolean;
+} {
+  const day = punches
+    .filter(
+      (p) =>
+        !p.ignoredForCalc &&
+        punchLocalDateKey(p.punchedAt) === date &&
+        p.direction !== 'BREAK_START' &&
+        p.direction !== 'BREAK_END',
+    )
+    .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+
+  const punchCount = day.length;
+  if (punchCount === 0) {
+    return {
+      pairedWorkMinutes: 0,
+      pairCount: 0,
+      punchCount: 0,
+      gapBetweenPairsMinutes: null,
+      incomplete: false,
+    };
+  }
+
+  let pairedWorkMinutes = 0;
+  let pairCount = 0;
+  for (let i = 0; i + 1 < day.length; i += 2) {
+    pairedWorkMinutes += minutesBetween(day[i]!.punchedAt, day[i + 1]!.punchedAt);
+    pairCount++;
+  }
+
+  let gapBetweenPairsMinutes: number | null = null;
+  if (day.length >= 4) {
+    gapBetweenPairsMinutes = minutesBetween(day[1]!.punchedAt, day[2]!.punchedAt);
+  }
+
+  return {
+    firstIn: day[0]!.punchedAt,
+    lastOut: pairCount > 0 ? day[pairCount * 2 - 1]!.punchedAt : undefined,
+    pairedWorkMinutes,
+    pairCount,
+    punchCount,
+    gapBetweenPairsMinutes,
+    incomplete: punchCount % 2 === 1,
+  };
+}
+
+/**
+ * Worked minutes for the day:
+ * - 2+ pairs (ex.: manhã + tarde após batida de almoço): soma dos pares (intervalo já fora).
+ * - 3 batidas (falta 1 do almoço): 1ª→última − intervalo (incompleto, sem subcontar a tarde).
+ * - 1 par (só entrada/saída do dia): bruto − intervalo medido ou do turno.
+ */
+export function resolveWorkedAndBreakMinutes(
+  punches: Punch[],
+  date: string,
+  scheduledBreakMins: number,
+): {
+  workedMinutes: number;
+  breakMinutes: number;
+  firstIn?: string;
+  lastOut?: string;
+  incomplete: boolean;
+  punchCount: number;
+  pairCount: number;
+} {
+  const segments = computeWorkSegmentsFromPunches(punches, date);
+  const measuredBreak = measureBreakMinutesFromPunches(punches, date);
+
+  if (segments.pairCount === 0) {
+    return {
+      workedMinutes: 0,
+      breakMinutes: 0,
+      firstIn: segments.firstIn,
+      lastOut: segments.lastOut,
+      incomplete: segments.incomplete || segments.punchCount > 0,
+      punchCount: segments.punchCount,
+      pairCount: 0,
+    };
+  }
+
+  if (segments.pairCount >= 2) {
+    const breakMinutes =
+      measuredBreak ??
+      segments.gapBetweenPairsMinutes ??
+      scheduledBreakMins;
+    return {
+      workedMinutes: segments.pairedWorkMinutes,
+      breakMinutes,
+      firstIn: segments.firstIn,
+      lastOut: segments.lastOut,
+      incomplete: segments.incomplete,
+      punchCount: segments.punchCount,
+      pairCount: segments.pairCount,
+    };
+  }
+
+  const breakMinutes = measuredBreak ?? scheduledBreakMins;
+
+  // Exactly 3 work punches → missing one lunch mark. Pairing alone only credits
+  // the morning segment; use first→last − break (same as classic span).
+  if (segments.punchCount === 3 && segments.incomplete) {
+    const day = punches
+      .filter(
+        (p) =>
+          !p.ignoredForCalc &&
+          punchLocalDateKey(p.punchedAt) === date &&
+          p.direction !== 'BREAK_START' &&
+          p.direction !== 'BREAK_END',
+      )
+      .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+    const first = day[0]?.punchedAt;
+    const last = day[2]?.punchedAt;
+    if (first && last) {
+      return {
+        workedMinutes: Math.max(0, minutesBetween(first, last) - breakMinutes),
+        breakMinutes,
+        firstIn: first,
+        lastOut: last,
+        incomplete: true,
+        punchCount: 3,
+        pairCount: 1,
+      };
+    }
+  }
+
+  // Single in→out span for the whole day: deduct break once.
+  return {
+    workedMinutes: Math.max(0, segments.pairedWorkMinutes - breakMinutes),
+    breakMinutes,
+    firstIn: segments.firstIn,
+    lastOut: segments.lastOut,
+    incomplete: segments.incomplete,
+    punchCount: segments.punchCount,
+    pairCount: segments.pairCount,
+  };
+}
+
 /** Measured break from BREAK_START/BREAK_END pair, or null if incomplete. */
 export function measureBreakMinutesFromPunches(punches: Punch[], date: string): number | null {
   const dayPunches = punches
@@ -122,7 +272,6 @@ export function measureBreakMinutesFromPunches(punches: Punch[], date: string): 
   if (!end || end.punchedAt <= startAt) return null;
   return minutesBetween(startAt, end.punchedAt);
 }
-
 
 export function isWorkingDay(date: string, workingDays: string[]): boolean {
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -252,11 +401,11 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
   const grace = shift?.lateGracePeriod ?? 0;
   const earlyGrace = shift?.earlyOutGracePeriod ?? 0;
 
-  const summary = consolidatePunchesForDay(punches, date);
-  const first = summary.firstIn;
-  const last = summary.lastOut;
-  const measuredBreak = measureBreakMinutesFromPunches(punches, date);
-  const breakMins = measuredBreak ?? scheduledBreakMins;
+  const work = resolveWorkedAndBreakMinutes(punches, date, scheduledBreakMins);
+  const first = work.firstIn;
+  const last = work.lastOut;
+  const breakMins = work.breakMinutes;
+  const worked = work.workedMinutes;
 
   if (!working) {
     return {
@@ -290,7 +439,7 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
     };
   }
 
-  if (!last || last === first) {
+  if (!last || last === first || (work.incomplete && work.pairCount === 0)) {
     return {
       expectedMinutes: expected,
       workedMinutes: 0,
@@ -307,9 +456,6 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
     };
   }
 
-  const gross = minutesBetween(first, last);
-  const worked = Math.max(0, gross - breakMins);
-
   let lateMinutes = 0;
   if (daySched.startTime) {
     const startIso = timeOnDateToIso(date, daySched.startTime);
@@ -318,7 +464,7 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
   }
 
   let earlyOutMinutes = 0;
-  if (daySched.endTime) {
+  if (daySched.endTime && last) {
     const endIso = timeOnDateToIso(date, daySched.endTime);
     if (new Date(last) < new Date(endIso)) {
       earlyOutMinutes = Math.max(0, minutesBetween(last, endIso) - earlyGrace);
@@ -335,6 +481,8 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
 
   let status: TimesheetDayStatus = 'OK';
   if (lateMinutes > 0) status = 'LATE';
+  // Odd trailing punch after complete pairs: still OK if we have worked time from pairs
+  if (work.incomplete && worked === 0) status = 'INCOMPLETE';
 
   const shortfall = Math.max(0, expected - worked);
 

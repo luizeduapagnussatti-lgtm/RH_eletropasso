@@ -1,7 +1,9 @@
 import { pairPunchesToSlots, groupPunchesByDate } from './punch.service';
 import { organizationService } from './organization.service';
-import { formatIsoDateBr, formatTime } from '../i18n/format';
+import { formatIsoDateBr, formatTime, getDateLocale } from '../i18n/format';
 import { normalizeCpf } from '../utils/employeeCredentials';
+import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
+import { APP_NAME } from '../config/branding';
 import {
   applyStandardTable,
   createPdfDocument,
@@ -9,6 +11,7 @@ import {
   drawReportFooters,
   drawReportHeader,
   drawFormSection,
+  drawSignatureBlock,
   formatGeneratedAt,
   PdfOrgInfo,
 } from '../utils/reportPdf';
@@ -31,6 +34,7 @@ export type TimesheetPdfLabels = {
   reviewStatus: string;
   reviewApproved: string;
   reviewPending: string;
+  managerAckSummary?: string;
   colDay: string;
   colEntry1: string;
   colExit1: string;
@@ -50,6 +54,12 @@ export type TimesheetPdfLabels = {
   generatedBy: string;
   page: string;
   notAvailable: string;
+  notesSection: string;
+  extraPunchesLine: string;
+  remarksLine: string;
+  signatureEmployee: string;
+  signatureManager: string;
+  totalsRow: string;
 };
 
 function minutesToDisplay(mins: number): string {
@@ -62,7 +72,36 @@ function minutesToDisplay(mins: number): string {
 
 function slotTime(iso?: string): string {
   if (!iso) return '—';
-  return formatTime(iso, { hour: '2-digit', minute: '2-digit', hour12: false });
+  return formatTime(iso, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+function daysInPeriod(days: TimesheetDay[], period: TimesheetPeriod): TimesheetDay[] {
+  return days.filter(d => d.workDate >= period.startDate && d.workDate <= period.endDate);
+}
+
+function formatDayCell(workDate: string): string {
+  const d = new Date(`${workDate}T12:00:00`);
+  const weekday = d.toLocaleDateString(getDateLocale(), { weekday: 'short' });
+  const wd = weekday.replace(/\.$/, '');
+  const cap = wd.charAt(0).toUpperCase() + wd.slice(1);
+  return `${formatIsoDateBr(workDate)} ${cap}`;
+}
+
+function dayRemarkText(day: TimesheetDay): string {
+  if (day.remarks?.trim()) return day.remarks.trim();
+  const adj = day.manualAdjustment;
+  if (adj && typeof adj === 'object') {
+    for (const key of ['remarks', 'reason', 'note', 'motivo'] as const) {
+      const v = adj[key];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+  }
+  return '';
 }
 
 function resolveReview(
@@ -98,6 +137,23 @@ function reviewStatusLabel(
   if (!review || review.status === 'OPEN') return labels.reviewPending;
   if (review.status === 'APPROVED') return labels.reviewApproved;
   return statusLabel(review.status);
+}
+
+function interpolateLabel(template: string, vars: Record<string, string>): string {
+  let out = template;
+  for (const [k, v] of Object.entries(vars)) {
+    out = out.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
+  }
+  return out;
+}
+
+function ensureSpace(doc: Awaited<ReturnType<typeof createPdfDocument>>, y: number, needed: number): number {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y + needed > pageHeight - 18) {
+    doc.addPage();
+    return 22;
+  }
+  return y;
 }
 
 export const timesheetPdfExportService = {
@@ -149,10 +205,10 @@ export const timesheetPdfExportService = {
     ]);
 
     const totals = {
-      worked: days.reduce((s, d) => s + d.workedMinutes, 0),
-      overtime: days.reduce((s, d) => s + d.overtimeMinutes, 0),
-      late: days.reduce((s, d) => s + d.lateMinutes, 0),
-      absence: days.reduce((s, d) => s + d.absenceMinutes, 0),
+      worked: days.reduce((s, d) => s + (d.workedMinutes || 0), 0),
+      overtime: days.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
+      late: days.reduce((s, d) => s + (d.lateMinutes || 0), 0),
+      absence: days.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
     };
 
     y = drawMetricStrip(doc, y, [
@@ -162,18 +218,47 @@ export const timesheetPdfExportService = {
       { label: labels.metricAbsence, value: minutesToDisplay(totals.absence), tone: 'absent' },
     ]);
 
+    const noteLines: string[] = [];
+
     const tableRows = days.map(day => {
       const slots = pairPunchesToSlots(punchesByDate.get(day.workDate) ?? [], day.workDate);
+      const exit2 = slotTime(slots.exit2);
+      const exit2Cell =
+        slots.overflow.length > 0
+          ? `${exit2 === '—' ? '' : exit2}${exit2 === '—' ? '' : ' '}(+${slots.overflow.length})`.trim()
+          : exit2;
+
+      if (slots.overflow.length > 0) {
+        const times = slots.overflow
+          .map(p => formatTime(p.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false }))
+          .join(' · ');
+        noteLines.push(
+          interpolateLabel(labels.extraPunchesLine, {
+            date: formatIsoDateBr(day.workDate),
+            times,
+          }),
+        );
+      }
+      const remark = dayRemarkText(day);
+      if (remark) {
+        noteLines.push(
+          interpolateLabel(labels.remarksLine, {
+            date: formatIsoDateBr(day.workDate),
+            text: remark,
+          }),
+        );
+      }
+
       return [
-        formatIsoDateBr(day.workDate),
+        formatDayCell(day.workDate),
         slotTime(slots.entry1),
         slotTime(slots.exit1),
         slotTime(slots.entry2),
-        slotTime(slots.exit2),
+        exit2Cell,
         minutesToDisplay(day.workedMinutes),
         minutesToDisplay(day.overtimeMinutes),
         minutesToDisplay(day.lateMinutes),
-        minutesToDisplay(day.absenceMinutes),
+        minutesToDisplay(displayAbsenceMinutes(day)),
         statusLabel(day.status),
       ];
     });
@@ -193,9 +278,28 @@ export const timesheetPdfExportService = {
         labels.colStatus,
       ]],
       body: tableRows,
+      foot: [[
+        labels.totalsRow,
+        '',
+        '',
+        '',
+        '',
+        minutesToDisplay(totals.worked),
+        minutesToDisplay(totals.overtime),
+        minutesToDisplay(totals.late),
+        minutesToDisplay(totals.absence),
+        '',
+      ]],
+      showFoot: 'lastPage',
       styles: { fontSize: 7, cellPadding: 2 },
+      footStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        fontSize: 7,
+      },
       columnStyles: {
-        0: { cellWidth: 22 },
+        0: { cellWidth: 28 },
         5: { halign: 'center' },
         6: { halign: 'center' },
         7: { halign: 'center' },
@@ -203,10 +307,45 @@ export const timesheetPdfExportService = {
       },
     });
 
+    let afterY = (doc.lastAutoTable?.finalY ?? y) + 8;
+
+    if (noteLines.length > 0) {
+      afterY = ensureSpace(doc, afterY, 10 + noteLines.length * 4);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(labels.notesSection, 14, afterY);
+      afterY += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      for (const line of noteLines) {
+        afterY = ensureSpace(doc, afterY, 6);
+        const wrapped = doc.splitTextToSize(`• ${line}`, doc.internal.pageSize.getWidth() - 28);
+        doc.text(wrapped, 14, afterY);
+        afterY += wrapped.length * 3.8 + 1.2;
+      }
+      afterY += 4;
+    }
+
+    afterY = ensureSpace(doc, afterY, 22);
+    drawSignatureBlock(doc, afterY, [
+      { label: labels.signatureEmployee, name: employee.name || '' },
+      { label: labels.signatureManager, name: '' },
+    ]);
+
+    const generated = interpolateLabel(labels.generatedBy, {
+      date: formatGeneratedAt(),
+      app: APP_NAME,
+    });
     drawReportFooters(
       doc,
-      labels.generatedBy.replace('{{date}}', formatGeneratedAt()),
-      (current, total) => labels.page.replace('{{current}}', String(current)).replace('{{total}}', String(total))
+      generated,
+      (current, total) =>
+        interpolateLabel(labels.page, {
+          current: String(current),
+          total: String(total),
+        }),
     );
 
     return doc.output('blob') as Blob;
@@ -232,22 +371,55 @@ export const timesheetPdfExportService = {
       subtitle,
     });
 
-    const tableRows = employees
+    const perEmployee = employees
       .map(emp => {
         const empDays = daysForEmployee(days, emp);
         if (!empDays.length) return null;
         const review = resolveReview(reviews, emp);
-        return [
-          emp.name,
-          emp.employeeId || '—',
-          minutesToDisplay(empDays.reduce((s, d) => s + d.workedMinutes, 0)),
-          minutesToDisplay(empDays.reduce((s, d) => s + d.overtimeMinutes, 0)),
-          minutesToDisplay(empDays.reduce((s, d) => s + d.lateMinutes, 0)),
-          minutesToDisplay(empDays.reduce((s, d) => s + d.absenceMinutes, 0)),
-          reviewStatusLabel(review, labels, revLabel),
-        ];
+        const worked = empDays.reduce((s, d) => s + (d.workedMinutes || 0), 0);
+        const overtime = empDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0);
+        const late = empDays.reduce((s, d) => s + (d.lateMinutes || 0), 0);
+        const absence = empDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0);
+        return {
+          row: [
+            emp.name,
+            emp.employeeId || '—',
+            minutesToDisplay(worked),
+            minutesToDisplay(overtime),
+            minutesToDisplay(late),
+            minutesToDisplay(absence),
+            reviewStatusLabel(review, labels, revLabel),
+          ],
+          worked,
+          overtime,
+          late,
+          absence,
+        };
       })
-      .filter(Boolean) as string[][];
+      .filter(Boolean) as Array<{
+      row: string[];
+      worked: number;
+      overtime: number;
+      late: number;
+      absence: number;
+    }>;
+
+    const totals = perEmployee.reduce(
+      (acc, e) => ({
+        worked: acc.worked + e.worked,
+        overtime: acc.overtime + e.overtime,
+        late: acc.late + e.late,
+        absence: acc.absence + e.absence,
+      }),
+      { worked: 0, overtime: 0, late: 0, absence: 0 },
+    );
+
+    y = drawMetricStrip(doc, y, [
+      { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
+      { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
+      { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
+      { label: labels.metricAbsence, value: minutesToDisplay(totals.absence), tone: 'absent' },
+    ]);
 
     applyStandardTable(doc, {
       startY: y,
@@ -260,14 +432,38 @@ export const timesheetPdfExportService = {
         labels.colAbsence,
         labels.reviewStatus,
       ]],
-      body: tableRows,
+      body: perEmployee.map(e => e.row),
+      foot: [[
+        labels.totalsRow,
+        '',
+        minutesToDisplay(totals.worked),
+        minutesToDisplay(totals.overtime),
+        minutesToDisplay(totals.late),
+        minutesToDisplay(totals.absence),
+        '',
+      ]],
+      showFoot: 'lastPage',
       styles: { fontSize: 7.5, cellPadding: 2.5 },
+      footStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+      },
     });
 
+    const generated = interpolateLabel(labels.generatedBy, {
+      date: formatGeneratedAt(),
+      app: APP_NAME,
+    });
     drawReportFooters(
       doc,
-      labels.generatedBy.replace('{{date}}', formatGeneratedAt()),
-      (current, total) => labels.page.replace('{{current}}', String(current)).replace('{{total}}', String(total))
+      generated,
+      (current, total) =>
+        interpolateLabel(labels.page, {
+          current: String(current),
+          total: String(total),
+        }),
     );
 
     return doc.output('blob') as Blob;
@@ -293,6 +489,7 @@ export const timesheetPdfExportService = {
       );
       if (!employee) throw new Error('employee_not_found');
       const empDays = daysForEmployee(opts.days, employee);
+      if (!empDays.length) throw new Error('employee_no_days');
       const punchKey = employee.employeeId || employee.id;
       const empPunches = opts.punches.filter(p => p.employeeId === punchKey || p.employeeId === employee.id);
       const blob = await this.buildEmployeeMirrorPdf({

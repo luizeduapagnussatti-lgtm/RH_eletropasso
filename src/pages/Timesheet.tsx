@@ -216,7 +216,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       setHasQuery(true);
     } catch (e: any) {
       console.error(e);
-      showToast(t('loadFailed'), 'error');
+      const detail = e instanceof Error && e.message ? e.message : '';
+      showToast(detail && detail.length < 120 ? `${t('loadFailed')} ${detail}` : t('loadFailed'), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -610,6 +611,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         generatedBy: t('pdf.generatedBy'),
         page: t('pdf.page'),
         notAvailable: t('pdf.notAvailable'),
+        notesSection: t('pdf.notesSection'),
+        extraPunchesLine: t('pdf.extraPunchesLine'),
+        remarksLine: t('pdf.remarksLine'),
+        signatureEmployee: t('pdf.signatureEmployee'),
+        signatureManager: t('pdf.signatureManager'),
+        totalsRow: t('pdf.totalsRow'),
       };
       const { blob, filename } = await hrService.exportTimesheetMirrorPdf({
         period,
@@ -741,6 +748,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     );
     showToast(t('adjustPunchAddedRecalc'), 'success');
     await load();
+    await offerApproveDayAfterRecalc(recalculated.id);
   };
 
   const deletePunchFromModal = async (punchId: string) => {
@@ -953,18 +961,37 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     return { start: daySched.breakEarliestStart, end: daySched.breakLatestEnd };
   }, [adjustDay, employees, shifts]);
 
+  const offerApproveDayAfterRecalc = async (dayId: string) => {
+    if (!window.confirm(t('offerApproveDayAfterRecalc'))) return;
+    try {
+      await hrService.acknowledgeTimesheetDay(dayId, 'manager', true);
+      showToast(t('managerAckOk'), 'success');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
+    }
+  };
+
   const saveManualPunch = async () => {
     if (!punchForm.employeeId || !punchForm.punchedAt) return;
     try {
       const emp = employees.find(e => e.id === punchForm.employeeId);
+      const punchEmployeeId = emp?.employeeId || punchForm.employeeId;
+      const punchedAtIso = new Date(punchForm.punchedAt).toISOString();
       await hrService.createManualPunch({
-        employeeId: emp?.employeeId || punchForm.employeeId,
-        punchedAt: new Date(punchForm.punchedAt).toISOString(),
+        employeeId: punchEmployeeId,
+        punchedAt: punchedAtIso,
         direction: punchForm.direction,
       });
-      showToast(t('punchSaved'), 'success');
+      const workDate = punchLocalDateKey(punchedAtIso);
+      const recalculated = await hrService.recalculateTimesheetDay(
+        emp?.id || punchForm.employeeId,
+        workDate,
+        period || undefined,
+      );
+      showToast(t('punchSavedRecalc'), 'success');
       setShowManualPunch(false);
       await load();
+      await offerApproveDayAfterRecalc(recalculated.id);
     } catch (e: any) {
       showToast(e?.message || t('punchFailed'), 'error');
     }
