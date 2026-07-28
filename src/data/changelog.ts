@@ -16,12 +16,12 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
-    title: 'Infra — watchdog do frontend (anti-502)',
+    title: 'Infra — Vite reinicia sozinho (anti-502)',
     entries: [
       {
         type: 'fix',
         description:
-          '502 Bad Gateway ocorria quando o Vite (:3000) caía e o Nginx Proxy Manager ficava sem upstream. Adicionado Ensure-Frontend.ps1 + tarefa RH_Eletropasso_Frontend_Watchdog (a cada 5 min).',
+          'Quando o Vite (:3000) cai, o Nginx devolvia 502. Agora: Ensure-Frontend.ps1 com checagem HTTP + reinício limpo, supervisor contínuo Watch-Frontend.ps1 (30s) e tarefa agendada a cada 1 min.',
       },
     ],
   },

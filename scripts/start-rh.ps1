@@ -140,6 +140,29 @@ if (-not (Test-PortListening 3000)) {
   Write-Host 'frontend already listening on 3000 - skipped.'
 }
 
+# 5b) Supervisor contínuo — reinicia Vite sozinho se cair
+$frontendWatch = Join-Path $PSScriptRoot 'Watch-Frontend.ps1'
+if (-not (Test-Path $frontendWatch)) {
+  $frontendWatch = Join-Path $ProjectRoot 'scripts\Watch-Frontend.ps1'
+}
+$lockFile = Join-Path $DataRoot 'logs\frontend\supervisor.lock'
+$supervisorRunning = $false
+if (Test-Path $lockFile) {
+  $oldPid = 0
+  try { $oldPid = [int](Get-Content $lockFile -ErrorAction SilentlyContinue | Select-Object -First 1) } catch { }
+  if ($oldPid -gt 0 -and (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)) {
+    $supervisorRunning = $true
+  }
+}
+if (-not $supervisorRunning -and (Test-Path $frontendWatch)) {
+  Start-BackgroundProcess 'frontend-watch' 'powershell.exe' @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+    '-File', $frontendWatch, '-IntervalSec', '30'
+  ) $ProjectRoot
+} else {
+  Write-Host 'frontend supervisor already running - skipped.'
+}
+
 Start-Sleep -Seconds 6
 
 Write-Host '--- Health ---'

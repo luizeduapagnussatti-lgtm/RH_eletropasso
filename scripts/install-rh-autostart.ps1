@@ -18,6 +18,7 @@ Copy-Item -Path (Join-Path $RepoScripts 'start-rh-delayed.ps1') -Destination (Jo
 Copy-Item -Path (Join-Path $RepoScripts 'run-dmprep-sync.ps1') -Destination (Join-Path $DeployScripts 'run-dmprep-sync.ps1') -Force
 Copy-Item -Path (Join-Path $RepoScripts 'Ensure-DmprepSync.ps1') -Destination (Join-Path $DeployScripts 'Ensure-DmprepSync.ps1') -Force
 Copy-Item -Path (Join-Path $RepoScripts 'Ensure-Frontend.ps1') -Destination (Join-Path $DeployScripts 'Ensure-Frontend.ps1') -Force
+Copy-Item -Path (Join-Path $RepoScripts 'Watch-Frontend.ps1') -Destination (Join-Path $DeployScripts 'Watch-Frontend.ps1') -Force
 
 $DelayedScript = Join-Path $DeployScripts 'start-rh-delayed.ps1'
 $Action = New-ScheduledTaskAction `
@@ -82,12 +83,12 @@ Register-ScheduledTask `
 Write-Host "Tarefa registrada: $WatchdogTaskName (a cada 5 min)"
 Write-Host ""
 
-# Watchdog: a cada 5 min garante frontend Vite (:3000) — evita 502 no NPM
+# Watchdog: a cada 1 min garante frontend Vite (:3000) — evita 502 no NPM
 $FrontendWatchdogScript = Join-Path $DeployScripts 'Ensure-Frontend.ps1'
 $FrontendWatchdogAction = New-ScheduledTaskAction `
   -Execute 'powershell.exe' `
   -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$FrontendWatchdogScript`""
-$FrontendWatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
+$FrontendWatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 Register-ScheduledTask `
   -TaskName $FrontendWatchdogTaskName `
   -Action $FrontendWatchdogAction `
@@ -96,9 +97,10 @@ Register-ScheduledTask `
   -Principal $Principal `
   -Force | Out-Null
 
-Write-Host "Tarefa registrada: $FrontendWatchdogTaskName (a cada 5 min)"
+Write-Host "Tarefa registrada: $FrontendWatchdogTaskName (a cada 1 min)"
 Write-Host ""
 Write-Host "Testar agora (manual):"
 Write-Host "  powershell -ExecutionPolicy Bypass -File `"$DelayedScript`""
 Write-Host "  powershell -ExecutionPolicy Bypass -File `"$WatchdogScript`""
 Write-Host "  powershell -ExecutionPolicy Bypass -File `"$FrontendWatchdogScript`""
+Write-Host "  powershell -ExecutionPolicy Bypass -File `"$(Join-Path $DeployScripts 'Watch-Frontend.ps1')`""
