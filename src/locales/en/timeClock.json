@@ -66,6 +66,12 @@
     "toneWarn": "Warning",
     "toneError": "Error",
     "toneIdle": "Pending",
+    "errors": {
+      "protocolUnsupported": "This PrintPoint does not report firmware/MAC over this protocol — connection is fine (serial was read). Punch collection is not blocked.",
+      "timeout": "The clock did not respond in time. Check power, cable/network and IP.",
+      "connection": "Could not connect to the clock. Check network/IP and that the device is on.",
+      "busy": "The clock is busy with another operation. Try again shortly."
+    },
     "overall": {
       "idle": {
         "title": "No test in this session",

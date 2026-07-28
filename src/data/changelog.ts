@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Diagnóstico — contraste no dark mode e erros em português',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Banner de status do Diagnóstico ficava “vazio” no tema escuro (texto amber-950 invisível). Mensagens do WatchComm em inglês (ex.: protocol not supported) passam a pt-BR e avisos brandos quando a série já foi lida.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Monitoramento — histórico de sincronizações',
     entries: [
       {

@@ -65,6 +65,24 @@ export interface DiagnosisSummaryRow {
   detailParams?: Record<string, string>;
 }
 
+export function isSoftDeviceLimitation(message: string | undefined): boolean {
+  if (!message) return false;
+  return /protocol type does not support/i.test(message);
+}
+
+/** Known WatchComm / PrintPoint English messages → i18n key under diagnosis.errors.* */
+export function deviceErrorI18nKey(message: string | undefined): string | null {
+  if (!message?.trim()) return null;
+  const m = message.trim();
+  if (/protocol type does not support/i.test(m)) return 'diagnosis.errors.protocolUnsupported';
+  if (/timeout|timed?\s*out/i.test(m)) return 'diagnosis.errors.timeout';
+  if (/connection|connect|network|unreachable|ECONNREFUSED/i.test(m)) {
+    return 'diagnosis.errors.connection';
+  }
+  if (/busy|already running|in progress/i.test(m)) return 'diagnosis.errors.busy';
+  return null;
+}
+
 export function summarizeIdentity(data: Record<string, unknown> | undefined): {
   serial?: string;
   firmware?: string;
@@ -72,10 +90,11 @@ export function summarizeIdentity(data: Record<string, unknown> | undefined): {
   memory?: string;
   message?: string;
   error?: string;
+  softNote?: string;
   tone: HealthTone;
 } {
   if (!data) return { tone: 'idle' };
-  const error =
+  const rawError =
     readError(data, [
       'serialNumberError',
       'serialAndMemoryError',
@@ -105,9 +124,25 @@ export function summarizeIdentity(data: Record<string, unknown> | undefined): {
     'Message',
     'StatusMessage',
   ]);
-  if (error && !serial) return { error, tone: 'error' };
-  if (serial) return { serial, firmware, mac, memory, message, error, tone: error ? 'warn' : 'ok' };
-  return { firmware, mac, memory, message, error, tone: error ? 'error' : 'warn' };
+
+  const soft = isSoftDeviceLimitation(rawError);
+  if (rawError && !serial && !soft) return { error: rawError, tone: 'error' };
+  if (serial) {
+    return {
+      serial,
+      firmware,
+      mac,
+      memory,
+      message,
+      error: soft ? undefined : rawError,
+      softNote: soft ? rawError : undefined,
+      tone: rawError && !soft ? 'warn' : 'ok',
+    };
+  }
+  if (soft) {
+    return { firmware, mac, memory, message, softNote: rawError, tone: 'warn' };
+  }
+  return { firmware, mac, memory, message, error: rawError, tone: rawError ? 'error' : 'warn' };
 }
 
 export function summarizeEmployer(data: Record<string, unknown> | undefined): {
@@ -197,8 +232,10 @@ export function summarizeStatus(data: Record<string, unknown> | undefined): {
   ];
 
   let tone: HealthTone = 'ok';
-  if (printPointError && immediateError) tone = 'error';
-  else if (printPointError || immediateError) tone = 'warn';
+  const softPp = printPointError && /protocol type does not support/i.test(printPointError);
+  const softImm = immediateError && /protocol type does not support/i.test(immediateError);
+  if (printPointError && immediateError && !softPp && !softImm) tone = 'error';
+  else if ((printPointError && !softPp) || (immediateError && !softImm)) tone = 'warn';
   else if (!deviceId && !employeeCapacity && cardEnabled == null) tone = 'warn';
 
   return {

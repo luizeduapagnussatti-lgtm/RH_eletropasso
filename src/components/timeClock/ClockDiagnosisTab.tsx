@@ -20,6 +20,7 @@ import { extractCommandData, runClockOp } from './clockCommandUi';
 import {
   type HealthTone,
   asRecord,
+  deviceErrorI18nKey,
   summarizeEmployer,
   summarizeIdentity,
   summarizeStatus,
@@ -182,8 +183,13 @@ export const ClockDiagnosisTab: React.FC<Props> = ({ onBusyChange }) => {
             tone={identityView.tone === 'idle' && opErrors.identity ? 'error' : identityView.tone}
             icon={<Cpu size={18} />}
           >
-            {opErrors.identity && <ErrorLine text={opErrors.identity} />}
-            {identityView.error && !opErrors.identity && <ErrorLine text={identityView.error} />}
+            {opErrors.identity && <ErrorLine text={friendlyError(opErrors.identity, t)} />}
+            {identityView.error && !opErrors.identity && (
+              <ErrorLine text={friendlyError(identityView.error, t)} />
+            )}
+            {identityView.softNote && (
+              <SoftNote text={friendlyError(identityView.softNote, t)} />
+            )}
             <Row label={t('diagnosis.serial')} value={identityView.serial} />
             <Row label={t('diagnosis.firmware')} value={identityView.firmware} />
             <Row label={t('diagnosis.mac')} value={identityView.mac} />
@@ -199,8 +205,10 @@ export const ClockDiagnosisTab: React.FC<Props> = ({ onBusyChange }) => {
             tone={employerView.tone === 'idle' && opErrors['employer-read'] ? 'error' : employerView.tone}
             icon={<Building2 size={18} />}
           >
-            {opErrors['employer-read'] && <ErrorLine text={opErrors['employer-read']} />}
-            {employerView.error && !opErrors['employer-read'] && <ErrorLine text={employerView.error} />}
+            {opErrors['employer-read'] && <ErrorLine text={friendlyError(opErrors['employer-read'], t)} />}
+            {employerView.error && !opErrors['employer-read'] && (
+              <ErrorLine text={friendlyError(employerView.error, t)} />
+            )}
             <Row label={t('diagnosis.employerName')} value={employerView.name} />
             <Row
               label={t('diagnosis.employerDoc')}
@@ -222,9 +230,13 @@ export const ClockDiagnosisTab: React.FC<Props> = ({ onBusyChange }) => {
             tone={statusView.tone === 'idle' && opErrors.status ? 'error' : statusView.tone}
             icon={<Activity size={18} />}
           >
-            {opErrors.status && <ErrorLine text={opErrors.status} />}
-            {statusView.printPointError && <ErrorLine text={statusView.printPointError} />}
-            {statusView.immediateError && <ErrorLine text={statusView.immediateError} />}
+            {opErrors.status && <ErrorLine text={friendlyError(opErrors.status, t)} />}
+            {statusView.printPointError && (
+              <SoftOrError text={statusView.printPointError} t={t} />
+            )}
+            {statusView.immediateError && (
+              <SoftOrError text={statusView.immediateError} t={t} />
+            )}
             <Row label={t('diagnosis.deviceId')} value={statusView.deviceId} />
             <Row label={t('diagnosis.capacity')} value={statusView.employeeCapacity} />
             <Row label={t('diagnosis.authMode')} value={statusView.authentication} />
@@ -286,23 +298,32 @@ function OverallBanner({
   checkedAt: string | null;
   checkedLabel: string;
 }) {
+  // Use slate text (dark-mode remapped) — amber/emerald-950 is invisible on remapped *-50 backgrounds.
   const styles: Record<HealthTone, string> = {
-    idle: 'border-slate-200 bg-slate-50 text-slate-800',
-    ok: 'border-emerald-200 bg-emerald-50 text-emerald-950',
-    warn: 'border-amber-200 bg-amber-50 text-amber-950',
-    error: 'border-rose-200 bg-rose-50 text-rose-950',
+    idle: 'border-slate-200 bg-slate-50',
+    ok: 'border-emerald-200 bg-emerald-50',
+    warn: 'border-amber-200 bg-amber-50',
+    error: 'border-rose-200 bg-rose-50',
   };
   const Icon =
     tone === 'ok' ? CheckCircle2 : tone === 'error' ? XCircle : tone === 'warn' ? AlertTriangle : HelpCircle;
+  const iconClass =
+    tone === 'ok'
+      ? 'text-emerald-600'
+      : tone === 'error'
+        ? 'text-rose-600'
+        : tone === 'warn'
+          ? 'text-amber-600'
+          : 'text-slate-500';
 
   return (
     <div className={`rounded-2xl border px-4 py-3.5 flex gap-3 ${styles[tone]}`}>
-      <Icon size={22} className="shrink-0 mt-0.5" aria-hidden />
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-bold">{title}</p>
-        <p className="text-xs leading-relaxed font-medium opacity-90">{body}</p>
+      <Icon size={22} className={`shrink-0 mt-0.5 ${iconClass}`} aria-hidden />
+      <div className="min-w-0 space-y-1 text-slate-800">
+        <p className="text-sm font-bold text-slate-900">{title}</p>
+        <p className="text-xs leading-relaxed font-medium text-slate-700">{body}</p>
         {checkedAt && (
-          <p className="text-[11px] opacity-70">
+          <p className="text-[11px] text-slate-500">
             {checkedLabel}:{' '}
             {new Date(checkedAt).toLocaleString(undefined, {
               day: '2-digit',
@@ -337,7 +358,7 @@ function CheckCard({
     error: 'border-rose-100',
   };
   const badge: Record<HealthTone, string> = {
-    idle: 'bg-slate-100 text-slate-600',
+    idle: 'bg-slate-100 text-slate-700',
     ok: 'bg-emerald-100 text-emerald-800',
     warn: 'bg-amber-100 text-amber-900',
     error: 'bg-rose-100 text-rose-800',
@@ -368,6 +389,41 @@ function ToneBadge({ className, labelKey }: { className: string; labelKey: strin
   );
 }
 
+function SoftOrError({
+  text,
+  t,
+}: {
+  text: string;
+  t: (key: string) => string;
+}) {
+  const key = deviceErrorI18nKey(text);
+  if (key === 'diagnosis.errors.protocolUnsupported') {
+    return <SoftNote text={t(key)} />;
+  }
+  return <ErrorLine text={friendlyError(text, t)} />;
+}
+
+function friendlyError(raw: string, t: (key: string) => string): string {
+  const key = deviceErrorI18nKey(raw);
+  return key ? t(key) : raw;
+}
+
+function SoftNote({ text }: { text: string }) {
+  return (
+    <p className="text-xs font-medium text-slate-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 break-words">
+      {text}
+    </p>
+  );
+}
+
+function ErrorLine({ text }: { text: string }) {
+  return (
+    <p className="text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5 break-words">
+      {text}
+    </p>
+  );
+}
+
 function FlagPill({
   label,
   state,
@@ -392,14 +448,6 @@ function FlagPill({
     <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${tone}`}>
       {label}: {value}
     </span>
-  );
-}
-
-function ErrorLine({ text }: { text: string }) {
-  return (
-    <p className="text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5 break-words">
-      {text}
-    </p>
   );
 }
 

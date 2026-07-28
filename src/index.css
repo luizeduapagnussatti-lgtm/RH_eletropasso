@@ -83,6 +83,18 @@ html.dark body {
 .dark .bg-amber-50 { background-color: #451a03 !important; }
 .dark .bg-indigo-50 { background-color: #1e1b4b !important; }
 .dark .text-indigo-700 { color: #a5b4fc !important; }
+/* Semantic *-950 text on remapped *-50 backgrounds (otherwise invisible in dark) */
+.dark .text-amber-950 { color: #fde68a !important; }
+.dark .text-amber-900 { color: #fcd34d !important; }
+.dark .text-emerald-950 { color: #a7f3d0 !important; }
+.dark .text-emerald-900 { color: #6ee7b7 !important; }
+.dark .text-rose-950 { color: #fecdd3 !important; }
+.dark .text-rose-900 { color: #fda4af !important; }
+.dark .bg-emerald-100 { background-color: #064e3b !important; }
+.dark .bg-amber-100 { background-color: #78350f !important; }
+.dark .border-amber-100 { border-color: #92400e !important; }
+.dark .border-amber-200 { border-color: #b45309 !important; }
+.dark .border-emerald-100 { border-color: #065f46 !important; }
 
 /* Hover backgrounds */
 .dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }
