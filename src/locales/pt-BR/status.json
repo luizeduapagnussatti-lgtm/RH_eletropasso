@@ -8,7 +8,7 @@
   },
   "attendance": {
     "PRESENT": "Presente",
-    "LATE": "Atrasado",
+    "LATE": "Atraso",
     "ABSENT": "Ausente",
     "LEAVE": "Em licença",
     "EARLY_OUT": "Saída antecipada",

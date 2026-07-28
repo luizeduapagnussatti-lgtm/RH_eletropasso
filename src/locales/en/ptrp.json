@@ -91,6 +91,7 @@
   "day": "Day",
   "allDays": "All days",
   "dayStatus_OK": "OK",
+  "dayStatus_LATE": "Late",
   "dayStatus_ABSENT": "Absent",
   "dayStatus_INCOMPLETE": "Incomplete",
   "dayStatus_HOLIDAY": "Holiday",

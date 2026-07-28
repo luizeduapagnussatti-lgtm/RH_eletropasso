@@ -55,6 +55,7 @@ const employeeReviewStatusKey: Record<string, string> = {
 
 const dayStatusKey: Record<string, string> = {
   OK: 'dayStatus_OK',
+  LATE: 'dayStatus_LATE',
   ABSENT: 'dayStatus_ABSENT',
   INCOMPLETE: 'dayStatus_INCOMPLETE',
   HOLIDAY: 'dayStatus_HOLIDAY',

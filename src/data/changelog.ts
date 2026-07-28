@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-28',
+    title: 'Espelho — status LATE em português',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Status LATE do espelho (UI e PDF) passa a exibir “Atraso” em vez do código em inglês; alinhado também em status de ponto (attendance).',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Espelho PDF — departamento, aprovação e português',
     entries: [
       {
