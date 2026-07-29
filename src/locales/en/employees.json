@@ -178,6 +178,8 @@
     "fullName": "Full name",
     "cpf": "CPF (Brazilian tax ID)",
     "mobile": "Mobile phone",
+    "whatsappOptIn": "I agree to receive announcements and schedules via WhatsApp",
+    "whatsappOptInHint": "We will use the mobile number above. You can revoke anytime in your profile.",
     "emergencyContact": "Emergency contact",
     "photo": "Photo",
     "employmentType": "Employment type",

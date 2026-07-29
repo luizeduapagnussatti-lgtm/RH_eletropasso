@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient } from './api.client';
 import { employeeService } from './employee.service';
 import { notificationService } from './notification.service';
+import { messagingService } from './messaging.service';
 import { rosterService } from './roster.service';
 import { timesheetService } from './timesheet.service';
 import { needsClockAdmission } from '../utils/roles';
@@ -31,6 +32,24 @@ function resolveEmployee(employees: Employee[], profileId: string): Employee | u
 
 function punchKey(emp: Employee): string {
   return emp.employeeId || emp.id;
+}
+
+async function notifySwapWhatsApp(
+  profileId: string,
+  message: string,
+  workDate: string,
+): Promise<void> {
+  try {
+    await messagingService.dispatchSingle({
+      channel: 'WHATSAPP',
+      recipientProfileId: profileId,
+      body: message,
+      referenceType: 'roster_swap',
+      referenceId: workDate,
+    });
+  } catch (e) {
+    console.warn('[rosterSwap] WhatsApp notify failed', e);
+  }
 }
 
 async function notifySwap(
@@ -126,6 +145,11 @@ export const rosterSwapService = {
       `${requester.name} quer trocar a escala de ${params.workDate}.`,
       params.workDate
     );
+    void notifySwapWhatsApp(
+      target.id,
+      `Olá! ${requester.name} solicitou troca de escala em ${params.workDate}. Acesse o app RH para responder.`,
+      params.workDate,
+    );
 
     apiClient.notify();
     return mapRow(data);
@@ -158,6 +182,7 @@ export const rosterSwapService = {
       if (error) throw error;
       if (requester) {
         await notifySwap(requester.id, 'Troca recusada', `Seu pedido de troca em ${existing.work_date} foi recusado.`, existing.work_date);
+        void notifySwapWhatsApp(requester.id, `Sua solicitação de troca de escala em ${existing.work_date} foi recusada.`, existing.work_date);
       }
       apiClient.notify();
       return mapRow(data);
@@ -263,6 +288,9 @@ export const rosterSwapService = {
         actionUrl: 'my-roster',
       },
     ]);
+
+    void notifySwapWhatsApp(requester.id, `Troca de escala em ${existing.work_date} aprovada pelo gestor.`, existing.work_date);
+    void notifySwapWhatsApp(target.id, `Troca de escala em ${existing.work_date} aprovada pelo gestor.`, existing.work_date);
 
     apiClient.notify();
     return mapRow(data);

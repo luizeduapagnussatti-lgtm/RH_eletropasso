@@ -16,24 +16,17 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { lazyWithReload } from './utils/lazyWithReload';
 import { supabase } from './services/supabase';
 
-// Eager: public pages needed for first paint / SEO
+// Eager: minimal public pages (Eletropasso intranet — no marketing blog/features/about)
 import Login from './pages/Login';
 import Setup from './pages/Setup';
-import RegisterOrganization from './pages/RegisterOrganization';
 import { VerifyAccount } from './pages/VerifyAccount';
 import { ResetPassword } from './pages/ResetPassword';
-import { SuspendedPage } from './components/subscription';
-import BlogPage from './pages/BlogPage';
-import BlogPostPage from './pages/BlogPostPage';
 import TutorialsPage from './pages/TutorialsPage';
 import TutorialPage from './pages/TutorialPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import NotFoundPage from './pages/NotFoundPage';
-import FeaturesPage from './pages/FeaturesPage';
-import FeatureDetailPage from './pages/FeatureDetailPage';
 import ChangelogPage from './pages/ChangelogPage';
-import AboutPage from './pages/AboutPage';
 
 // Lazy: authenticated pages loaded on demand after login.
 // lazyWithReload auto-recovers from stale chunk hashes after a deploy
@@ -50,7 +43,6 @@ const Settings = lazyWithReload(() => import('./pages/Settings'));
 const Reports = lazyWithReload(() => import('./pages/Reports'));
 const Organization = lazyWithReload(() => import('./pages/Organization'));
 const SuperAdmin = lazyWithReload(() => import('./pages/SuperAdmin'));
-const Upgrade = lazyWithReload(() => import('./pages/Upgrade'));
 const PerformanceReview = lazyWithReload(() => import('./pages/PerformanceReview'));
 const Announcements = lazyWithReload(() => import('./pages/Announcements'));
 const AdminNotifications = lazyWithReload(() => import('./pages/AdminNotifications'));
@@ -60,6 +52,7 @@ const PontoHub = lazyWithReload(() => import('./pages/PontoHub'));
 const Apuracao = lazyWithReload(() => import('./pages/Apuracao'));
 const Comunicacao = lazyWithReload(() => import('./pages/Comunicacao'));
 const WorkRoster = lazyWithReload(() => import('./pages/WorkRoster'));
+const MessagingOutbox = lazyWithReload(() => import('./pages/MessagingOutbox'));
 const MyTimesheet = lazyWithReload(() => import('./pages/MyTimesheet'));
 const MyRoster = lazyWithReload(() => import('./pages/MyRoster'));
 
@@ -70,17 +63,17 @@ import { useEmployeeMobileShell } from './hooks/useEmployeeMobileShell';
 import { isAttendanceRoute, shouldUseEmployeeMobileShell } from './utils/mobileShell';
 import { needsClockAdmission } from './utils/roles';
 
-// Parse features route from pathname
-const parseFeaturesRoute = (pathname: string) => {
-  if (pathname === '/features' || pathname === '/features/') {
-    return { type: 'list' as const };
+// Legacy SaaS marketing paths — redirect to login on load
+const DEPRECATED_PUBLIC_PREFIXES = ['/blog', '/features', '/about'];
+
+function redirectDeprecatedPublicPath(): boolean {
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  if (DEPRECATED_PUBLIC_PREFIXES.some(p => path === p || path.startsWith(`${p}/`))) {
+    window.history.replaceState(null, '', '/');
+    return true;
   }
-  const match = pathname.match(/^\/features\/(.+)$/);
-  if (match && match[1]) {
-    return { type: 'detail' as const, slug: match[1] };
-  }
-  return null;
-};
+  return false;
+}
 
 // Parse changelog route from pathname
 const parseChangelogRoute = (pathname: string) => {
@@ -90,19 +83,7 @@ const parseChangelogRoute = (pathname: string) => {
   return false;
 };
 
-// Parse blog route from pathname
-const parseBlogRoute = (pathname: string) => {
-  if (pathname === '/blog' || pathname === '/blog/') {
-    return { type: 'list' as const };
-  }
-  const match = pathname.match(/^\/blog\/(.+)$/);
-  if (match && match[1]) {
-    return { type: 'post' as const, slug: match[1] };
-  }
-  return null;
-};
-
-// Parse tutorial route from pathname
+// Parse tutorial route (authenticated help only — public /how-to-use redirects at login gate)
 const parseTutorialRoute = (pathname: string) => {
   if (pathname === '/how-to-use' || pathname === '/how-to-use/') {
     return { type: 'list' as const };
@@ -116,61 +97,42 @@ const parseTutorialRoute = (pathname: string) => {
 
 const AppContent: React.FC = () => {
   const { user, isLoading, isConfigured, setConfigured, login, logout } = useAuth();
-  const { subscription, isLoading: isSubscriptionLoading } = useSubscription();
+  useSubscription();
   const { showToast } = useToast();
   const { t: tMobile } = useTranslation('mobile');
   const employeeMobileShell = useEmployeeMobileShell();
   const [currentPath, setCurrentPath] = useState('dashboard');
   const [navParams, setNavParams] = useState<any>(null);
 
-  // Public Pages State — login is the default entry (no marketing landing)
-  const [showRegister, setShowRegister] = useState(false);
+  // Public Pages State — login is the default entry
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [blogRoute, setBlogRoute] = useState<{ type: 'list' | 'post'; slug?: string } | null>(() => {
-    return parseBlogRoute(window.location.pathname);
-  });
-  const [tutorialRoute, setTutorialRoute] = useState<{ type: 'list' | 'single'; slug?: string } | null>(() => {
-    return parseTutorialRoute(window.location.pathname);
-  });
   const [policyRoute, setPolicyRoute] = useState<'privacy' | 'terms' | null>(() => {
     const path = window.location.pathname;
     if (path === '/privacy' || path === '/privacy/') return 'privacy';
     if (path === '/terms' || path === '/terms/') return 'terms';
     return null;
   });
-  const [featuresRoute, setFeaturesRoute] = useState<{ type: 'list' | 'detail'; slug?: string } | null>(() => {
-    return parseFeaturesRoute(window.location.pathname);
-  });
   const [changelogRoute, setChangelogRoute] = useState<boolean>(() => {
+    if (redirectDeprecatedPublicPath()) return false;
     return parseChangelogRoute(window.location.pathname);
   });
-  const [aboutRoute, setAboutRoute] = useState<boolean>(() => {
-    const path = window.location.pathname;
-    return path === '/about' || path === '/about/';
-  });
   const [is404, setIs404] = useState<boolean>(() => {
+    if (redirectDeprecatedPublicPath()) return false;
     const path = window.location.pathname;
     const hash = window.location.hash;
     const search = window.location.search;
-    const knownPaths = ['/', '/privacy', '/privacy/', '/terms', '/terms/', '/features', '/features/', '/changelog', '/changelog/', '/about', '/about/', '/_/', '/_'];
+    const knownPaths = ['/', '/privacy', '/privacy/', '/terms', '/terms/', '/changelog', '/changelog/', '/_/', '/_'];
 
-    // Don't show 404 if URL contains a verification token
     if (new URLSearchParams(search).has('token')) return false;
     if (hash.includes('token=')) return false;
     if (hash.includes('/auth/confirm-verification/')) return false;
 
-    // Don't show 404 for blog/tutorial/features/changelog/about clean URL routes
-    if (parseBlogRoute(path)) return false;
     if (parseTutorialRoute(path)) return false;
-    if (parseFeaturesRoute(path)) return false;
     if (parseChangelogRoute(path)) return false;
-    if (path === '/about' || path === '/about/') return false;
 
-    // Don't show 404 for hash-based routes (legacy compat)
     if (hash && hash !== '#' && hash !== '#/') return false;
 
-    // Clean up /_/ path (PocketBase admin path leaked into verification URLs)
     if (path === '/_/' || path === '/_') {
       window.history.replaceState(null, '', '/' + search + hash);
       return false;
@@ -182,7 +144,7 @@ const AppContent: React.FC = () => {
   // Check URL for verification token on mount
   useEffect(() => {
     // Skip if on a recognized route
-    if (policyRoute || blogRoute || tutorialRoute || featuresRoute || changelogRoute) return;
+    if (policyRoute || changelogRoute) return;
 
     let token: string | null = null;
 
@@ -248,14 +210,12 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // Redirect legacy hash tutorial routes to clean URLs
+      // Redirect legacy hash tutorial routes to authenticated help (after login)
       if (hash === '#/how-to-use' || hash === '#/how-to-use/') {
-        navigateTo('/how-to-use');
         return;
       }
       const tutorialMatch = hash.match(/^#\/how-to-use\/(.+)$/);
       if (tutorialMatch && tutorialMatch[1]) {
-        navigateTo(`/how-to-use/${tutorialMatch[1]}`);
         return;
       }
     };
@@ -269,13 +229,20 @@ const AppContent: React.FC = () => {
       const path = window.location.pathname;
       const hash = window.location.hash;
       const search = window.location.search;
-      const knownPaths = ['/', '/privacy', '/privacy/', '/terms', '/terms/', '/features', '/features/', '/changelog', '/changelog/', '/about', '/about/', '/_/', '/_'];
+      const knownPaths = ['/', '/privacy', '/privacy/', '/terms', '/terms/', '/changelog', '/changelog/', '/_/', '/_'];
 
-      // Never show 404 for verification tokens or hash-based routes
       const hasToken = new URLSearchParams(search).has('token') || hash.includes('token=') || hash.includes('/auth/confirm-verification/');
       const hasHashRoute = hash && hash !== '#' && hash !== '#/';
 
-      const clearAll = () => { setPolicyRoute(null); setBlogRoute(null); setTutorialRoute(null); setFeaturesRoute(null); setChangelogRoute(false); setAboutRoute(false); };
+      const clearAll = () => { setPolicyRoute(null); setChangelogRoute(false); };
+
+      if (redirectDeprecatedPublicPath()) {
+        clearAll();
+        setIs404(false);
+        return;
+      }
+
+      // Never show 404 for verification tokens or hash-based routes
 
       // Clean up /_/ path (PocketBase admin path leaked into verification URLs)
       if (path === '/_/' || path === '/_') {
@@ -293,42 +260,6 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // Check about route (must be before features since it's a separate path)
-      if (path === '/about' || path === '/about/') {
-        clearAll();
-        setAboutRoute(true);
-        setIs404(false);
-        return;
-      }
-
-      // Check features routes (must be before blog/tutorial since /features/slug is a pattern)
-      const featuresMatch = parseFeaturesRoute(path);
-      if (featuresMatch) {
-        clearAll();
-        setFeaturesRoute(featuresMatch);
-        setIs404(false);
-        return;
-      }
-
-      // Check blog routes
-      const blogMatch = parseBlogRoute(path);
-      if (blogMatch) {
-        clearAll();
-        setBlogRoute(blogMatch);
-        setIs404(false);
-        return;
-      }
-
-      // Check tutorial routes
-      const tutorialMatch = parseTutorialRoute(path);
-      if (tutorialMatch) {
-        clearAll();
-        setTutorialRoute(tutorialMatch);
-        setIs404(false);
-        return;
-      }
-
-      // Check policy routes
       if (path === '/privacy' || path === '/privacy/') {
         clearAll();
         setPolicyRoute('privacy');
@@ -389,6 +320,15 @@ const AppContent: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    const onInternalNavigate = (event: Event) => {
+      const detail = (event as CustomEvent<{ path?: string; params?: Record<string, unknown> }>).detail;
+      if (detail?.path) handleNavigate(detail.path, detail.params);
+    };
+    window.addEventListener('openhr-navigate', onInternalNavigate);
+    return () => window.removeEventListener('openhr-navigate', onInternalNavigate);
+  }, [user]);
+
   if (!isConfigured) {
     return <Setup onComplete={() => setConfigured(true)} />;
   }
@@ -400,43 +340,14 @@ const AppContent: React.FC = () => {
   if (policyRoute === 'terms') {
     return <TermsOfServicePage onBack={() => { navigateTo('/'); }} />;
   }
-  // Priority 0b: Public Features pages (accessible regardless of auth)
-  if (featuresRoute) {
-    if (featuresRoute.type === 'detail' && featuresRoute.slug) {
-      return <FeatureDetailPage slug={featuresRoute.slug} onBack={() => { navigateTo('/features'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
-    }
-    return <FeaturesPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
-  }
 
-  // Priority 0c: Public Changelog (accessible regardless of auth)
   if (changelogRoute) {
     return <ChangelogPage onBack={() => { navigateTo('/'); }} />;
   }
 
-  // Priority 0c2: Public About (accessible regardless of auth)
-  if (aboutRoute) {
-    return <AboutPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
-  }
-
-  // Priority 0d: Public Tutorials (accessible regardless of auth)
-  if (tutorialRoute) {
-    if (tutorialRoute.type === 'single' && tutorialRoute.slug) {
-      return <TutorialPage slug={tutorialRoute.slug} onBack={() => { navigateTo('/how-to-use'); }} />;
-    }
-    return <TutorialsPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
-  }
-
-  // Priority 0: Public Blog (accessible regardless of auth)
-  if (blogRoute) {
-    if (blogRoute.type === 'post' && blogRoute.slug) {
-      return <BlogPostPage slug={blogRoute.slug} onBack={() => { navigateTo('/blog'); }} />;
-    }
-    return <BlogPage onBack={() => { navigateTo('/'); }} onRegisterClick={() => { navigateTo('/'); setShowRegister(true); }} />;
-  }
-
   // Priority 1: Verification Flow (must come BEFORE 404 check)
   if (verificationToken) {
-    return <VerifyAccount token={verificationToken} onFinished={() => { setVerificationToken(null); setShowRegister(false); }} />;
+    return <VerifyAccount token={verificationToken} onFinished={() => { setVerificationToken(null); }} />;
   }
 
   // Priority 1.5: Password Reset Flow
@@ -457,27 +368,16 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Priority 2: Public Login/Register (landing page skipped for this deployment)
+  // Public Login only (single-tenant — no org registration)
   if (!user) {
-    if (showRegister) {
-      return <RegisterOrganization onBack={() => { setShowRegister(false); }} onSuccess={login} />;
+    const tutorialPublic = parseTutorialRoute(window.location.pathname);
+    if (tutorialPublic) {
+      window.history.replaceState(null, '', '/');
     }
-    return (
-      <Login
-        onLoginSuccess={login}
-        onRegisterClick={() => setShowRegister(true)}
-      />
-    );
+    return <Login onLoginSuccess={login} />;
   }
 
-  // Check if Super Admin
   const isSuperAdmin = user.role === 'SUPER_ADMIN';
-
-  // Priority 2.5: Check if organization is suspended (show lockout screen)
-  // Wait for subscription to load before checking
-  if (!isSuperAdmin && !isSubscriptionLoading && subscription?.isBlocked) {
-    return <SuspendedPage onLogout={logout} />;
-  }
 
   // Priority 3: Authenticated App
   const renderContent = () => {
@@ -489,11 +389,23 @@ const AppContent: React.FC = () => {
     switch (currentPath) {
       case 'dashboard': return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'super-admin': return <SuperAdmin user={user} onNavigate={handleNavigate} />;
-      case 'upgrade':
-        if (user.role === 'ADMIN') {
-          return <Upgrade onBack={() => handleNavigate('dashboard')} />;
-        }
-        return <Dashboard user={user} onNavigate={handleNavigate} />;
+      case 'help':
+        return (
+          <TutorialsPage
+            onBack={() => handleNavigate('dashboard')}
+            internalHelp
+            onOpenTutorial={slug => handleNavigate('help-article', { slug })}
+          />
+        );
+      case 'help-article':
+        return (
+          <TutorialPage
+            slug={navParams?.slug || ''}
+            onBack={() => handleNavigate('help')}
+            internalHelp
+            onOpenTutorial={slug => handleNavigate('help-article', { slug })}
+          />
+        );
       case 'profile': return <Settings user={user} onBack={() => handleNavigate('dashboard')} onNavigate={handleNavigate} />;
       case 'employees': return <EmployeeDirectory user={user} onNavigate={handleNavigate} />;
       case 'employee-new':
@@ -591,6 +503,11 @@ const AppContent: React.FC = () => {
       case 'leave': return <Leave user={user} autoOpen={navParams?.autoOpen} />;
       case 'announcements': return <Announcements user={user} />;
       case 'admin-notifications': return <AdminNotifications user={user} />;
+      case 'messaging-outbox':
+        if (user.role === 'ADMIN' || user.role === 'HR') {
+          return <MessagingOutbox />;
+        }
+        return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'performance-review': return <PerformanceReview user={user} />;
       case 'settings':
         if (user.role === 'ADMIN') {

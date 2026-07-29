@@ -35,5 +35,12 @@
   "hoursAgo": "{{count}} h atrás",
   "daysAgo": "{{count}} d atrás",
   "readMore": "Ler mais",
-  "showLess": "Mostrar menos"
+  "showLess": "Mostrar menos",
+  "deliveryChannels": "Canais de entrega",
+  "deliveryChannelsHint": "App = sino; E-mail/WhatsApp respeitam opt-in do colaborador",
+  "channel": {
+    "APP": "App (sino)",
+    "EMAIL": "E-mail",
+    "WHATSAPP": "WhatsApp"
+  }
 }

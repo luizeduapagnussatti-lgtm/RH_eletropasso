@@ -22,6 +22,7 @@ import { OrgHolidays } from '../components/organization/OrgHolidays';
 import { OrgSystem } from '../components/organization/OrgSystem';
 import { OrgShifts } from '../components/organization/OrgShifts';
 import { OrgNotifications } from '../components/organization/OrgNotifications';
+import { OrgMessaging } from '../components/organization/OrgMessaging';
 import HelpButton from '../components/onboarding/HelpButton';
 import { orgTabButtonClass } from '../components/organization/OrgUi';
 
@@ -37,10 +38,10 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const { user } = useAuth();
   const canEditSystemPolicy = isOrgAdmin(user?.role);
   const {
-      departments, designations, holidays, teams, employees, leavePolicy, config, workflows, shiftOverrides, notificationConfig,
+      departments, designations, holidays, teams, employees, leavePolicy, config, workflows, shiftOverrides, notificationConfig, messagingConfig,
       isLoading, isSaving,
       updateDepartments, updateDesignations, updateHolidays, saveTeam, deleteTeam,
-      updateLeavePolicy, saveConfig, updateWorkflows, updateShiftOverrides, saveNotificationConfig
+      updateLeavePolicy, saveConfig, updateWorkflows, updateShiftOverrides, saveNotificationConfig, saveMessagingConfig
   } = useOrganization();
 
   // Shifts managed locally with dedicated collection CRUD
@@ -385,7 +386,10 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         )}
 
         {activeTab === 'NOTIFICATIONS' && (
-           <OrgNotifications config={notificationConfig} onSave={saveNotificationConfig} />
+           <div className="space-y-8">
+             <OrgNotifications config={notificationConfig} onSave={saveNotificationConfig} />
+             <OrgMessaging config={messagingConfig} onSave={saveMessagingConfig} />
+           </div>
         )}
 
         {activeTab === 'SYSTEM' && (

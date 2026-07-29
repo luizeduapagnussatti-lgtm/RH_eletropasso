@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient, resolveOrgId } from './api.client';
-import { AppConfig, Holiday, Team, LeavePolicy, LeaveWorkflow, OrgReviewConfig, CustomLeaveType, OrgNotificationConfig, SubscriptionInfo, SubscriptionStatus, User } from '../types';
-import { DEFAULT_CONFIG, DEFAULT_REVIEW_CONFIG, DEFAULT_LEAVE_TYPES, DEFAULT_NOTIFICATION_CONFIG } from '../constants';
+import { AppConfig, Holiday, Team, LeavePolicy, LeaveWorkflow, OrgReviewConfig, CustomLeaveType, OrgNotificationConfig, OrgMessagingConfig, SubscriptionInfo, SubscriptionStatus, User } from '../types';
+import { DEFAULT_CONFIG, DEFAULT_REVIEW_CONFIG, DEFAULT_LEAVE_TYPES, DEFAULT_NOTIFICATION_CONFIG, DEFAULT_MESSAGING_CONFIG } from '../constants';
 import { shiftService } from './shift.service';
 
 const ORG_CACHE_TTL = 5 * 60 * 1000;
@@ -16,6 +16,7 @@ let cachedReviewConfig: OrgReviewConfig | null = null;
 let cachedLeaveTypes: CustomLeaveType[] | null = null;
 let cachedTeams: Team[] | null = null;
 let cachedNotificationConfig: OrgNotificationConfig | null = null;
+let cachedMessagingConfig: OrgMessagingConfig | null = null;
 
 function isCacheValid() {
   return orgCacheTimestamp > 0 && Date.now() - orgCacheTimestamp < ORG_CACHE_TTL;
@@ -75,6 +76,7 @@ export const organizationService = {
     cachedTeams = null;
     cachedLeaveTypes = null;
     cachedNotificationConfig = null;
+    cachedMessagingConfig = null;
     orgCacheTimestamp = 0;
     shiftService.clearCache();
   },
@@ -295,13 +297,27 @@ export const organizationService = {
     apiClient.notify();
   },
 
+  async getMessagingConfig(): Promise<OrgMessagingConfig> {
+    if (cachedMessagingConfig && isCacheValid()) return cachedMessagingConfig;
+    const val = await getSetting('messaging_config', DEFAULT_MESSAGING_CONFIG);
+    cachedMessagingConfig = val;
+    touchCache();
+    return val;
+  },
+
+  async setMessagingConfig(config: OrgMessagingConfig) {
+    await setSetting('messaging_config', config);
+    cachedMessagingConfig = config;
+    apiClient.notify();
+  },
+
   async sendCustomEmail(data: { recipientEmail: string; subject: string; html: string; type?: string }) {
     if (!isSupabaseConfigured()) return;
     const orgId = apiClient.getOrganizationId();
     const payload = {
       recipient_email: data.recipientEmail.trim(),
       subject: data.subject.trim(),
-      html_content: data.html,
+      message: data.html,
       type: data.type || 'SYSTEM_REPORT',
       status: 'PENDING',
       organization_id: orgId,

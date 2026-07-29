@@ -1,10 +1,11 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient } from './api.client';
-import { Announcement, AnnouncementPriority, Role } from '../types';
+import { Announcement, AnnouncementPriority, Role, MessagingChannel } from '../types';
 import { notificationService } from './notification.service';
 import { employeeService } from './employee.service';
 import { organizationService } from './organization.service';
+import { messagingService } from './messaging.service';
 
 export const announcementService = {
   async getAnnouncements(): Promise<Announcement[]> {
@@ -47,6 +48,7 @@ export const announcementService = {
     priority: AnnouncementPriority;
     targetRoles: Role[];
     expiresAt?: string;
+    channels?: MessagingChannel[];
   }): Promise<void> {
     if (!isSupabaseConfigured()) return;
     const orgId = apiClient.getOrganizationId();
@@ -72,8 +74,7 @@ export const announcementService = {
     // Notify target users (fire-and-forget)
     try {
       const orgConfig = await organizationService.getNotificationConfig();
-      if (!orgConfig.enabledTypes.includes('ANNOUNCEMENT')) return;
-
+      const channels = data.channels ?? ['APP'];
       const employees = await employeeService.getEmployees();
       const targetUsers = employees.filter(emp => {
         if (emp.id === data.authorId) return false;
@@ -83,7 +84,7 @@ export const announcementService = {
         return true;
       });
 
-      if (targetUsers.length > 0) {
+      if (channels.includes('APP') && orgConfig.enabledTypes.includes('ANNOUNCEMENT') && targetUsers.length > 0) {
         await notificationService.createBulkNotifications(
           targetUsers.map(emp => ({
             userId: emp.id,
@@ -96,6 +97,30 @@ export const announcementService = {
             actionUrl: 'announcements',
           }))
         );
+      }
+
+      const externalChannels = channels.filter(c => c === 'EMAIL' || c === 'WHATSAPP') as ('EMAIL' | 'WHATSAPP')[];
+      if (externalChannels.length > 0 && targetUsers.length > 0) {
+        const items = externalChannels.flatMap(channel =>
+          targetUsers.flatMap(emp => {
+            const prefs = emp.messagingChannelPref ?? ['APP', 'EMAIL'];
+            if (!prefs.includes(channel)) return [];
+            if (channel === 'WHATSAPP' && !emp.whatsappOptIn) return [];
+            return [{
+              channel,
+              recipientProfileId: emp.id,
+              recipientEmail: emp.email,
+              recipientPhone: emp.whatsappE164,
+              subject: data.title,
+              body: data.content,
+              referenceType: 'announcement' as const,
+              referenceId: record.id,
+            }];
+          })
+        );
+        if (items.length > 0) {
+          await messagingService.dispatchBatch(items);
+        }
       }
     } catch (notifErr: any) {
       console.error('[AnnouncementService] Failed to create notifications:', notifErr?.message || notifErr);

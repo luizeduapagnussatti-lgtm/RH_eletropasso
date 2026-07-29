@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabas
 import { apiClient, dedupe, resolveOrgId } from './api.client';
 import { Employee, ClockOnboardingStatus } from '../types';
 import { normalizePis, validatePis, normalizeCpf, validateCpf, normalizeClockCredential, validateClockCredential, resolveClockCredential } from '../utils/employeeCredentials';
+import { normalizePhoneE164BR } from '../utils/phoneUtils';
 import { needsClockAdmission } from '../utils/roles';
 
 let cachedEmployees: Employee[] | null = null;
@@ -30,6 +31,9 @@ function mapProfileToEmployee(r: any): Employee {
     joiningDate: r.joining_date || '',
     terminationDate: r.termination_date || undefined,
     mobile: r.mobile || '',
+    whatsappE164: r.whatsapp_e164 || undefined,
+    whatsappOptIn: !!r.whatsapp_opt_in,
+    messagingChannelPref: (r.messaging_channel_pref || ['APP', 'EMAIL']) as Employee['messagingChannelPref'],
     emergencyContact: r.emergency_contact || '',
     salary: r.salary || 0,
     status: r.status || 'ACTIVE',
@@ -146,6 +150,10 @@ export const employeeService = {
     if (emp.teamId)      formData.append('teamId', emp.teamId);
     if (emp.shiftId)     formData.append('shiftId', emp.shiftId);
     if (emp.mobile)      formData.append('mobile', emp.mobile);
+    if (emp.whatsappOptIn !== undefined) formData.append('whatsappOptIn', emp.whatsappOptIn ? 'true' : 'false');
+    if (emp.messagingChannelPref?.length) {
+      formData.append('messagingChannelPref', JSON.stringify(emp.messagingChannelPref));
+    }
     if (emp.joiningDate) formData.append('joiningDate', emp.joiningDate);
     if (emp.employmentType) formData.append('employmentType', emp.employmentType);
     if (emp.workType)    formData.append('workType', emp.workType);
@@ -209,7 +217,12 @@ export const employeeService = {
       }
       payload.cpf = cpf || null;
     }
-    if (updates.mobile !== undefined)      payload.mobile = updates.mobile;
+    if (updates.mobile !== undefined) {
+      payload.mobile = updates.mobile;
+      payload.whatsapp_e164 = normalizePhoneE164BR(updates.mobile) || null;
+    }
+    if (updates.whatsappOptIn !== undefined) payload.whatsapp_opt_in = !!updates.whatsappOptIn;
+    if (updates.messagingChannelPref !== undefined) payload.messaging_channel_pref = updates.messagingChannelPref;
     if (updates.joiningDate !== undefined) payload.joining_date = updates.joiningDate || null;
     if (updates.terminationDate !== undefined) {
       payload.termination_date = updates.terminationDate || null;

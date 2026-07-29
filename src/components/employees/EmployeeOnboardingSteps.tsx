@@ -20,6 +20,8 @@ export interface OnboardingFormState {
   avatar: string;
   joiningDate: string;
   mobile: string;
+  whatsappOptIn: boolean;
+  messagingChannelPref: ('APP' | 'EMAIL' | 'WHATSAPP')[];
   emergencyContact: string;
   employmentType: Employee['employmentType'];
   location: string;
@@ -44,6 +46,8 @@ export const emptyOnboardingForm = (defaultShiftId = ''): OnboardingFormState =>
   avatar: '',
   joiningDate: new Date().toISOString().split('T')[0],
   mobile: '',
+  whatsappOptIn: false,
+  messagingChannelPref: ['APP', 'EMAIL'],
   emergencyContact: '',
   employmentType: 'PERMANENT',
   location: '',
@@ -148,6 +152,18 @@ export const StepIdentity: React.FC<Props> = ({
           value={form.mobile}
           onChange={e => onChange({ mobile: e.target.value })}
         />
+      </label>
+      <label className="md:col-span-2 flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={form.whatsappOptIn}
+          onChange={e => onChange({ whatsappOptIn: e.target.checked })}
+          className="mt-1 w-4 h-4 accent-primary"
+        />
+        <span>
+          <span className="block text-sm font-semibold text-slate-700 dark:text-slate-200">{t('onboarding.whatsappOptIn')}</span>
+          <span className="block text-xs text-slate-500 mt-1">{t('onboarding.whatsappOptInHint')}</span>
+        </span>
       </label>
       <label className="md:col-span-2">
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('onboarding.emergencyContact')}</span>

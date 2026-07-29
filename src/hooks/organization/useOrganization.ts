@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { hrService } from '../../services/hrService';
-import { Holiday, AppConfig, LeaveWorkflow, Employee, Team, LeavePolicy, ShiftOverride, OrgNotificationConfig } from '../../types';
-import { DEFAULT_CONFIG, DEFAULT_NOTIFICATION_CONFIG } from '../../constants';
+import { Holiday, AppConfig, LeaveWorkflow, Employee, Team, LeavePolicy, ShiftOverride, OrgNotificationConfig, OrgMessagingConfig } from '../../types';
+import { DEFAULT_CONFIG, DEFAULT_NOTIFICATION_CONFIG, DEFAULT_MESSAGING_CONFIG } from '../../constants';
 
 export const useOrganization = () => {
   const [departments, setDepartments] = useState<string[]>([]);
@@ -15,6 +15,7 @@ export const useOrganization = () => {
   const [leavePolicy, setLeavePolicy] = useState<LeavePolicy>({ defaults: {}, overrides: {} });
   const [shiftOverrides, setShiftOverrides] = useState<ShiftOverride[]>([]);
   const [notificationConfig, setNotificationConfig] = useState<OrgNotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
+  const [messagingConfig, setMessagingConfig] = useState<OrgMessagingConfig>(DEFAULT_MESSAGING_CONFIG);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -22,11 +23,11 @@ export const useOrganization = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [depts, desigs, hols, wfs, emps, appConfig, teamsList, lPolicy, shiftOverridesList, notifConfig] = await Promise.allSettled([
+      const [depts, desigs, hols, wfs, emps, appConfig, teamsList, lPolicy, shiftOverridesList, notifConfig, msgConfig] = await Promise.allSettled([
         hrService.getDepartments(), hrService.getDesignations(), hrService.getHolidays(),
         hrService.getWorkflows(), hrService.getEmployees(), hrService.getConfig(),
         hrService.getTeams(), hrService.getLeavePolicy(), hrService.getShiftOverrides(),
-        hrService.getNotificationConfig()
+        hrService.getNotificationConfig(), hrService.getMessagingConfig()
       ]);
 
       if (depts.status === 'fulfilled') setDepartments(depts.value);
@@ -43,6 +44,7 @@ export const useOrganization = () => {
       if (lPolicy.status === 'fulfilled') setLeavePolicy(lPolicy.value);
       if (shiftOverridesList.status === 'fulfilled') setShiftOverrides(shiftOverridesList.value);
       if (notifConfig.status === 'fulfilled') setNotificationConfig(notifConfig.value);
+      if (msgConfig.status === 'fulfilled') setMessagingConfig(msgConfig.value);
     } catch (err) { 
       console.error("Critical loading error:", err); 
     } finally { 
@@ -173,6 +175,15 @@ export const useOrganization = () => {
     finally { setIsSaving(false); }
   };
 
+  const saveMessagingConfig = async (newConfig: OrgMessagingConfig) => {
+    setIsSaving(true);
+    try {
+      await hrService.setMessagingConfig(newConfig);
+      setMessagingConfig(newConfig);
+    } catch (err) { throw err; }
+    finally { setIsSaving(false); }
+  };
+
   const updateShiftOverrides = async (newOverrides: ShiftOverride[]) => {
       setIsSaving(true);
       await hrService.setShiftOverrides(newOverrides);
@@ -181,9 +192,9 @@ export const useOrganization = () => {
   };
 
   return {
-    departments, designations, holidays, teams, config, workflows, employees, leavePolicy, shiftOverrides, notificationConfig,
+    departments, designations, holidays, teams, config, workflows, employees, leavePolicy, shiftOverrides, notificationConfig, messagingConfig,
     isLoading, isSaving,
     saveConfig, updateDepartments, updateDesignations, updateHolidays, saveTeam, deleteTeam, updateLeavePolicy, updateWorkflows,
-    updateShiftOverrides, saveNotificationConfig
+    updateShiftOverrides, saveNotificationConfig, saveMessagingConfig
   };
 };

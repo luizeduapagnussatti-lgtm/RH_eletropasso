@@ -209,6 +209,16 @@
       "version": "0041",
       "file": "0041_punches_ignored_for_calc.sql",
       "title": "punches.ignored_for_calc — ignorar batida só na apuração (RPC)"
+    },
+    {
+      "version": "0042",
+      "file": "0042_timesheet_day_status_off.sql",
+      "title": "timesheet_days — status OFF (sem expediente)"
+    },
+    {
+      "version": "0043",
+      "file": "0043_messaging_whatsapp.sql",
+      "title": "WhatsApp/E-mail — profiles whatsapp_e164 + messaging_outbox"
     }
   ]
 }

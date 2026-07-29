@@ -326,11 +326,60 @@ export interface User {
   verified?: boolean;
 }
 
+export type MessagingChannel = 'EMAIL' | 'WHATSAPP' | 'APP';
+export type MessagingOutboxStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPED';
+
+export interface OrgMessagingConfig {
+  emailEnabled: boolean;
+  whatsappEnabled: boolean;
+  fromEmail: string;
+  whatsappFrom: string;
+}
+
+export interface MessagingOutboxEntry {
+  id: string;
+  organizationId: string;
+  channel: 'EMAIL' | 'WHATSAPP';
+  recipientProfileId?: string;
+  recipient: string;
+  subject?: string;
+  body: string;
+  mediaFileName?: string;
+  status: MessagingOutboxStatus;
+  errorMessage?: string;
+  referenceType?: string;
+  referenceId?: string;
+  sentAt?: string;
+  created: string;
+  updated: string;
+}
+
+export interface MessagingDispatchItem {
+  recipientProfileId?: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  subject?: string;
+  body: string;
+  mediaBase64?: string;
+  mediaFileName?: string;
+  referenceType?: string;
+  referenceId?: string;
+}
+
+export interface MessagingDispatchResult {
+  id: string;
+  status: MessagingOutboxStatus;
+  error?: string;
+}
+
 export interface Employee extends User {
   joiningDate: string;
   /** Last day employed (inclusive). Days after this are outside employment. */
   terminationDate?: string;
   mobile: string;
+  whatsappE164?: string;
+  whatsappOptIn?: boolean;
+  messagingChannelPref?: MessagingChannel[];
   emergencyContact: string;
   salary: number;
   status: EmployeeStatus;
@@ -621,7 +670,15 @@ export interface TimesheetPeriod {
   notes?: string;
 }
 
-export type TimesheetDayStatus = 'OK' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'INCOMPLETE' | 'ADJUSTED';
+export type TimesheetDayStatus =
+  | 'OK'
+  | 'LATE'
+  | 'ABSENT'
+  | 'LEAVE'
+  | 'HOLIDAY'
+  | 'INCOMPLETE'
+  | 'ADJUSTED'
+  | 'OFF';
 
 export interface TimesheetDay {
   id: string;

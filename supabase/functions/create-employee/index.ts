@@ -55,6 +55,14 @@ function initialClockStatus(role: string): string {
   return PUNCHING_ROLES.has(role.toUpperCase()) ? 'PENDING_EXPORT' : 'NOT_APPLICABLE';
 }
 
+function normalizePhoneE164(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.startsWith('55') && digits.length >= 12) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits.length >= 12 ? digits : null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -105,6 +113,13 @@ Deno.serve(async (req: Request) => {
     const teamId      = formData.get('teamId')?.toString()?.trim() || null;
     const shiftId     = formData.get('shiftId')?.toString()?.trim() || null;
     const mobile      = formData.get('mobile')?.toString()?.trim() ?? '';
+    const whatsappOptIn = (formData.get('whatsappOptIn')?.toString() ?? '').toLowerCase() === 'true';
+    let messagingChannelPref: string[] = ['APP', 'EMAIL'];
+    try {
+      const prefRaw = formData.get('messagingChannelPref')?.toString();
+      if (prefRaw) messagingChannelPref = JSON.parse(prefRaw);
+    } catch { /* default */ }
+    const whatsappE164 = normalizePhoneE164(mobile);
     const joiningDate = formData.get('joiningDate')?.toString()?.trim() || null;
     const employmentType = formData.get('employmentType')?.toString()?.trim() || 'PERMANENT';
     const workType    = formData.get('workType')?.toString()?.trim() || 'OFFICE';
@@ -208,6 +223,9 @@ Deno.serve(async (req: Request) => {
       team_id:         teamId,
       shift_id:        shiftId,
       mobile:          mobile || null,
+      whatsapp_e164:   whatsappE164,
+      whatsapp_opt_in: whatsappOptIn,
+      messaging_channel_pref: messagingChannelPref,
       joining_date:    joiningDate,
       employment_type: employmentType,
       work_type:       workType,

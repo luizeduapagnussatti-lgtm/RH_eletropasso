@@ -1,0 +1,27 @@
+{
+  "title": "WhatsApp/Email deliveries",
+  "subtitle": "History of messages sent by HR (schedules, announcements, swaps).",
+  "empty": "No deliveries recorded.",
+  "refresh": "Refresh",
+  "retry": "Retry",
+  "retryAllFailed": "Retry failed",
+  "retrySuccess": "Message resent successfully.",
+  "retryFailed": "Retry failed.",
+  "retryBatchDone": "Batch retry completed.",
+  "filterAll": "All",
+  "colChannel": "Channel",
+  "colRecipient": "Recipient",
+  "colSubject": "Subject",
+  "colStatus": "Status",
+  "colSentAt": "Sent at",
+  "channel": {
+    "EMAIL": "Email",
+    "WHATSAPP": "WhatsApp"
+  },
+  "status": {
+    "PENDING": "Pending",
+    "SENT": "Sent",
+    "FAILED": "Failed",
+    "SKIPPED": "Skipped"
+  }
+}

@@ -181,6 +181,8 @@
     "fullName": "Nome completo",
     "cpf": "CPF",
     "mobile": "Celular",
+    "whatsappOptIn": "Aceito receber comunicados e escalas por WhatsApp",
+    "whatsappOptInHint": "Usaremos o celular cadastrado. Você pode revogar a qualquer momento no perfil.",
     "emergencyContact": "Contato de emergência",
     "photo": "Foto",
     "employmentType": "Tipo de vínculo",

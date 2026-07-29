@@ -28,6 +28,8 @@ import {
   LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
+  BookOpen,
+  Send,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import HelpButton from './onboarding/HelpButton';
@@ -92,6 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       labelKey: null,
       items: [
         { id: 'super-admin', labelKey: 'organizations', icon: Shield, roles: ['SUPER_ADMIN'] },
+        { id: 'help', labelKey: 'help', icon: BookOpen, roles: ['SUPER_ADMIN'] },
         { id: 'profile', labelKey: 'myProfile', icon: UserCircle, roles: ['SUPER_ADMIN'] },
       ],
     },
@@ -106,6 +109,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
         { id: 'profile', labelKey: 'myProfile', icon: UserCircle, roles: ALL_ROLES },
+        { id: 'help', labelKey: 'help', icon: BookOpen, roles: ALL_ROLES },
         // Personal punch history (selfie/GPS) — distinct from the REP mirror
         { id: 'attendance-logs', labelKey: 'myAttendance', icon: History, roles: PUNCHING_ROLES },
       ],
@@ -149,6 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'leave', labelKey: 'leave', icon: CalendarDays, roles: ALL_ROLES },
         { id: 'roster', labelKey: 'roster', icon: CalendarClock, roles: ['ADMIN', 'HR', 'MANAGER'] },
+        { id: 'messaging-outbox', labelKey: 'messagingOutbox', icon: Send, roles: ADMIN_HR },
         { id: 'attendance-audit', labelKey: 'attendanceAudit', icon: List, roles: STAFF_ROLES },
         { id: 'performance-review', labelKey: 'performance', icon: ClipboardCheck, roles: ALL_ROLES },
         { id: 'announcements', labelKey: 'announcements', icon: Megaphone, roles: ALL_ROLES },

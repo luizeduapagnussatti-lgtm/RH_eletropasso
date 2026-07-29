@@ -16,6 +16,19 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Escalas e comunicados via WhatsApp/E-mail',
+    entries: [
+      { type: 'feature', description: 'Migration 0043: profiles whatsapp_e164/opt_in/messaging_channel_pref + tabela messaging_outbox (fila unificada).' },
+      { type: 'feature', description: 'Edge Function messaging-dispatch: adapter Evolution API (WhatsApp) + Resend (e-mail suporte@eletropasso.com.br), batch/retry/health.' },
+      { type: 'feature', description: 'PDF de escala (equipe + individual) via rosterPdf.service; Exportar PDF e Publicar e enviar no WorkRoster; download no MyRoster.' },
+      { type: 'feature', description: 'Comunicados: toggles App/E-mail/WhatsApp; dispatch respeitando cargos e opt-in.' },
+      { type: 'feature', description: 'Página Envios WhatsApp/E-mail com reenvio; config de canais em Organização → Notificações.' },
+      { type: 'feature', description: 'Trocas de escala: aviso WhatsApp opcional; opt-in LGPD no cadastro.' },
+      { type: 'improvement', description: 'docs/messaging-secrets-eletropasso.md — secrets Evolution/Resend e deploy.' },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Frontend LAN sempre em vite preview',
     entries: [
       {

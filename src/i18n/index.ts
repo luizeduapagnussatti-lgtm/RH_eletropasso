@@ -24,6 +24,7 @@ import emailsEn from '../locales/en/emails.json';
 import ptrpEn from '../locales/en/ptrp.json';
 import payrollEn from '../locales/en/payroll.json';
 import rosterEn from '../locales/en/roster.json';
+import messagingEn from '../locales/en/messaging.json';
 import mobileEn from '../locales/en/mobile.json';
 import hubEn from '../locales/en/hub.json';
 import timeClockEn from '../locales/en/timeClock.json';
@@ -50,6 +51,7 @@ import emailsPt from '../locales/pt-BR/emails.json';
 import ptrpPt from '../locales/pt-BR/ptrp.json';
 import payrollPt from '../locales/pt-BR/payroll.json';
 import rosterPt from '../locales/pt-BR/roster.json';
+import messagingPt from '../locales/pt-BR/messaging.json';
 import mobilePt from '../locales/pt-BR/mobile.json';
 import hubPt from '../locales/pt-BR/hub.json';
 import timeClockPt from '../locales/pt-BR/timeClock.json';
@@ -77,6 +79,7 @@ export const NAMESPACES = [
   'ptrp',
   'payroll',
   'roster',
+  'messaging',
   'mobile',
   'hub',
   'timeClock',
@@ -110,6 +113,7 @@ void i18n
         ptrp: ptrpEn,
         payroll: payrollEn,
         roster: rosterEn,
+        messaging: messagingEn,
         mobile: mobileEn,
         hub: hubEn,
         timeClock: timeClockEn,
@@ -137,6 +141,7 @@ void i18n
         ptrp: ptrpPt,
         payroll: payrollPt,
         roster: rosterPt,
+        messaging: messagingPt,
         mobile: mobilePt,
         hub: hubPt,
         timeClock: timeClockPt,

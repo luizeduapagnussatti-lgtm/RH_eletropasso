@@ -1,0 +1,27 @@
+{
+  "title": "Envios WhatsApp/E-mail",
+  "subtitle": "Histórico de mensagens enviadas pelo RH (escalas, comunicados, trocas).",
+  "empty": "Nenhum envio registrado.",
+  "refresh": "Atualizar",
+  "retry": "Reenviar",
+  "retryAllFailed": "Reenviar falhas",
+  "retrySuccess": "Mensagem reenviada com sucesso.",
+  "retryFailed": "Falha ao reenviar.",
+  "retryBatchDone": "Tentativa de reenvio concluída.",
+  "filterAll": "Todos",
+  "colChannel": "Canal",
+  "colRecipient": "Destinatário",
+  "colSubject": "Assunto",
+  "colStatus": "Status",
+  "colSentAt": "Enviado em",
+  "channel": {
+    "EMAIL": "E-mail",
+    "WHATSAPP": "WhatsApp"
+  },
+  "status": {
+    "PENDING": "Pendente",
+    "SENT": "Enviado",
+    "FAILED": "Falhou",
+    "SKIPPED": "Ignorado"
+  }
+}

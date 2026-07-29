@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { Announcement, AnnouncementPriority, Role } from '../../types';
+import { Announcement, AnnouncementPriority, Role, MessagingChannel } from '../../types';
 import { tRole } from '../../i18n/statusMaps';
 
 const ALL_ROLES: Role[] = ['ADMIN', 'HR', 'MANAGER', 'TEAM_LEAD', 'MANAGEMENT', 'EMPLOYEE'];
@@ -15,6 +15,7 @@ interface Props {
     priority: AnnouncementPriority;
     targetRoles: Role[];
     expiresAt?: string;
+    channels: MessagingChannel[];
   }) => Promise<void>;
   editingAnnouncement?: Announcement | null;
 }
@@ -26,6 +27,7 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
   const [priority, setPriority] = useState<AnnouncementPriority>('NORMAL');
   const [targetRoles, setTargetRoles] = useState<Role[]>([]);
   const [expiresAt, setExpiresAt] = useState('');
+  const [channels, setChannels] = useState<MessagingChannel[]>(['APP', 'EMAIL', 'WHATSAPP']);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -41,8 +43,13 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
       setPriority('NORMAL');
       setTargetRoles([]);
       setExpiresAt('');
+      setChannels(['APP', 'EMAIL', 'WHATSAPP']);
     }
   }, [editingAnnouncement, isOpen]);
+
+  const toggleChannel = (ch: MessagingChannel) => {
+    setChannels(prev => (prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]));
+  };
 
   const toggleRole = (role: Role) => {
     setTargetRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
@@ -59,6 +66,7 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
         priority,
         targetRoles,
         expiresAt: expiresAt || undefined,
+        channels,
       });
       onClose();
     } catch (err) {
@@ -153,6 +161,28 @@ export const AnnouncementFormModal: React.FC<Props> = ({ isOpen, onClose, onSubm
                   }`}
                 >
                   {tRole(role)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t('deliveryChannels')} <span className="text-slate-400 normal-case font-medium">{t('deliveryChannelsHint')}</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {(['APP', 'EMAIL', 'WHATSAPP'] as MessagingChannel[]).map(ch => (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => toggleChannel(ch)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    channels.includes(ch)
+                      ? 'bg-primary text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {t(`channel.${ch}`)}
                 </button>
               ))}
             </div>

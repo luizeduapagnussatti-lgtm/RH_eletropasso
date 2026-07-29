@@ -120,6 +120,13 @@ export const DEFAULT_REVIEW_CONFIG: OrgReviewConfig = {
   overallRatings: DEFAULT_OVERALL_RATINGS,
 };
 
+export const DEFAULT_MESSAGING_CONFIG: OrgMessagingConfig = {
+  emailEnabled: true,
+  whatsappEnabled: true,
+  fromEmail: 'Eletropasso RH <suporte@eletropasso.com.br>',
+  whatsappFrom: '54981159982',
+};
+
 export const DEFAULT_NOTIFICATION_CONFIG: OrgNotificationConfig = {
   enabledTypes: ['ANNOUNCEMENT', 'LEAVE', 'ATTENDANCE', 'REVIEW', 'SYSTEM'],
   emailDigestFrequency: 'IMMEDIATE',

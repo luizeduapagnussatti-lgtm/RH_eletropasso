@@ -8,6 +8,8 @@ import {
   Save,
   Trash2,
   Users,
+  FileDown,
+  Send,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import {
@@ -16,12 +18,15 @@ import {
   RosterAssignmentStatus,
   RosterDayKind,
   Shift,
+  WorkRosterAssignment,
 } from '../types';
 import { canManageRoster, isNonPunchingStaff, isStaffAdmin } from '../utils/roles';
 import { useSubscription } from '../context/SubscriptionContext';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { todayIsoLocal } from '../utils/payrollPeriod';
 import RosterSwapManagerPanel from '../components/roster/RosterSwapManagerPanel';
+import RosterPublishModal from '../components/roster/RosterPublishModal';
+import { rosterPdfService } from '../services/rosterPdf.service';
 
 interface Props {
   user: { id: string; role: string; name?: string };
@@ -119,6 +124,9 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
   const [search, setSearch] = useState('');
   const [swapMode, setSwapMode] = useState(false);
   const [swapFirst, setSwapFirst] = useState<string | null>(null);
+  const [fullMonthAssignments, setFullMonthAssignments] = useState<WorkRosterAssignment[]>([]);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const clockEmployees = useMemo(
     () =>
@@ -169,6 +177,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     const end = toIso(year, month, new Date(year, month, 0).getDate());
     const rows = await hrService.listRosterAssignments(start, end);
     setPublishedDates(new Set(rows.map(r => r.workDate)));
+    setFullMonthAssignments(rows);
     setMonthAssignments(
       rows.map(r => ({ workDate: r.workDate, employeeId: r.employeeId, status: r.status }))
     );
@@ -428,6 +437,47 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     setMessage(t('copyPrevHint'));
   };
 
+  const pdfLabels = useMemo(() => ({
+    titleTeam: t('pdfTitleTeam'),
+    titleIndividual: t('pdfTitleIndividual'),
+    monthLabel: t('month'),
+    employee: t('pdfEmployee'),
+    shift: t('pdfShift'),
+    department: t('pdfDepartment'),
+    legendWork: t('working'),
+    legendOff: t('off'),
+    legendHoliday: t('holidayLabel'),
+    legendSaturday: t('saturdayLabel'),
+    legendShiftDay: t('pdfShiftDay'),
+    colDate: t('pdfColDate'),
+    colDay: t('pdfColDay'),
+    colStatus: t('pdfColStatus'),
+    colShift: t('pdfColShift'),
+    generatedAt: t('pdfGenerated'),
+    page: t('pdfPage'),
+  }), [t]);
+
+  const handleExportTeamPdf = async () => {
+    setPdfBusy(true);
+    try {
+      await rosterPdfService.exportTeamPdf({
+        year,
+        month,
+        employees: clockEmployees,
+        shifts,
+        holidays: monthHolidays.length ? monthHolidays : holidays,
+        rosterAssignments: fullMonthAssignments,
+        labels: pdfLabels,
+        locale: i18n.language === 'en' ? 'en-US' : 'pt-BR',
+      });
+    } catch (e) {
+      console.error(e);
+      setMessage(t('pdfError'));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   if (!canManageRoster(user.role)) {
     return (
       <div className="p-8 text-center text-slate-500">
@@ -521,6 +571,26 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             <h1 className="text-xl font-bold text-slate-900 dark:text-white">{t('title')}</h1>
           </div>
           <p className="mt-1 text-sm text-slate-500 max-w-2xl">{t('subtitle')}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pdfBusy || publishedDates.size === 0}
+            onClick={() => void handleExportTeamPdf()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+          >
+            {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+            {t('exportTeamPdf')}
+          </button>
+          <button
+            type="button"
+            disabled={publishedDates.size === 0}
+            onClick={() => setPublishOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white disabled:opacity-50"
+          >
+            <Send size={16} />
+            {t('publishAndSend')}
+          </button>
         </div>
       </header>
 
@@ -785,6 +855,18 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         </>
       )}
       <RosterSwapManagerPanel />
+      <RosterPublishModal
+        isOpen={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        year={year}
+        month={month}
+        employees={clockEmployees}
+        shifts={shifts}
+        holidays={monthHolidays.length ? monthHolidays : holidays}
+        rosterAssignments={fullMonthAssignments}
+        pdfLabels={pdfLabels}
+        locale={i18n.language === 'en' ? 'en-US' : 'pt-BR'}
+      />
     </div>
   );
 };

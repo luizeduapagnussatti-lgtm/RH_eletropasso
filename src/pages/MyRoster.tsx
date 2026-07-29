@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, FileDown } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import RosterSwapModal, { SwapRequestList, filterSwapColleagues } from '../components/roster/RosterSwapModal';
-import { Employee, RosterSwapRequest, User, WorkRosterAssignment } from '../types';
+import { Employee, RosterSwapRequest, User, WorkRosterAssignment, Shift } from '../types';
 import { formatIsoDateBr } from '../i18n/format';
 import { organizationService } from '../services/organization.service';
+import { rosterPdfService } from '../services/rosterPdf.service';
+import { useTranslation as useRosterTranslation } from 'react-i18next';
 
 interface Props {
   user: User;
@@ -27,7 +29,8 @@ function isSaturday(dateStr: string): boolean {
 }
 
 const MyRoster: React.FC<Props> = ({ user }) => {
-  const { t } = useTranslation('mobile');
+  const { t, i18n } = useTranslation('mobile');
+  const { t: tRoster } = useRosterTranslation('roster');
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -37,6 +40,8 @@ const MyRoster: React.FC<Props> = ({ user }) => {
   const [swaps, setSwaps] = useState<RosterSwapRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [swapTarget, setSwapTarget] = useState<WorkRosterAssignment | null>(null);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const employeeKeys = useMemo(
     () => [user.id, user.employeeId].filter(Boolean) as string[],
@@ -47,16 +52,18 @@ const MyRoster: React.FC<Props> = ({ user }) => {
     setLoading(true);
     try {
       const { start, end } = monthBounds(year, month);
-      const [rows, hols, emps, swapRows] = await Promise.all([
+      const [rows, hols, emps, swapRows, shiftList] = await Promise.all([
         hrService.listRosterForEmployee(employeeKeys, start, end),
         organizationService.getHolidays().catch(() => []),
         hrService.getEmployees(),
         hrService.listRosterSwapRequests(user.id),
+        hrService.getShifts(),
       ]);
       setAssignments(rows);
       setHolidays(hols.map(h => ({ date: h.date, name: h.name })));
       setEmployees(emps);
       setSwaps(swapRows);
+      setShifts(shiftList || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -98,6 +105,48 @@ const MyRoster: React.FC<Props> = ({ user }) => {
   const colleagues = filterSwapColleagues(employees, user.id);
   const activeSwaps = swaps.filter(s => s.status === 'PENDING_PEER' || s.status === 'PENDING_MANAGER');
 
+  const me = employees.find(e => e.id === user.id);
+  const myShift = me?.shiftId ? shifts.find(s => s.id === me.shiftId) ?? null : null;
+
+  const handleDownloadPdf = async () => {
+    if (!me) return;
+    setPdfBusy(true);
+    try {
+      await rosterPdfService.exportIndividualPdf({
+        year,
+        month,
+        employee: me,
+        shift: myShift,
+        holidays: holidays.map(h => ({ id: h.date, date: h.date, name: h.name, isGovernment: false, type: 'NATIONAL' as const })),
+        rosterAssignments: assignments,
+        labels: {
+          titleTeam: tRoster('pdfTitleTeam'),
+          titleIndividual: tRoster('pdfTitleIndividual'),
+          monthLabel: tRoster('month'),
+          employee: tRoster('pdfEmployee'),
+          shift: tRoster('pdfShift'),
+          department: tRoster('pdfDepartment'),
+          legendWork: tRoster('working'),
+          legendOff: tRoster('off'),
+          legendHoliday: tRoster('holidayLabel'),
+          legendSaturday: tRoster('saturdayLabel'),
+          legendShiftDay: tRoster('pdfShiftDay'),
+          colDate: tRoster('pdfColDate'),
+          colDay: tRoster('pdfColDay'),
+          colStatus: tRoster('pdfColStatus'),
+          colShift: tRoster('pdfColShift'),
+          generatedAt: tRoster('pdfGenerated'),
+          page: tRoster('pdfPage'),
+        },
+        locale: i18n.language === 'en' ? 'en-US' : 'pt-BR',
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <header className="flex items-start justify-between gap-3">
@@ -105,14 +154,25 @@ const MyRoster: React.FC<Props> = ({ user }) => {
           <h1 className="text-xl font-semibold text-slate-900">{t('myRosterTitle')}</h1>
           <p className="text-xs text-slate-500 mt-1">{t('myRosterSubtitle')}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => { void load(); }}
-          className="p-2 rounded-xl border border-slate-200 text-slate-500"
-          aria-label="Refresh"
-        >
-          <RefreshCw size={18} />
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={pdfBusy || assignments.length === 0}
+            onClick={() => void handleDownloadPdf()}
+            className="p-2 rounded-xl border border-slate-200 text-slate-500 disabled:opacity-50"
+            aria-label={tRoster('exportMyPdf')}
+          >
+            {pdfBusy ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => { void load(); }}
+            className="p-2 rounded-xl border border-slate-200 text-slate-500"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={18} />
+          </button>
+        </div>
       </header>
 
       <div className="flex gap-2">

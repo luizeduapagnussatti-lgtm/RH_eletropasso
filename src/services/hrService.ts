@@ -26,6 +26,8 @@ import { esocialTransmissionService } from './esocialTransmission.service';
 import { timesheetPdfExportService } from './timesheetPdfExport.service';
 import { clockSupervisorService } from './clockSupervisor.service';
 import { clockCommandService } from './clockCommand.service';
+import { messagingService } from './messaging.service';
+import { rosterPdfService } from './rosterPdf.service';
 
 export const hrService = {
   subscribe: apiClient.subscribe.bind(apiClient),
@@ -214,6 +216,17 @@ export const hrService = {
   // Notification Config (Org-level)
   getNotificationConfig: organizationService.getNotificationConfig,
   setNotificationConfig: organizationService.setNotificationConfig,
+  getMessagingConfig: organizationService.getMessagingConfig,
+  setMessagingConfig: organizationService.setMessagingConfig,
+
+  // Messaging (WhatsApp / Email bridge)
+  messagingCheckHealth: messagingService.checkHealth.bind(messagingService),
+  messagingDispatchSingle: messagingService.dispatchSingle.bind(messagingService),
+  messagingDispatchBatch: messagingService.dispatchBatch.bind(messagingService),
+  messagingRetryOutbox: messagingService.retryOutbox.bind(messagingService),
+  listMessagingOutbox: messagingService.listOutbox.bind(messagingService),
+  exportRosterTeamPdf: rosterPdfService.exportTeamPdf.bind(rosterPdfService),
+  exportRosterIndividualPdf: rosterPdfService.exportIndividualPdf.bind(rosterPdfService),
 
   // Onboarding & Guide Links
   getOnboardingStatus: organizationService.getOnboardingStatus,

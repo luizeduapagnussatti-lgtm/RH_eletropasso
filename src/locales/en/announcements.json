@@ -35,5 +35,12 @@
   "hoursAgo": "{{count}}h ago",
   "daysAgo": "{{count}}d ago",
   "readMore": "Read more",
-  "showLess": "Show less"
+  "showLess": "Show less",
+  "deliveryChannels": "Delivery channels",
+  "deliveryChannelsHint": "App = bell; Email/WhatsApp respect employee opt-in",
+  "channel": {
+    "APP": "App (bell)",
+    "EMAIL": "Email",
+    "WHATSAPP": "WhatsApp"
+  }
 }
