@@ -136,6 +136,29 @@ const ctx = {
   assert.equal(isDayApprovable(day, fourPunches, coherenceCtx).ok, true);
 }
 
+{
+  // Future workday with no punches must never be ABSENT nor debit the bank.
+  const future = calculateDay({
+    date: '2026-07-20',
+    punches: [],
+    ...ctx,
+    asOfDate: '2026-07-15',
+  });
+  assert.notEqual(future.status, 'ABSENT');
+  assert.equal(future.absenceMinutes, 0);
+  assert.equal(future.expectedMinutes, 0);
+
+  // Same shape today (no punches) is still ABSENT on a working day.
+  const todayNoPunch = calculateDay({
+    date: '2026-07-15',
+    punches: [],
+    ...ctx,
+    asOfDate: '2026-07-15',
+  });
+  assert.equal(todayNoPunch.status, 'ABSENT');
+  assert.ok(todayNoPunch.absenceMinutes > 0);
+}
+
 assert.equal(isAuditOnlyManualAdjustment({ remarks: 'test', editedAt: '2026-01-01' }), true);
 assert.equal(isAuditOnlyManualAdjustment({ workedMinutes: 480 }), false);
 

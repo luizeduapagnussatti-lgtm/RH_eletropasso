@@ -129,6 +129,14 @@ const shifts = (shiftRows || []).map(s => ({
   earlyOutGracePeriod: s.early_out_grace_period ?? 0,
   workingDays: s.working_days || [],
   breakDurationMinutes: s.break_duration_minutes,
+  breakFlexible: s.break_flexible ?? undefined,
+  breakEarliestStart: s.break_earliest_start || undefined,
+  breakLatestEnd: s.break_latest_end || undefined,
+  expectedDailyMinutes: s.expected_daily_minutes ?? undefined,
+  nightStart: s.night_start || undefined,
+  nightEnd: s.night_end || undefined,
+  overtimeToBank: s.overtime_to_bank ?? undefined,
+  daySchedules: s.day_schedules || undefined,
   organizationId: s.organization_id,
   isDefault: !!s.is_default,
 }));
@@ -141,7 +149,12 @@ const { data: settingsRows } = await adminSb
 
 let holidays = [];
 for (const row of settingsRows || []) {
-  if (row.key === 'holidays' && Array.isArray(row.value)) holidays = row.value;
+  if (row.key !== 'holidays') continue;
+  let val = row.value;
+  if (typeof val === 'string') {
+    try { val = JSON.parse(val); } catch { val = []; }
+  }
+  if (Array.isArray(val)) holidays = val;
 }
 
 const { data: leaveRows } = await adminSb

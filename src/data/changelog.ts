@@ -16,6 +16,22 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Banco de horas — datas futuras e faltas falsas',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'calculateDay: dia com data posterior a hoje (asOfDate) nunca é marcado como FALTA nem debita o banco de horas — o expediente ainda não aconteceu. Corrige dias futuros (ex.: 30-31/jul) que apareciam como falta e comiam horas do banco.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Reparo de dados: recalculadas competências de jun/jul (batidas como fonte única) corrigindo dias antigos presos como FALTA apesar de terem batidas válidas; removidos dias sem batida do período anterior à integração do relógio (falsas faltas) e seus débitos. Script repair-timesheet-coherence.mjs passa a carregar day_schedules/break/expected e feriados corretamente.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Escalas e comunicados via WhatsApp/E-mail',
     entries: [
       { type: 'feature', description: 'Migration 0043: profiles whatsapp_e164/opt_in/messaging_channel_pref + tabela messaging_outbox (fila unificada).' },

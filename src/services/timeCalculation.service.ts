@@ -6,6 +6,9 @@
 import { Punch, Shift, ShiftDaySchedule, ShiftWeekday, TimesheetDayStatus } from '../types';
 import { punchLocalDateKey } from './punch.service';
 
+/** Expected work minutes at/above this = full journey → exactly 4 punches required. */
+export const FULL_JOURNEY_MIN_EXPECTED_MINUTES = 360;
+
 export function parseHmToMinutes(hm: string | undefined | null): number | null {
   if (!hm) return null;
   const m = String(hm).match(/^(\d{1,2}):(\d{2})/);
@@ -298,6 +301,17 @@ export interface DayCalcInput {
   joiningDate?: string;
   /** ISO date (YYYY-MM-DD). Days after this are outside employment — no absence. */
   terminationDate?: string;
+  /**
+   * "Now" reference date (YYYY-MM-DD, org-local). Defaults to today.
+   * Dates strictly after this are in the future: they can never be ABSENT nor
+   * debit the hour bank — the workday simply hasn't happened yet.
+   */
+  asOfDate?: string;
+}
+
+/** Local calendar date (YYYY-MM-DD) for "today", timezone of the runtime. */
+export function localTodayIso(): string {
+  return new Date().toLocaleDateString('en-CA');
 }
 
 export interface DayCalcResult {
@@ -316,7 +330,8 @@ export interface DayCalcResult {
   shiftId?: string;
 }
 
-const ZERO_OK_DAY = (shiftId?: string): DayCalcResult => ({
+/** Non-working day outside employment window — not an absence. */
+const ZERO_OFF_DAY = (shiftId?: string): DayCalcResult => ({
   expectedMinutes: 0,
   workedMinutes: 0,
   breakMinutes: 0,
@@ -325,7 +340,7 @@ const ZERO_OK_DAY = (shiftId?: string): DayCalcResult => ({
   overtimeMinutes: 0,
   nightMinutes: 0,
   absenceMinutes: 0,
-  status: 'OK',
+  status: 'OFF',
   shiftId,
 });
 
@@ -355,7 +370,14 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
 
   // Outside employment window: not expected to work, never ABSENT.
   if (isOutsideEmploymentWindow(date, joiningDate, terminationDate)) {
-    return ZERO_OK_DAY(shift?.id);
+    return ZERO_OFF_DAY(shift?.id);
+  }
+
+  // Future date: the workday hasn't happened yet. Never ABSENT, never debits
+  // the hour bank. When the date arrives it is recalculated normally.
+  const asOf = input.asOfDate || localTodayIso();
+  if (date > asOf) {
+    return ZERO_OFF_DAY(shift?.id);
   }
 
   // Holiday: only people explicitly rostered to WORK are on duty
@@ -417,7 +439,7 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
       overtimeMinutes: 0,
       nightMinutes: 0,
       absenceMinutes: 0,
-      status: isHoliday ? 'HOLIDAY' : 'OK',
+      status: isHoliday ? 'HOLIDAY' : 'OFF',
       firstPunchAt: first,
       lastPunchAt: last,
       shiftId: shift?.id,
@@ -481,8 +503,16 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
 
   let status: TimesheetDayStatus = 'OK';
   if (lateMinutes > 0) status = 'LATE';
-  // Odd trailing punch after complete pairs: still OK if we have worked time from pairs
-  if (work.incomplete && worked === 0) status = 'INCOMPLETE';
+  // Any odd work-punch count (ex.: falta saída 2) is incomplete — not approvable as OK/LATE.
+  if (work.incomplete) status = 'INCOMPLETE';
+  // Full journey (≥6h expected): must have exactly 4 marks (2 pairs). 2-punch days stay half-day only.
+  if (
+    expected >= FULL_JOURNEY_MIN_EXPECTED_MINUTES &&
+    work.punchCount > 0 &&
+    (work.punchCount !== 4 || work.pairCount !== 2)
+  ) {
+    status = 'INCOMPLETE';
+  }
 
   const shortfall = Math.max(0, expected - worked);
 
