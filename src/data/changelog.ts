@@ -19,6 +19,11 @@ export const changelog: ChangelogRelease[] = [
     title: 'Ponto — meta prevista na tela, blindagem e reparo geral',
     entries: [
       {
+        type: 'improvement',
+        description:
+          'PDF espelho com filtro "Todos" agora sai completo em um único arquivo: uma página de resumo geral (uma linha por colaborador) seguida do espelho detalhado dia a dia de cada colaborador (um por página, com batidas, totais e assinatura). Antes o "Todos" gerava apenas o resumo, sem o detalhamento individual.',
+      },
+      {
         type: 'feature',
         description:
           'A métrica "Meta prevista" (carga horária prevista de todo o período de fechamento 26→25) agora aparece também na tela: no card do banco de horas em Reportório (Ponto) e nos totais de "Meu ponto". Antes só existia no PDF espelho.',
