@@ -23,6 +23,19 @@ export function isNonPunchingStaff(role?: string | null): boolean {
   return role === 'ADMIN' || role === 'HR' || role === 'MANAGEMENT';
 }
 
+/**
+ * Accounts that must NEVER accrue a timesheet balance (no expected hours, no
+ * absence, no hour-bank credit/debit). These are system/administration profiles
+ * that do not clock in: ADMIN (system owner), SUPER_ADMIN (platform) and
+ * MANAGEMENT (Diretoria, não CLT).
+ *
+ * Note: HR is intentionally excluded — the RH assistant does punch the clock in
+ * this deployment, so HR profiles are tracked normally.
+ */
+export function isTimesheetExempt(role?: string | null): boolean {
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'MANAGEMENT';
+}
+
 /** Roles that require REP/DMPREP admission checklist after create. */
 export function needsClockAdmission(role?: string | null): boolean {
   return role === 'EMPLOYEE' || role === 'MANAGER' || role === 'TEAM_LEAD';

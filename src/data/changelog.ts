@@ -19,6 +19,11 @@ export const changelog: ChangelogRelease[] = [
     title: 'Ponto — meta prevista na tela, blindagem e reparo geral',
     entries: [
       {
+        type: 'fix',
+        description:
+          'Contas de administração do sistema (ADMIN, SUPER_ADMIN e Diretoria/MANAGEMENT) não batem ponto e agora nunca acumulam saldo (nem falta, nem crédito/débito no banco de horas). Recálculo passou a ignorar e auto-limpar qualquer dia residual dessas contas. Removidos os saldos negativos falsos que existiam (ex.: -183h e -51,8h). Auxiliares de RH que realmente batem ponto continuam sendo rastreadas normalmente.',
+      },
+      {
         type: 'improvement',
         description:
           'PDF espelho com filtro "Todos" agora sai completo em um único arquivo: uma página de resumo geral (uma linha por colaborador) seguida do espelho detalhado dia a dia de cada colaborador (um por página, com batidas, totais e assinatura). Antes o "Todos" gerava apenas o resumo, sem o detalhamento individual.',

@@ -40,7 +40,7 @@ import {
   periodBoundsForCompetence,
   todayIsoLocal,
 } from '../utils/payrollPeriod';
-import { isNonPunchingStaff } from '../utils/roles';
+import { isNonPunchingStaff, isTimesheetExempt } from '../utils/roles';
 import { convertToWebP } from '../utils/imageConvert';
 import { DEFAULT_PTRP_POLICY } from '../constants';
 
@@ -405,6 +405,43 @@ export const timesheetService = {
     const employees = await employeeService.getEmployees();
     const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId);
     const punchKey = emp?.employeeId || employeeId;
+
+    // Timesheet-exempt accounts (system/admin/diretoria) do not punch and must
+    // never carry a balance. Self-heal any residual day + auto ledger entries and
+    // return a neutral OFF day without persisting expected/absence.
+    if (isTimesheetExempt(emp?.role)) {
+      const { data: residual } = await supabase
+        .from('timesheet_days')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('employee_id', punchKey)
+        .eq('work_date', date)
+        .maybeSingle();
+      if (residual?.id) {
+        await hourBankService.clearAutoEntriesForDay(residual.id);
+        await supabase.from('timesheet_days').delete().eq('id', residual.id);
+        apiClient.notify();
+      }
+      return {
+        id: residual?.id || `exempt-${punchKey}-${date}`,
+        organizationId: orgId,
+        periodId: p.id,
+        employeeId: punchKey,
+        workDate: date,
+        expectedMinutes: 0,
+        workedMinutes: 0,
+        breakMinutes: 0,
+        lateMinutes: 0,
+        earlyOutMinutes: 0,
+        overtimeMinutes: 0,
+        nightMinutes: 0,
+        absenceMinutes: 0,
+        status: 'OFF',
+        calcVersion: 1,
+        employeeAck: false,
+        managerAck: false,
+      } as TimesheetDay;
+    }
 
     const employeeKeys = [emp?.id, emp?.employeeId, employeeId, punchKey].filter(
       (k): k is string => !!k
