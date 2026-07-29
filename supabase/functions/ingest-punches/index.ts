@@ -98,14 +98,32 @@ Deno.serve(async (req: Request) => {
   }
 
   // A clock credential must resolve to exactly one employee in this tenant.
+  // Soft-discharged (INACTIVE) profiles keep history but must not accept new
+  // punches after termination_date (or any punch if inactive without a date).
   const { data: profiles, error: profileError } = await admin
     .from('profiles')
-    .select('id,employee_id,clock_credential')
+    .select('id,employee_id,clock_credential,status,joining_date,termination_date')
     .eq('organization_id', organizationId);
   if (profileError) return json(500, { error: 'Employee validation failed' });
 
   const canonicalByCredential = buildEmployeeCredentialIndex(profiles ?? []);
+  const profileByPis = new Map<string, {
+    status: string | null;
+    joining_date: string | null;
+    termination_date: string | null;
+  }>();
+  for (const p of profiles ?? []) {
+    const pis = String(p.employee_id || '').trim();
+    if (pis) {
+      profileByPis.set(pis, {
+        status: p.status ?? null,
+        joining_date: p.joining_date ?? null,
+        termination_date: p.termination_date ?? null,
+      });
+    }
+  }
   const unresolved = new Set<string>();
+  const rejectedEmployment = new Set<string>();
   const acceptedRows: Array<Record<string, unknown>> = [];
 
   for (const row of rows) {
@@ -114,6 +132,22 @@ Deno.serve(async (req: Request) => {
     if (!canonical) {
       unresolved.add(incomingId);
       continue;
+    }
+    const profile = profileByPis.get(canonical);
+    const punchDate = saoPauloDate(String(row.punched_at));
+    if (profile) {
+      if (profile.joining_date && punchDate < profile.joining_date) {
+        rejectedEmployment.add(canonical);
+        continue;
+      }
+      if (profile.termination_date && punchDate > profile.termination_date) {
+        rejectedEmployment.add(canonical);
+        continue;
+      }
+      if (profile.status === 'INACTIVE' && !profile.termination_date) {
+        rejectedEmployment.add(canonical);
+        continue;
+      }
     }
     acceptedRows.push({ ...row, employee_id: canonical });
   }
@@ -124,6 +158,12 @@ Deno.serve(async (req: Request) => {
       [...unresolved].join(', '),
     );
   }
+  if (rejectedEmployment.size > 0) {
+    console.warn(
+      '[INGEST-PUNCHES] Skipping punches outside employment window:',
+      [...rejectedEmployment].join(', '),
+    );
+  }
 
   if (acceptedRows.length === 0) {
     return json(200, {
@@ -132,7 +172,7 @@ Deno.serve(async (req: Request) => {
       upserted: 0,
       duplicates: 0,
       skipped: rows.length,
-      skippedEmployeeIds: [...unresolved],
+      skippedEmployeeIds: [...new Set([...unresolved, ...rejectedEmployment])],
       affectedDates: [],
       recalcQueued: false,
     });
@@ -206,7 +246,7 @@ Deno.serve(async (req: Request) => {
     upserted: duplicates,
     duplicates,
     skipped,
-    skippedEmployeeIds: skipped > 0 ? [...unresolved] : [],
+    skippedEmployeeIds: skipped > 0 ? [...new Set([...unresolved, ...rejectedEmployment])] : [],
     affectedDates: affected,
     recalcQueued: !queueError,
   });

@@ -26,7 +26,7 @@ import {
 } from '../utils/timesheetDayCoherence';
 import { shiftService } from './shift.service';
 import { punchService, planProximityAutoIgnores } from './punch.service';
-import { calculateDay } from './timeCalculation.service';
+import { calculateDay, isOutsideEmploymentWindow } from './timeCalculation.service';
 import { hourBankService } from './hourBank.service';
 import { employeeService } from './employee.service';
 import { leaveService } from './leave.service';
@@ -207,6 +207,47 @@ async function resolveClockStartDate(): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+async function purgeResidualDayAndReturnOff(opts: {
+  orgId: string;
+  periodId: string;
+  punchKey: string;
+  date: string;
+  reason: string;
+}): Promise<TimesheetDay> {
+  const { orgId, periodId, punchKey, date, reason } = opts;
+  const { data: residual } = await supabase
+    .from('timesheet_days')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('employee_id', punchKey)
+    .eq('work_date', date)
+    .maybeSingle();
+  if (residual?.id) {
+    await hourBankService.clearAutoEntriesForDay(residual.id);
+    await supabase.from('timesheet_days').delete().eq('id', residual.id);
+    apiClient.notify();
+  }
+  return {
+    id: residual?.id || `${reason}-${punchKey}-${date}`,
+    organizationId: orgId,
+    periodId,
+    employeeId: punchKey,
+    workDate: date,
+    expectedMinutes: 0,
+    workedMinutes: 0,
+    breakMinutes: 0,
+    lateMinutes: 0,
+    earlyOutMinutes: 0,
+    overtimeMinutes: 0,
+    nightMinutes: 0,
+    absenceMinutes: 0,
+    status: 'OFF',
+    calcVersion: 1,
+    employeeAck: false,
+    managerAck: false,
+  } as TimesheetDay;
 }
 
 async function fetchCoherenceContextForDay(
@@ -410,37 +451,25 @@ export const timesheetService = {
     // never carry a balance. Self-heal any residual day + auto ledger entries and
     // return a neutral OFF day without persisting expected/absence.
     if (isTimesheetExempt(emp?.role)) {
-      const { data: residual } = await supabase
-        .from('timesheet_days')
-        .select('id')
-        .eq('organization_id', orgId)
-        .eq('employee_id', punchKey)
-        .eq('work_date', date)
-        .maybeSingle();
-      if (residual?.id) {
-        await hourBankService.clearAutoEntriesForDay(residual.id);
-        await supabase.from('timesheet_days').delete().eq('id', residual.id);
-        apiClient.notify();
-      }
-      return {
-        id: residual?.id || `exempt-${punchKey}-${date}`,
-        organizationId: orgId,
+      return purgeResidualDayAndReturnOff({
+        orgId,
         periodId: p.id,
-        employeeId: punchKey,
-        workDate: date,
-        expectedMinutes: 0,
-        workedMinutes: 0,
-        breakMinutes: 0,
-        lateMinutes: 0,
-        earlyOutMinutes: 0,
-        overtimeMinutes: 0,
-        nightMinutes: 0,
-        absenceMinutes: 0,
-        status: 'OFF',
-        calcVersion: 1,
-        employeeAck: false,
-        managerAck: false,
-      } as TimesheetDay;
+        punchKey,
+        date,
+        reason: 'exempt',
+      });
+    }
+
+    // Outside employment window: never persist a row (not even OFF) — otherwise
+    // sweeps / queue jobs recreate post-termination ghosts.
+    if (isOutsideEmploymentWindow(date, emp?.joiningDate, emp?.terminationDate)) {
+      return purgeResidualDayAndReturnOff({
+        orgId,
+        periodId: p.id,
+        punchKey,
+        date,
+        reason: 'employment-window',
+      });
     }
 
     const employeeKeys = [emp?.id, emp?.employeeId, employeeId, punchKey].filter(
@@ -583,6 +612,96 @@ export const timesheetService = {
     return day;
   },
 
+  /**
+   * Purge timesheet days (and auto hour-bank entries) outside the employment
+   * window. Call on hire/termination date changes and on discharge — before
+   * any hard delete — so post-term ABSENT / bank debits cannot linger.
+   */
+  async closeEmploymentWindow(
+    employeeId: string,
+    opts: { joiningDate?: string | null; terminationDate?: string | null } = {},
+  ): Promise<{ deletedDays: number }> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) throw new Error('No organization ID');
+
+    const joiningDate = opts.joiningDate || undefined;
+    const terminationDate = opts.terminationDate || undefined;
+    if (!joiningDate && !terminationDate) return { deletedDays: 0 };
+
+    const employees = await employeeService.getEmployees();
+    const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId);
+    const punchKey = emp?.employeeId || employeeId;
+    const keys = [...new Set([punchKey, emp?.id, employeeId].filter((k): k is string => !!k))];
+
+    const { data: dayRows, error } = await supabase
+      .from('timesheet_days')
+      .select('id, work_date, employee_id')
+      .eq('organization_id', orgId)
+      .in('employee_id', keys);
+    if (error) throw error;
+
+    const doomed = (dayRows || []).filter(d => {
+      const wd = String(d.work_date);
+      if (joiningDate && wd < joiningDate) return true;
+      if (terminationDate && wd > terminationDate) return true;
+      return false;
+    });
+
+    if (doomed.length === 0) {
+      // Still clear orphan auto-ledger by date even if days were already gone.
+      for (const key of keys) {
+        if (joiningDate) {
+          await supabase
+            .from('hour_bank_ledger')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('employee_id', key)
+            .lt('entry_date', joiningDate)
+            .in('entry_type', ['OT_CREDIT', 'ABSENCE_DEBIT']);
+        }
+        if (terminationDate) {
+          await supabase
+            .from('hour_bank_ledger')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('employee_id', key)
+            .gt('entry_date', terminationDate)
+            .in('entry_type', ['OT_CREDIT', 'ABSENCE_DEBIT']);
+        }
+      }
+      return { deletedDays: 0 };
+    }
+
+    const dayIds = doomed.map(d => d.id as string);
+    await supabase.from('hour_bank_ledger').delete().in('timesheet_day_id', dayIds);
+    for (const key of keys) {
+      if (joiningDate) {
+        await supabase
+          .from('hour_bank_ledger')
+          .delete()
+          .eq('organization_id', orgId)
+          .eq('employee_id', key)
+          .lt('entry_date', joiningDate)
+          .in('entry_type', ['OT_CREDIT', 'ABSENCE_DEBIT']);
+      }
+      if (terminationDate) {
+        await supabase
+          .from('hour_bank_ledger')
+          .delete()
+          .eq('organization_id', orgId)
+          .eq('employee_id', key)
+          .gt('entry_date', terminationDate)
+          .in('entry_type', ['OT_CREDIT', 'ABSENCE_DEBIT']);
+      }
+    }
+    const { error: delErr } = await supabase.from('timesheet_days').delete().in('id', dayIds);
+    if (delErr) throw delErr;
+
+    apiClient.notify();
+    return { deletedDays: dayIds.length };
+  },
+
   async recalculatePeriod(
     year: number,
     month: number,
@@ -595,15 +714,11 @@ export const timesheetService = {
     const targets = employeeIds?.length
       ? employees.filter(e => employeeIds.includes(e.id) || employeeIds.includes(e.employeeId || ''))
       : employees.filter(e => {
-          if (isNonPunchingStaff(e.role) || e.role === 'SUPER_ADMIN') return false;
+          if (isTimesheetExempt(e.role)) return false;
           // Hired after this competence ends — nothing to calculate
           if (e.joiningDate && e.joiningDate > period.endDate) return false;
           // Left before this competence starts — skip full-period sweep
-          if (
-            e.status === 'INACTIVE' &&
-            e.terminationDate &&
-            e.terminationDate < period.startDate
-          ) {
+          if (e.terminationDate && e.terminationDate < period.startDate) {
             return false;
           }
           return true;
@@ -622,6 +737,8 @@ export const timesheetService = {
 
     for (const emp of targets) {
       for (const date of dates) {
+        if (emp.joiningDate && date < emp.joiningDate) continue;
+        if (emp.terminationDate && date > emp.terminationDate) continue;
         try {
           await this.recalculateDay(emp.id, date, period);
           count++;

@@ -334,6 +334,70 @@ export const employeeService = {
     }
 
     employeeService.clearCache();
+
+    // When admission/demissão dates change, purge out-of-window days + auto bank.
+    if (updates.joiningDate !== undefined || updates.terminationDate !== undefined) {
+      try {
+        const { timesheetService } = await import('./timesheet.service');
+        const fresh = (await this.getEmployees()).find(e => e.id === id);
+        await timesheetService.closeEmploymentWindow(id, {
+          joiningDate: fresh?.joiningDate ?? updates.joiningDate ?? null,
+          terminationDate: fresh?.terminationDate ?? updates.terminationDate ?? null,
+        });
+      } catch (e) {
+        console.warn('[EmployeeService] closeEmploymentWindow failed:', e);
+      }
+    }
+
+    apiClient.notify();
+  },
+
+  /**
+   * Soft discharge: marks INACTIVE + termination_date, clears clock credential /
+   * biometrics flag, purges timesheet outside the employment window, and
+   * best-effort removes the employee from DMPREP/MDB. Keeps the profile so
+   * historical espelho still resolves the name and employment window.
+   */
+  async dischargeEmployee(id: string, terminationDate: string): Promise<void> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const list = await this.getEmployees();
+    const emp = list.find(e => e.id === id);
+    if (!emp) throw new Error('Employee not found');
+
+    const term = terminationDate || new Date().toISOString().split('T')[0];
+    const joiningDate = emp.joiningDate || null;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        status: 'INACTIVE',
+        termination_date: term,
+        clock_biometric_registered: false,
+        clock_credential: null,
+        clock_onboarding_status: 'NOT_APPLICABLE',
+        updated: new Date().toISOString(),
+      })
+      .eq('id', id);
+    if (error) throw error;
+
+    employeeService.clearCache();
+
+    try {
+      const { timesheetService } = await import('./timesheet.service');
+      await timesheetService.closeEmploymentWindow(id, { joiningDate, terminationDate: term });
+    } catch (e) {
+      console.warn('[EmployeeService] closeEmploymentWindow on discharge failed:', e);
+    }
+
+    if (needsClockAdmission(emp.role) && emp.employeeId) {
+      try {
+        const { dmprepSyncService } = await import('./dmprepSync.service');
+        await dmprepSyncService.triggerSync('export-employee-discharge', id);
+      } catch {
+        /* best-effort DMPREP cleanup */
+      }
+    }
+
     apiClient.notify();
   },
 

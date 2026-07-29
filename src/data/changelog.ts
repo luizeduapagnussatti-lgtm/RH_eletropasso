@@ -21,6 +21,11 @@ export const changelog: ChangelogRelease[] = [
       {
         type: 'fix',
         description:
+          'Julielle Ferreira Bueno desligada em 17/07/2026 (último dia com batida): status INATIVO, termination_date gravada, dias/ledger posteriores removidos. Fechamento da lógica de admissão/demissão: desligamento passa a ser soft (mantém histórico e nome no espelho), limpa janela de emprego (closeEmploymentWindow), limpa credencial/biometria, export DMPREP de saída; ingestão de batidas rejeita datas fora de admissão/demissão; recálculo do período não gera dias após a demissão.',
+      },
+      {
+        type: 'fix',
+        description:
           'No espelho de ponto, a coluna Colaborador voltava a mostrar o PIS em vez do nome quando o perfil era HR (ex.: Giseli) — a lista de nomes excluía auxiliares de RH. Agora entram todos que batem ponto (incluindo HR); só contas de administração do sistema ficam de fora. Também cadastrado o perfil faltante da Julielle Ferreira Bueno (PIS 014509309976), que tinha batidas sem cadastro, e removidos dias órfãos de RH-0001.',
       },
       {

@@ -133,10 +133,10 @@
     "dmprepHostHint": "PrintPoint SmartPoint B — biometria no equipamento",
     "done": "Concluir",
     "cancelDischarge": "Cancelar",
-    "confirmDischarge": "Excluir no RH",
-    "confirming": "Excluindo…",
-    "dischargeComplete": "{{name}} removido do RH_Eletropasso.",
-    "dischargeWarning": "Antes de excluir no RH: remova as digitais no PrintPoint (função 92) com a Credencial/ID — o relógio não aceita PIS. Depois confirme os passos e exclua a conta.",
+    "confirmDischarge": "Confirmar desligamento",
+    "confirming": "Desligando…",
+    "dischargeComplete": "{{name}} desligado(a): conta inativa, espelho fechado até a data de demissão e remoção no DMPREP solicitada. O histórico de ponto é mantido.",
+    "dischargeWarning": "Antes de confirmar: remova as digitais no PrintPoint (função 92) com a Credencial/ID — o relógio não aceita PIS. O desligamento marca INATIVO, grava a data de demissão, limpa o espelho após essa data e remove o cadastro do MDB (sem apagar o histórico no RH).",
     "admission": {
       "step1": {
         "title": "Cadastro concluído no OpenHR",
@@ -343,8 +343,8 @@
     "notFound": "Colaborador não encontrado ou já removido.",
     "forbidden": "Sem permissão para este fluxo.",
     "admissionPageHint": "Conclua o checklist e use o painel abaixo para exportar ao DMPREP e cadastrar a biometria. Depois clique em Concluir.",
-    "dischargePageHint": "Marque todos os passos (incluindo exclusão da digital no relógio). Só então o botão Excluir no RH é liberado.",
-    "simpleDischargeTitle": "Excluir conta (sem ponto)",
-    "simpleDischargeHint": "{{name}} ({{role}}) não usa o relógio. A exclusão remove apenas o acesso ao RH_Eletropasso — não há biometria a remover."
+    "dischargePageHint": "Marque todos os passos (incluindo exclusão da digital no relógio). Só então o botão Confirmar desligamento é liberado.",
+    "simpleDischargeTitle": "Desligar conta (sem ponto)",
+    "simpleDischargeHint": "{{name}} ({{role}}) não usa o relógio. O desligamento marca a conta como inativa e grava a data de demissão — o histórico no RH é mantido."
   }
 }

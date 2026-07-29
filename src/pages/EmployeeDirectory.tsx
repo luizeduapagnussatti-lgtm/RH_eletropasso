@@ -343,21 +343,16 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
   const confirmDeleteEmployee = async () => {
     if (!lifecycleModal?.deleteId) return;
     const emp = employees.find(e => e.id === lifecycleModal.deleteId);
-    if (emp && needsClockAdmission(emp.role) && emp.employeeId) {
-      const terminationDate = new Date().toISOString().split('T')[0];
-      await hrService
-        .updateProfile(emp.id, { status: 'INACTIVE', terminationDate })
-        .catch(() => {});
-      try {
-        await hrService.triggerDmprepSync('export-employee-discharge', emp.id);
-      } catch {
-        /* best-effort DMPREP cleanup before account removal */
-      }
+    if (!emp) return;
+    const terminationDate = new Date().toISOString().split('T')[0];
+    try {
+      await hrService.dischargeEmployee(emp.id, terminationDate);
+      setLifecycleModal(null);
+      await fetchEmployees();
+      showToast(t('dmprepChecklist.dischargeComplete', { name: lifecycleModal.employeeName }), 'success');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : t('operationFailed'), 'error');
     }
-    await hrService.deleteEmployee(lifecycleModal.deleteId);
-    setLifecycleModal(null);
-    await fetchEmployees();
-    showToast(t('dmprepChecklist.dischargeComplete', { name: lifecycleModal.employeeName }), 'success');
   };
 
   const handleActivate = async (emp: Employee) => {

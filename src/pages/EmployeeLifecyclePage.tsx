@@ -85,19 +85,16 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
   const confirmDischarge = async () => {
     if (!employee) return;
     const term = terminationDate || new Date().toISOString().split('T')[0];
-    await hrService
-      .updateProfile(employee.id, { status: 'INACTIVE', terminationDate: term })
-      .catch(() => {});
-    if (needsClockAdmission(employee.role) && employee.employeeId) {
-      try {
-        await hrService.triggerDmprepSync('export-employee-discharge', employee.id);
-      } catch {
-        /* best-effort */
-      }
+    setSimpleConfirming(true);
+    try {
+      await hrService.dischargeEmployee(employee.id, term);
+      showToast(t('dmprepChecklist.dischargeComplete', { name: employee.name }), 'success');
+      goDirectory();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : t('operationFailed'), 'error');
+    } finally {
+      setSimpleConfirming(false);
     }
-    await hrService.deleteEmployee(employee.id);
-    showToast(t('dmprepChecklist.dischargeComplete', { name: employee.name }), 'success');
-    goDirectory();
   };
 
   const title =
@@ -177,8 +174,7 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
             type="button"
             disabled={simpleConfirming}
             onClick={() => {
-              setSimpleConfirming(true);
-              void confirmDischarge().finally(() => setSimpleConfirming(false));
+              void confirmDischarge();
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold disabled:opacity-50"
           >

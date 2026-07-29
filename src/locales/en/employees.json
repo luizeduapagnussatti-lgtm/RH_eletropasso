@@ -127,10 +127,10 @@
     "dmprepHostHint": "PrintPoint SmartPoint B — biometrics on device",
     "done": "Done",
     "cancelDischarge": "Cancel",
-    "confirmDischarge": "Delete in HR",
-    "confirming": "Deleting…",
-    "dischargeComplete": "{{name}} removed from RH_Eletropasso.",
-    "dischargeWarning": "Before deleting in HR: remove fingerprints on PrintPoint (function 92) with Credencial/ID — the clock does not accept PIS.",
+    "confirmDischarge": "Confirm discharge",
+    "confirming": "Discharging…",
+    "dischargeComplete": "{{name}} discharged: inactive account, timesheet closed through termination date, DMPREP removal requested. Punch history is kept.",
+    "dischargeWarning": "Before confirming: remove fingerprints on PrintPoint (function 92) with Credencial/ID — the clock does not accept PIS. Discharge marks INACTIVE, sets termination date, clears timesheet days after that date, and removes the MDB record (HR history is kept).",
     "admission": {
       "step1": {
         "title": "OpenHR registration complete",
@@ -340,9 +340,9 @@
     "notFound": "Employee not found or already removed.",
     "forbidden": "You do not have permission for this flow.",
     "admissionPageHint": "Complete the checklist and use the panel below to export to DMPREP and enroll biometrics. Then click Done.",
-    "dischargePageHint": "Check every step (including fingerprint removal on the clock). Only then is Delete in HR enabled.",
-    "simpleDischargeTitle": "Delete account (no clock)",
-    "simpleDischargeHint": "{{name}} ({{role}}) does not use the time clock. Deletion only removes RH_Eletropasso access — no biometrics to remove."
+    "dischargePageHint": "Check every step (including fingerprint removal on the clock). Only then is Confirm discharge enabled.",
+    "simpleDischargeTitle": "Discharge account (no clock)",
+    "simpleDischargeHint": "{{name}} ({{role}}) does not use the time clock. Discharge marks the account inactive and sets the termination date — HR history is kept."
   },
   "clockCredential": "Clock credential (ID/badge)",
   "clockCredentialPlaceholder": "e.g. 20 (short DMP REP Matrícula)",

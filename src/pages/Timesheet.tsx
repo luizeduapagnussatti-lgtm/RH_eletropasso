@@ -154,9 +154,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         hrService.getEmployees(),
         hrService.getOrCreateTimesheetPeriod(year, month),
       ]);
-      // Show anyone who punches / must be identifiable in the mirror (includes HR).
-      // Exclude only system/admin/diretoria accounts that never clock in.
-      const staff = emps.filter(e => !isTimesheetExempt(e.role));
+      // Anyone who punches / must appear in the mirror (includes HR).
+      // Exclude system/admin accounts and people fully outside this competence.
+      const staff = emps.filter(
+        e =>
+          !isTimesheetExempt(e.role) &&
+          !(e.joiningDate && e.joiningDate > p.endDate) &&
+          !(e.terminationDate && e.terminationDate < p.startDate),
+      );
       setEmployees(staff);
       setPeriod(p);
 
@@ -278,7 +283,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           hrService.getLeaves().catch(() => [] as LeaveRequest[]),
         ]);
         if (cancelled) return;
-        setEmployees(emps.filter(e => !isTimesheetExempt(e.role)));
+        setEmployees(
+          emps.filter(
+            e =>
+              !isTimesheetExempt(e.role) &&
+              !(e.joiningDate && e.joiningDate > p.endDate) &&
+              !(e.terminationDate && e.terminationDate < p.startDate),
+          ),
+        );
         setPeriod(p);
         setShifts(shiftList);
         setHolidays(holidayList);
