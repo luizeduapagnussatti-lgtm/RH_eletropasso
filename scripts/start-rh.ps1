@@ -130,11 +130,17 @@ if (-not (Test-PortListening 3099)) {
   Write-Host 'dmprep-sync already listening on 3099 - skipped.'
 }
 
-# 5) Frontend Vite (:3000)
-if (-not (Test-PortListening 3000)) {
+# 5) Frontend (:3000) — SEMPRE vite preview (produção). Dev quebra LAN nos clientes.
+$ensureFrontend = Join-Path $PSScriptRoot 'Ensure-Frontend.ps1'
+if (-not (Test-Path $ensureFrontend)) {
+  $ensureFrontend = Join-Path $ProjectRoot 'scripts\Ensure-Frontend.ps1'
+}
+if (Test-Path $ensureFrontend) {
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ensureFrontend -Mode preview
+} elseif (-not (Test-PortListening 3000)) {
   $npmCmd = (Get-Command npm.cmd -ErrorAction Stop).Source
   Start-BackgroundProcess 'frontend' $npmCmd @(
-    'run', 'dev', '--', '--host', '0.0.0.0', '--port', '3000'
+    'run', 'preview', '--', '--host', '0.0.0.0', '--port', '3000'
   ) $ProjectRoot
 } else {
   Write-Host 'frontend already listening on 3000 - skipped.'
@@ -155,10 +161,21 @@ if (Test-Path $lockFile) {
   }
 }
 if (-not $supervisorRunning -and (Test-Path $frontendWatch)) {
-  Start-BackgroundProcess 'frontend-watch' 'powershell.exe' @(
-    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
-    '-File', $frontendWatch, '-IntervalSec', '30'
-  ) $ProjectRoot
+  # VBS com shell.Run(..., 0) = sem janela de prompt (mais confiável que WindowStyle Hidden)
+  $frontendWatchVbs = Join-Path $PSScriptRoot 'Run-WatchFrontend.vbs'
+  if (-not (Test-Path $frontendWatchVbs)) {
+    $frontendWatchVbs = Join-Path $ProjectRoot 'scripts\Run-WatchFrontend.vbs'
+  }
+  if (Test-Path $frontendWatchVbs) {
+    $wscript = Join-Path $env:WINDIR 'System32\wscript.exe'
+    Start-Process -FilePath $wscript -ArgumentList "`"$frontendWatchVbs`"" -WindowStyle Hidden
+    Write-Host "Started frontend-watch via VBS (silent). Logs: E:\RH_eletropasso\logs\frontend\"
+  } else {
+    Start-BackgroundProcess 'frontend-watch' 'powershell.exe' @(
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+      '-File', $frontendWatch, '-IntervalSec', '30'
+    ) $ProjectRoot
+  }
 } else {
   Write-Host 'frontend supervisor already running - skipped.'
 }

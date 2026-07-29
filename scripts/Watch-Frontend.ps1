@@ -40,11 +40,32 @@ if (Test-Path $LockFile) {
 Set-Content -LiteralPath $LockFile -Value $PID -Encoding ascii
 Write-SupLog ("Supervisor started PID {0}, interval {1}s" -f $PID, $IntervalSec)
 
+function Invoke-EnsureFrontendSilent {
+  # Roda Ensure-Frontend sem abrir janela: processo filho oculto (não & powershell interativo).
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = (Get-Command powershell.exe).Source
+  # Sempre preview — vite dev na :3000 quebra LAN ("Banco indisponível" nos clientes).
+  $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$EnsureScript`" -Mode preview"
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $true
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.WorkingDirectory = Split-Path -Parent $EnsureScript
+  $proc = [System.Diagnostics.Process]::Start($psi)
+  if (-not $proc) { throw 'Failed to start Ensure-Frontend process' }
+  $null = $proc.StandardOutput.ReadToEnd()
+  $err = $proc.StandardError.ReadToEnd()
+  $proc.WaitForExit()
+  if ($err -and $err.Trim().Length -gt 0) {
+    Write-SupLog ("Ensure-Frontend stderr: {0}" -f $err.Trim().Substring(0, [Math]::Min(300, $err.Trim().Length)))
+  }
+  return $proc.ExitCode
+}
+
 try {
   while ($true) {
     try {
-      & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $EnsureScript
-      $code = $LASTEXITCODE
+      $code = Invoke-EnsureFrontendSilent
       if ($code -ne 0) {
         Write-SupLog ("Ensure-Frontend exit {0}" -f $code)
       }

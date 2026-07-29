@@ -1,6 +1,8 @@
 # Registra tarefa do Windows para subir RH Eletropasso ~5 min após reinício.
 # Executar como Administrador:
 #   powershell -ExecutionPolicy Bypass -File C:\xampp\htdocs\RH_eletropasso\scripts\install-rh-autostart.ps1
+#
+# Watchdogs usam Run-HiddenPs1.vbs (wscript) para NÃO piscar janela de PowerShell.
 
 #Requires -RunAsAdministrator
 
@@ -11,40 +13,52 @@ $DeployScripts = 'E:\RH_eletropasso\scripts'
 $TaskName = 'RH_Eletropasso_AutoStart'
 $WatchdogTaskName = 'RH_Eletropasso_DmprepSync_Watchdog'
 $FrontendWatchdogTaskName = 'RH_Eletropasso_Frontend_Watchdog'
+$NpmUpstreamTaskName = 'RH_Eletropasso_NpmUpstream_Watchdog'
+$ApiHealthTaskName = 'RH_Eletropasso_SupabaseApi_Watchdog'
 
 New-Item -ItemType Directory -Force -Path $DeployScripts | Out-Null
-Copy-Item -Path (Join-Path $RepoScripts 'start-rh.ps1') -Destination (Join-Path $DeployScripts 'start-rh.ps1') -Force
-Copy-Item -Path (Join-Path $RepoScripts 'start-rh-delayed.ps1') -Destination (Join-Path $DeployScripts 'start-rh-delayed.ps1') -Force
-Copy-Item -Path (Join-Path $RepoScripts 'run-dmprep-sync.ps1') -Destination (Join-Path $DeployScripts 'run-dmprep-sync.ps1') -Force
-Copy-Item -Path (Join-Path $RepoScripts 'Ensure-DmprepSync.ps1') -Destination (Join-Path $DeployScripts 'Ensure-DmprepSync.ps1') -Force
-Copy-Item -Path (Join-Path $RepoScripts 'Ensure-Frontend.ps1') -Destination (Join-Path $DeployScripts 'Ensure-Frontend.ps1') -Force
-Copy-Item -Path (Join-Path $RepoScripts 'Watch-Frontend.ps1') -Destination (Join-Path $DeployScripts 'Watch-Frontend.ps1') -Force
+$toCopy = @(
+  'start-rh.ps1', 'start-rh-delayed.ps1', 'run-dmprep-sync.ps1',
+  'Ensure-DmprepSync.ps1', 'Ensure-Frontend.ps1', 'Watch-Frontend.ps1',
+  'Run-WatchFrontend.vbs', 'Run-HiddenPs1.vbs',
+  'Ensure-NpmRhUpstream.ps1', 'Ensure-SupabaseApi.ps1', 'fix-npm-rh-ipv4.py',
+  'Apply-SilentWatchdogs.ps1'
+)
+foreach ($f in $toCopy) {
+  $src = Join-Path $RepoScripts $f
+  if (Test-Path $src) {
+    Copy-Item -Path $src -Destination (Join-Path $DeployScripts $f) -Force
+  }
+}
 
+$vbs = Join-Path $DeployScripts 'Run-HiddenPs1.vbs'
+$wscript = Join-Path $env:WINDIR 'System32\wscript.exe'
 $DelayedScript = Join-Path $DeployScripts 'start-rh-delayed.ps1'
-$Action = New-ScheduledTaskAction `
-  -Execute 'powershell.exe' `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$DelayedScript`""
 
-# AtStartup + 5 min (PT5M) — total ~5 min após boot antes de start-rh.ps1
-$Trigger = New-ScheduledTaskTrigger -AtStartup
-$Trigger.Delay = 'PT5M'
-
-# Sem StartWhenAvailable: evita disparar a tarefa so por re-registrar (e evita loops/UAC).
-$Settings = New-ScheduledTaskSettingsSet `
-  -AllowStartIfOnBatteries `
-  -DontStopIfGoingOnBatteries `
-  -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
-  -MultipleInstances IgnoreNew
-
-# Conta que roda o Docker Desktop neste servidor
 $RunAsUser = $env:USERNAME
 if ($RunAsUser -match '^\s*$') { $RunAsUser = 'Servidor_Eletropasso' }
 
-# Limited: start-rh nao precisa de admin. Highest + Interactive dispara UAC a cada logon.
 $Principal = New-ScheduledTaskPrincipal `
   -UserId $RunAsUser `
   -LogonType Interactive `
   -RunLevel Limited
+
+function New-SilentPs1Action([string]$Ps1Path, [string]$ExtraArgs = '') {
+  $arg = '//nologo "{0}" "{1}"' -f $vbs, $Ps1Path
+  if ($ExtraArgs) { $arg = "$arg $ExtraArgs" }
+  return (New-ScheduledTaskAction -Execute $wscript -Argument $arg)
+}
+
+# AtStartup + 5 min — via VBS (sem flash)
+$Action = New-SilentPs1Action $DelayedScript
+$Trigger = New-ScheduledTaskTrigger -AtStartup
+$Trigger.Delay = 'PT5M'
+$Settings = New-ScheduledTaskSettingsSet `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries `
+  -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
+  -MultipleInstances IgnoreNew `
+  -Hidden
 
 Register-ScheduledTask `
   -TaskName $TaskName `
@@ -54,53 +68,63 @@ Register-ScheduledTask `
   -Principal $Principal `
   -Force | Out-Null
 
-Write-Host "Tarefa registrada: $TaskName"
+Write-Host "Tarefa registrada: $TaskName (silenciosa)"
 Write-Host "Disparo: ao iniciar o Windows + 5 min de atraso"
 Write-Host "Script: $DelayedScript -> start-rh.ps1"
 Write-Host "Logs: E:\RH_eletropasso\logs\"
 Write-Host ""
 
-# Watchdog: a cada 5 min garante dmprep-sync (:3099)
-$WatchdogScript = Join-Path $DeployScripts 'Ensure-DmprepSync.ps1'
-$WatchdogAction = New-ScheduledTaskAction `
-  -Execute 'powershell.exe' `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$WatchdogScript`""
-$WatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
 $WatchdogSettings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
   -StartWhenAvailable `
-  -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
-  -MultipleInstances IgnoreNew
+  -ExecutionTimeLimit (New-TimeSpan -Minutes 3) `
+  -MultipleInstances IgnoreNew `
+  -Hidden
+
+$Every5 = New-ScheduledTaskTrigger -Once -At (Get-Date).Date `
+  -RepetitionInterval (New-TimeSpan -Minutes 5) `
+  -RepetitionDuration (New-TimeSpan -Days 3650)
+
+# dmprep
 Register-ScheduledTask `
   -TaskName $WatchdogTaskName `
-  -Action $WatchdogAction `
-  -Trigger $WatchdogTrigger `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-DmprepSync.ps1')) `
+  -Trigger $Every5 `
   -Settings $WatchdogSettings `
   -Principal $Principal `
   -Force | Out-Null
+Write-Host "Tarefa registrada: $WatchdogTaskName (a cada 5 min, silenciosa)"
 
-Write-Host "Tarefa registrada: $WatchdogTaskName (a cada 5 min)"
-Write-Host ""
-
-# Watchdog: a cada 1 min garante frontend Vite (:3000) — evita 502 no NPM
-$FrontendWatchdogScript = Join-Path $DeployScripts 'Ensure-Frontend.ps1'
-$FrontendWatchdogAction = New-ScheduledTaskAction `
-  -Execute 'powershell.exe' `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$FrontendWatchdogScript`""
-$FrontendWatchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+# Frontend backup a cada 5 min (supervisor contínuo cobre ~30s)
 Register-ScheduledTask `
   -TaskName $FrontendWatchdogTaskName `
-  -Action $FrontendWatchdogAction `
-  -Trigger $FrontendWatchdogTrigger `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-Frontend.ps1') '-Mode preview') `
+  -Trigger $Every5 `
   -Settings $WatchdogSettings `
   -Principal $Principal `
   -Force | Out-Null
+Write-Host "Tarefa registrada: $FrontendWatchdogTaskName (a cada 5 min, silenciosa)"
 
-Write-Host "Tarefa registrada: $FrontendWatchdogTaskName (a cada 1 min)"
+# NPM IPv4
+Register-ScheduledTask `
+  -TaskName $NpmUpstreamTaskName `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-NpmRhUpstream.ps1')) `
+  -Trigger $Every5 `
+  -Settings $WatchdogSettings `
+  -Principal $Principal `
+  -Force | Out-Null
+Write-Host "Tarefa registrada: $NpmUpstreamTaskName (a cada 5 min, silenciosa)"
+
+# API/banco
+Register-ScheduledTask `
+  -TaskName $ApiHealthTaskName `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-SupabaseApi.ps1')) `
+  -Trigger $Every5 `
+  -Settings $WatchdogSettings `
+  -Principal $Principal `
+  -Force | Out-Null
+Write-Host "Tarefa registrada: $ApiHealthTaskName (a cada 5 min, silenciosa)"
 Write-Host ""
-Write-Host "Testar agora (manual):"
-Write-Host "  powershell -ExecutionPolicy Bypass -File `"$DelayedScript`""
-Write-Host "  powershell -ExecutionPolicy Bypass -File `"$WatchdogScript`""
-Write-Host "  powershell -ExecutionPolicy Bypass -File `"$FrontendWatchdogScript`""
-Write-Host "  powershell -ExecutionPolicy Bypass -File `"$(Join-Path $DeployScripts 'Watch-Frontend.ps1')`""
+Write-Host "Atalho: Apply-SilentWatchdogs.ps1 (reaplica sem reinstalação completa)"
+Write-Host "Teste: wscript.exe //nologo `"$vbs`" `"$(Join-Path $DeployScripts 'Ensure-Frontend.ps1')`" -Mode preview"

@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Frontend LAN sempre em vite preview',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Watchdog do frontend (:3000) passa a exigir vite preview; detecta e troca automaticamente se estiver em vite dev (que causava “Banco indisponível” nas máquinas da LAN). Autostart/start-rh usam -Mode preview.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Ajuste de ponto — batidas como fonte única',
     entries: [
       {
