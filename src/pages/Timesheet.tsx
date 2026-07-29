@@ -105,6 +105,10 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     ReturnType<typeof hrService.getTimesheetPeriodLockReadiness>
   > | null>(null);
   const [isReviewWorking, setIsReviewWorking] = useState(false);
+  /** When filter is Todos: which employee the right rail (hour bank / punches) shows. */
+  const [focusedEmployeeId, setFocusedEmployeeId] = useState<string | null>(null);
+  const focusedEmployeeIdRef = useRef<string | null>(null);
+  focusedEmployeeIdRef.current = focusedEmployeeId;
 
   const locked = period?.status === 'LOCKED';
   const mustPickEmployee = isHr || isManager;
@@ -116,6 +120,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     setBankEntries([]);
     setBankBalance(0);
     setSelectedDayIds([]);
+    setFocusedEmployeeId(null);
     setHasQuery(false);
   }, []);
 
@@ -155,64 +160,79 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             });
       setDays(activeEmployee === 'ALL' ? list : filtered);
 
-      const bankEmp =
-        activeEmployee === 'ALL'
-          ? user.employeeId || user.id
-          : staff.find(e => e.id === activeEmployee)?.employeeId || activeEmployee;
       const start = p.startDate;
       const end = p.endDate;
-      const [bal, entries, punchList] = await Promise.all([
-        hrService.getHourBankBalance(bankEmp),
-        hrService.listHourBankEntries(bankEmp, start, end),
-        hrService.listPunches({
-          employeeId: activeEmployee === 'ALL' ? undefined : bankEmp,
+
+      if (activeEmployee === 'ALL') {
+        // Org-wide punches; hour bank only for focused row (not the logged-in viewer).
+        const punchList = await hrService.listPunches({
           startDate: start,
           endDate: end,
-        }),
-      ]);
-      setBankBalance(bal);
-      setBankEntries(entries);
-      setPunches(punchList);
+        });
+        setPunches(punchList);
+
+        const focusId = focusedEmployeeIdRef.current;
+        if (focusId) {
+          const focusEmp = staff.find(e => e.id === focusId || e.employeeId === focusId);
+          const bankEmp = focusEmp?.employeeId || focusEmp?.id || focusId;
+          const [bal, entries] = await Promise.all([
+            hrService.getHourBankBalance(bankEmp),
+            hrService.listHourBankEntries(bankEmp, start, end),
+          ]);
+          setBankBalance(bal);
+          setBankEntries(entries);
+        } else {
+          setBankBalance(0);
+          setBankEntries([]);
+        }
+      } else {
+        const bankEmp =
+          staff.find(e => e.id === activeEmployee)?.employeeId || activeEmployee;
+        const [bal, entries, punchList] = await Promise.all([
+          hrService.getHourBankBalance(bankEmp),
+          hrService.listHourBankEntries(bankEmp, start, end),
+          hrService.listPunches({
+            employeeId: bankEmp,
+            startDate: start,
+            endDate: end,
+          }),
+        ]);
+        setBankBalance(bal);
+        setBankEntries(entries);
+        setPunches(punchList);
+
+        // Auto-recalc days that have clock punches but no espelho row yet (REP ingest).
+        if (bankEmp && punchList.length > 0 && p.status !== 'LOCKED') {
+          const dayByDate = new Map(filtered.map(d => [d.workDate, d]));
+          const punchDates = [
+            ...new Set(
+              punchList.map(px => punchLocalDateKey(px.punchedAt)),
+            ),
+          ].slice(0, 14);
+          const staleDates = punchDates.filter(d => {
+            const row = dayByDate.get(d);
+            return !row || !row.firstPunchAt;
+          });
+          if (staleDates.length > 0) {
+            await Promise.all(
+              staleDates.map(d => hrService.recalculateTimesheetDay(bankEmp, d, p).catch(() => null)),
+            );
+            const refreshed = await hrService.listTimesheetDays(p.id, empId);
+            const refFiltered = refreshed.filter(d => {
+              const emp = staff.find(e => e.id === activeEmployee || e.employeeId === activeEmployee);
+              return (
+                d.employeeId === activeEmployee ||
+                d.employeeId === emp?.id ||
+                d.employeeId === emp?.employeeId
+              );
+            });
+            setDays(refFiltered);
+          }
+        }
+      }
 
       const reviews = await hrService.listTimesheetEmployeeReviews(p.id);
       setEmployeeReviews(reviews);
-
-      // Auto-recalc days that have clock punches but no espelho row yet (REP ingest).
-      if (
-        activeEmployee !== 'ALL' &&
-        bankEmp &&
-        punchList.length > 0 &&
-        p.status !== 'LOCKED'
-      ) {
-        const dayByDate = new Map(filtered.map(d => [d.workDate, d]));
-        const punchDates = [
-          ...new Set(
-            punchList.map(px => punchLocalDateKey(px.punchedAt)),
-          ),
-        ].slice(0, 14);
-        const staleDates = punchDates.filter(d => {
-          const row = dayByDate.get(d);
-          return !row || !row.firstPunchAt;
-        });
-        if (staleDates.length > 0) {
-          await Promise.all(
-            staleDates.map(d => hrService.recalculateTimesheetDay(bankEmp, d, p).catch(() => null)),
-          );
-          const refreshed = await hrService.listTimesheetDays(p.id, empId);
-          const refFiltered =
-            activeEmployee === 'ALL'
-              ? refreshed
-              : refreshed.filter(d => {
-                  const emp = staff.find(e => e.id === activeEmployee || e.employeeId === activeEmployee);
-                  return (
-                    d.employeeId === activeEmployee ||
-                    d.employeeId === emp?.id ||
-                    d.employeeId === emp?.employeeId
-                  );
-                });
-          setDays(activeEmployee === 'ALL' ? refreshed : refFiltered);
-        }
-      }
 
       setHasQuery(true);
     } catch (e: any) {
@@ -222,7 +242,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [year, month, employeeFilter, mustPickEmployee, user.id, user.employeeId, showToast, t]);
+  }, [year, month, employeeFilter, mustPickEmployee, showToast, t]);
 
   /** Bootstrap employee list + period shell (no timesheet rows). */
   useEffect(() => {
@@ -300,22 +320,54 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   }, [days]);
 
   const visibleDays = useMemo(() => {
-    if (dayFilter === 'ALL') return elapsedDays;
-    return elapsedDays.filter(d => d.workDate === dayFilter);
-  }, [elapsedDays, dayFilter]);
+    const base = dayFilter === 'ALL' ? elapsedDays : elapsedDays.filter(d => d.workDate === dayFilter);
+    if (employeeFilter !== 'ALL') return base;
+    const nameOf = (id: string) => {
+      const e = employees.find(x => x.id === id || x.employeeId === id);
+      return e?.name || id;
+    };
+    return [...base].sort((a, b) => {
+      const byDate = a.workDate.localeCompare(b.workDate);
+      if (byDate !== 0) return byDate;
+      return nameOf(a.employeeId).localeCompare(nameOf(b.employeeId), 'pt-BR');
+    });
+  }, [elapsedDays, dayFilter, employeeFilter, employees]);
+
+  /** Employee key driving the hour-bank / period-hours rail. */
+  const railEmployeeKey = useMemo(() => {
+    if (employeeFilter === 'ALL') {
+      if (!focusedEmployeeId) return null;
+      const emp = employees.find(e => e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId);
+      return emp?.employeeId || emp?.id || focusedEmployeeId;
+    }
+    if (!employeeFilter) return null;
+    const emp = employees.find(e => e.id === employeeFilter || e.employeeId === employeeFilter);
+    return emp?.employeeId || emp?.id || employeeFilter;
+  }, [employeeFilter, focusedEmployeeId, employees]);
+
+  const railEmployeeName = useMemo(() => {
+    if (employeeFilter === 'ALL') {
+      if (!focusedEmployeeId) return '';
+      const emp = employees.find(e => e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId);
+      return emp?.name || focusedEmployeeId;
+    }
+    const emp = employees.find(e => e.id === employeeFilter || e.employeeId === employeeFilter);
+    return emp?.name || '';
+  }, [employeeFilter, focusedEmployeeId, employees]);
 
   /** Hours target for the same employee shown in the hour-bank panel. */
   const periodHours = useMemo(() => {
+    if (!railEmployeeKey) {
+      return { expected: 0, worked: 0, remaining: 0, dayCount: 0 };
+    }
     const today = todayIsoLocal();
-    const bankKey =
-      employeeFilter === 'ALL'
-        ? user.employeeId || user.id
-        : employees.find(e => e.id === employeeFilter)?.employeeId || employeeFilter;
-    const emp = employees.find(e => e.id === employeeFilter || e.employeeId === employeeFilter);
+    const emp = employees.find(
+      e => e.id === railEmployeeKey || e.employeeId === railEmployeeKey || e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId
+    );
     const scope = days.filter(d => {
       if (d.workDate > today) return false;
       return (
-        d.employeeId === bankKey ||
+        d.employeeId === railEmployeeKey ||
         d.employeeId === emp?.id ||
         d.employeeId === emp?.employeeId
       );
@@ -324,7 +376,37 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     const worked = scope.reduce((s, d) => s + (d.workedMinutes || 0), 0);
     const remaining = Math.max(0, expected - worked);
     return { expected, worked, remaining, dayCount: scope.length };
-  }, [days, employeeFilter, employees, user.employeeId, user.id]);
+  }, [days, railEmployeeKey, employees, focusedEmployeeId]);
+
+  /** When Todos + row focus: fetch hour bank for that employee only. */
+  useEffect(() => {
+    if (!hasQuery || !period || employeeFilter !== 'ALL') return;
+    if (!focusedEmployeeId) {
+      setBankBalance(0);
+      setBankEntries([]);
+      return;
+    }
+    let cancelled = false;
+    const emp = employees.find(e => e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId);
+    const bankEmp = emp?.employeeId || emp?.id || focusedEmployeeId;
+    void (async () => {
+      try {
+        const [bal, entries] = await Promise.all([
+          hrService.getHourBankBalance(bankEmp),
+          hrService.listHourBankEntries(bankEmp, period.startDate, period.endDate),
+        ]);
+        if (!cancelled) {
+          setBankBalance(bal);
+          setBankEntries(entries);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [focusedEmployeeId, employeeFilter, hasQuery, period, employees]);
 
   useEffect(() => {
     if (dayFilter !== 'ALL' && dayFilter > todayIsoLocal()) {
@@ -394,9 +476,44 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   }, [punches.length, visibleDays]);
 
   const visiblePunches = useMemo(() => {
-    if (dayFilter === 'ALL') return punches;
-    return punches.filter(p => p.punchedAt.slice(0, 10) === dayFilter);
-  }, [punches, dayFilter]);
+    let list = punches;
+    if (dayFilter !== 'ALL') {
+      list = list.filter(p => p.punchedAt.slice(0, 10) === dayFilter);
+    }
+    if (employeeFilter === 'ALL') {
+      if (!focusedEmployeeId) return [];
+      const emp = employees.find(e => e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId);
+      const keys = new Set(
+        [focusedEmployeeId, emp?.id, emp?.employeeId].filter(Boolean) as string[],
+      );
+      list = list.filter(p => keys.has(p.employeeId));
+    }
+    return list;
+  }, [punches, dayFilter, employeeFilter, focusedEmployeeId, employees]);
+
+  const matchesFocusedEmployee = useCallback(
+    (dayEmpId: string) => {
+      if (!focusedEmployeeId) return false;
+      if (dayEmpId === focusedEmployeeId) return true;
+      const emp = employees.find(e => e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId);
+      if (!emp) return false;
+      return dayEmpId === emp.id || dayEmpId === emp.employeeId;
+    },
+    [focusedEmployeeId, employees],
+  );
+
+  const focusEmployeeFromDay = useCallback(
+    (dayEmpId: string) => {
+      const emp = employees.find(e => e.id === dayEmpId || e.employeeId === dayEmpId);
+      setFocusedEmployeeId(emp?.id || dayEmpId);
+    },
+    [employees],
+  );
+
+  const tableColSpan = isManager && !locked ? 11 : 10;
+  const showDaySeparators = employeeFilter === 'ALL' && hasQuery;
+  const railNeedsSelection = employeeFilter === 'ALL' && !focusedEmployeeId;
+  const railReady = Boolean(railEmployeeKey);
 
   const dayStatusLabel = (status: string) => {
     const key = dayStatusKey[status];
@@ -1397,13 +1514,41 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleDays.map(d => {
+                  {visibleDays.map((d, index) => {
                     const name = empName(d.employeeId);
                     const canSelect = isManager && !locked && !d.managerAck;
+                    const prevDate = index > 0 ? visibleDays[index - 1]?.workDate : null;
+                    const showDateHeader = showDaySeparators && d.workDate !== prevDate;
+                    const rowFocused = employeeFilter === 'ALL' && matchesFocusedEmployee(d.employeeId);
                     return (
-                      <tr key={d.id} className="border-t border-slate-100 hover:bg-slate-50/80">
+                      <React.Fragment key={d.id}>
+                        {showDateHeader && (
+                          <tr className="bg-slate-100 border-t border-slate-200">
+                            <td
+                              colSpan={tableColSpan}
+                              className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700"
+                            >
+                              {t('dayGroupLabel', { date: formatIsoDateBr(d.workDate) })}
+                            </td>
+                          </tr>
+                        )}
+                        <tr
+                          className={`border-t border-slate-100 border-l-4 transition-colors ${
+                            showDaySeparators ? 'cursor-pointer' : ''
+                          } ${
+                            rowFocused
+                              ? 'bg-primary/5 border-l-primary'
+                              : 'border-l-transparent hover:bg-slate-50/80'
+                          }`}
+                          onClick={
+                            showDaySeparators
+                              ? () => focusEmployeeFromDay(d.employeeId)
+                              : undefined
+                          }
+                          aria-selected={rowFocused || undefined}
+                        >
                         {isManager && !locked && (
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                             {canSelect ? (
                               <input
                                 type="checkbox"
@@ -1417,9 +1562,15 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                             )}
                           </td>
                         )}
-                        <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap tabular-nums">{formatIsoDateBr(d.workDate)}</td>
+                        <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap tabular-nums">
+                          {showDaySeparators ? (
+                            <span className="text-slate-500 text-xs">{formatIsoDateBr(d.workDate)}</span>
+                          ) : (
+                            formatIsoDateBr(d.workDate)
+                          )}
+                        </td>
                         <td className="px-3 py-2.5 text-slate-700 max-w-[12rem]">
-                          <span className="block truncate" title={name}>{name}</span>
+                          <span className="block truncate font-medium" title={name}>{name}</span>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{fmtMinutes(d.expectedMinutes, t)}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{fmtMinutes(d.workedMinutes, t)}</td>
@@ -1452,7 +1603,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <span className="font-medium text-slate-800">{dayStatusLabel(d.status)}</span>
                         </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
+                  <td className="px-3 py-2.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                           <div className="flex flex-wrap gap-1 items-center">
                             {!d.managerAck && (isManager || isHr) && !locked && (
                               <button
@@ -1486,7 +1637,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
+                        <td className="px-3 py-2.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                           {(isHr || isManager) && !locked && (
                             <button
                               type="button"
@@ -1498,6 +1649,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                           )}
                         </td>
                       </tr>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -1511,63 +1663,80 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Scale size={16} className="text-primary shrink-0" aria-hidden />
-              <h3 className="text-sm font-semibold text-slate-800">{t('hourBank')}</h3>
+              <h3 className="text-sm font-semibold text-slate-800">
+                {railReady && railEmployeeName
+                  ? t('hourBankFor', { name: railEmployeeName })
+                  : t('hourBank')}
+              </h3>
             </div>
-            <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-              {fmtMinutes(bankBalance, t)}
-            </p>
-            <p className="text-xs text-slate-500 font-medium">{t('balance')}</p>
 
-            {periodHours.dayCount > 0 && (
-              <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  {t('periodHoursTitle')}
+            {railNeedsSelection ? (
+              <p className="text-sm text-slate-600 leading-relaxed py-2">{t('railSelectEmployee')}</p>
+            ) : (
+              <>
+                <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+                  {fmtMinutes(bankBalance, t)}
                 </p>
-                <div className="grid grid-cols-3 gap-1 text-center">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800 tabular-nums">{fmtMinutes(periodHours.expected, t)}</p>
-                    <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursExpected')}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-emerald-700 tabular-nums">{fmtMinutes(periodHours.worked, t)}</p>
-                    <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursWorked')}</p>
-                  </div>
-                  <div>
-                    <p className={`text-sm font-semibold tabular-nums ${periodHours.remaining > 0 ? 'text-amber-700' : 'text-slate-800'}`}>
-                      {fmtMinutes(periodHours.remaining, t)}
-                    </p>
-                    <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursRemaining')}</p>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-400 leading-snug">{t('periodHoursHint')}</p>
-              </div>
-            )}
+                <p className="text-xs text-slate-500 font-medium">{t('balance')}</p>
 
-            <ul className="max-h-48 overflow-y-auto space-y-2 text-xs">
-              {bankEntries.slice(0, 20).map(e => (
-                <li key={e.id} className="flex justify-between gap-2 border-b border-slate-100 pb-1">
-                  <span className="text-slate-500 truncate">
-                    {formatIsoDateBr(e.entryDate)} · {entryTypeLabel(e.entryType)}
-                  </span>
-                  <span className={`shrink-0 tabular-nums ${e.minutesDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {e.minutesDelta >= 0 ? '+' : ''}{fmtMinutes(e.minutesDelta, t)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                {periodHours.dayCount > 0 && (
+                  <div className="rounded-lg border border-slate-100 bg-slate-100 px-3 py-2.5 space-y-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      {t('periodHoursTitle')}
+                    </p>
+                    <div className="grid grid-cols-3 gap-1 text-center">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800 tabular-nums">{fmtMinutes(periodHours.expected, t)}</p>
+                        <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursExpected')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-700 tabular-nums">{fmtMinutes(periodHours.worked, t)}</p>
+                        <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursWorked')}</p>
+                      </div>
+                      <div>
+                        <p className={`text-sm font-semibold tabular-nums ${periodHours.remaining > 0 ? 'text-amber-700' : 'text-slate-800'}`}>
+                          {fmtMinutes(periodHours.remaining, t)}
+                        </p>
+                        <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursRemaining')}</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-snug">{t('periodHoursHint')}</p>
+                  </div>
+                )}
+
+                <ul className="max-h-48 overflow-y-auto space-y-2 text-xs">
+                  {bankEntries.slice(0, 20).map(e => (
+                    <li key={e.id} className="flex justify-between gap-2 border-b border-slate-100 pb-1">
+                      <span className="text-slate-500 truncate">
+                        {formatIsoDateBr(e.entryDate)} · {entryTypeLabel(e.entryType)}
+                      </span>
+                      <span className={`shrink-0 tabular-nums ${e.minutesDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {e.minutesDelta >= 0 ? '+' : ''}{fmtMinutes(e.minutesDelta, t)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
 
           {viewMode === 'summary' && (
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-800">{t('punchesTitle')}</h3>
+              <h3 className="text-sm font-semibold text-slate-800">
+                {railReady && railEmployeeName
+                  ? t('punchesTitleFor', { name: railEmployeeName })
+                  : t('punchesTitle')}
+              </h3>
               {isHr && !locked && (
                 <button
                   type="button"
                   className="text-xs font-semibold text-primary shrink-0 hover:underline"
                   onClick={() => {
                     setPunchForm({
-                      employeeId: employeeFilter !== 'ALL' ? employeeFilter : employees[0]?.id || '',
+                      employeeId: employeeFilter !== 'ALL'
+                        ? employeeFilter
+                        : (focusedEmployeeId || employees[0]?.id || ''),
                       punchedAt: '',
                       direction: 'IN',
                     });
@@ -1578,23 +1747,29 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                 </button>
               )}
             </div>
-            <p className="text-xs text-slate-500">{t('punchesHint')}</p>
-            {visiblePunches.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">{t('noPunches')}</p>
+            {railNeedsSelection ? (
+              <p className="text-sm text-slate-600 leading-relaxed py-2">{t('railSelectEmployee')}</p>
             ) : (
-              <ul className="max-h-64 overflow-y-auto space-y-2 text-xs">
-                {visiblePunches.slice(0, 50).map(p => (
-                  <li key={p.id} className="flex flex-col border-b border-slate-100 pb-2 gap-0.5">
-                    <span className="font-medium text-slate-800 tabular-nums">
-                      {formatDateTime(p.punchedAt)}
-                    </span>
-                    <span className="text-slate-500 truncate" title={`${empName(p.employeeId)} · ${p.direction} · ${p.source}`}>
-                      {empName(p.employeeId)} · {p.direction} · {p.source}
-                      {p.nsr ? ` · NSR ${p.nsr}` : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <p className="text-xs text-slate-500">{t('punchesHint')}</p>
+                {visiblePunches.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-4">{t('noPunches')}</p>
+                ) : (
+                  <ul className="max-h-64 overflow-y-auto space-y-2 text-xs">
+                    {visiblePunches.slice(0, 50).map(p => (
+                      <li key={p.id} className="flex flex-col border-b border-slate-100 pb-2 gap-0.5">
+                        <span className="font-medium text-slate-800 tabular-nums">
+                          {formatDateTime(p.punchedAt)}
+                        </span>
+                        <span className="text-slate-500 truncate" title={`${empName(p.employeeId)} · ${p.direction} · ${p.source}`}>
+                          {empName(p.employeeId)} · {p.direction} · {p.source}
+                          {p.nsr ? ` · NSR ${p.nsr}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
           )}

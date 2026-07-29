@@ -25,7 +25,8 @@ export const STORE_LOGO_FALLBACK = '/img/logo.webp';
 
 /**
  * Print / PDF wordmark — red ELETRO + black PASSO on transparent background.
- * Use on white paper so the full brand stays visible (not the light UI logo).
+ * ALL PDF exports (espelho, relatórios, licença, avaliação, diretório) must use
+ * this asset via reportPdf.resolvePdfOrgBranding — never STORE_LOGO_* (white PASSO).
  */
 export const PDF_LOGO_PATH = '/img/logo-pdf.png';
 

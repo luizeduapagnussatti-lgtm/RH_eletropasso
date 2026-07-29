@@ -15,6 +15,28 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-07-29',
+    title: 'PDFs — logo preta em todos os documentos',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Todos os PDFs (espelho, relatórios de ponto, diretório, licença, avaliação) usam só logo-pdf.png (PASSO preto) embutida no bundle; removidos fallbacks para logo do chrome ou upload da org, que ficavam ilegíveis no fundo branco.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'Espelho — filtro Todos com separadores e foco',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'No filtro Todos, a tabela agrupa por data (cabeçalho de dia) e o Banco de horas / Marcações passam a seguir o colaborador clicado na linha — sem usar mais o saldo do usuário logado nem misturar batidas de toda a org no painel.',
+      },
+    ],
+  },
+  {
     date: '2026-07-28',
     title: 'Espelho — contraste dos banners no tema escuro',
     entries: [

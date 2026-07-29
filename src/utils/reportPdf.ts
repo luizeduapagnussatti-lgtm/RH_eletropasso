@@ -1,4 +1,5 @@
-import { APP_NAME, BRAND_RED, CHROME_BG, PDF_LOGO_PATH, STORE_LOGO_FALLBACK, STORE_LOGO_PATH } from '../config/branding';
+import { APP_NAME, BRAND_RED, CHROME_BG, PDF_LOGO_PATH } from '../config/branding';
+import pdfLogoUrl from '../assets/branding/logo-pdf.png';
 import { formatIsoDateBr, getDateLocale } from '../i18n/format';
 /** Eletropasso PDF design tokens — mirror DESIGN.md (chrome + brand red + slate ink). */
 export const PDF_COLORS = {
@@ -109,7 +110,8 @@ export function getScaledLogoDims(dataUrl: string, maxSize: number): Promise<{ w
   });
 }
 
-let cachedBrandLogoPng: string | null = null;
+/** Print wordmark only (black PASSO). Never cache UI/chrome logos. */
+let cachedPrintLogoPng: string | null = null;
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -145,11 +147,14 @@ export async function dataUrlToPngForPdf(dataUrl: string): Promise<{ dataUrl: st
   });
 }
 
-/** Eletropasso print wordmark (black PASSO) — used on all PDF exports. */
+/**
+ * Eletropasso print wordmark for white paper: red ELETRO + black PASSO.
+ * Used by every PDF export. Never returns UI logos (white PASSO on dark chrome).
+ */
 export async function loadTransparentBrandLogo(): Promise<string | null> {
-  if (cachedBrandLogoPng) return cachedBrandLogoPng;
-  // Prefer dark-letter print asset; UI logos keep light PASSO for dark chrome.
-  const candidates = [PDF_LOGO_PATH, STORE_LOGO_PATH, STORE_LOGO_FALLBACK, '/img/logo-eletropasso-source.png'];
+  if (cachedPrintLogoPng) return cachedPrintLogoPng;
+  // Bundled asset first (always in build), then public/dist path.
+  const candidates = [pdfLogoUrl, PDF_LOGO_PATH];
   for (const path of candidates) {
     try {
       const resp = await fetch(path);
@@ -157,7 +162,7 @@ export async function loadTransparentBrandLogo(): Promise<string | null> {
       const blob = await resp.blob();
       const raw = await blobToDataUrl(blob);
       const { dataUrl } = await dataUrlToPngForPdf(raw);
-      cachedBrandLogoPng = dataUrl;
+      cachedPrintLogoPng = dataUrl;
       return dataUrl;
     } catch {
       /* try next asset */
@@ -166,10 +171,12 @@ export async function loadTransparentBrandLogo(): Promise<string | null> {
   return null;
 }
 
-/** Prefer transparent Eletropasso wordmark; keep org name/address from tenant. */
+/**
+ * Force print branding on all PDFs: keep tenant name/address, replace any logo
+ * (org upload or UI chrome) with logo-pdf.png. Never draw light-letter logos on white pages.
+ */
 export async function resolvePdfOrgBranding(org: PdfOrgInfo): Promise<PdfOrgInfo> {
   const brandLogo = await loadTransparentBrandLogo();
-  if (!brandLogo) return org;
   return { ...org, logoDataUrl: brandLogo };
 }
 export async function loadPdfLibs(): Promise<{ jsPDF: new (opts?: object) => JsPdfDoc }> {
@@ -208,32 +215,33 @@ export async function drawReportHeader(
   doc.rect(0, 8, pageWidth, 1.2, 'F');
 
   let cursorY = 18;
-  const logoSize = 18;
+  // Wordmark is wide (~250×78); allow ~42mm width so black PASSO stays readable.
+  const logoMax = 42;
   let textStartX = margin;
 
   if (org.logoDataUrl) {
     try {
       const { dataUrl, format } = await dataUrlToPngForPdf(org.logoDataUrl);
-      const logoDims = await scaleLogo(dataUrl, logoSize);
+      const logoDims = await scaleLogo(dataUrl, logoMax);
       doc.addImage(dataUrl, format, margin, cursorY - 4, logoDims.w, logoDims.h);
-      textStartX = margin + logoDims.w + 5;
+      textStartX = margin + logoDims.w + 4;
     } catch { /* skip logo */ }
   }
 
   if (org.name) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     doc.setTextColor(...PDF_COLORS.ink);
-    doc.text(org.name, textStartX, cursorY + 2);
+    doc.text(org.name, textStartX, cursorY + 1);
   }
   if (org.address) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...PDF_COLORS.muted);
-    doc.text(org.address, textStartX, cursorY + 8);
+    doc.text(org.address, textStartX, cursorY + 7);
   }
 
-  cursorY += Math.max(logoSize, 12) + 8;
+  cursorY += Math.max(logoMax * 0.35, 14) + 8;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
