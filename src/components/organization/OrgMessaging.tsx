@@ -73,6 +73,69 @@ export const OrgMessaging: React.FC<Props> = ({ config, onSave }) => {
               <input value={local.whatsappFrom} onChange={e => setLocal(p => ({ ...p, whatsappFrom: e.target.value }))} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
             </label>
           </div>
+
+          <div className="pt-2 border-t border-slate-100">
+            <h4 className="text-xs font-bold text-slate-600 mb-3">{t('messagingThrottleTitle')}</h4>
+            <p className="text-[10px] text-slate-400 mb-3">{t('messagingThrottleHint')}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('messagingWhatsappDelay')}</span>
+                <input
+                  type="number"
+                  min={2}
+                  max={30}
+                  value={local.whatsappDelaySeconds ?? 4}
+                  onChange={e => setLocal(p => ({ ...p, whatsappDelaySeconds: Number(e.target.value) || 4 }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('messagingEmailDelay')}</span>
+                <input
+                  type="number"
+                  min={200}
+                  max={5000}
+                  step={100}
+                  value={local.emailDelayMs ?? 800}
+                  onChange={e => setLocal(p => ({ ...p, emailDelayMs: Number(e.target.value) || 800 }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('messagingMaxWhatsappBatch')}</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={50}
+                  value={local.maxWhatsappPerBatch ?? 25}
+                  onChange={e => setLocal(p => ({ ...p, maxWhatsappPerBatch: Number(e.target.value) || 25 }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('messagingPauseEvery')}</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={50}
+                  value={local.batchPauseEvery ?? 10}
+                  onChange={e => setLocal(p => ({ ...p, batchPauseEvery: Number(e.target.value) || 10 }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase">{t('messagingPauseSeconds')}</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={local.batchPauseSeconds ?? 15}
+                  onChange={e => setLocal(p => ({ ...p, batchPauseSeconds: Number(e.target.value) || 15 }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </label>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void checkHealth()} disabled={checking} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200">
               {checking ? <Loader2 size={14} className="animate-spin" /> : null}

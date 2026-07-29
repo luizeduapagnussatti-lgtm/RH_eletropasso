@@ -254,6 +254,13 @@
   "messagingSaved": "Configurações de mensagens salvas.",
   "messagingSaveFailed": "Falha ao salvar mensagens.",
   "saveMessagingSettings": "Salvar mensagens",
+  "messagingThrottleTitle": "Envio seguro (anti-bloqueio)",
+  "messagingThrottleHint": "Intervalos entre mensagens WhatsApp/e-mail. Valores maiores reduzem risco de bloqueio pela Meta.",
+  "messagingWhatsappDelay": "Intervalo WhatsApp (s)",
+  "messagingEmailDelay": "Intervalo e-mail (ms)",
+  "messagingMaxWhatsappBatch": "Máx. WhatsApp por lote",
+  "messagingPauseEvery": "Pausa longa a cada N WhatsApp",
+  "messagingPauseSeconds": "Duração da pausa (s)",
   "notificationSaveFailed": "Falha ao salvar a configuração de notificações.",
   "clockSupervisors": {
     "title": "Supervisores do relógio",

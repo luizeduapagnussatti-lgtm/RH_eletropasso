@@ -14,6 +14,17 @@
   "colSubject": "Subject",
   "colStatus": "Status",
   "colSentAt": "Sent at",
+  "recipientPickerTitle": "Recipients",
+  "recipientSelected": "{{count}} of {{total}} selected",
+  "recipientSelectAll": "Select eligible",
+  "recipientSelectNone": "Clear selection",
+  "recipientSearch": "Search employee…",
+  "recipientEmpty": "No employees found.",
+  "recipientSafetyHint": "Messages are spaced automatically to reduce WhatsApp blocking risk. Green icons = channel available for that person.",
+  "dispatchPreview": "{{total}} messages ({{whatsapp}} WhatsApp, {{email}} email) · estimated time ~{{seconds}} s",
+  "confirmDispatch": "Confirm: {{count}} external messages will be sent with safety spacing (~{{seconds}} s total). Continue?",
+  "confirmSendButton": "Confirm send",
+  "batchPaused": "Sending paused after consecutive WhatsApp failures. Check the Evolution instance and retry failed items in the outbox.",
   "channel": {
     "EMAIL": "Email",
     "WHATSAPP": "WhatsApp"

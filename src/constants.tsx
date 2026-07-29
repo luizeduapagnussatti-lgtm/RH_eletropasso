@@ -125,6 +125,11 @@ export const DEFAULT_MESSAGING_CONFIG: OrgMessagingConfig = {
   whatsappEnabled: true,
   fromEmail: 'Eletropasso RH <suporte@eletropasso.com.br>',
   whatsappFrom: '54981159982',
+  whatsappDelaySeconds: 4,
+  emailDelayMs: 800,
+  maxWhatsappPerBatch: 25,
+  batchPauseEvery: 10,
+  batchPauseSeconds: 15,
 };
 
 export const DEFAULT_NOTIFICATION_CONFIG: OrgNotificationConfig = {

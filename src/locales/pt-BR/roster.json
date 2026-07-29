@@ -68,6 +68,7 @@
   "publishSummary": "Enviados: {{sent}} · Falhas: {{failed}} · Ignorados: {{skipped}}",
   "publishNeedChannel": "Selecione ao menos E-mail ou WhatsApp.",
   "publishNoRecipients": "Nenhum colaborador elegível (verifique opt-in WhatsApp e e-mail).",
+  "publishNoRecipientsSelected": "Selecione ao menos um colaborador para enviar.",
   "publishError": "Erro ao publicar escala.",
   "pdfError": "Erro ao gerar PDF.",
   "close": "Fechar",

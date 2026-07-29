@@ -1,11 +1,17 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient } from './api.client';
+import { organizationService } from './organization.service';
 import type {
+  MessagingBatchOptions,
   MessagingChannel,
   MessagingDispatchItem,
   MessagingDispatchResult,
   MessagingOutboxEntry,
 } from '../types';
+import {
+  chunkDispatchItems,
+  resolveThrottleFromConfig,
+} from '../utils/messagingThrottle';
 
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL
   ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
@@ -85,7 +91,8 @@ export const messagingService = {
 
   async dispatchBatch(
     items: Array<MessagingDispatchItem & { channel: 'EMAIL' | 'WHATSAPP' }>,
-  ): Promise<{ sent: number; failed: number; skipped: number; results: MessagingDispatchResult[] }> {
+    throttle?: MessagingBatchOptions,
+  ): Promise<{ sent: number; failed: number; skipped: number; paused?: boolean; results: MessagingDispatchResult[] }> {
     if (!FUNCTIONS_URL || !isSupabaseConfigured()) {
       throw new Error('Messaging not configured');
     }
@@ -93,7 +100,7 @@ export const messagingService = {
     const res = await fetch(`${FUNCTIONS_URL}/messaging-dispatch`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ action: 'batch', items }),
+      body: JSON.stringify({ action: 'batch', items, throttle }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Batch dispatch failed');
@@ -101,8 +108,54 @@ export const messagingService = {
       sent: data.sent ?? 0,
       failed: data.failed ?? 0,
       skipped: data.skipped ?? 0,
+      paused: data.paused,
       results: data.results ?? [],
     };
+  },
+
+  /**
+   * Dispatches in chunks with throttle from org config — avoids edge timeout and Meta rate limits.
+   */
+  async dispatchBatchSafe(
+    items: Array<MessagingDispatchItem & { channel: 'EMAIL' | 'WHATSAPP' }>,
+    options?: {
+      onProgress?: (message: string) => void;
+      throttle?: MessagingBatchOptions;
+      maxWhatsappPerChunk?: number;
+      pauseBetweenChunksMs?: number;
+    },
+  ): Promise<{ sent: number; failed: number; skipped: number; paused: boolean }> {
+    const messagingConfig = await organizationService.getMessagingConfig();
+    const throttle = options?.throttle ?? resolveThrottleFromConfig(messagingConfig);
+    const maxWa = options?.maxWhatsappPerChunk ?? messagingConfig.maxWhatsappPerBatch ?? 25;
+    const chunks = chunkDispatchItems(items, maxWa);
+    const betweenChunks = options?.pauseBetweenChunksMs ?? (messagingConfig.batchPauseSeconds ?? 15) * 1000;
+
+    let sent = 0;
+    let failed = 0;
+    let skipped = 0;
+    let paused = false;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]!;
+      if (chunks.length > 1) {
+        options?.onProgress?.(`Lote ${i + 1}/${chunks.length}…`);
+      }
+      const result = await this.dispatchBatch(chunk, throttle);
+      sent += result.sent;
+      failed += result.failed;
+      skipped += result.skipped;
+      if (result.paused) paused = true;
+
+      if (i < chunks.length - 1 && !paused) {
+        options?.onProgress?.(`Pausa de segurança entre lotes…`);
+        await new Promise(r => setTimeout(r, betweenChunks));
+      } else if (paused) {
+        break;
+      }
+    }
+
+    return { sent, failed, skipped, paused };
   },
 
   async retryOutbox(outboxId: string): Promise<MessagingDispatchResult> {
@@ -156,11 +209,13 @@ export const messagingService = {
     monthLabel: string,
     pdfBase64ByEmployee: Map<string, { base64: string; fileName: string }>,
     referenceId: string,
+    selectedEmployeeIds?: Set<string>,
   ): Array<MessagingDispatchItem & { channel: 'EMAIL' | 'WHATSAPP' }> {
     const items: Array<MessagingDispatchItem & { channel: 'EMAIL' | 'WHATSAPP' }> = [];
     const caption = `Olá! Segue sua escala de ${monthLabel}. Qualquer dúvida ou troca, acesse o app RH Eletropasso.`;
 
     for (const emp of employees) {
+      if (selectedEmployeeIds && !selectedEmployeeIds.has(emp.id)) continue;
       const prefs = emp.messagingChannelPref ?? ['APP', 'EMAIL'];
       const pdf = pdfBase64ByEmployee.get(emp.id);
 

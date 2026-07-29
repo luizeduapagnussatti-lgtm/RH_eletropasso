@@ -49,6 +49,8 @@ export const announcementService = {
     targetRoles: Role[];
     expiresAt?: string;
     channels?: MessagingChannel[];
+    /** When set, external channels (email/WhatsApp) only go to these profile ids. App bell uses all target roles. */
+    recipientProfileIds?: string[];
   }): Promise<void> {
     if (!isSupabaseConfigured()) return;
     const orgId = apiClient.getOrganizationId();
@@ -101,8 +103,12 @@ export const announcementService = {
 
       const externalChannels = channels.filter(c => c === 'EMAIL' || c === 'WHATSAPP') as ('EMAIL' | 'WHATSAPP')[];
       if (externalChannels.length > 0 && targetUsers.length > 0) {
+        const externalTargets = data.recipientProfileIds?.length
+          ? targetUsers.filter(u => data.recipientProfileIds!.includes(u.id))
+          : targetUsers;
+
         const items = externalChannels.flatMap(channel =>
-          targetUsers.flatMap(emp => {
+          externalTargets.flatMap(emp => {
             const prefs = emp.messagingChannelPref ?? ['APP', 'EMAIL'];
             if (!prefs.includes(channel)) return [];
             if (channel === 'WHATSAPP' && !emp.whatsappOptIn) return [];
@@ -119,7 +125,7 @@ export const announcementService = {
           })
         );
         if (items.length > 0) {
-          await messagingService.dispatchBatch(items);
+          await messagingService.dispatchBatchSafe(items);
         }
       }
     } catch (notifErr: any) {

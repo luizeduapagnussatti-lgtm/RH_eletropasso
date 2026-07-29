@@ -254,6 +254,13 @@
   "messagingSaved": "Messaging settings saved.",
   "messagingSaveFailed": "Failed to save messaging settings.",
   "saveMessagingSettings": "Save messaging",
+  "messagingThrottleTitle": "Safe sending (anti-ban)",
+  "messagingThrottleHint": "Spacing between WhatsApp/email messages. Higher values reduce Meta blocking risk.",
+  "messagingWhatsappDelay": "WhatsApp interval (s)",
+  "messagingEmailDelay": "Email interval (ms)",
+  "messagingMaxWhatsappBatch": "Max WhatsApp per batch",
+  "messagingPauseEvery": "Long pause every N WhatsApp",
+  "messagingPauseSeconds": "Pause duration (s)",
   "notificationSaveFailed": "Failed to save notification config.",
   "clockSupervisors": {
     "title": "Clock supervisors",

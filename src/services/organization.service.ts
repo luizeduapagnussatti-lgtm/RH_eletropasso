@@ -300,9 +300,9 @@ export const organizationService = {
   async getMessagingConfig(): Promise<OrgMessagingConfig> {
     if (cachedMessagingConfig && isCacheValid()) return cachedMessagingConfig;
     const val = await getSetting('messaging_config', DEFAULT_MESSAGING_CONFIG);
-    cachedMessagingConfig = val;
+    cachedMessagingConfig = { ...DEFAULT_MESSAGING_CONFIG, ...val };
     touchCache();
-    return val;
+    return cachedMessagingConfig;
   },
 
   async setMessagingConfig(config: OrgMessagingConfig) {

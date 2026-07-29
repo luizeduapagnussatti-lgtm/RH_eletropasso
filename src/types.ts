@@ -334,6 +334,25 @@ export interface OrgMessagingConfig {
   whatsappEnabled: boolean;
   fromEmail: string;
   whatsappFrom: string;
+  /** Seconds between WhatsApp messages in a batch (anti-ban Meta). Default 4. */
+  whatsappDelaySeconds?: number;
+  /** Milliseconds between e-mails in a batch. Default 800. */
+  emailDelayMs?: number;
+  /** Max WhatsApp messages per HTTP batch (client may split further). Default 25. */
+  maxWhatsappPerBatch?: number;
+  /** Longer pause every N WhatsApp sends. Default 10. */
+  batchPauseEvery?: number;
+  /** Seconds for the longer pause. Default 15. */
+  batchPauseSeconds?: number;
+}
+
+export interface MessagingBatchOptions {
+  whatsappDelayMs?: number;
+  emailDelayMs?: number;
+  jitterMs?: number;
+  pauseEveryWhatsapp?: number;
+  pauseDurationMs?: number;
+  maxConsecutiveFailures?: number;
 }
 
 export interface MessagingOutboxEntry {

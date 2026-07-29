@@ -68,6 +68,7 @@
   "publishSummary": "Sent: {{sent}} · Failed: {{failed}} · Skipped: {{skipped}}",
   "publishNeedChannel": "Select at least Email or WhatsApp.",
   "publishNoRecipients": "No eligible employees (check WhatsApp opt-in and email).",
+  "publishNoRecipientsSelected": "Select at least one employee to send to.",
   "publishError": "Failed to publish schedule.",
   "pdfError": "Failed to generate PDF.",
   "close": "Close",

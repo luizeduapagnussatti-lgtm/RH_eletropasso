@@ -25,6 +25,7 @@ export const changelog: ChangelogRelease[] = [
       { type: 'feature', description: 'Página Envios WhatsApp/E-mail com reenvio; config de canais em Organização → Notificações.' },
       { type: 'feature', description: 'Trocas de escala: aviso WhatsApp opcional; opt-in LGPD no cadastro.' },
       { type: 'improvement', description: 'docs/messaging-secrets-eletropasso.md — secrets Evolution/Resend e deploy.' },
+      { type: 'security', description: 'Envio seguro: seleção de destinatários (escala/comunicados), intervalo configurável entre WhatsApp/e-mail, pausas por lote, limite por lote e pausa automática após falhas consecutivas (anti-bloqueio Meta).' },
     ],
   },
   {

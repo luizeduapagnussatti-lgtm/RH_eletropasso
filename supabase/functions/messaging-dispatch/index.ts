@@ -19,8 +19,13 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const BATCH_DELAY_MS = 1000;
+const DEFAULT_WHATSAPP_DELAY_MS = 4000;
+const DEFAULT_EMAIL_DELAY_MS = 800;
+const DEFAULT_JITTER_MS = 800;
+const DEFAULT_PAUSE_EVERY = 10;
+const DEFAULT_PAUSE_MS = 15000;
 const MAX_BATCH_SIZE = 200;
+const MAX_CONSECUTIVE_WA_FAILURES = 3;
 
 type Channel = 'EMAIL' | 'WHATSAPP';
 
@@ -46,6 +51,63 @@ function jsonResponse(status: number, body: unknown) {
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function jitteredDelay(baseMs: number, jitterMs: number) {
+  return baseMs + Math.floor(Math.random() * jitterMs);
+}
+
+type ThrottleOptions = {
+  whatsappDelayMs: number;
+  emailDelayMs: number;
+  jitterMs: number;
+  pauseEveryWhatsapp: number;
+  pauseDurationMs: number;
+  maxConsecutiveFailures: number;
+};
+
+function resolveThrottle(
+  messagingCfg: Record<string, unknown> | null,
+  bodyOpts: Record<string, unknown> | undefined,
+): ThrottleOptions {
+  const cfgWaSec = Number(messagingCfg?.whatsappDelaySeconds);
+  const defaultWaMs = Number.isFinite(cfgWaSec) && cfgWaSec > 0
+    ? cfgWaSec * 1000
+    : DEFAULT_WHATSAPP_DELAY_MS;
+  const cfgEmailMs = Number(messagingCfg?.emailDelayMs);
+  const defaultEmailMs = Number.isFinite(cfgEmailMs) && cfgEmailMs > 0
+    ? cfgEmailMs
+    : DEFAULT_EMAIL_DELAY_MS;
+  const cfgPauseEvery = Number(messagingCfg?.batchPauseEvery);
+  const cfgPauseSec = Number(messagingCfg?.batchPauseSeconds);
+  return {
+    whatsappDelayMs: Number(bodyOpts?.whatsappDelayMs) || defaultWaMs,
+    emailDelayMs: Number(bodyOpts?.emailDelayMs) || defaultEmailMs,
+    jitterMs: Number(bodyOpts?.jitterMs) || DEFAULT_JITTER_MS,
+    pauseEveryWhatsapp: Number(bodyOpts?.pauseEveryWhatsapp)
+      || (Number.isFinite(cfgPauseEvery) && cfgPauseEvery > 0 ? cfgPauseEvery : DEFAULT_PAUSE_EVERY),
+    pauseDurationMs: Number(bodyOpts?.pauseDurationMs)
+      || (Number.isFinite(cfgPauseSec) && cfgPauseSec > 0 ? cfgPauseSec * 1000 : DEFAULT_PAUSE_MS),
+    maxConsecutiveFailures: Number(bodyOpts?.maxConsecutiveFailures) || MAX_CONSECUTIVE_WA_FAILURES,
+  };
+}
+
+async function delayBetweenItems(
+  prev: DispatchItem | null,
+  next: DispatchItem,
+  throttle: ThrottleOptions,
+  whatsappSentInBatch: number,
+) {
+  if (!prev) return;
+  if (next.channel === 'WHATSAPP') {
+    if (whatsappSentInBatch > 0 && whatsappSentInBatch % throttle.pauseEveryWhatsapp === 0) {
+      await sleep(throttle.pauseDurationMs);
+    } else {
+      await sleep(jitteredDelay(throttle.whatsappDelayMs, throttle.jitterMs));
+    }
+  } else if (next.channel === 'EMAIL') {
+    await sleep(throttle.emailDelayMs);
+  }
 }
 
 function stripBase64Prefix(b64: string): string {
@@ -137,18 +199,19 @@ Deno.serve(async (req: Request) => {
 
   let emailEnabled = true;
   let whatsappEnabled = true;
+  let messagingCfgObj: Record<string, unknown> | null = null;
   if (messagingSetting?.value) {
     try {
       const cfg = typeof messagingSetting.value === 'string'
         ? JSON.parse(messagingSetting.value)
         : messagingSetting.value;
+      messagingCfgObj = cfg as Record<string, unknown>;
       emailEnabled = cfg.emailEnabled !== false;
       whatsappEnabled = cfg.whatsappEnabled !== false;
     } catch { /* defaults */ }
   }
 
-  async function processItem(item: DispatchItem, delayBefore = false): Promise<{ id: string; status: string; error?: string }> {
-    if (delayBefore) await sleep(BATCH_DELAY_MS);
+  async function processItem(item: DispatchItem): Promise<{ id: string; status: string; error?: string }> {
 
     const channel = item.channel;
     if (channel === 'EMAIL' && !emailEnabled) {
@@ -398,14 +461,50 @@ Deno.serve(async (req: Request) => {
       return jsonResponse(400, { success: false, message: `Max ${MAX_BATCH_SIZE} items per batch` });
     }
 
+    const throttle = resolveThrottle(messagingCfgObj, body.throttle as Record<string, unknown> | undefined);
     const results: Array<{ id: string; status: string; error?: string }> = [];
+    let consecutiveWaFailures = 0;
+    let whatsappSentCount = 0;
+    let prevItem: DispatchItem | null = null;
+
     for (let i = 0; i < items.length; i++) {
-      results.push(await processItem(items[i]!, i > 0 && items[i]!.channel === 'WHATSAPP'));
+      const item = items[i]!;
+
+      if (item.channel === 'WHATSAPP' && consecutiveWaFailures >= throttle.maxConsecutiveFailures) {
+        const { data: row } = await admin.from('messaging_outbox').insert({
+          organization_id: orgId,
+          channel: 'WHATSAPP',
+          recipient_profile_id: item.recipientProfileId || null,
+          recipient: item.recipientPhone || '',
+          subject: item.subject || null,
+          body: item.body,
+          media_file_name: item.mediaFileName || null,
+          status: 'SKIPPED',
+          error_message: 'Envio pausado: muitas falhas consecutivas no WhatsApp',
+          reference_type: item.referenceType || null,
+          reference_id: item.referenceId || null,
+        }).select('id').single();
+        results.push({ id: row?.id ?? '', status: 'SKIPPED', error: 'Batch paused after failures' });
+        continue;
+      }
+
+      await delayBetweenItems(prevItem, item, throttle, whatsappSentCount);
+      const result = await processItem(item);
+      results.push(result);
+
+      if (item.channel === 'WHATSAPP') {
+        whatsappSentCount++;
+        if (result.status === 'FAILED') consecutiveWaFailures++;
+        else if (result.status === 'SENT') consecutiveWaFailures = 0;
+      }
+      prevItem = item;
     }
+
     const sent = results.filter((r) => r.status === 'SENT').length;
     const failed = results.filter((r) => r.status === 'FAILED').length;
     const skipped = results.filter((r) => r.status === 'SKIPPED').length;
-    return jsonResponse(200, { success: sent > 0, sent, failed, skipped, results });
+    const paused = consecutiveWaFailures >= throttle.maxConsecutiveFailures;
+    return jsonResponse(200, { success: sent > 0, sent, failed, skipped, paused, results });
   }
 
   // single send

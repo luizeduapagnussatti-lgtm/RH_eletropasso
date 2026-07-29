@@ -14,6 +14,17 @@
   "colSubject": "Assunto",
   "colStatus": "Status",
   "colSentAt": "Enviado em",
+  "recipientPickerTitle": "Destinatários",
+  "recipientSelected": "{{count}} de {{total}} selecionados",
+  "recipientSelectAll": "Selecionar elegíveis",
+  "recipientSelectNone": "Limpar seleção",
+  "recipientSearch": "Buscar colaborador…",
+  "recipientEmpty": "Nenhum colaborador encontrado.",
+  "recipientSafetyHint": "Envios são espaçados automaticamente para reduzir risco de bloqueio pelo WhatsApp. Ícones verdes = canal disponível para a pessoa.",
+  "dispatchPreview": "{{total}} mensagens ({{whatsapp}} WhatsApp, {{email}} e-mail) · tempo estimado ~{{seconds}} s",
+  "confirmDispatch": "Confirme: serão enviadas {{count}} mensagens externas, com intervalo de segurança (~{{seconds}} s no total). Deseja continuar?",
+  "confirmSendButton": "Confirmar envio",
+  "batchPaused": "Envio pausado após falhas consecutivas no WhatsApp. Verifique a instância Evolution e reenvie as falhas na fila.",
   "channel": {
     "EMAIL": "E-mail",
     "WHATSAPP": "WhatsApp"
