@@ -884,6 +884,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         colAbsence: t('pdf.colAbsence'),
         colStatus: t('pdf.colStatus'),
         colEmployee: t('pdf.colEmployee'),
+        metricExpected: t('pdf.metricExpected'),
         metricWorked: t('pdf.metricWorked'),
         metricOvertime: t('pdf.metricOvertime'),
         metricLate: t('pdf.metricLate'),

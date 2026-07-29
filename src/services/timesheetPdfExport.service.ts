@@ -3,6 +3,7 @@ import { organizationService } from './organization.service';
 import { formatIsoDateBr, formatTime, getDateLocale } from '../i18n/format';
 import { formatCpfDisplay, formatPisDisplay } from '../utils/employeeCredentials';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
+import { canExportMirrorPdf } from '../utils/timesheetDayAckValidation';
 import { APP_NAME } from '../config/branding';
 import {
   applyStandardTable,
@@ -50,6 +51,7 @@ export type TimesheetPdfLabels = {
   colAbsence: string;
   colStatus: string;
   colEmployee: string;
+  metricExpected?: string;
   metricWorked: string;
   metricOvertime: string;
   metricLate: string;
@@ -279,6 +281,7 @@ export const timesheetPdfExportService = {
     );
 
     const totals = {
+      expected: periodDays.reduce((s, d) => s + (d.expectedMinutes || 0), 0),
       worked: periodDays.reduce((s, d) => s + (d.workedMinutes || 0), 0),
       overtime: periodDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
       late: periodDays.reduce((s, d) => s + (d.lateMinutes || 0), 0),
@@ -289,6 +292,9 @@ export const timesheetPdfExportService = {
       doc,
       y,
       [
+        ...(labels.metricExpected
+          ? [{ label: labels.metricExpected, value: minutesToDisplay(totals.expected), tone: 'neutral' as const }]
+          : []),
         { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
         { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
         { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
@@ -466,6 +472,7 @@ export const timesheetPdfExportService = {
         const empDays = daysInPeriod(daysForEmployee(days, emp), period);
         if (!empDays.length) return null;
         const review = resolveReview(reviews, emp);
+        const expected = empDays.reduce((s, d) => s + (d.expectedMinutes || 0), 0);
         const worked = empDays.reduce((s, d) => s + (d.workedMinutes || 0), 0);
         const overtime = empDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0);
         const late = empDays.reduce((s, d) => s + (d.lateMinutes || 0), 0);
@@ -480,6 +487,7 @@ export const timesheetPdfExportService = {
             minutesToDisplay(absence),
             reviewStatusLabel(review, empDays, labels, revLabel),
           ],
+          expected,
           worked,
           overtime,
           late,
@@ -488,6 +496,7 @@ export const timesheetPdfExportService = {
       })
       .filter(Boolean) as Array<{
       row: string[];
+      expected: number;
       worked: number;
       overtime: number;
       late: number;
@@ -496,15 +505,19 @@ export const timesheetPdfExportService = {
 
     const totals = perEmployee.reduce(
       (acc, e) => ({
+        expected: acc.expected + e.expected,
         worked: acc.worked + e.worked,
         overtime: acc.overtime + e.overtime,
         late: acc.late + e.late,
         absence: acc.absence + e.absence,
       }),
-      { worked: 0, overtime: 0, late: 0, absence: 0 },
+      { expected: 0, worked: 0, overtime: 0, late: 0, absence: 0 },
     );
 
     y = drawMetricStrip(doc, y, [
+      ...(labels.metricExpected
+        ? [{ label: labels.metricExpected, value: minutesToDisplay(totals.expected), tone: 'neutral' as const }]
+        : []),
       { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
       { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
       { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
@@ -581,6 +594,8 @@ export const timesheetPdfExportService = {
       if (!employee) throw new Error('employee_not_found');
       const empDays = daysInPeriod(daysForEmployee(opts.days, employee), opts.period);
       if (!empDays.length) throw new Error('employee_no_days');
+      const pdfGate = canExportMirrorPdf(empDays);
+      if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
       const punchKey = employee.employeeId || employee.id;
       const empPunches = opts.punches.filter(p => p.employeeId === punchKey || p.employeeId === employee.id);
       const manager = employee.lineManagerId
@@ -602,6 +617,9 @@ export const timesheetPdfExportService = {
       const safeName = (employee.name || punchKey).replace(/[^\w.-]+/g, '_');
       return { blob, filename: `espelho_ponto_${safeName}_${ym}.pdf` };
     }
+
+    const pdfGate = canExportMirrorPdf(opts.days);
+    if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
 
     const blob = await this.buildPeriodSummaryPdf({
       period: opts.period,

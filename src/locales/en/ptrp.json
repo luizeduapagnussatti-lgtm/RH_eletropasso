@@ -311,6 +311,7 @@
     "colAbsence": "Absence",
     "colStatus": "Status",
     "colEmployee": "Employee",
+    "metricExpected": "Expected target",
     "metricWorked": "Total worked",
     "metricOvertime": "Total OT",
     "metricLate": "Total late",

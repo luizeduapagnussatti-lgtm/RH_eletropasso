@@ -16,6 +16,17 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Espelho PDF — meta prevista do período',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'PDF espelho (individual e resumo) passa a exibir a métrica "Meta prevista" (soma da carga horária prevista dos dias do período de fechamento 26→25). O espelho já considerava apenas os dias do período; a meta agora fica explícita ao lado de trabalhado/HE/atraso/falta.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Banco de horas — datas futuras e faltas falsas',
     entries: [
       {

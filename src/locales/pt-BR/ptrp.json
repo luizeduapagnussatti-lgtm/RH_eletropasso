@@ -311,6 +311,7 @@
     "colAbsence": "Falta",
     "colStatus": "Situação",
     "colEmployee": "Colaborador",
+    "metricExpected": "Meta prevista",
     "metricWorked": "Total trabalhado",
     "metricOvertime": "Total HE",
     "metricLate": "Total atraso",
