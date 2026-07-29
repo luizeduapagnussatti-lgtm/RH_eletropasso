@@ -12,7 +12,18 @@ import {
 } from '../types';
 import { notificationService } from './notification.service';
 import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
+import {
+  isDayApprovable,
+  partitionApprovableDays,
+  buildPunchMapKey,
+  TimesheetAckValidationError,
+} from '../utils/timesheetDayAckValidation';
 import { syncAbsenceFromWorked } from '../utils/timesheetAdjust';
+import {
+  buildDayCoherenceContext,
+  checkDayCoherence,
+  type DayCoherenceContext,
+} from '../utils/timesheetDayCoherence';
 import { shiftService } from './shift.service';
 import { punchService, planProximityAutoIgnores } from './punch.service';
 import { calculateDay } from './timeCalculation.service';
@@ -172,6 +183,38 @@ async function resolvePeriodStartDay(): Promise<number> {
   } catch {
     return normalizePeriodStartDay(DEFAULT_PTRP_POLICY.periodStartDay);
   }
+}
+
+async function fetchCoherenceContextForDay(
+  day: Pick<TimesheetDay, 'workDate' | 'employeeId' | 'shiftId'>,
+): Promise<DayCoherenceContext> {
+  const employees = await employeeService.getEmployees();
+  const emp = employees.find(
+    e => e.id === day.employeeId || e.employeeId === day.employeeId,
+  );
+  const punchKey = emp?.employeeId || day.employeeId;
+  const employeeKeys = [emp?.id, emp?.employeeId, day.employeeId, punchKey].filter(
+    (k): k is string => !!k,
+  );
+
+  const [shift, holidays, leaves, rosterStatus] = await Promise.all([
+    shiftService.resolveShiftForEmployee(
+      emp?.id || day.employeeId,
+      emp?.shiftId || day.shiftId,
+      day.workDate,
+    ),
+    organizationService.getHolidays().catch(() => []),
+    leaveService.getLeaves().catch(() => []),
+    rosterService.getStatusForEmployee(day.workDate, employeeKeys).catch(() => null),
+  ]);
+
+  return buildDayCoherenceContext(day, {
+    shift,
+    holidays,
+    leaves,
+    employee: emp,
+    rosterStatus,
+  });
 }
 
 export const timesheetService = {
@@ -371,11 +414,6 @@ export const timesheetService = {
       .eq('work_date', date)
       .maybeSingle();
 
-    const hasManual =
-      existingDay?.manual_adjustment &&
-      typeof existingDay.manual_adjustment === 'object' &&
-      Object.keys(existingDay.manual_adjustment as object).length > 0;
-
     const row: Record<string, unknown> = {
       organization_id: orgId,
       period_id: p.id,
@@ -396,24 +434,12 @@ export const timesheetService = {
       last_punch_at: calc.lastPunchAt || null,
       calc_version: 1,
       updated: new Date().toISOString(),
+      // Totals always from calculateDay — clear legacy numeric manual_adjustment.
+      manual_adjustment: null,
     };
 
-    if (hasManual) {
-      const adj = { ...(existingDay.manual_adjustment as Record<string, unknown>) };
-      if (typeof adj.workedMinutes === 'number') {
-        adj.absenceMinutes = syncAbsenceFromWorked(
-          Number(row.expected_minutes ?? calc.expectedMinutes ?? 0),
-          adj.workedMinutes as number,
-        );
-      }
-      row.manual_adjustment = adj;
-      row.status = 'ADJUSTED';
-      if (typeof adj.workedMinutes === 'number') row.worked_minutes = adj.workedMinutes;
-      if (typeof adj.overtimeMinutes === 'number') row.overtime_minutes = adj.overtimeMinutes;
-      if (typeof adj.lateMinutes === 'number') row.late_minutes = adj.lateMinutes;
-      if (typeof adj.absenceMinutes === 'number') row.absence_minutes = adj.absenceMinutes;
+    if (existingDay) {
       if (existingDay.remarks) row.remarks = existingDay.remarks;
-      // Keep acknowledgements when preserving a manual edit.
       if (typeof existingDay.employee_ack === 'boolean') row.employee_ack = existingDay.employee_ack;
       if (typeof existingDay.manager_ack === 'boolean') row.manager_ack = existingDay.manager_ack;
     }
@@ -527,6 +553,44 @@ export const timesheetService = {
   },
 
   async acknowledgeDay(dayId: string, who: 'employee' | 'manager', acked = true): Promise<void> {
+    if (who === 'manager' && acked) {
+      const { data, error: fetchErr } = await supabase
+        .from('timesheet_days')
+        .select('*')
+        .eq('id', dayId)
+        .single();
+      if (fetchErr) throw fetchErr;
+      const day = mapDay(data);
+      const punches = await punchService.listPunches({
+        employeeId: day.employeeId,
+        startDate: day.workDate,
+        endDate: day.workDate,
+      });
+      const coherenceCtx = await fetchCoherenceContextForDay(day);
+      const v = isDayApprovable(day, punches, coherenceCtx);
+      if (!v.ok) {
+        throw new TimesheetAckValidationError([
+          {
+            dayId: day.id,
+            workDate: day.workDate,
+            status: day.status,
+            reason: v.reason || 'unknown',
+          },
+        ]);
+      }
+      const { coherent } = checkDayCoherence(day, punches, coherenceCtx);
+      if (!coherent) {
+        throw new TimesheetAckValidationError([
+          {
+            dayId: day.id,
+            workDate: day.workDate,
+            status: day.status,
+            reason: 'incoherentTotals',
+          },
+        ]);
+      }
+    }
+
     const payload =
       who === 'employee' ? { employee_ack: acked } : { manager_ack: acked };
     const { error } = await supabase.from('timesheet_days').update(payload).eq('id', dayId);
@@ -538,6 +602,49 @@ export const timesheetService = {
   async acknowledgeDays(dayIds: string[], who: 'employee' | 'manager', acked = true): Promise<number> {
     const ids = [...new Set(dayIds.filter(Boolean))];
     if (ids.length === 0) return 0;
+
+    if (who === 'manager' && acked) {
+      const { data, error: fetchErr } = await supabase
+        .from('timesheet_days')
+        .select('*')
+        .in('id', ids);
+      if (fetchErr) throw fetchErr;
+      const days = (data || []).map(mapDay);
+      const punchMap = new Map<string, Awaited<ReturnType<typeof punchService.listPunches>>>();
+      const coherenceMap = new Map<string, DayCoherenceContext>();
+      await Promise.all(
+        days.map(async d => {
+          const key = buildPunchMapKey(d.employeeId, d.workDate);
+          if (punchMap.has(key)) return;
+          const list = await punchService.listPunches({
+            employeeId: d.employeeId,
+            startDate: d.workDate,
+            endDate: d.workDate,
+          });
+          punchMap.set(key, list);
+          coherenceMap.set(key, await fetchCoherenceContextForDay(d));
+        }),
+      );
+      const { blocked } = partitionApprovableDays(days, punchMap, coherenceMap);
+      if (blocked.length > 0) {
+        throw new TimesheetAckValidationError(blocked);
+      }
+      if (days.length !== ids.length) {
+        const found = new Set(days.map(d => d.id));
+        const missing = ids.filter(id => !found.has(id));
+        if (missing.length > 0) {
+          throw new TimesheetAckValidationError(
+            missing.map(dayId => ({
+              dayId,
+              workDate: '',
+              status: '',
+              reason: 'unknown' as const,
+            }))
+          );
+        }
+      }
+    }
+
     const payload =
       who === 'employee' ? { employee_ack: acked } : { manager_ack: acked };
     const { error, count } = await supabase
@@ -549,11 +656,10 @@ export const timesheetService = {
     return count ?? ids.length;
   },
 
-  async applyManualAdjustment(
-    dayId: string,
-    adjustment: Record<string, unknown>,
-    remarks?: string
-  ): Promise<void> {
+  /**
+   * Save day justification (remarks) only — totals always come from punch recalculation.
+   */
+  async updateDayJustification(dayId: string, remarks: string): Promise<TimesheetDay> {
     const { data: existing, error: fetchErr } = await supabase
       .from('timesheet_days')
       .select('*')
@@ -561,30 +667,44 @@ export const timesheetService = {
       .single();
     if (fetchErr) throw fetchErr;
 
-    const synced: Record<string, unknown> = { ...adjustment };
-    if (typeof synced.workedMinutes === 'number') {
-      synced.absenceMinutes = syncAbsenceFromWorked(
-        Number(existing.expected_minutes ?? 0),
-        synced.workedMinutes as number,
-      );
+    const trimmed = remarks.trim();
+    if (!trimmed) {
+      throw new Error('adjustRemarksRequired');
     }
 
-    const patch: any = {
-      manual_adjustment: synced,
-      status: 'ADJUSTED',
-      remarks: remarks || existing.remarks,
-      updated: new Date().toISOString(),
-      // Editing hours after approval requires a fresh manager ack.
-      manager_ack: false,
+    const audit = {
+      remarks: trimmed,
+      editedAt: new Date().toISOString(),
     };
-    if (typeof synced.workedMinutes === 'number') patch.worked_minutes = synced.workedMinutes;
-    if (typeof synced.overtimeMinutes === 'number') patch.overtime_minutes = synced.overtimeMinutes;
-    if (typeof synced.lateMinutes === 'number') patch.late_minutes = synced.lateMinutes;
-    if (typeof synced.absenceMinutes === 'number') patch.absence_minutes = synced.absenceMinutes;
 
-    const { error } = await supabase.from('timesheet_days').update(patch).eq('id', dayId);
-    if (error) throw error;
+    const { error: patchErr } = await supabase
+      .from('timesheet_days')
+      .update({
+        remarks: trimmed,
+        manual_adjustment: audit,
+        manager_ack: false,
+        updated: new Date().toISOString(),
+      })
+      .eq('id', dayId);
+    if (patchErr) throw patchErr;
+
+    const employees = await employeeService.getEmployees();
+    const emp = employees.find(
+      e => e.id === existing.employee_id || e.employeeId === existing.employee_id,
+    );
+    const recalcKey = emp?.id || existing.employee_id;
+
+    const day = await this.recalculateDay(recalcKey, existing.work_date);
     apiClient.notify();
+    return day;
+  },
+
+  /** @deprecated Use updateDayJustification — numeric overrides removed. */
+  async applyManualAdjustment(dayId: string, _adjustment: Record<string, unknown>, remarks?: string): Promise<void> {
+    if (!remarks?.trim()) {
+      throw new Error('adjustRemarksRequired');
+    }
+    await this.updateDayJustification(dayId, remarks);
   },
 
   async exportPeriodCsv(periodId: string): Promise<string> {
@@ -671,7 +791,16 @@ export const timesheetService = {
     const punchKey = punchKeyForEmployee(emp, employeeKey);
     const allDays = await this.listDays(periodId, punchKey);
     const scoped = daysForEmployee(allDays, emp, employeeKey);
-    const validation = validateTimesheetEmployeeReview(scoped);
+    const workDates = scoped.map(d => d.workDate).sort();
+    const punches =
+      workDates.length > 0
+        ? await punchService.listPunches({
+            employeeId: punchKey,
+            startDate: workDates[0]!,
+            endDate: workDates[workDates.length - 1]!,
+          })
+        : [];
+    const validation = validateTimesheetEmployeeReview(scoped, todayIsoLocal(), punches);
     if (!validation.canSubmit) {
       throw new Error(validation.blockingErrors[0] || 'reviewSubmitBlocked');
     }
@@ -720,7 +849,16 @@ export const timesheetService = {
     const punchKey = punchKeyForEmployee(emp, employeeKey);
     const allDays = await this.listDays(periodId, punchKey);
     const scoped = daysForEmployee(allDays, emp, employeeKey);
-    const validation = validateTimesheetEmployeeReview(scoped);
+    const workDates = scoped.map(d => d.workDate).sort();
+    const punches =
+      workDates.length > 0
+        ? await punchService.listPunches({
+            employeeId: punchKey,
+            startDate: workDates[0]!,
+            endDate: workDates[workDates.length - 1]!,
+          })
+        : [];
+    const validation = validateTimesheetEmployeeReview(scoped, todayIsoLocal(), punches);
     if (!validation.canApprove) {
       throw new Error(validation.blockingErrors[0] || 'reviewApproveBlocked');
     }

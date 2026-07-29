@@ -134,10 +134,10 @@ export const hrService = {
   recalculateTimesheetPeriod: timesheetService.recalculatePeriod.bind(timesheetService),
   acknowledgeTimesheetDay: timesheetService.acknowledgeDay.bind(timesheetService),
   acknowledgeTimesheetDays: timesheetService.acknowledgeDays.bind(timesheetService),
-  applyTimesheetAdjustment: timesheetService.applyManualAdjustment.bind(timesheetService),
+  applyTimesheetAdjustment: timesheetService.updateDayJustification.bind(timesheetService),
+  updateTimesheetDayJustification: timesheetService.updateDayJustification.bind(timesheetService),
   exportTimesheetCsv: timesheetService.exportPeriodCsv.bind(timesheetService),
   exportTimesheetMirrorPdf: timesheetPdfExportService.exportMirrorPdf.bind(timesheetPdfExportService),
-  generateEsocialStub: timesheetService.generateEsocialStub.bind(timesheetService),
 
   // Pré-folha / eSocial
   listPayrollReadinessGaps: payrollReadinessService.listGapsForPeriod.bind(payrollReadinessService),

@@ -2,32 +2,25 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Coffee,
   Eye,
   EyeOff,
   Info,
-  Minus,
   Pencil,
   Plus,
-  RotateCcw,
   Trash2,
   Undo2,
   X,
 } from 'lucide-react';
-import { Punch, PunchDirection, TimesheetDay } from '../../types';
+import { Punch, PunchDirection, Shift, TimesheetDay } from '../../types';
 import { pairPunchesToSlots, punchLocalDateKey } from '../../services/punch.service';
-import { syncAbsenceFromWorked } from '../../utils/timesheetAdjust';
+import { calculateDay } from '../../services/timeCalculation.service';
+import { checkDayCoherence, type DayCoherenceContext } from '../../utils/timesheetDayCoherence';
+import { dayAckBlockI18nKey, isDayApprovable } from '../../utils/timesheetDayAckValidation';
 import { formatIsoDateBr, formatTime } from '../../i18n/format';
-
-export interface TimesheetAdjustValues {
-  workedMinutes: number;
-  overtimeMinutes: number;
-  lateMinutes: number;
-  absenceMinutes: number;
-  remarks: string;
-}
 
 export interface TimesheetAddPunchInput {
   time: string; // HH:MM
@@ -45,6 +38,16 @@ export interface FixedBreakWindow {
   end: string;
 }
 
+export interface DayCalcContextProps {
+  shift: Shift | null;
+  isHoliday: boolean;
+  onApprovedLeave: boolean;
+  leaveRequestId?: string;
+  rosterStatus?: 'WORK' | 'OFF' | null;
+  joiningDate?: string;
+  terminationDate?: string;
+}
+
 interface Props {
   day: TimesheetDay;
   punches: Punch[];
@@ -54,28 +57,15 @@ interface Props {
   canManageAck: boolean;
   canEditHours: boolean;
   fixedBreak?: FixedBreakWindow | null;
+  dayCalcContext: DayCalcContextProps;
   onClose: () => void;
-  onSave: (values: TimesheetAdjustValues) => Promise<void>;
+  onSaveJustification: (remarks: string) => Promise<void>;
   onSetManagerAck: (acked: boolean) => Promise<void>;
   onAddPunch: (input: TimesheetAddPunchInput) => Promise<void>;
   onUpdatePunch: (punchId: string, input: TimesheetUpdatePunchInput) => Promise<void>;
   onDeletePunch: (punchId: string) => Promise<void>;
   onSetPunchIgnoredForCalc: (punchId: string, ignored: boolean) => Promise<void>;
   onApplyFixedBreak: () => Promise<void>;
-}
-
-interface DurationParts {
-  h: number;
-  m: number;
-}
-
-function minutesToParts(mins: number): DurationParts {
-  const abs = Math.abs(mins);
-  return { h: Math.floor(abs / 60), m: abs % 60 };
-}
-
-function partsToMinutes({ h, m }: DurationParts): number {
-  return Math.max(0, h) * 60 + Math.min(59, Math.max(0, m));
 }
 
 function formatSlotTime(iso?: string): string {
@@ -92,138 +82,24 @@ function suggestNextDirection(punches: Punch[]): PunchDirection {
   return sorted.length % 2 === 0 ? 'IN' : 'OUT';
 }
 
-interface DurationFieldProps {
-  id: string;
-  label: string;
-  hint: string;
-  value: DurationParts;
-  onChange: (next: DurationParts) => void;
-  originalMinutes: number;
-  fmtMinutes: (mins: number) => string;
-  disabled?: boolean;
-  readOnly?: boolean;
-  onUseExpected?: () => void;
-  useExpectedLabel?: string;
-}
-
-function DurationField({
-  id,
-  label,
-  hint,
-  value,
-  onChange,
-  originalMinutes,
-  fmtMinutes,
-  disabled,
-  readOnly,
-  onUseExpected,
-  useExpectedLabel,
-}: DurationFieldProps) {
-  const { t } = useTranslation('ptrp');
-  const currentMinutes = partsToMinutes(value);
-  const changed = currentMinutes !== originalMinutes;
-  const locked = disabled || readOnly;
-
-  const bump = (deltaMin: number) => {
-    if (readOnly) return;
-    const next = Math.max(0, currentMinutes + deltaMin);
-    onChange(minutesToParts(next));
-  };
-
-  return (
-    <div className={`rounded-xl border border-slate-300 bg-slate-100 p-3.5 space-y-2.5 ${locked ? 'opacity-70' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <label htmlFor={`${id}-h`} className="block text-sm font-bold text-slate-900">
-            {label}
-          </label>
-          <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">{hint}</p>
-        </div>
-        {onUseExpected && useExpectedLabel && !locked && (
-          <button
-            type="button"
-            onClick={onUseExpected}
-            className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/10 hover:bg-primary/15 px-2 py-1 rounded-md"
-          >
-            {useExpectedLabel}
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center justify-center gap-2">
-        <button
-          type="button"
-          disabled={locked || currentMinutes < 15}
-          onClick={() => bump(-15)}
-          className="h-9 w-9 rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
-          aria-label={t('adjustMinus15')}
-          title={t('adjustMinus15')}
-        >
-          <Minus size={16} />
-        </button>
-
-        <div className="inline-grid grid-cols-[3rem_auto_3rem_auto] items-center gap-x-1.5">
-          <input
-            id={`${id}-h`}
-            type="number"
-            min={0}
-            max={23}
-            inputMode="numeric"
-            disabled={locked}
-            readOnly={readOnly}
-            className="w-full px-1 py-2 rounded-lg border border-slate-300 bg-white text-base font-bold tabular-nums text-center text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-200"
-            value={value.h}
-            onChange={e => onChange({ ...value, h: Math.max(0, Number(e.target.value) || 0) })}
-            aria-label={t('adjustHours', { field: label })}
-          />
-          <span className="text-xs font-semibold text-slate-600">{t('adjustUnitHours')}</span>
-          <input
-            id={`${id}-m`}
-            type="number"
-            min={0}
-            max={59}
-            inputMode="numeric"
-            disabled={locked}
-            readOnly={readOnly}
-            className="w-full px-1 py-2 rounded-lg border border-slate-300 bg-white text-base font-bold tabular-nums text-center text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-200"
-            value={value.m}
-            onChange={e => onChange({ ...value, m: Math.min(59, Math.max(0, Number(e.target.value) || 0)) })}
-            aria-label={t('adjustMinutes', { field: label })}
-          />
-          <span className="text-xs font-semibold text-slate-600">{t('adjustUnitMinutes')}</span>
-        </div>
-
-        <button
-          type="button"
-          disabled={locked}
-          onClick={() => bump(15)}
-          className="h-9 w-9 rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
-          aria-label={t('adjustPlus15')}
-          title={t('adjustPlus15')}
-        >
-          <Plus size={16} />
-        </button>
-      </div>
-
-      <div className="min-h-[1.25rem] flex justify-center">
-        {changed ? (
-          <span className="text-[10px] font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md">
-            {fmtMinutes(originalMinutes)} → {fmtMinutes(currentMinutes)}
-          </span>
-        ) : (
-          <span className="text-[10px] font-semibold text-slate-600">{fmtMinutes(currentMinutes)}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function directionLabel(dir: PunchDirection, t: (k: string) => string): string {
   if (dir === 'IN') return t('punchDirIn');
   if (dir === 'OUT') return t('punchDirOut');
   if (dir === 'BREAK_START') return t('punchDirBreakStart');
   if (dir === 'BREAK_END') return t('punchDirBreakEnd');
   return t('punchDirUnknown');
+}
+
+function toCoherenceContext(props: DayCalcContextProps): DayCoherenceContext {
+  return {
+    shift: props.shift,
+    isHoliday: props.isHoliday,
+    onApprovedLeave: props.onApprovedLeave,
+    leaveRequestId: props.leaveRequestId,
+    rosterStatus: props.rosterStatus ?? null,
+    joiningDate: props.joiningDate,
+    terminationDate: props.terminationDate,
+  };
 }
 
 export const TimesheetAdjustModal: React.FC<Props> = ({
@@ -235,8 +111,9 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   canManageAck,
   canEditHours,
   fixedBreak,
+  dayCalcContext,
   onClose,
-  onSave,
+  onSaveJustification,
   onSetManagerAck,
   onAddPunch,
   onUpdatePunch,
@@ -250,20 +127,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   const [isPunchBusy, setIsPunchBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localAck, setLocalAck] = useState(day.managerAck);
-  const [showManualTotals, setShowManualTotals] = useState(false);
-
-  const [worked, setWorked] = useState(() => minutesToParts(day.workedMinutes));
-  const [overtime, setOvertime] = useState(() => minutesToParts(day.overtimeMinutes));
-  const [late, setLate] = useState(() => minutesToParts(day.lateMinutes));
-  const [absence, setAbsence] = useState(() =>
-    minutesToParts(syncAbsenceFromWorked(day.expectedMinutes, day.workedMinutes)),
-  );
   const [remarks, setRemarks] = useState(day.remarks || '');
-
-  const setWorkedAndSyncAbsence = (next: DurationParts) => {
-    setWorked(next);
-    setAbsence(minutesToParts(syncAbsenceFromWorked(day.expectedMinutes, partsToMinutes(next))));
-  };
 
   const [newPunchTime, setNewPunchTime] = useState('');
   const [newPunchDir, setNewPunchDir] = useState<PunchDirection>(() => suggestNextDirection(punches));
@@ -271,6 +135,8 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   const [editingPunchId, setEditingPunchId] = useState<string | null>(null);
   const [editPunchTime, setEditPunchTime] = useState('');
   const [editPunchDir, setEditPunchDir] = useState<PunchDirection>('IN');
+
+  const coherenceCtx = useMemo(() => toCoherenceContext(dayCalcContext), [dayCalcContext]);
 
   const dayPunches = useMemo(
     () =>
@@ -281,26 +147,39 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   );
 
   const slots = useMemo(() => pairPunchesToSlots(dayPunches, day.workDate), [dayPunches, day.workDate]);
-  const hoursLockedByAck = localAck && canEditHours;
+
+  const liveCalc = useMemo(
+    () => calculateDay({
+      date: day.workDate,
+      punches: dayPunches,
+      shift: dayCalcContext.shift,
+      isHoliday: dayCalcContext.isHoliday,
+      onApprovedLeave: dayCalcContext.onApprovedLeave,
+      leaveRequestId: dayCalcContext.leaveRequestId,
+      rosterStatus: dayCalcContext.rosterStatus ?? null,
+      joiningDate: dayCalcContext.joiningDate,
+      terminationDate: dayCalcContext.terminationDate,
+    }),
+    [day.workDate, dayPunches, dayCalcContext],
+  );
+
+  const storedCoherence = useMemo(
+    () => checkDayCoherence(day, dayPunches, coherenceCtx),
+    [day, dayPunches, coherenceCtx],
+  );
+
+  const hasManualPunch = dayPunches.some(p => p.source === 'MANUAL');
+
   const punchEditLocked = !canEditHours || localAck;
+  const dayAckValidation = useMemo(
+    () => isDayApprovable(day, dayPunches, coherenceCtx),
+    [day, dayPunches, coherenceCtx],
+  );
 
   useEffect(() => {
-    setWorked(minutesToParts(day.workedMinutes));
-    setOvertime(minutesToParts(day.overtimeMinutes));
-    setLate(minutesToParts(day.lateMinutes));
-    setAbsence(minutesToParts(syncAbsenceFromWorked(day.expectedMinutes, day.workedMinutes)));
     setRemarks(day.remarks || '');
     setLocalAck(day.managerAck);
-  }, [
-    day.id,
-    day.workedMinutes,
-    day.overtimeMinutes,
-    day.lateMinutes,
-    day.absenceMinutes,
-    day.expectedMinutes,
-    day.remarks,
-    day.managerAck,
-  ]);
+  }, [day.id, day.remarks, day.managerAck]);
 
   useEffect(() => {
     setNewPunchDir(suggestNextDirection(dayPunches));
@@ -313,16 +192,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
     }
   }, [day.id, dayPunches]);
 
-  const hasChanges = useMemo(() => {
-    const syncedAbsence = syncAbsenceFromWorked(day.expectedMinutes, partsToMinutes(worked));
-    return (
-      partsToMinutes(worked) !== day.workedMinutes ||
-      partsToMinutes(overtime) !== day.overtimeMinutes ||
-      partsToMinutes(late) !== day.lateMinutes ||
-      syncedAbsence !== day.absenceMinutes ||
-      remarks.trim() !== (day.remarks || '').trim()
-    );
-  }, [worked, overtime, late, remarks, day]);
+  const remarksChanged = remarks.trim() !== (day.remarks || '').trim();
 
   const handleToggleIgnorePunch = async (punchId: string, ignored: boolean) => {
     if (punchEditLocked) {
@@ -452,13 +322,9 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
       (p.direction === 'BREAK_START' || p.direction === 'BREAK_END') && p.source === 'CLOCK',
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSaveJustification = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEditHours) return;
-    if (localAck) {
-      setError(t('adjustNeedUnapproveFirst'));
-      return;
-    }
+    if (!canEditHours || localAck) return;
     if (!remarks.trim()) {
       setError(t('adjustRemarksRequired'));
       return;
@@ -466,28 +332,12 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
     setError(null);
     setIsSaving(true);
     try {
-      await onSave({
-        workedMinutes: partsToMinutes(worked),
-        overtimeMinutes: partsToMinutes(overtime),
-        lateMinutes: partsToMinutes(late),
-        absenceMinutes: syncAbsenceFromWorked(day.expectedMinutes, partsToMinutes(worked)),
-        remarks: remarks.trim(),
-      });
+      await onSaveJustification(remarks.trim());
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('loadFailed');
-      setError(message);
+      setError(err instanceof Error ? err.message : t('loadFailed'));
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const resetToOriginal = () => {
-    setWorked(minutesToParts(day.workedMinutes));
-    setOvertime(minutesToParts(day.overtimeMinutes));
-    setLate(minutesToParts(day.lateMinutes));
-    setAbsence(minutesToParts(syncAbsenceFromWorked(day.expectedMinutes, day.workedMinutes)));
-    setRemarks(day.remarks || '');
-    setError(null);
   };
 
   const busy = isSaving || isAckBusy || isPunchBusy;
@@ -509,7 +359,11 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               {formatIsoDateBr(day.workDate)} · {employeeName}
             </p>
             <p className="text-[11px] text-slate-300">
-              {t('adjustModalSubtitle', { status: dayStatusLabel(day.status), expected: fmtMinutes(day.expectedMinutes) })}
+              {t('adjustModalSubtitle', {
+                status: dayStatusLabel(storedCoherence.coherent ? liveCalc.status : day.status),
+                expected: fmtMinutes(liveCalc.expectedMinutes),
+              })}
+              {hasManualPunch ? ` · ${t('adjustHasManualPunchBadge')}` : ''}
             </p>
           </div>
           <button
@@ -523,7 +377,6 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
-          {/* Approval banner — solid fills so dark mode never washes text out */}
           <section
             className={`rounded-xl border px-3.5 py-3 space-y-2 ${
               localAck
@@ -561,10 +414,18 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 ) : (
                   <button
                     type="button"
-                    disabled={busy || hasChanges}
+                    disabled={busy || remarksChanged || !dayAckValidation.ok || !storedCoherence.coherent}
                     onClick={() => { void handleAck(true); }}
                     className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 shadow-sm"
-                    title={hasChanges ? t('adjustSaveBeforeApprove') : undefined}
+                    title={
+                      remarksChanged
+                        ? t('adjustSaveBeforeApprove')
+                        : !storedCoherence.coherent
+                          ? t('ackBlockedIncoherentTotals')
+                          : !dayAckValidation.ok
+                            ? t(dayAckBlockI18nKey(dayAckValidation.reason || 'unknown'))
+                            : undefined
+                    }
                   >
                     <CheckCircle2 size={14} aria-hidden />
                     {isAckBusy ? t('adjustAckWorking') : t('managerAck')}
@@ -581,7 +442,16 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Step 1 — punches (primary) */}
+          {!storedCoherence.coherent && (
+            <div className="rounded-xl border border-amber-500 bg-amber-50 px-3.5 py-2.5 flex gap-2 text-xs text-amber-950">
+              <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <p className="font-bold">{t('adjustIncoherentStoredTitle')}</p>
+                <p className="mt-0.5 leading-relaxed">{t('adjustIncoherentStoredHint')}</p>
+              </div>
+            </div>
+          )}
+
           <section className="space-y-3" aria-labelledby="adjust-punches-heading">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">1</span>
@@ -769,7 +639,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               >
                 <p className="text-xs font-bold text-slate-900">{t('adjustAddPunchTitle')}</p>
                 <p className="text-[11px] text-slate-700 leading-snug">{t('adjustAddPunchHint')}</p>
-                {hoursLockedByAck && (
+                {punchEditLocked && (
                   <p className="text-[11px] font-semibold text-sky-950 bg-sky-50 border border-sky-300 rounded-lg px-2.5 py-1.5 flex gap-1.5">
                     <Info size={14} className="shrink-0 mt-0.5" aria-hidden />
                     {t('adjustNeedUnapproveFirst')}
@@ -828,7 +698,6 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
             )}
           </section>
 
-          {/* Step 2 — calculated totals (read-only summary) */}
           <section className="space-y-2" aria-labelledby="adjust-calc-heading">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">2</span>
@@ -836,14 +705,14 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 {t('adjustSectionCalculated')}
               </h3>
             </div>
-            <p className="text-xs text-slate-600 ml-7">{t('adjustSectionCalculatedHint')}</p>
+            <p className="text-xs text-slate-600 ml-7">{t('adjustSectionCalculatedReadOnlyHint')}</p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {[
-                { label: t('worked'), value: fmtMinutes(day.workedMinutes) },
-                { label: t('colBreak'), value: day.breakMinutes ? fmtMinutes(day.breakMinutes) : '—' },
-                { label: t('overtimeFull'), value: day.overtimeMinutes ? fmtMinutes(day.overtimeMinutes) : '—' },
-                { label: t('late'), value: day.lateMinutes ? fmtMinutes(day.lateMinutes) : '—' },
-                { label: t('absence'), value: day.absenceMinutes ? fmtMinutes(day.absenceMinutes) : '—' },
+                { label: t('worked'), value: fmtMinutes(liveCalc.workedMinutes) },
+                { label: t('colBreak'), value: liveCalc.breakMinutes ? fmtMinutes(liveCalc.breakMinutes) : '—' },
+                { label: t('overtimeFull'), value: liveCalc.overtimeMinutes ? fmtMinutes(liveCalc.overtimeMinutes) : '—' },
+                { label: t('late'), value: liveCalc.lateMinutes ? fmtMinutes(liveCalc.lateMinutes) : '—' },
+                { label: t('absence'), value: liveCalc.absenceMinutes ? fmtMinutes(liveCalc.absenceMinutes) : '—' },
               ].map(card => (
                 <div key={card.label} className="rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-2.5 text-center">
                   <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">{card.label}</p>
@@ -851,104 +720,27 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-slate-500 ml-7">
+              {t('adjustLiveStatusLabel')}: <span className="font-semibold text-slate-800">{dayStatusLabel(liveCalc.status)}</span>
+            </p>
           </section>
 
-          {/* Advanced: manual totals override */}
           {canEditHours && (
-            <details
-              className="rounded-xl border border-slate-200 bg-slate-50 open:bg-white"
-              open={showManualTotals}
-              onToggle={e => setShowManualTotals((e.target as HTMLDetailsElement).open)}
-            >
-              <summary className="cursor-pointer select-none px-3.5 py-2.5 text-xs font-bold text-slate-800 list-none flex items-center justify-between gap-2">
-                <span>{t('adjustManualTotalsToggle')}</span>
-                <span className="text-[10px] font-semibold uppercase text-slate-500">
-                  {showManualTotals ? t('adjustManualTotalsHide') : t('adjustManualTotalsShow')}
-                </span>
-              </summary>
-              <form id="timesheet-adjust-form" onSubmit={handleSubmit} className="px-3.5 pb-3.5 space-y-3 border-t border-slate-100 pt-3">
-                <p className="text-[11px] text-slate-600 leading-relaxed">{t('adjustSectionValuesHint')}</p>
-                {hoursLockedByAck && (
-                  <p className="text-[11px] font-semibold text-sky-950 bg-sky-50 border border-sky-300 rounded-lg px-2.5 py-1.5">
-                    {t('adjustNeedUnapproveFirst')}
-                  </p>
-                )}
-                {hasChanges && !localAck && (
-                  <button
-                    type="button"
-                    onClick={resetToOriginal}
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
-                  >
-                    <RotateCcw size={12} aria-hidden />
-                    {t('adjustReset')}
-                  </button>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <DurationField
-                    id="worked"
-                    label={t('worked')}
-                    hint={t('adjustWorkedHint')}
-                    value={worked}
-                    onChange={setWorkedAndSyncAbsence}
-                    originalMinutes={day.workedMinutes}
-                    fmtMinutes={fmtMinutes}
-                    disabled={!canEditHours || localAck}
-                    onUseExpected={
-                      day.expectedMinutes > 0
-                        ? () => setWorkedAndSyncAbsence(minutesToParts(day.expectedMinutes))
-                        : undefined
-                    }
-                    useExpectedLabel={t('adjustUseExpected')}
-                  />
-                  <DurationField
-                    id="overtime"
-                    label={t('overtimeFull')}
-                    hint={t('adjustOvertimeHint')}
-                    value={overtime}
-                    onChange={setOvertime}
-                    originalMinutes={day.overtimeMinutes}
-                    fmtMinutes={fmtMinutes}
-                    disabled={!canEditHours || localAck}
-                  />
-                  <DurationField
-                    id="late"
-                    label={t('late')}
-                    hint={t('adjustLateHint')}
-                    value={late}
-                    onChange={setLate}
-                    originalMinutes={day.lateMinutes}
-                    fmtMinutes={fmtMinutes}
-                    disabled={!canEditHours || localAck}
-                  />
-                  <DurationField
-                    id="absence"
-                    label={t('absence')}
-                    hint={t('adjustAbsenceSyncedHint')}
-                    value={absence}
-                    onChange={setAbsence}
-                    originalMinutes={day.absenceMinutes}
-                    fmtMinutes={fmtMinutes}
-                    disabled={!canEditHours || localAck}
-                    readOnly
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="adjust-remarks" className="block text-xs font-bold text-slate-900">
-                    {t('adjustRemarksLabel')}
-                  </label>
-                  <textarea
-                    id="adjust-remarks"
-                    rows={2}
-                    required={hasChanges}
-                    disabled={localAck}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 resize-y min-h-[4rem] disabled:bg-slate-50 disabled:opacity-70"
-                    placeholder={t('adjustRemarksPlaceholder')}
-                    value={remarks}
-                    onChange={e => setRemarks(e.target.value)}
-                  />
-                </div>
-              </form>
-            </details>
+            <form id="timesheet-adjust-remarks-form" onSubmit={handleSaveJustification} className="space-y-2">
+              <label htmlFor="adjust-remarks" className="block text-xs font-bold text-slate-900">
+                {t('adjustRemarksLabel')}
+              </label>
+              <p className="text-[11px] text-slate-600 leading-relaxed">{t('adjustRemarksOptionalHint')}</p>
+              <textarea
+                id="adjust-remarks"
+                rows={2}
+                disabled={localAck}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 resize-y min-h-[4rem] disabled:bg-slate-50 disabled:opacity-70"
+                placeholder={t('adjustRemarksPlaceholder')}
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+              />
+            </form>
           )}
         </div>
 
@@ -961,14 +753,14 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
           >
             {t('common:close')}
           </button>
-          {canEditHours && showManualTotals && (
+          {canEditHours && remarksChanged && !localAck && (
             <button
               type="submit"
-              form="timesheet-adjust-form"
-              disabled={busy || !hasChanges || localAck}
+              form="timesheet-adjust-remarks-form"
+              disabled={busy || !remarks.trim()}
               className="flex-1 py-3 bg-primary text-white rounded-xl text-xs font-bold hover:opacity-95 disabled:bg-slate-300 disabled:text-slate-600 disabled:cursor-not-allowed shadow-sm"
             >
-              {isSaving ? t('adjustSaving') : t('saveAdjust')}
+              {isSaving ? t('adjustSaving') : t('saveJustification')}
             </button>
           )}
         </div>

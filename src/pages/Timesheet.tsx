@@ -5,12 +5,12 @@ import {
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import {
-  Employee, Punch, Shift, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User,
+  Employee, Holiday, LeaveRequest, Punch, Shift, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User,
 } from '../types';
 import { useToast } from '../context/ToastContext';
 import HelpButton from '../components/onboarding/HelpButton';
 import { TimesheetMirrorGrid } from '../components/timesheet/TimesheetMirrorGrid';
-import { TimesheetAdjustModal } from '../components/timesheet/TimesheetAdjustModal';
+import { TimesheetAdjustModal, type DayCalcContextProps } from '../components/timesheet/TimesheetAdjustModal';
 import TimesheetReviewModal from '../components/timesheet/TimesheetReviewModal';
 import TimesheetReviewSummaryPanel, { ReviewRow } from '../components/timesheet/TimesheetReviewSummaryPanel';
 import { orgTabButtonClass } from '../components/organization/OrgUi';
@@ -23,6 +23,20 @@ import { isNonPunchingStaff } from '../utils/roles';
 import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
+import {
+  buildPunchMapKey,
+  canExportMirrorPdf,
+  dayAckBlockI18nKey,
+  isDayApprovable,
+  TimesheetAckValidationError,
+} from '../utils/timesheetDayAckValidation';
+import { buildDayCoherenceContext } from '../utils/timesheetDayCoherence';
+
+function punchesForTimesheetDay(day: TimesheetDay, all: Punch[]): Punch[] {
+  return all.filter(
+    p => punchLocalDateKey(p.punchedAt) === day.workDate && p.employeeId === day.employeeId
+  );
+}
 
 interface Props {
   user: User;
@@ -61,6 +75,7 @@ const dayStatusKey: Record<string, string> = {
   HOLIDAY: 'dayStatus_HOLIDAY',
   LEAVE: 'dayStatus_LEAVE',
   ADJUSTED: 'dayStatus_ADJUSTED',
+  OFF: 'dayStatus_OFF',
 };
 
 const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
@@ -77,6 +92,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const [days, setDays] = useState<TimesheetDay[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   /** Managers/HR start with no employee selected — data loads only after Apply. */
   const [employeeFilter, setEmployeeFilter] = useState(
     isHr || isManager ? '' : user.id
@@ -250,15 +267,19 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     (async () => {
       setIsBootstrapping(true);
       try {
-        const [emps, p, shiftList] = await Promise.all([
+        const [emps, p, shiftList, holidayList, leaveList] = await Promise.all([
           hrService.getEmployees(),
           hrService.getOrCreateTimesheetPeriod(year, month),
           hrService.getShifts(),
+          hrService.getHolidays().catch(() => [] as Holiday[]),
+          hrService.getLeaves().catch(() => [] as LeaveRequest[]),
         ]);
         if (cancelled) return;
         setEmployees(emps.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN'));
         setPeriod(p);
         setShifts(shiftList);
+        setHolidays(holidayList);
+        setLeaves(leaveList);
       } catch (e) {
         console.error(e);
       } finally {
@@ -414,14 +435,78 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     }
   }, [dayFilter, period?.endDate]);
 
+  const coherenceCtxByEmpDate = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildDayCoherenceContext>>();
+    for (const day of days) {
+      const emp = employees.find(
+        e => e.id === day.employeeId || e.employeeId === day.employeeId,
+      );
+      const shift =
+        shifts.find(s => s.id === day.shiftId) ||
+        shifts.find(s => s.id === emp?.shiftId) ||
+        null;
+      map.set(
+        buildPunchMapKey(day.employeeId, day.workDate),
+        buildDayCoherenceContext(day, { shift, holidays, leaves, employee: emp }),
+      );
+    }
+    return map;
+  }, [days, employees, shifts, holidays, leaves]);
+
+  const coherenceCtxForDay = useCallback(
+    (day: TimesheetDay) => coherenceCtxByEmpDate.get(buildPunchMapKey(day.employeeId, day.workDate)),
+    [coherenceCtxByEmpDate],
+  );
+
   const pendingManagerAckIds = useMemo(() => {
     if (!isManager || locked) return [] as string[];
     return visibleDays.filter(d => !d.managerAck).map(d => d.id);
   }, [visibleDays, isManager, locked]);
 
-  const allPendingSelected =
-    pendingManagerAckIds.length > 0 &&
-    pendingManagerAckIds.every(id => selectedDayIds.includes(id));
+  const approvablePendingIds = useMemo(() => {
+    if (!isManager || locked) return [] as string[];
+    return visibleDays
+      .filter(d => {
+        if (d.managerAck) return false;
+        return isDayApprovable(
+          d,
+          punchesForTimesheetDay(d, punches),
+          coherenceCtxForDay(d),
+        ).ok;
+      })
+      .map(d => d.id);
+  }, [visibleDays, isManager, locked, punches, coherenceCtxForDay]);
+
+  const approvedVisibleIds = useMemo(() => {
+    if (!isManager || locked) return [] as string[];
+    return visibleDays.filter(d => d.managerAck).map(d => d.id);
+  }, [visibleDays, isManager, locked]);
+
+  const selectableDayIds = useMemo(() => {
+    if (!isManager || locked) return [] as string[];
+    return visibleDays.map(d => d.id);
+  }, [visibleDays, isManager, locked]);
+
+  const allVisibleSelected =
+    selectableDayIds.length > 0 &&
+    selectableDayIds.every(id => selectedDayIds.includes(id));
+
+  const toastAckError = useCallback(
+    (e: unknown) => {
+      if (e instanceof TimesheetAckValidationError && e.blocked[0]) {
+        const reason = e.blocked[0].reason;
+        showToast(t(dayAckBlockI18nKey(reason)), 'warning');
+        return;
+      }
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'ack_validation_failed') {
+        showToast(t('ackBlockedUnknown'), 'warning');
+        return;
+      }
+      showToast(msg || t('bulkManagerAckFailed'), 'error');
+    },
+    [showToast, t]
+  );
 
   const toggleSelectDay = (id: string) => {
     setSelectedDayIds(prev =>
@@ -429,26 +514,94 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     );
   };
 
-  const toggleSelectAllPending = () => {
-    if (allPendingSelected) {
-      setSelectedDayIds(prev => prev.filter(id => !pendingManagerAckIds.includes(id)));
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedDayIds(prev => prev.filter(id => !selectableDayIds.includes(id)));
     } else {
-      setSelectedDayIds(prev => [...new Set([...prev, ...pendingManagerAckIds])]);
+      setSelectedDayIds(prev => [...new Set([...prev, ...selectableDayIds])]);
     }
   };
 
   const handleBulkManagerAck = async (ids: string[]) => {
     if (locked || ids.length === 0) return;
+    const byId = new Map(visibleDays.map(d => [d.id, d]));
+    const eligible = ids.filter(id => {
+      const day = byId.get(id);
+      return day && !day.managerAck && isDayApprovable(
+        day,
+        punchesForTimesheetDay(day, punches),
+        coherenceCtxForDay(day),
+      ).ok;
+    });
+    const skipped = ids.length - eligible.length;
+    if (eligible.length === 0) {
+      showToast(t('bulkManagerAckPartial', { count: 0, skipped }), 'warning');
+      return;
+    }
     setIsBulkAck(true);
     try {
-      const count = await hrService.acknowledgeTimesheetDays(ids, 'manager');
-      showToast(t('bulkManagerAckOk', { count }), 'success');
+      const count = await hrService.acknowledgeTimesheetDays(eligible, 'manager', true);
+      if (skipped > 0) {
+        showToast(t('bulkManagerAckPartial', { count, skipped }), 'warning');
+      } else {
+        showToast(t('bulkManagerAckOk', { count }), 'success');
+      }
       setSelectedDayIds([]);
       await load();
-    } catch (e: any) {
-      showToast(e?.message || t('bulkManagerAckFailed'), 'error');
+    } catch (e: unknown) {
+      toastAckError(e);
     } finally {
       setIsBulkAck(false);
+    }
+  };
+
+  const handleBulkManagerRevoke = async (ids: string[]) => {
+    if (locked || ids.length === 0) return;
+    const byId = new Map(visibleDays.map(d => [d.id, d]));
+    const eligible = ids.filter(id => byId.get(id)?.managerAck);
+    if (eligible.length === 0) return;
+    setIsBulkAck(true);
+    try {
+      const count = await hrService.acknowledgeTimesheetDays(eligible, 'manager', false);
+      showToast(t('bulkManagerRevokeOk', { count }), 'success');
+      setSelectedDayIds([]);
+      await load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : t('bulkManagerRevokeFailed'), 'error');
+    } finally {
+      setIsBulkAck(false);
+    }
+  };
+
+  const handleManagerAckDay = async (
+    dayId: string,
+    acked: boolean,
+    dayOverride?: TimesheetDay
+  ) => {
+    if (locked) return;
+    if (acked) {
+      const day =
+        dayOverride ||
+        days.find(d => d.id === dayId) ||
+        visibleDays.find(d => d.id === dayId);
+      if (day) {
+        const v = isDayApprovable(
+          day,
+          punchesForTimesheetDay(day, punches),
+          coherenceCtxForDay(day),
+        );
+        if (!v.ok) {
+          showToast(t(dayAckBlockI18nKey(v.reason || 'unknown')), 'warning');
+          return;
+        }
+      }
+    }
+    try {
+      await hrService.acknowledgeTimesheetDay(dayId, 'manager', acked);
+      showToast(acked ? t('managerAckOk') : t('revokeManagerAckOk'), 'success');
+      await load();
+    } catch (e: unknown) {
+      toastAckError(e);
     }
   };
 
@@ -546,8 +699,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   }, [employeeReviews, selectedEmployee, employeeFilter]);
 
   const employeeReviewValidation = useMemo(
-    () => validateTimesheetEmployeeReview(elapsedDays),
-    [elapsedDays]
+    () => validateTimesheetEmployeeReview(elapsedDays, todayIsoLocal(), punches),
+    [elapsedDays, punches]
   );
 
   const canApproveSelectedEmployee = useMemo(() => {
@@ -697,6 +850,11 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       showToast(t('mirrorPdfNoDays'), 'warning');
       return;
     }
+    const pdfGate = canExportMirrorPdf(days);
+    if (!pdfGate.ok) {
+      showToast(t('mirrorPdfRequiresAllApproved', { pending: pdfGate.pendingCount }), 'warning');
+      return;
+    }
     setIsExportingPdf(true);
     try {
       const labels = {
@@ -772,6 +930,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         showToast(t('mirrorPdfEmployeeRequired'), 'warning');
       } else if (raw === 'employee_no_days') {
         showToast(t('mirrorPdfNoDays'), 'warning');
+      } else if (raw === 'mirror_pdf_requires_all_approved') {
+        const gate = canExportMirrorPdf(days);
+        showToast(t('mirrorPdfRequiresAllApproved', { pending: gate.pendingCount }), 'warning');
       } else {
         showToast(raw || t('loadFailed'), 'error');
       }
@@ -806,28 +967,13 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     setAdjustDay(day);
   };
 
-  const saveAdjust = async (values: {
-    workedMinutes: number;
-    overtimeMinutes: number;
-    lateMinutes: number;
-    absenceMinutes: number;
-    remarks: string;
-  }) => {
+  const saveJustification = async (remarks: string) => {
     if (!adjustDay || locked) return;
     try {
       const wasAcked = adjustDay.managerAck;
-      await hrService.applyTimesheetAdjustment(
-        adjustDay.id,
-        {
-          workedMinutes: values.workedMinutes,
-          overtimeMinutes: values.overtimeMinutes,
-          lateMinutes: values.lateMinutes,
-          absenceMinutes: values.absenceMinutes,
-        },
-        values.remarks
-      );
+      await hrService.updateTimesheetDayJustification(adjustDay.id, remarks);
       setAdjustDay(null);
-      showToast(wasAcked ? t('adjustSavedNeedsReack') : t('adjustSaved'), 'success');
+      showToast(wasAcked ? t('adjustSavedNeedsReack') : t('justificationSaved'), 'success');
       await load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : t('loadFailed');
@@ -885,7 +1031,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     );
     showToast(t('adjustPunchAddedRecalc'), 'success');
     await load();
-    await offerApproveDayAfterRecalc(recalculated.id);
+    await offerApproveDayAfterRecalc(recalculated.id, recalculated);
   };
 
   const deletePunchFromModal = async (punchId: string) => {
@@ -1078,6 +1224,32 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     });
   }, [adjustDay, punches, employees]);
 
+  const adjustDayCalcContext = useMemo((): DayCalcContextProps | null => {
+    if (!adjustDay) return null;
+    const emp = employees.find(
+      e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId,
+    );
+    const shift =
+      shifts.find(s => s.id === adjustDay.shiftId) ||
+      shifts.find(s => s.id === emp?.shiftId) ||
+      null;
+    const ctx = buildDayCoherenceContext(adjustDay, {
+      shift,
+      holidays,
+      leaves,
+      employee: emp,
+    });
+    return {
+      shift: ctx.shift,
+      isHoliday: ctx.isHoliday,
+      onApprovedLeave: ctx.onApprovedLeave,
+      leaveRequestId: ctx.leaveRequestId,
+      rosterStatus: ctx.rosterStatus,
+      joiningDate: ctx.joiningDate,
+      terminationDate: ctx.terminationDate,
+    };
+  }, [adjustDay, employees, shifts, holidays, leaves]);
+
   const adjustFixedBreak = useMemo(() => {
     if (!adjustDay) return null;
     const emp = employees.find(
@@ -1098,14 +1270,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     return { start: daySched.breakEarliestStart, end: daySched.breakLatestEnd };
   }, [adjustDay, employees, shifts]);
 
-  const offerApproveDayAfterRecalc = async (dayId: string) => {
+  const offerApproveDayAfterRecalc = async (dayId: string, day?: TimesheetDay) => {
     if (!window.confirm(t('offerApproveDayAfterRecalc'))) return;
-    try {
-      await hrService.acknowledgeTimesheetDay(dayId, 'manager', true);
-      showToast(t('managerAckOk'), 'success');
-    } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
-    }
+    await handleManagerAckDay(dayId, true, day);
   };
 
   const saveManualPunch = async () => {
@@ -1128,7 +1295,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       showToast(t('punchSavedRecalc'), 'success');
       setShowManualPunch(false);
       await load();
-      await offerApproveDayAfterRecalc(recalculated.id);
+      await offerApproveDayAfterRecalc(recalculated.id, recalculated);
     } catch (e: any) {
       showToast(e?.message || t('punchFailed'), 'error');
     }
@@ -1437,20 +1604,67 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               fmtMinutes={mins => fmtMinutes(mins, t)}
               onAdjust={openAdjust}
               onAckEmployee={id => { void hrService.acknowledgeTimesheetDay(id, 'employee', true).then(load); }}
-              onAckManager={id => { void hrService.acknowledgeTimesheetDay(id, 'manager', true).then(load); }}
-              onRevokeManagerAck={id => {
-                void hrService.acknowledgeTimesheetDay(id, 'manager', false).then(() => {
-                  showToast(t('revokeManagerAckOk'), 'success');
-                  return load();
-                }).catch((e: unknown) => {
-                  showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
-                });
-              }}
+              onAckManager={id => { void handleManagerAckDay(id, true); }}
+              onRevokeManagerAck={id => { void handleManagerAckDay(id, false); }}
+              selectedDayIds={selectedDayIds}
+              onToggleSelectDay={toggleSelectDay}
+              onToggleSelectAll={toggleSelectAllVisible}
+              allSelected={allVisibleSelected}
+              bulkToolbar={
+                isManager && !locked ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedDayIds.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isBulkAck || selectedDayIds.every(id => !approvablePendingIds.includes(id))}
+                          onClick={() => handleBulkManagerAck(selectedDayIds)}
+                          className="h-8 px-3 bg-emerald-600 text-white rounded-lg text-xs font-semibold tracking-wide hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {isBulkAck
+                            ? t('bulkManagerAckWorking')
+                            : t('bulkManagerAck', {
+                                count: selectedDayIds.filter(id => approvablePendingIds.includes(id)).length,
+                              })}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isBulkAck || selectedDayIds.every(id => !approvedVisibleIds.includes(id))}
+                          onClick={() => handleBulkManagerRevoke(selectedDayIds)}
+                          className="h-8 px-3 border border-amber-300 text-amber-950 bg-amber-100 rounded-lg text-xs font-semibold tracking-wide hover:bg-amber-200 disabled:opacity-60"
+                        >
+                          {isBulkAck
+                            ? t('bulkManagerRevokeWorking')
+                            : t('bulkManagerRevoke', {
+                                count: selectedDayIds.filter(id => approvedVisibleIds.includes(id)).length,
+                              })}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      disabled={isBulkAck || approvablePendingIds.length === 0}
+                      onClick={() => handleBulkManagerAck(approvablePendingIds)}
+                      className="h-8 px-3 border border-emerald-200 text-emerald-800 bg-emerald-50 rounded-lg text-xs font-semibold tracking-wide hover:bg-emerald-100 disabled:opacity-60"
+                    >
+                      {t('approveAllPending', { count: approvablePendingIds.length })}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBulkAck || approvedVisibleIds.length === 0}
+                      onClick={() => handleBulkManagerRevoke(approvedVisibleIds)}
+                      className="h-8 px-3 border border-amber-300 text-amber-950 bg-amber-100 rounded-lg text-xs font-semibold tracking-wide hover:bg-amber-200 disabled:opacity-60"
+                    >
+                      {t('revokeAllApproved', { count: approvedVisibleIds.length })}
+                    </button>
+                  </div>
+                ) : null
+              }
             />
           ) : (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-3 justify-between">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="px-4 py-3 border-b border-slate-100 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <CalendarDays size={16} className="text-primary shrink-0" aria-hidden />
               <h2 className="text-sm font-semibold text-slate-800">{t('daysTitle')}</h2>
               {isManager && !locked && pendingManagerAckIds.length > 0 && (
@@ -1459,25 +1673,51 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                 </span>
               )}
             </div>
-            {isManager && !locked && pendingManagerAckIds.length > 0 && (
+            {isManager && !locked && (
               <div className="flex flex-wrap items-center gap-2">
                 {selectedDayIds.length > 0 && (
-                  <button
-                    type="button"
-                    disabled={isBulkAck}
-                    onClick={() => handleBulkManagerAck(selectedDayIds.filter(id => pendingManagerAckIds.includes(id)))}
-                    className="h-8 px-3 bg-emerald-600 text-white rounded-lg text-xs font-semibold tracking-wide hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    {isBulkAck ? t('bulkManagerAckWorking') : t('bulkManagerAck', { count: selectedDayIds.filter(id => pendingManagerAckIds.includes(id)).length })}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={isBulkAck || selectedDayIds.every(id => !approvablePendingIds.includes(id))}
+                      onClick={() => handleBulkManagerAck(selectedDayIds)}
+                      className="h-8 px-3 bg-emerald-600 text-white rounded-lg text-xs font-semibold tracking-wide hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {isBulkAck
+                        ? t('bulkManagerAckWorking')
+                        : t('bulkManagerAck', {
+                            count: selectedDayIds.filter(id => approvablePendingIds.includes(id)).length,
+                          })}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBulkAck || selectedDayIds.every(id => !approvedVisibleIds.includes(id))}
+                      onClick={() => handleBulkManagerRevoke(selectedDayIds)}
+                      className="h-8 px-3 border border-amber-300 text-amber-950 bg-amber-100 rounded-lg text-xs font-semibold tracking-wide hover:bg-amber-200 disabled:opacity-60"
+                    >
+                      {isBulkAck
+                        ? t('bulkManagerRevokeWorking')
+                        : t('bulkManagerRevoke', {
+                            count: selectedDayIds.filter(id => approvedVisibleIds.includes(id)).length,
+                          })}
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
-                  disabled={isBulkAck}
-                  onClick={() => handleBulkManagerAck(pendingManagerAckIds)}
+                  disabled={isBulkAck || approvablePendingIds.length === 0}
+                  onClick={() => handleBulkManagerAck(approvablePendingIds)}
                   className="h-8 px-3 border border-emerald-200 text-emerald-800 bg-emerald-50 rounded-lg text-xs font-semibold tracking-wide hover:bg-emerald-100 disabled:opacity-60"
                 >
-                  {t('approveAllPending', { count: pendingManagerAckIds.length })}
+                  {t('approveAllPending', { count: approvablePendingIds.length })}
+                </button>
+                <button
+                  type="button"
+                  disabled={isBulkAck || approvedVisibleIds.length === 0}
+                  onClick={() => handleBulkManagerRevoke(approvedVisibleIds)}
+                  className="h-8 px-3 border border-amber-300 text-amber-950 bg-amber-100 rounded-lg text-xs font-semibold tracking-wide hover:bg-amber-200 disabled:opacity-60"
+                >
+                  {t('revokeAllApproved', { count: approvedVisibleIds.length })}
                 </button>
               </div>
             )}
@@ -1491,11 +1731,11 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                         <input
                           type="checkbox"
                           className="h-4 w-4 accent-primary rounded border-slate-300"
-                          checked={allPendingSelected}
-                          disabled={pendingManagerAckIds.length === 0}
-                          onChange={toggleSelectAllPending}
-                          aria-label={t('selectAllPending')}
-                          title={t('selectAllPending')}
+                          checked={allVisibleSelected}
+                          disabled={selectableDayIds.length === 0}
+                          onChange={toggleSelectAllVisible}
+                          aria-label={t('selectAllVisible')}
+                          title={t('selectAllVisible')}
                         />
                       </th>
                     )}
@@ -1516,7 +1756,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                 <tbody>
                   {visibleDays.map((d, index) => {
                     const name = empName(d.employeeId);
-                    const canSelect = isManager && !locked && !d.managerAck;
+                    const canSelect = isManager && !locked;
+                    const dayApprovable = isDayApprovable(
+                      d,
+                      punchesForTimesheetDay(d, punches),
+                      coherenceCtxForDay(d),
+                    );
                     const prevDate = index > 0 ? visibleDays[index - 1]?.workDate : null;
                     const showDateHeader = showDaySeparators && d.workDate !== prevDate;
                     const rowFocused = employeeFilter === 'ALL' && matchesFocusedEmployee(d.employeeId);
@@ -1537,8 +1782,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                             showDaySeparators ? 'cursor-pointer' : ''
                           } ${
                             rowFocused
-                              ? 'bg-primary/5 border-l-primary'
-                              : 'border-l-transparent hover:bg-slate-50/80'
+                              ? 'bg-primary/10 border-l-primary'
+                              : 'border-l-transparent hover:bg-primary/10'
                           }`}
                           onClick={
                             showDaySeparators
@@ -1608,8 +1853,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                             {!d.managerAck && (isManager || isHr) && !locked && (
                               <button
                                 type="button"
-                                className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200"
-                                onClick={() => hrService.acknowledgeTimesheetDay(d.id, 'manager', true).then(load)}
+                                disabled={!dayApprovable.ok}
+                                title={
+                                  dayApprovable.ok
+                                    ? undefined
+                                    : t(dayAckBlockI18nKey(dayApprovable.reason || 'unknown'))
+                                }
+                                className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                onClick={() => { void handleManagerAckDay(d.id, true); }}
                               >
                                 {t('managerAck')}
                               </button>
@@ -1621,14 +1872,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                                   <button
                                     type="button"
                                     className="text-xs px-2 py-1 border border-amber-200 text-amber-900 bg-amber-50 rounded-md hover:bg-amber-100"
-                                    onClick={() => {
-                                      void hrService.acknowledgeTimesheetDay(d.id, 'manager', false).then(() => {
-                                        showToast(t('revokeManagerAckOk'), 'success');
-                                        return load();
-                                      }).catch((e: unknown) => {
-                                        showToast(e instanceof Error ? e.message : t('loadFailed'), 'error');
-                                      });
-                                    }}
+                                    onClick={() => { void handleManagerAckDay(d.id, false); }}
                                   >
                                     {t('revokeManagerAck')}
                                   </button>
@@ -1776,7 +2020,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         </aside>
       </div>
 
-      {adjustDay && (
+      {adjustDay && adjustDayCalcContext && (
         <TimesheetAdjustModal
           day={adjustDay}
           punches={adjustDayPunches}
@@ -1786,13 +2030,34 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           canManageAck={(isManager || isHr) && !locked}
           canEditHours={(isHr || isManager) && !locked}
           fixedBreak={adjustFixedBreak}
+          dayCalcContext={adjustDayCalcContext}
           onClose={() => setAdjustDay(null)}
-          onSave={saveAdjust}
+          onSaveJustification={saveJustification}
           onSetManagerAck={async (acked) => {
-            await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', acked);
-            setAdjustDay(prev => (prev ? { ...prev, managerAck: acked } : null));
-            showToast(acked ? t('managerAckOk') : t('revokeManagerAckOk'), 'success');
-            await load();
+            try {
+              if (acked) {
+                const dayPunchList = punchesForTimesheetDay(adjustDay, punches);
+                const coherenceCtx = buildDayCoherenceContext(adjustDay, {
+                  shift: adjustDayCalcContext.shift,
+                  holidays,
+                  leaves,
+                  employee: employees.find(
+                    e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId,
+                  ),
+                });
+                const v = isDayApprovable(adjustDay, dayPunchList, coherenceCtx);
+                if (!v.ok) {
+                  showToast(t(dayAckBlockI18nKey(v.reason || 'unknown')), 'warning');
+                  return;
+                }
+              }
+              await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', acked);
+              setAdjustDay(prev => (prev ? { ...prev, managerAck: acked } : null));
+              showToast(acked ? t('managerAckOk') : t('revokeManagerAckOk'), 'success');
+              await load();
+            } catch (e: unknown) {
+              toastAckError(e);
+            }
           }}
           onAddPunch={addPunchFromModal}
           onUpdatePunch={updatePunchFromModal}

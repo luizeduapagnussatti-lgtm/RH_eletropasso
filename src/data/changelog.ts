@@ -16,6 +16,78 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Ajuste de ponto — batidas como fonte única',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Totais do dia (trabalhado, extras, falta) passam a ser sempre derivados das batidas via calculateDay; removido override manual no modal e em recalculateDay. Passo 2 do ajuste é espelho read-only em tempo real; aprovação bloqueada quando totais gravados divergem (incoherentTotals). Script repair-timesheet-coherence.mjs (dry-run + --apply) recalcula dias legados.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
+    title: 'Alinhamento RH Eletropasso (5 sprints)',
+    entries: [
+      { type: 'breaking', description: 'Removido Client Rest REP (`services/rep-gateway`); assets WatchComm relocados para `scripts/watchcomm-poller/lib/`.' },
+      { type: 'improvement', description: 'SaaS legado: subscription stub ACTIVE, removidos upgrade/ads/marketing público; tutoriais como Ajuda autenticada (sidebar + SearchDialog).' },
+      { type: 'improvement', description: 'Super Admin single-tenant enxuto: org, storage, notificações, aparência, tutoriais.' },
+      { type: 'feature', description: 'E-mails locale pt-BR/en: `emailTemplates.ts`, cron diário localizado, `cron-process-reports-queue`, webhook `leave-notifications`.' },
+      { type: 'improvement', description: 'Pré-folha: aviso transmissão gov desabilitada; `generateEsocialStub` removido do facade; `npm run test:rh` + checklist go-live.' },
+      { type: 'fix', description: 'i18n: placeholder gestor em ManagerLeaveFlow; país padrão BR em OrgSystem.' },
+    ],
+  },
+  {
+    date: '2026-07-29',
+    title: 'Jornada completa exige 4 batidas para aprovar',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Dia de jornada completa (esperado ≥ 6h) só pode ser aprovado com exatamente 4 batidas (2 pares). Com 2 batidas o cálculo marca Incompleto e o botão Aprovar fica bloqueado; meio período (< 6h) continua com 1 par.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
+    title: 'Espelho didático — aprovação em massa e pares completos',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Modo Espelho didático ganha checkboxes e barra Aprovar/Desaprovar em massa (antes só no Resumo). Aprovação exige pares de batida completos (sem falta de Saída 2); PDF só com todos os dias aprovados.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
+    title: 'Espelho — desaprovar em massa visível e hover legível no dark',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Barra de ações do espelho sempre mostra “Desaprovar todos aprovados” ao lado de “Aprovar todos pendentes”. Hover das linhas usa destaque primary (não cinza) no tema escuro, mantendo texto legível.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
+    title: 'Espelho — aprovação só com batidas válidas e PDF gated',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Gestor só aprova com pares de batida completos (3 batidas / falta Saída 2 = incompleto, botão bloqueado). Cálculo marca INCOMPLETE quando há batida ímpar. ADJUSTED em dia útil também exige pares. Folgas OFF sem batidas. PDF gated. Desaprovar em massa na barra. Hover primary no dark.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Validação compartilhada (timesheetDayAckValidation), migration OFF, testes node scripts/test-timesheet-day-ack-validation.mjs e review atualizado.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'PDFs — logo preta em todos os documentos',
     entries: [
       {
