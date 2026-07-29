@@ -388,24 +388,26 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   /** Hours target for the same employee shown in the hour-bank panel. */
   const periodHours = useMemo(() => {
     if (!railEmployeeKey) {
-      return { expected: 0, worked: 0, remaining: 0, dayCount: 0 };
+      return { expected: 0, worked: 0, remaining: 0, dayCount: 0, expectedFull: 0 };
     }
     const today = todayIsoLocal();
     const emp = employees.find(
       e => e.id === railEmployeeKey || e.employeeId === railEmployeeKey || e.id === focusedEmployeeId || e.employeeId === focusedEmployeeId
     );
-    const scope = days.filter(d => {
-      if (d.workDate > today) return false;
-      return (
-        d.employeeId === railEmployeeKey ||
-        d.employeeId === emp?.id ||
-        d.employeeId === emp?.employeeId
-      );
-    });
+    const belongsToEmp = (d: TimesheetDay) =>
+      d.employeeId === railEmployeeKey ||
+      d.employeeId === emp?.id ||
+      d.employeeId === emp?.employeeId;
+    // Full-period target ("Meta prevista"): every day in the period, matching the PDF.
+    const expectedFull = days
+      .filter(belongsToEmp)
+      .reduce((s, d) => s + (d.expectedMinutes || 0), 0);
+    // Progress so far ("Jornada até hoje"): only elapsed days.
+    const scope = days.filter(d => d.workDate <= today && belongsToEmp(d));
     const expected = scope.reduce((s, d) => s + (d.expectedMinutes || 0), 0);
     const worked = scope.reduce((s, d) => s + (d.workedMinutes || 0), 0);
     const remaining = Math.max(0, expected - worked);
-    return { expected, worked, remaining, dayCount: scope.length };
+    return { expected, worked, remaining, dayCount: scope.length, expectedFull };
   }, [days, railEmployeeKey, employees, focusedEmployeeId]);
 
   /** When Todos + row focus: fetch hour bank for that employee only. */
@@ -1936,6 +1938,13 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                 {!bankEnabled && (
                   <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
                     <p className="text-[11px] text-amber-800 leading-relaxed font-medium">{t('bankDisabledFrozenHint')}</p>
+                  </div>
+                )}
+
+                {periodHours.expectedFull > 0 && (
+                  <div className="flex items-center justify-between rounded-lg border border-primary/15 bg-primary-light/30 px-3 py-2">
+                    <span className="text-[11px] font-semibold text-slate-600">{t('pdf.metricExpected')}</span>
+                    <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMinutes(periodHours.expectedFull, t)}</span>
                   </div>
                 )}
 

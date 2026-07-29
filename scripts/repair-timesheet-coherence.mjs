@@ -145,17 +145,23 @@ const { data: settingsRows } = await adminSb
   .from('settings')
   .select('key, value')
   .eq('organization_id', orgId)
-  .in('key', ['holidays']);
+  .in('key', ['holidays', 'app_config']);
 
 let holidays = [];
+let clockStartDate;
 for (const row of settingsRows || []) {
-  if (row.key !== 'holidays') continue;
   let val = row.value;
   if (typeof val === 'string') {
-    try { val = JSON.parse(val); } catch { val = []; }
+    try { val = JSON.parse(val); } catch { val = null; }
   }
-  if (Array.isArray(val)) holidays = val;
+  if (row.key === 'holidays' && Array.isArray(val)) holidays = val;
+  if (row.key === 'app_config' && val && typeof val === 'object') {
+    const v = val.timesheetClockStartDate;
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) clockStartDate = v;
+  }
 }
+const asOfDate = new Date().toLocaleDateString('en-CA');
+if (clockStartDate) console.log('clock_start_date', clockStartDate);
 
 const { data: leaveRows } = await adminSb
   .from('leaves')
@@ -247,6 +253,8 @@ for (const day of mapped) {
           terminationDate: prof.termination_date,
         }
       : undefined,
+    asOfDate,
+    clockStartDate,
   });
 
   const { coherent, diffs, computed } = checkDayCoherence(day, punches, ctx);

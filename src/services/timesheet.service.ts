@@ -197,6 +197,18 @@ async function isBankEnabled(): Promise<boolean> {
   }
 }
 
+// Date the timekeeping device started collecting punches. Days before it have
+// no data and must never become false absences / bank debits.
+async function resolveClockStartDate(): Promise<string | undefined> {
+  try {
+    const config = await organizationService.getConfig();
+    const v = config?.timesheetClockStartDate;
+    return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchCoherenceContextForDay(
   day: Pick<TimesheetDay, 'workDate' | 'employeeId' | 'shiftId'>,
 ): Promise<DayCoherenceContext> {
@@ -263,6 +275,26 @@ export const timesheetService = {
           .select()
           .single();
         if (updErr) throw updErr;
+        // Cutoff changed: drop any day now outside the period window (and its
+        // auto bank entries) so realignment never leaves overlapping orphans.
+        try {
+          const { data: orphanDays } = await supabase
+            .from('timesheet_days')
+            .select('id')
+            .eq('period_id', existing.id)
+            .or(`work_date.lt.${startDate},work_date.gt.${endDate}`);
+          const orphanIds = (orphanDays ?? []).map((d: { id: string }) => d.id);
+          if (orphanIds.length > 0) {
+            await supabase
+              .from('hour_bank_ledger')
+              .delete()
+              .in('timesheet_day_id', orphanIds)
+              .in('entry_type', ['OT_CREDIT', 'ABSENCE_DEBIT']);
+            await supabase.from('timesheet_days').delete().in('id', orphanIds);
+          }
+        } catch (cleanupErr) {
+          console.error('[timesheet] realign cleanup failed', cleanupErr);
+        }
         return mapPeriod(updated);
       }
       return mapPeriod(existing);
@@ -405,6 +437,7 @@ export const timesheetService = {
         date <= l.endDate
     );
 
+    const clockStartDate = await resolveClockStartDate();
     const calc = calculateDay({
       date,
       punches,
@@ -415,6 +448,7 @@ export const timesheetService = {
       rosterStatus,
       joiningDate: emp?.joiningDate || undefined,
       terminationDate: emp?.terminationDate || undefined,
+      clockStartDate,
     });
 
     // Keep manual adjustments: recalculation must not wipe manager edits.

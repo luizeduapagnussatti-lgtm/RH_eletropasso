@@ -159,6 +159,32 @@ const ctx = {
   assert.ok(todayNoPunch.absenceMinutes > 0);
 }
 
+{
+  // Pre-clock day (before the clock was integrated) must never be a false
+  // ABSENT nor debit the bank — there was no punch data at all.
+  const preClock = calculateDay({
+    date: '2026-05-25', // Monday, working day, before the clock start
+    punches: [],
+    ...ctx,
+    asOfDate: '2026-07-15',
+    clockStartDate: '2026-05-26',
+  });
+  assert.notEqual(preClock.status, 'ABSENT');
+  assert.equal(preClock.absenceMinutes, 0);
+  assert.equal(preClock.expectedMinutes, 0);
+
+  // On/after the clock start, a zero-punch working day is a real ABSENT.
+  const afterClock = calculateDay({
+    date: '2026-05-26',
+    punches: [],
+    ...ctx,
+    asOfDate: '2026-07-15',
+    clockStartDate: '2026-05-26',
+  });
+  assert.equal(afterClock.status, 'ABSENT');
+  assert.ok(afterClock.absenceMinutes > 0);
+}
+
 assert.equal(isAuditOnlyManualAdjustment({ remarks: 'test', editedAt: '2026-01-01' }), true);
 assert.equal(isAuditOnlyManualAdjustment({ workedMinutes: 480 }), false);
 

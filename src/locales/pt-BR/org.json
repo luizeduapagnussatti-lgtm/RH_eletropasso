@@ -178,6 +178,8 @@
   "rubricsSaveFailed": "Falha ao salvar rubricas.",
   "ptrpPolicy": "Política PTRP (Portaria 671)",
   "ptrpPolicyHint": "Parâmetros de banco de horas, período de apuração e intervalo padrão conforme PTRP.",
+  "clockStartDate": "Início da coleta do relógio",
+  "clockStartDateHint": "Data em que o relógio de ponto começou a registrar batidas. Dias anteriores não geram falta nem debitam o banco (não havia coleta). Deixe vazio se o relógio sempre esteve ativo.",
   "bankEnabled": "Banco de horas ativo",
   "bankEnabledDesc": "Define o destino das horas extras de todos os colaboradores. É o interruptor central — vale para todos os turnos.",
   "bankEnabledOnHint": "Ativado: horas extras viram crédito no banco (compensáveis como folga) e faltas descontam do saldo.",

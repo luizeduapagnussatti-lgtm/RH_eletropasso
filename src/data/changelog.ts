@@ -16,6 +16,37 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Ponto — meta prevista na tela, blindagem e reparo geral',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'A métrica "Meta prevista" (carga horária prevista de todo o período de fechamento 26→25) agora aparece também na tela: no card do banco de horas em Reportório (Ponto) e nos totais de "Meu ponto". Antes só existia no PDF espelho.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Blindagem contra faltas falsas pré-relógio: novo campo "Início da coleta do relógio" (Organização → Sistema → Política PTRP). Dias anteriores a essa data nunca geram falta nem debitam o banco (não havia coleta de batidas). Configurado para 26/05/2026 nesta instalação.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Corrigida a sobreposição do período de maio: estava como mês calendário (01→31/05) e conflitava com junho (26/05→25/06). Realinhado para o corte 26→25 (26/04→25/05) e removidos os dias/lançamentos falsos do período pré-relógio.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Dias "presos" (batidas do relógio chegavam mas o dia continuava ABSENT/zerado): a fila de recálculo (timesheet_recalc_queue) não tinha processador. Criado o processador da fila com drenagem automática após cada coleta do relógio e tarefa agendada, fechando o ciclo ingestão → recálculo. Recalculadas todas as competências jun/jul/ago (0 falhas).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Ao realinhar o corte de um período em aberto, o sistema passa a remover automaticamente dias que ficaram fora da nova janela (e seus lançamentos automáticos de banco), evitando duplicatas/órfãos.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Banco de horas — interruptor mestre e visibilidade',
     entries: [
       {

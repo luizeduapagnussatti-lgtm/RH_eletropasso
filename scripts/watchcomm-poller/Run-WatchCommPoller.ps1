@@ -174,7 +174,7 @@ if (Test-Path -LiteralPath $statePath) {
   if ($runAtVal) { $state.lastRunAt = [string]$runAtVal }
 }
 
-$defaultCollect = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\collect-once-mrp.ps1'))
+$defaultCollect = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'lib\collect-once-mrp.ps1'))
 $collectScript = [string](Get-ConfigValue $Config 'collectScript' $defaultCollect)
 if (-not (Test-Path -LiteralPath $collectScript)) {
   throw "collect-once-mrp.ps1 nao encontrado: $collectScript"
@@ -321,6 +321,23 @@ Save-JsonFile $state $statePath
 Write-CycleResult -ResultPath $resultPath -Success $true -ExitCode 0 `
   -Collected $punches.Count -Forwarded $toSend.Count -Inserted $inserted -LastNsr ([int]$state.lastNsr) `
   -TriggerName $Trigger
+
+# Fecha o ciclo: batidas recém-ingeridas enfileiram recálculo; drena a fila
+# agora (best-effort) para que os dias não fiquem "presos" até a próxima tarefa.
+if ($inserted -gt 0) {
+  try {
+    $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+    $runner = Join-Path $repoRoot 'scripts\Run-RecalcQueue.ps1'
+    if (Test-Path -LiteralPath $runner) {
+      Start-Process -FilePath 'powershell.exe' `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $runner) `
+        -WindowStyle Hidden | Out-Null
+      Write-Log 'recalc-queue drain disparado (best-effort)'
+    }
+  } catch {
+    Write-Log ("recalc-queue drain nao disparado: {0}" -f $_.Exception.Message) 'WARN'
+  }
+}
 
 # limpa JSON intermediario antigo (mantem o ultimo)
 Get-ChildItem -LiteralPath $logDir -Filter 'collect-*.json' |

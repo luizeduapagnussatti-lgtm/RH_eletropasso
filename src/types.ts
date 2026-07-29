@@ -765,6 +765,12 @@ export interface AppConfig {
   smtp?: RelayConfig;
   overtimeEnabled?: boolean;
   ptrpPolicy?: PtrpPolicy;
+  /**
+   * ISO date (YYYY-MM-DD) when the timekeeping device started collecting
+   * punches. Timesheet days before this are treated as no-data (never a false
+   * absence, never a bank debit). Leave empty if the clock has always run.
+   */
+  timesheetClockStartDate?: string;
   autoAbsentEnabled?: boolean;
   autoAbsentTime?: string; // HH:mm
   officeLocations?: OfficeLocation[];

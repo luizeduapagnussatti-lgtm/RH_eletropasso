@@ -307,6 +307,12 @@ export interface DayCalcInput {
    * debit the hour bank — the workday simply hasn't happened yet.
    */
   asOfDate?: string;
+  /**
+   * ISO date (YYYY-MM-DD) when the timekeeping device started collecting
+   * punches. Dates strictly before this have no punch data at all, so a
+   * zero-punch day must not become a false ABSENT nor debit the hour bank.
+   */
+  clockStartDate?: string;
 }
 
 /** Local calendar date (YYYY-MM-DD) for "today", timezone of the runtime. */
@@ -370,6 +376,12 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
 
   // Outside employment window: not expected to work, never ABSENT.
   if (isOutsideEmploymentWindow(date, joiningDate, terminationDate)) {
+    return ZERO_OFF_DAY(shift?.id);
+  }
+
+  // Before the clock was integrated there is no punch data for anyone, so a
+  // zero-punch day must not become a false ABSENT nor debit the hour bank.
+  if (input.clockStartDate && date < input.clockStartDate) {
     return ZERO_OFF_DAY(shift?.id);
   }
 

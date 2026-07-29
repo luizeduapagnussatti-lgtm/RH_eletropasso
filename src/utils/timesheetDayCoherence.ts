@@ -13,6 +13,8 @@ export interface DayCoherenceContext {
   rosterStatus?: 'WORK' | 'OFF' | null;
   joiningDate?: string;
   terminationDate?: string;
+  asOfDate?: string;
+  clockStartDate?: string;
 }
 
 export interface DayCoherenceDiff {
@@ -66,6 +68,8 @@ export function buildDayCalcInput(
     rosterStatus: ctx.rosterStatus ?? null,
     joiningDate: ctx.joiningDate,
     terminationDate: ctx.terminationDate,
+    asOfDate: ctx.asOfDate,
+    clockStartDate: ctx.clockStartDate,
   };
 }
 
@@ -77,6 +81,8 @@ export function buildDayCoherenceContext(
     leaves: LeaveRequest[];
     employee?: { id?: string; employeeId?: string; shiftId?: string; joiningDate?: string; terminationDate?: string };
     rosterStatus?: 'WORK' | 'OFF' | null;
+    asOfDate?: string;
+    clockStartDate?: string;
   },
 ): DayCoherenceContext {
   const punchKey = opts.employee?.employeeId || day.employeeId;
@@ -99,6 +105,8 @@ export function buildDayCoherenceContext(
     rosterStatus: opts.rosterStatus ?? null,
     joiningDate: opts.employee?.joiningDate,
     terminationDate: opts.employee?.terminationDate,
+    asOfDate: opts.asOfDate,
+    clockStartDate: opts.clockStartDate,
   };
 }
 

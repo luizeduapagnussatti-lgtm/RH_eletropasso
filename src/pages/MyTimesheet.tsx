@@ -115,6 +115,7 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
 
   const totals = useMemo(
     () => ({
+      expected: days.reduce((s, d) => s + (d.expectedMinutes || 0), 0),
       worked: days.reduce((s, d) => s + d.workedMinutes, 0),
       overtime: days.reduce((s, d) => s + d.overtimeMinutes, 0),
       absence: days.reduce((s, d) => s + d.absenceMinutes, 0),
@@ -161,6 +162,10 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
         <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
           {t('mobile:periodTotals')}
         </h2>
+        <div className="flex items-center justify-between rounded-xl border border-primary/15 bg-primary-light/30 px-3 py-2 mb-2">
+          <span className="text-[11px] font-semibold text-slate-600">{t('ptrp:pdf.metricExpected')}</span>
+          <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMinutes(totals.expected, t)}</span>
+        </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-[9px] uppercase text-slate-400 font-bold">{t('mobile:workedHours')}</p>

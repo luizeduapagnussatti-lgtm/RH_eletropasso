@@ -178,6 +178,8 @@
   "rubricsSaveFailed": "Failed to save rubrics.",
   "ptrpPolicy": "PTRP policy (Portaria 671)",
   "ptrpPolicyHint": "Hour bank, timesheet period, and default break settings for PTRP compliance.",
+  "clockStartDate": "Clock data start date",
+  "clockStartDateHint": "Date the time clock started recording punches. Days before it do not generate absences nor debit the bank (no data was collected). Leave empty if the clock has always run.",
   "bankEnabled": "Hour bank enabled",
   "bankEnabledDesc": "Sets where every employee's overtime goes. This is the master switch — it applies to all shifts.",
   "bankEnabledOnHint": "Enabled: overtime becomes a bank credit (usable as time off) and absences debit the balance.",

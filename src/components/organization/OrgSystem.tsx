@@ -311,10 +311,15 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
                <input type="number" min={0} step={15} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={ptrpPolicy.weeklyOtThresholdMinutes} onChange={e => handlePtrpChange('weeklyOtThresholdMinutes', Math.max(0, Number(e.target.value) || 0))} />
                <p className="text-[9px] text-slate-400 mt-1 px-1">{t('weeklyOtThresholdHint')}</p>
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1">
                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('defaultBreakMinutes')}</label>
                <input type="number" min={0} step={5} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={ptrpPolicy.defaultBreakMinutes} onChange={e => handlePtrpChange('defaultBreakMinutes', Math.max(0, Number(e.target.value) || 0))} />
                <p className="text-[9px] text-slate-400 mt-1 px-1">{t('defaultBreakHint')}</p>
+            </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('clockStartDate')}</label>
+               <input type="date" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-50 transition-all outline-none" value={config.timesheetClockStartDate || ''} onChange={e => handleChange('timesheetClockStartDate', e.target.value || undefined)} />
+               <p className="text-[9px] text-slate-400 mt-1 px-1">{t('clockStartDateHint')}</p>
             </div>
          </div>
       </div>
