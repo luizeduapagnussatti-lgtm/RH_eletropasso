@@ -19,7 +19,7 @@ import { competenceForDate, eachDateInRange, todayIsoLocal } from '../utils/payr
 import { DEFAULT_PTRP_POLICY } from '../constants';
 import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
 import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
-import { isNonPunchingStaff } from '../utils/roles';
+import { isTimesheetExempt } from '../utils/roles';
 import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
@@ -154,7 +154,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         hrService.getEmployees(),
         hrService.getOrCreateTimesheetPeriod(year, month),
       ]);
-      const staff = emps.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN');
+      // Show anyone who punches / must be identifiable in the mirror (includes HR).
+      // Exclude only system/admin/diretoria accounts that never clock in.
+      const staff = emps.filter(e => !isTimesheetExempt(e.role));
       setEmployees(staff);
       setPeriod(p);
 
@@ -276,7 +278,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           hrService.getLeaves().catch(() => [] as LeaveRequest[]),
         ]);
         if (cancelled) return;
-        setEmployees(emps.filter(e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN'));
+        setEmployees(emps.filter(e => !isTimesheetExempt(e.role)));
         setPeriod(p);
         setShifts(shiftList);
         setHolidays(holidayList);
@@ -690,8 +692,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       map.set(e.id, e.name);
       if (e.employeeId) map.set(e.employeeId, e.name);
     }
-    return (id: string) => map.get(id) || id;
-  }, [employees]);
+    return (id: string) => map.get(id) || t('unknownEmployee', { id });
+  }, [employees, t]);
 
   const selectedEmployee = useMemo(
     () => employees.find(e => e.id === employeeFilter),

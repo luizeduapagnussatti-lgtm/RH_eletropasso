@@ -96,6 +96,7 @@
   "reviewAckComplete": "Ciências OK",
   "reviewOpenEmployee": "Abrir",
   "employee": "Colaborador",
+  "unknownEmployee": "{{id}} (sem cadastro)",
   "allEmployees": "Todos",
   "date": "Data",
   "expected": "Esperado",

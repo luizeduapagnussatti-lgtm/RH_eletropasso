@@ -96,6 +96,7 @@
   "reviewAckComplete": "Acknowledgements OK",
   "reviewOpenEmployee": "Open",
   "employee": "Employee",
+  "unknownEmployee": "{{id}} (no profile)",
   "allEmployees": "All",
   "date": "Date",
   "expected": "Expected",

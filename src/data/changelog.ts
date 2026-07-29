@@ -21,6 +21,11 @@ export const changelog: ChangelogRelease[] = [
       {
         type: 'fix',
         description:
+          'No espelho de ponto, a coluna Colaborador voltava a mostrar o PIS em vez do nome quando o perfil era HR (ex.: Giseli) — a lista de nomes excluía auxiliares de RH. Agora entram todos que batem ponto (incluindo HR); só contas de administração do sistema ficam de fora. Também cadastrado o perfil faltante da Julielle Ferreira Bueno (PIS 014509309976), que tinha batidas sem cadastro, e removidos dias órfãos de RH-0001.',
+      },
+      {
+        type: 'fix',
+        description:
           'Contas de administração do sistema (ADMIN, SUPER_ADMIN e Diretoria/MANAGEMENT) não batem ponto e agora nunca acumulam saldo (nem falta, nem crédito/débito no banco de horas). Recálculo passou a ignorar e auto-limpar qualquer dia residual dessas contas. Removidos os saldos negativos falsos que existiam (ex.: -183h e -51,8h). Auxiliares de RH que realmente batem ponto continuam sendo rastreadas normalmente.',
       },
       {
