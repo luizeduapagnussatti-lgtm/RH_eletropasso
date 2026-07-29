@@ -154,6 +154,7 @@
   "dayGroupLabel": "{{date}}",
   "punchesTitleFor": "Punches · {{name}}",
   "balance": "Balance",
+  "bankDisabledFrozenHint": "Hour bank disabled in Organization → System. The balance is frozen (history) and overtime is now paid on payroll.",
   "periodHoursTitle": "Competence hours (through today)",
   "periodHoursExpected": "Target",
   "periodHoursWorked": "Done",

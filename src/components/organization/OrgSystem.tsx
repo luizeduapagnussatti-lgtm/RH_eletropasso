@@ -24,7 +24,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
   const { showToast } = useToast();
   const [orgData, setOrgData] = useState({
     name: '',
-    country: 'BD',
+    country: 'BR',
     address: '',
     logo: '',
     cnpj: '',
@@ -48,7 +48,7 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
       if (error || !org) return;
       setOrgData({
         name: org.name || '',
-        country: org.country || 'BD',
+        country: org.country || 'BR',
         address: org.address || '',
         logo: org.logo || '',
         cnpj: org.cnpj ? formatCnpjDisplay(org.cnpj) : '',
@@ -289,10 +289,16 @@ export const OrgSystem: React.FC<Props> = ({ config, onSave, canEditSystemPolicy
          <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3"><Scale size={24} className="text-primary" /> {t('ptrpPolicy')}</h3>
          <p className="text-xs text-slate-400 -mt-4">{t('ptrpPolicyHint')}</p>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 md:col-span-2">
-               <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-500">{t('bankEnabled')}</span>
-                  <input type="checkbox" className="w-5 h-5 accent-primary rounded-lg" checked={ptrpPolicy.bankEnabled} onChange={e => handlePtrpChange('bankEnabled', e.target.checked)} />
+            <div className="space-y-3 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 md:col-span-2">
+               <label className="flex items-start justify-between gap-4 cursor-pointer">
+                  <div className="space-y-1">
+                     <span className="block text-sm font-bold text-slate-800">{t('bankEnabled')}</span>
+                     <span className="block text-xs text-slate-500 leading-relaxed">{t('bankEnabledDesc')}</span>
+                  </div>
+                  <input type="checkbox" className="mt-1 w-5 h-5 accent-primary rounded-lg shrink-0" checked={ptrpPolicy.bankEnabled} onChange={e => handlePtrpChange('bankEnabled', e.target.checked)} />
+               </label>
+               <div className={`rounded-2xl px-4 py-3 text-xs font-medium leading-relaxed border ${ptrpPolicy.bankEnabled ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 'bg-amber-50 border-amber-100 text-amber-800'}`}>
+                  {ptrpPolicy.bankEnabled ? t('bankEnabledOnHint') : t('bankEnabledOffHint')}
                </div>
             </div>
             <div className="space-y-1">

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Scale, Wallet } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { MyTimesheetDayCards } from '../components/timesheet/MyTimesheetDayCards';
 import {
+  HourBankLedgerEntry,
   Punch,
   TimesheetDay,
   TimesheetEmployeeReview,
@@ -12,6 +13,11 @@ import {
 } from '../types';
 import { competenceForDate } from '../utils/payrollPeriod';
 import { DEFAULT_PTRP_POLICY } from '../constants';
+
+function formatIsoDateBr(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return d && m && y ? `${d}/${m}` : iso;
+}
 
 interface Props {
   user: User;
@@ -46,7 +52,19 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
   const [days, setDays] = useState<TimesheetDay[]>([]);
   const [punches, setPunches] = useState<Punch[]>([]);
   const [review, setReview] = useState<TimesheetEmployeeReview | null>(null);
+  const [bankEnabled, setBankEnabled] = useState<boolean>(DEFAULT_PTRP_POLICY.bankEnabled);
+  const [bankBalance, setBankBalance] = useState<number>(0);
+  const [bankEntries, setBankEntries] = useState<HourBankLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const entryTypeLabel = useCallback(
+    (type: string) => {
+      const key = `ptrp:entryTypes.${type}`;
+      const translated = t(key);
+      return translated === key ? type : translated;
+    },
+    [t]
+  );
 
   const employeeKey = user.employeeId || user.id;
   const periodLabel = period
@@ -72,6 +90,16 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
         });
         setPunches(punchList);
       }
+      const [config, balance, entries] = await Promise.all([
+        hrService.getConfig().catch(() => null),
+        hrService.getHourBankBalance(employeeKey).catch(() => 0),
+        p.startDate && p.endDate
+          ? hrService.listHourBankEntries(employeeKey, p.startDate, p.endDate).catch(() => [])
+          : Promise.resolve([]),
+      ]);
+      setBankEnabled(config?.ptrpPolicy?.bankEnabled ?? DEFAULT_PTRP_POLICY.bankEnabled);
+      setBankBalance(balance);
+      setBankEntries(entries);
     } catch (e) {
       console.error(e);
     } finally {
@@ -147,6 +175,49 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
             <p className="text-sm font-semibold tabular-nums">{fmtMinutes(totals.absence, t)}</p>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <Scale size={16} className="text-primary shrink-0" aria-hidden />
+          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+            {t('mobile:hourBankTitle')}
+          </h2>
+        </div>
+
+        {bankEnabled ? (
+          <>
+            <p className={`text-2xl font-semibold tabular-nums ${bankBalance < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+              {fmtMinutes(bankBalance, t)}
+            </p>
+            <p className="text-[11px] text-slate-500 font-medium">{t('mobile:hourBankBalanceLabel')}</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed mt-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+              {bankBalance >= 0 ? t('mobile:hourBankPositiveHint') : t('mobile:hourBankNegativeHint')}
+            </p>
+
+            {bankEntries.length > 0 ? (
+              <ul className="mt-3 space-y-2 text-xs">
+                {bankEntries.slice(-12).reverse().map(e => (
+                  <li key={e.id} className="flex justify-between gap-2 border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 truncate">
+                      {formatIsoDateBr(e.entryDate)} · {entryTypeLabel(e.entryType)}
+                    </span>
+                    <span className={`shrink-0 tabular-nums ${e.minutesDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {e.minutesDelta >= 0 ? '+' : ''}{fmtMinutes(e.minutesDelta, t)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[11px] text-slate-400">{t('mobile:hourBankNoEntries')}</p>
+            )}
+          </>
+        ) : (
+          <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-3">
+            <Wallet size={16} className="text-amber-600 shrink-0 mt-0.5" aria-hidden />
+            <p className="text-xs text-amber-800 leading-relaxed">{t('mobile:hourBankDisabledNote')}</p>
+          </div>
+        )}
       </section>
 
       <MyTimesheetDayCards

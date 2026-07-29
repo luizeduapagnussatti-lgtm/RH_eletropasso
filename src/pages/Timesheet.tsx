@@ -101,6 +101,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const [hasQuery, setHasQuery] = useState(!(isHr || isManager));
   const [bankBalance, setBankBalance] = useState(0);
   const [bankEntries, setBankEntries] = useState<Awaited<ReturnType<typeof hrService.listHourBankEntries>>>([]);
+  const [bankEnabled, setBankEnabled] = useState(true);
   const [punches, setPunches] = useState<Punch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -295,6 +296,14 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       void load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot for self view
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void hrService.getConfig()
+      .then(cfg => { if (alive) setBankEnabled(cfg?.ptrpPolicy?.bankEnabled ?? true); })
+      .catch(() => {});
+    return () => { alive = false; };
   }, []);
 
   const filtersPrimed = useRef(false);
@@ -1923,6 +1932,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                   {fmtMinutes(bankBalance, t)}
                 </p>
                 <p className="text-xs text-slate-500 font-medium">{t('balance')}</p>
+
+                {!bankEnabled && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
+                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium">{t('bankDisabledFrozenHint')}</p>
+                  </div>
+                )}
 
                 {periodHours.dayCount > 0 && (
                   <div className="rounded-lg border border-slate-100 bg-slate-100 px-3 py-2.5 space-y-1.5">

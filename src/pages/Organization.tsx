@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Loader2, Save, X, RefreshCw, MapPin, AlertTriangle, Search
+  Loader2, Save, X, RefreshCw, MapPin, AlertTriangle, Search, Info
 } from 'lucide-react';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { hrService } from '../services/hrService';
@@ -622,10 +622,10 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                       </div>
                     )}
                   </div>
-                  <label className="flex items-center gap-3 p-3 bg-primary-light/40 rounded-xl border border-primary/15 cursor-pointer">
-                    <input type="checkbox" checked={shiftForm.overtimeToBank ?? true} onChange={e => setShiftForm({...shiftForm, overtimeToBank: e.target.checked})} className="w-4 h-4 accent-primary" />
-                    <span className="text-xs font-semibold text-slate-700">{t('overtimeToBank')}</span>
-                  </label>
+                  <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <Info size={14} className="text-slate-400 shrink-0 mt-0.5" aria-hidden />
+                    <span className="text-[11px] text-slate-500 leading-relaxed">{t('overtimeToBankMovedHint')}</span>
+                  </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('workingDays')}</label>
                     <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">

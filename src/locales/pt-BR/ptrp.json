@@ -154,6 +154,7 @@
   "dayGroupLabel": "{{date}}",
   "punchesTitleFor": "Marcações · {{name}}",
   "balance": "Saldo",
+  "bankDisabledFrozenHint": "Banco de horas desativado em Organização → Sistema. O saldo está congelado (histórico) e as horas extras passaram a ser pagas na folha.",
   "periodHoursTitle": "Jornada da competência (até hoje)",
   "periodHoursExpected": "Meta",
   "periodHoursWorked": "Feito",

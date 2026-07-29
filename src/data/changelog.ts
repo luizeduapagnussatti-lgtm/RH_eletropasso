@@ -16,6 +16,27 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-07-29',
+    title: 'Banco de horas — interruptor mestre e visibilidade',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'O toggle "Banco de horas ativo" (Organização → Sistema → Política PTRP) agora funciona de fato como interruptor mestre: ligado, horas extras viram crédito no banco e faltas debitam; desligado, as horas extras são pagas na folha (HE 50%/100%) e o saldo atual fica congelado como histórico, sem novos lançamentos. Antes o toggle era decorativo (não afetava a lógica).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'UI didática: a opção "Banco de horas ativo" ganhou descrição e aviso dinâmico explicando o efeito de cada estado. O controle por turno "Horas extras vão para o banco" foi substituído por uma nota apontando para o controle central (evita dois ajustes conflitantes).',
+      },
+      {
+        type: 'feature',
+        description:
+          'Colaborador passa a ver o próprio banco de horas em "Meu ponto": saldo atual, extrato da competência e explicação de saldo positivo/negativo. Quando o banco está desativado, mostra que as horas extras são pagas na folha.',
+      },
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Espelho PDF — meta prevista do período',
     entries: [
       {

@@ -185,6 +185,18 @@ async function resolvePeriodStartDay(): Promise<number> {
   }
 }
 
+// Master switch for the hour bank. When false, overtime/absence are NOT written
+// to the ledger (overtime is paid on payroll instead) and any existing balance
+// is left frozen as history.
+async function isBankEnabled(): Promise<boolean> {
+  try {
+    const config = await organizationService.getConfig();
+    return config?.ptrpPolicy?.bankEnabled ?? DEFAULT_PTRP_POLICY.bankEnabled;
+  } catch {
+    return DEFAULT_PTRP_POLICY.bankEnabled;
+  }
+}
+
 async function fetchCoherenceContextForDay(
   day: Pick<TimesheetDay, 'workDate' | 'employeeId' | 'shiftId'>,
 ): Promise<DayCoherenceContext> {
@@ -464,30 +476,36 @@ export const timesheetService = {
         );
     }
 
-    // Hour bank
-    await hourBankService.clearAutoEntriesForDay(day.id);
-    const toBank = shift?.overtimeToBank !== false;
-    if (toBank && calc.overtimeMinutes > 0) {
-      await hourBankService.addEntry({
-        employeeId: punchKey,
-        entryDate: date,
-        minutesDelta: calc.overtimeMinutes,
-        entryType: 'OT_CREDIT',
-        timesheetDayId: day.id,
-        periodId: p.id,
-        notes: 'Auto OT credit',
-      });
-    }
-    if (toBank && calc.absenceMinutes > 0 && calc.status === 'ABSENT') {
-      await hourBankService.addEntry({
-        employeeId: punchKey,
-        entryDate: date,
-        minutesDelta: -calc.absenceMinutes,
-        entryType: 'ABSENCE_DEBIT',
-        timesheetDayId: day.id,
-        periodId: p.id,
-        notes: 'Auto absence debit',
-      });
+    // Hour bank — master switch is org policy `bankEnabled`.
+    //  - ON:  overtime becomes a bank credit / absence a bank debit.
+    //  - OFF: nothing is written and existing entries are LEFT FROZEN (history
+    //         preserved). Overtime then flows to payroll as paid HE.
+    const bankEnabled = await isBankEnabled();
+    if (bankEnabled) {
+      await hourBankService.clearAutoEntriesForDay(day.id);
+      const toBank = shift?.overtimeToBank !== false;
+      if (toBank && calc.overtimeMinutes > 0) {
+        await hourBankService.addEntry({
+          employeeId: punchKey,
+          entryDate: date,
+          minutesDelta: calc.overtimeMinutes,
+          entryType: 'OT_CREDIT',
+          timesheetDayId: day.id,
+          periodId: p.id,
+          notes: 'Auto OT credit',
+        });
+      }
+      if (toBank && calc.absenceMinutes > 0 && calc.status === 'ABSENT') {
+        await hourBankService.addEntry({
+          employeeId: punchKey,
+          entryDate: date,
+          minutesDelta: -calc.absenceMinutes,
+          entryType: 'ABSENCE_DEBIT',
+          timesheetDayId: day.id,
+          periodId: p.id,
+          notes: 'Auto absence debit',
+        });
+      }
     }
 
     apiClient.notify();
