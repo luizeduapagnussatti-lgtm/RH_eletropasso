@@ -21,6 +21,11 @@ export const changelog: ChangelogRelease[] = [
       {
         type: 'fix',
         description:
+          'PDF espelho com filtro "Todos" deixa de incluir colaboradores demitidos (status INATIVO), como a Julielle: não entram no resumo nem nas páginas detalhadas. Exportação individual de um demitido (se selecionado à parte) continua disponível para histórico.',
+      },
+      {
+        type: 'fix',
+        description:
           'Julielle Ferreira Bueno desligada em 17/07/2026 (último dia com batida): status INATIVO, termination_date gravada, dias/ledger posteriores removidos. Fechamento da lógica de admissão/demissão: desligamento passa a ser soft (mantém histórico e nome no espelho), limpa janela de emprego (closeEmploymentWindow), limpa credencial/biometria, export DMPREP de saída; ingestão de batidas rejeita datas fora de admissão/demissão; recálculo do período não gera dias após a demissão.',
       },
       {

@@ -154,6 +154,20 @@ function daysForEmployee(allDays: TimesheetDay[], employee: Employee): Timesheet
     .sort((a, b) => a.workDate.localeCompare(b.workDate));
 }
 
+/** Active staff for the combined "Todos" PDF — terminated accounts stay out. */
+function employeesForAllMirrorPdf(employees: Employee[]): Employee[] {
+  return employees.filter(e => e.status !== 'INACTIVE');
+}
+
+function daysForActiveEmployees(days: TimesheetDay[], employees: Employee[]): TimesheetDay[] {
+  const keys = new Set<string>();
+  for (const e of employees) {
+    if (e.id) keys.add(e.id);
+    if (e.employeeId) keys.add(e.employeeId);
+  }
+  return days.filter(d => keys.has(d.employeeId));
+}
+
 function reviewStatusLabel(
   review: TimesheetEmployeeReview | null,
   periodDays: TimesheetDay[],
@@ -721,15 +735,17 @@ export const timesheetPdfExportService = {
       return { blob, filename: `espelho_ponto_${safeName}_${ym}.pdf` };
     }
 
-    const pdfGate = canExportMirrorPdf(opts.days);
+    // "Todos": only ACTIVE collaborators (demitidos ficam de fora do PDF combinado).
+    const activeEmployees = employeesForAllMirrorPdf(opts.employees);
+    const activeDays = daysForActiveEmployees(opts.days, activeEmployees);
+    const pdfGate = canExportMirrorPdf(activeDays);
     if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
 
-    // "Todos": one PDF with an overview page + every employee's detailed mirror.
     const blob = await this.buildAllEmployeesDetailedPdf({
       period: opts.period,
       org,
-      employees: opts.employees,
-      days: opts.days,
+      employees: activeEmployees,
+      days: activeDays,
       punches: opts.punches,
       reviews: opts.reviews,
       labels: opts.labels,
