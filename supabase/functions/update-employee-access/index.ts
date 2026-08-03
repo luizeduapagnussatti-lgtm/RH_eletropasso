@@ -94,11 +94,30 @@ Deno.serve(async (req: Request) => {
   if (email && email !== String(target.email || '').toLowerCase()) {
     const { data: conflict } = await adminClient
       .from('profiles')
-      .select('id')
-      .eq('email', email)
+      .select('id, status')
+      .ilike('email', email)
       .neq('id', employeeId)
       .maybeSingle();
-    if (conflict) return json(409, { error: 'Email already in use by another account' });
+    if (conflict) {
+      if (conflict.status === 'INACTIVE') {
+        const freed = `released.${String(conflict.id).replace(/-/g, '')}@inactive.eletropasso.local`;
+        const { error: freeAuthErr } = await adminClient.auth.admin.updateUserById(conflict.id, {
+          email: freed,
+          email_confirm: true,
+        });
+        if (freeAuthErr) {
+          return json(409, {
+            error: 'Email still locked on a discharged account: ' + freeAuthErr.message,
+          });
+        }
+        await adminClient
+          .from('profiles')
+          .update({ email: freed, updated: new Date().toISOString() })
+          .eq('id', conflict.id);
+      } else {
+        return json(409, { error: 'Email already in use by another account' });
+      }
+    }
   }
 
   try {
@@ -116,9 +135,43 @@ Deno.serve(async (req: Request) => {
     if (authUpdateErr) {
       const msg = authUpdateErr.message || 'Failed to update auth user';
       if (/already|registered|exists/i.test(msg)) {
-        return json(409, { error: 'Email already registered in authentication' });
+        // Auth still holds the address (orphan or discharged without profile match).
+        const { data: listed } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const holder = (listed?.users || []).find(
+          (u) => String(u.email || '').toLowerCase() === email && u.id !== employeeId,
+        );
+        if (holder) {
+          const { data: holderProfile } = await adminClient
+            .from('profiles')
+            .select('id, status')
+            .eq('id', holder.id)
+            .maybeSingle();
+          if (holderProfile && holderProfile.status !== 'INACTIVE') {
+            return json(409, { error: 'Email already registered in authentication' });
+          }
+          if (holderProfile?.status === 'INACTIVE') {
+            const freed = `released.${String(holder.id).replace(/-/g, '')}@inactive.eletropasso.local`;
+            await adminClient.auth.admin.updateUserById(holder.id, {
+              email: freed,
+              email_confirm: true,
+            });
+            await adminClient
+              .from('profiles')
+              .update({ email: freed, updated: new Date().toISOString() })
+              .eq('id', holder.id);
+          } else {
+            await adminClient.auth.admin.deleteUser(holder.id);
+          }
+          const retry = await adminClient.auth.admin.updateUserById(employeeId, authPatch);
+          if (retry.error) {
+            return json(409, { error: 'Email already registered in authentication' });
+          }
+        } else {
+          return json(409, { error: 'Email already registered in authentication' });
+        }
+      } else {
+        return json(400, { error: msg });
       }
-      return json(400, { error: msg });
     }
 
     if (email) {

@@ -181,20 +181,99 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { data: authData, error: createErr } = await adminClient.auth.admin.createUser({
+    // Free corporate email held by a soft-discharged (INACTIVE) account so it
+    // can be reassigned (e.g. financeiro@ after a demissão).
+    {
+      const { data: emailHolder } = await adminClient
+        .from('profiles')
+        .select('id, status, email, organization_id')
+        .ilike('email', email)
+        .maybeSingle();
+      if (emailHolder) {
+        if (emailHolder.status === 'INACTIVE') {
+          const freed = `released.${String(emailHolder.id).replace(/-/g, '')}@inactive.eletropasso.local`;
+          const { error: freeAuthErr } = await adminClient.auth.admin.updateUserById(emailHolder.id, {
+            email: freed,
+            email_confirm: true,
+          });
+          if (freeAuthErr) {
+            return jsonError(409, 'Email still locked on a discharged account: ' + freeAuthErr.message);
+          }
+          await adminClient
+            .from('profiles')
+            .update({ email: freed, updated: new Date().toISOString() })
+            .eq('id', emailHolder.id);
+        } else if (emailHolder.organization_id === orgId) {
+          return jsonError(409, 'Email already registered for another active employee');
+        }
+      }
+    }
+
+    const firstCreate = await adminClient.auth.admin.createUser({
       email,
       password,
       email_confirm: false,
       user_metadata: { name },
     });
+    let createdUser = firstCreate.data?.user ?? null;
 
-    if (createErr || !authData.user) {
-      return jsonError(400, 'Failed to create user: ' + createErr?.message);
+    if (firstCreate.error || !createdUser) {
+      const msg = firstCreate.error?.message || 'unknown';
+      if (/already|registered|exists/i.test(msg)) {
+        const { data: listed } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const holder = (listed?.users || []).find(
+          (u) => String(u.email || '').toLowerCase() === email,
+        );
+        if (!holder) {
+          return jsonError(400, 'Failed to create user: ' + msg);
+        }
+        const { data: holderProfile } = await adminClient
+          .from('profiles')
+          .select('id, status')
+          .eq('id', holder.id)
+          .maybeSingle();
+        if (holderProfile && holderProfile.status !== 'INACTIVE') {
+          return jsonError(409, 'Email already registered for another active employee');
+        }
+        if (holderProfile?.status === 'INACTIVE') {
+          const freed = `released.${String(holder.id).replace(/-/g, '')}@inactive.eletropasso.local`;
+          await adminClient.auth.admin.updateUserById(holder.id, {
+            email: freed,
+            email_confirm: true,
+          });
+          await adminClient
+            .from('profiles')
+            .update({ email: freed, updated: new Date().toISOString() })
+            .eq('id', holder.id);
+        } else {
+          await adminClient.auth.admin.deleteUser(holder.id);
+        }
+        const retry = await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: false,
+          user_metadata: { name },
+        });
+        if (retry.error || !retry.data.user) {
+          return jsonError(400, 'Failed to create user: ' + (retry.error?.message || msg));
+        }
+        createdUser = retry.data.user;
+      } else {
+        return jsonError(400, 'Failed to create user: ' + msg);
+      }
     }
 
-    await adminClient.auth.resend({ type: 'signup', email });
+    // Best-effort confirmation e-mail — never block / hang employee creation.
+    try {
+      await Promise.race([
+        adminClient.auth.resend({ type: 'signup', email }),
+        new Promise((resolve) => setTimeout(resolve, 2500)),
+      ]);
+    } catch (e) {
+      console.warn('[CREATE-EMPLOYEE] resend signup skipped:', e);
+    }
 
-    const userId = authData.user.id;
+    const userId = createdUser.id;
 
     let avatarPath: string | null = null;
     if (avatarFile && avatarFile.size > 0) {

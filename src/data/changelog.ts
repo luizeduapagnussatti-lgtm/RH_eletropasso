@@ -16,6 +16,39 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-08-03',
+    title: 'Diretório — ativos vs histórico de demitidos',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Diretório da equipe separado em duas listas: cartões só da equipe ativa; demitidos (INACTIVE) vão para “Histórico (demitidos)” em tabela com admissão/demissão e status do e-mail. No desligamento, libera e-mail corporativo e remove vínculos de equipe/turno/gestor; no histórico, admin pode liberar e-mail ainda preso.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-03',
+    title: 'Relatórios — ausências infladas (dias futuros)',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Top ausências / resumo de ponto: “Este mês” e a análise de lacunas não contam mais dias futuros como falta; datas civis usam calendário local (sem deslocamento UTC-3); dias OFF/HOLIDAY do espelho cobrem a lacuna em vez de virar ausência inventada.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-03',
+    title: 'Reuso de e-mail após demissão',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Cadastro/edição de colaborador passa a liberar automaticamente e-mails corporativos ainda presos em contas demitidas (INACTIVE) ou órfãs no Auth — ex.: financeiro@eletropasso.com.br após a demissão da Julielle — permitindo reatribuir o mesmo endereço a um novo PJ/CLT.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-03',
     title: 'Colaborador PJ (só escalas, sem ponto)',
     entries: [
       {

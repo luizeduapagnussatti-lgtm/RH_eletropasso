@@ -28,7 +28,9 @@ import {
   Square,
   ChevronDown,
   Radio,
-  ArrowRight
+  ArrowRight,
+  History,
+  Unlink2,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { organizationService } from '../services/organization.service';
@@ -79,6 +81,23 @@ const DirectorySkeleton = () => (
 );
 
 type ClockFilter = 'all' | 'pending_export' | 'pending_bio';
+type DirectoryListView = 'active' | 'history';
+
+function holdsReusableEmail(email?: string | null): boolean {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return false;
+  if (e.endsWith('@inactive.eletropasso.local')) return false;
+  if (e.endsWith('@import.eletropasso.local')) return false;
+  return true;
+}
+
+function displayHistoryEmail(email?: string | null): string {
+  const e = String(email || '').trim();
+  if (!e) return '—';
+  if (e.toLowerCase().endsWith('@inactive.eletropasso.local')) return '—';
+  if (e.toLowerCase().endsWith('@import.eletropasso.local')) return e;
+  return e;
+}
 
 interface EmployeeDirectoryProps {
   user: User;
@@ -122,6 +141,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [selectedExportDepts, setSelectedExportDepts] = useState<string[]>([]);
   const [clockFilter, setClockFilter] = useState<ClockFilter>('all');
+  const [listView, setListView] = useState<DirectoryListView>('active');
+  const [releasingEmailId, setReleasingEmailId] = useState<string | null>(null);
   const [showDeptFilter, setShowDeptFilter] = useState(false);
   const [orgInfo, setOrgInfo] = useState<{ name: string; address: string; logoDataUrl: string | null }>({ name: '', address: '', logoDataUrl: null });
 
@@ -158,7 +179,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
         }
       }
       setEmployees(filteredData);
-      console.log('First employee email:', filteredData[0]?.email);
     } catch (err) {
       console.error("Error fetching employees:", err);
     } finally {
@@ -237,14 +257,47 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
     });
   }, [employees, debouncedSearch, clockFilter]);
 
+  const activeEmployees = useMemo(
+    () => filtered.filter(emp => emp.status !== 'INACTIVE'),
+    [filtered],
+  );
+  const historyEmployees = useMemo(() => {
+    // History ignores clock onboarding filters — those only apply to the live roster.
+    const q = debouncedSearch.toLowerCase();
+    return employees
+      .filter(emp => emp.status === 'INACTIVE')
+      .filter(emp => {
+        if (!q) return true;
+        return (
+          (emp.name || '').toLowerCase().includes(q) ||
+          (emp.employeeId || '').toLowerCase().includes(q) ||
+          (emp.department || '').toLowerCase().includes(q) ||
+          (emp.email || '').toLowerCase().includes(q)
+        );
+      })
+      .toSorted((a, b) =>
+        String(b.terminationDate || '').localeCompare(String(a.terminationDate || '')),
+      );
+  }, [employees, debouncedSearch]);
+
+  const rosterForView = listView === 'history' ? historyEmployees : activeEmployees;
+  const activeCount = useMemo(
+    () => employees.filter(e => e.status !== 'INACTIVE').length,
+    [employees],
+  );
+  const historyCount = useMemo(
+    () => employees.filter(e => e.status === 'INACTIVE').length,
+    [employees],
+  );
+
   const toggleExportDept = (dept: string) => {
     setSelectedExportDepts(prev => prev.includes(dept) ? prev.filter(d => d !== dept) : [...prev, dept]);
   };
 
   const exportData = useMemo(() => {
-    if (selectedExportDepts.length === 0) return filtered;
-    return filtered.filter(emp => selectedExportDepts.includes(emp.department || 'Unassigned'));
-  }, [filtered, selectedExportDepts]);
+    if (selectedExportDepts.length === 0) return rosterForView;
+    return rosterForView.filter(emp => selectedExportDepts.includes(emp.department || 'Unassigned'));
+  }, [rosterForView, selectedExportDepts]);
 
   const getExportFilename = (ext: string) => {
     if (selectedExportDepts.length === 0 || selectedExportDepts.length === depts.length) return `RH_Eletropasso_Employee_Directory.${ext}`;
@@ -352,6 +405,25 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
       showToast(t('dmprepChecklist.dischargeComplete', { name: lifecycleModal.employeeName }), 'success');
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : t('operationFailed'), 'error');
+    }
+  };
+
+  const handleReleaseCorporateEmail = async (emp: Employee) => {
+    if (!isAdmin) return;
+    setReleasingEmailId(emp.id);
+    try {
+      await hrService.releaseCorporateEmail(emp.id, emp.email);
+      showToast(t('releaseCorporateEmailDone', { name: emp.name }), 'success');
+      await fetchEmployees();
+    } catch (e: unknown) {
+      showToast(
+        t('releaseCorporateEmailFailed', {
+          error: e instanceof Error ? e.message : String(e),
+        }),
+        'error',
+      );
+    } finally {
+      setReleasingEmailId(null);
     }
   };
 
@@ -577,7 +649,11 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
             <HelpButton helpPointId="employees.directory" />
           </div>
           <p className="text-sm text-slate-500 font-medium tracking-tight">
-            {isAdmin ? t('managingCount', { count: employees.length }) : t('viewingCount', { count: employees.length })}
+            {listView === 'history'
+              ? t('historyCount', { count: historyCount })
+              : isAdmin
+                ? t('managingActiveCount', { count: activeCount })
+                : t('viewingCount', { count: activeCount })}
           </p>
         </div>
         {isAdmin && (
@@ -637,7 +713,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-1">
             {depts.map(dept => {
               const isSelected = selectedExportDepts.includes(dept);
-              const count = filtered.filter(e => e.department === dept).length;
+              const count = rosterForView.filter(e => e.department === dept).length;
               return (
                 <button key={dept} onClick={() => toggleExportDept(dept)} className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${isSelected ? 'bg-white border-primary/30 shadow-sm' : 'bg-slate-50/50 border-transparent opacity-60'}`}>
                   <div className={`p-1 rounded-md flex-shrink-0 ${isSelected ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'}`}>
@@ -657,7 +733,42 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
         </div>
       )}
 
-      {isAdmin && (
+      <div className="flex flex-wrap gap-2">
+        {([
+          { id: 'active' as const, label: t('listTabActive'), count: activeCount },
+          { id: 'history' as const, label: t('listTabHistory'), count: historyCount },
+        ]).map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setListView(tab.id);
+              if (tab.id === 'history') setClockFilter('all');
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+              listView === tab.id
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            {tab.id === 'history' ? <History size={16} aria-hidden /> : <Users size={16} aria-hidden />}
+            {tab.label}
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded-md ${
+                listView === tab.id ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {listView === 'history' && (
+        <p className="text-sm text-slate-500">{t('historyHint')}</p>
+      )}
+
+      {isAdmin && listView === 'active' && (
         <div className="flex flex-wrap gap-2">
           {(['all', 'pending_export', 'pending_bio'] as ClockFilter[]).map(key => (
             <button
@@ -699,6 +810,112 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
         </button>
       </div>
 
+      {listView === 'history' ? (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="p-10 flex justify-center">
+              <RefreshCw className="animate-spin text-slate-400" size={24} />
+            </div>
+          ) : historyEmployees.length === 0 ? (
+            <div className="py-16 text-center space-y-3">
+              <History size={40} className="mx-auto text-slate-300" aria-hidden />
+              <p className="text-sm font-medium text-slate-500">{t('historyEmpty')}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">{t('fullName')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('employeeId')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('department')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('historyColAdmission')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('historyColTermination')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('historyColEmail')}</th>
+                    <th className="px-4 py-3 font-semibold text-right">{t('status')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {historyEmployees.map(emp => {
+                    const reusable = holdsReusableEmail(emp.email);
+                    return (
+                      <tr key={emp.id} className="hover:bg-slate-50/80">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name || 'User')}`}
+                              className="w-9 h-9 rounded-lg object-cover bg-slate-100 shrink-0"
+                              alt=""
+                              width={36}
+                              height={36}
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900 truncate">{emp.name}</p>
+                              <p className="text-xs text-slate-500 truncate">{emp.designation || t('staff')}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 font-mono text-xs">
+                          {emp.employeeId || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{emp.department || '—'}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {emp.joiningDate ? formatIsoDateBr(emp.joiningDate) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {emp.terminationDate ? formatIsoDateBr(emp.terminationDate) : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <p className="text-slate-600 truncate max-w-[14rem]" title={emp.email}>
+                              {displayHistoryEmail(emp.email)}
+                            </p>
+                            <p className={`text-[11px] ${reusable ? 'text-amber-700' : 'text-slate-400'}`}>
+                              {reusable ? t('historyStillHoldsEmail') : t('historyReleasedEmail')}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            {isAdmin && reusable && (
+                              <button
+                                type="button"
+                                onClick={() => handleReleaseCorporateEmail(emp)}
+                                disabled={releasingEmailId === emp.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                                title={t('releaseCorporateEmail')}
+                              >
+                                {releasingEmailId === emp.id ? (
+                                  <RefreshCw size={14} className="animate-spin" />
+                                ) : (
+                                  <Unlink2 size={14} />
+                                )}
+                                {t('releaseCorporateEmail')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onNavigate) onNavigate('employee-view', { employeeId: emp.id });
+                                else setShowViewModal(emp);
+                              }}
+                              className="min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-primary hover:bg-primary-light/40"
+                              title={t('personnelProfile')}
+                              aria-label={t('personnelProfile')}
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
         {isLoading ? (
           <>
@@ -706,7 +923,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
             <DirectorySkeleton />
             <DirectorySkeleton />
           </>
-        ) : filtered.map((emp) => (
+        ) : activeEmployees.map((emp) => (
           <div
             key={emp.id}
             className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm transition-all group relative h-full flex flex-col hover:border-slate-200 hover:shadow-md cursor-pointer focus-within:ring-2 focus-within:ring-primary/30"
@@ -847,13 +1064,14 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
             </div>
           </div>
         ))}
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && activeEmployees.length === 0 && (
           <div className="col-span-full py-16 text-center space-y-3">
              <AlertCircle size={40} className="mx-auto text-slate-300" aria-hidden />
              <p className="text-sm font-medium text-slate-500">{t('noMatching')}</p>
           </div>
         )}
       </div>
+      )}
 
       {/* View Modal */}
       {showViewModal && (

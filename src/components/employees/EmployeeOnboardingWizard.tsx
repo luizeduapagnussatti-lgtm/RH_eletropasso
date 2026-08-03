@@ -192,7 +192,19 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
         return;
       }
     } catch (e: any) {
-      setError(e?.message || t('operationFailed'));
+      const code = String(e?.message || '');
+      const byCode: Record<string, string> = {
+        EMAIL_ACTIVE_CONFLICT: 'onboarding.errors.emailActiveConflict',
+        EMAIL_AUTH_CONFLICT: 'onboarding.errors.emailAuthConflict',
+        EMAIL_LOCKED_DISCHARGED: 'onboarding.errors.emailLockedDischarged',
+        PIS_CONFLICT: 'onboarding.errors.pisConflict',
+        CREDENTIAL_CONFLICT: 'onboarding.errors.credentialConflict',
+        PIS_INVALID: 'onboarding.errors.pisInvalid',
+        CPF_INVALID: 'onboarding.errors.cpfInvalid',
+        PASSWORD_SHORT: 'onboarding.errors.passwordShort',
+        MISSING_FIELDS: 'onboarding.errors.missingFields',
+      };
+      setError(byCode[code] ? t(byCode[code]) : (code || t('operationFailed')));
     } finally {
       setSaving(false);
     }

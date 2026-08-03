@@ -78,6 +78,26 @@ async function assertUniqueClockCredential(
   if (data) throw new Error('Clock credential already registered for another employee');
 }
 
+/** Stable codes so the onboarding UI can translate API errors. */
+function mapCreateEmployeeApiError(raw: string): string {
+  if (/Email already registered for another active employee/i.test(raw)) {
+    return 'EMAIL_ACTIVE_CONFLICT';
+  }
+  if (/Email already registered in authentication|Email already in use/i.test(raw)) {
+    return 'EMAIL_AUTH_CONFLICT';
+  }
+  if (/Email still locked on a discharged account/i.test(raw)) {
+    return 'EMAIL_LOCKED_DISCHARGED';
+  }
+  if (/PIS already registered/i.test(raw)) return 'PIS_CONFLICT';
+  if (/Clock credential already registered/i.test(raw)) return 'CREDENTIAL_CONFLICT';
+  if (/Invalid or missing PIS/i.test(raw)) return 'PIS_INVALID';
+  if (/Invalid CPF/i.test(raw)) return 'CPF_INVALID';
+  if (/Password must be at least 8/i.test(raw)) return 'PASSWORD_SHORT';
+  if (/Missing required fields/i.test(raw)) return 'MISSING_FIELDS';
+  return raw;
+}
+
 export const employeeService = {
   clearCache() {
     cachedEmployees = null;
@@ -178,7 +198,10 @@ export const employeeService = {
     });
 
     const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to create employee');
+    if (!res.ok) {
+      const raw = String(json.message || json.error || 'Failed to create employee');
+      throw new Error(mapCreateEmployeeApiError(raw));
+    }
 
     employeeService.clearCache();
     apiClient.notify();
@@ -359,10 +382,43 @@ export const employeeService = {
   },
 
   /**
+   * Release reusable corporate login e-mail from a profile (typically after
+   * discharge). Keeps the auth row under released.<id>@inactive.eletropasso.local.
+   * Import/synthetic addresses are left alone.
+   */
+  async releaseCorporateEmail(id: string, currentEmail?: string | null): Promise<boolean> {
+    if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) return false;
+    const email = String(currentEmail ?? '').trim().toLowerCase();
+    if (!email) return false;
+    if (email.endsWith('@inactive.eletropasso.local')) return false;
+    if (email.endsWith('@import.eletropasso.local')) return false;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return false;
+
+    const freed = `released.${id.replace(/-/g, '')}@inactive.eletropasso.local`;
+    const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/update-employee-access`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ employeeId: id, email: freed }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.error || json.message || 'Failed to release corporate email');
+    }
+    employeeService.clearCache();
+    apiClient.notify();
+    return true;
+  },
+
+  /**
    * Soft discharge: marks INACTIVE + termination_date, clears clock credential /
-   * biometrics flag, purges timesheet outside the employment window, and
-   * best-effort removes the employee from DMPREP/MDB. Keeps the profile so
-   * historical espelho still resolves the name and employment window.
+   * biometrics / team-shift links, frees corporate e-mail, purges timesheet
+   * outside the employment window, and best-effort removes the employee from
+   * DMPREP/MDB. Keeps the profile so historical espelho still resolves the name.
    */
   async dischargeEmployee(id: string, terminationDate: string): Promise<void> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
@@ -381,12 +437,22 @@ export const employeeService = {
         clock_biometric_registered: false,
         clock_credential: null,
         clock_onboarding_status: 'NOT_APPLICABLE',
+        // Detach from live org graph so demitidos leave active team/shift filters.
+        team_id: null,
+        shift_id: null,
+        line_manager_id: null,
         updated: new Date().toISOString(),
       })
       .eq('id', id);
     if (error) throw error;
 
     employeeService.clearCache();
+
+    try {
+      await this.releaseCorporateEmail(id, emp.email);
+    } catch (e) {
+      console.warn('[EmployeeService] release email on discharge failed:', e);
+    }
 
     try {
       const { timesheetService } = await import('./timesheet.service');

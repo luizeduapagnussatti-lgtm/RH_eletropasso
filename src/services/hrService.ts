@@ -46,6 +46,7 @@ export const hrService = {
   addEmployee: employeeService.addEmployee,
   updateProfile: employeeService.updateProfile,
   dischargeEmployee: employeeService.dischargeEmployee.bind(employeeService),
+  releaseCorporateEmail: employeeService.releaseCorporateEmail.bind(employeeService),
   deleteEmployee: employeeService.deleteEmployee,
   activateUser: verificationService.adminActivateUser,
   listClockSupervisors: clockSupervisorService.list,
