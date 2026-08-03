@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarCheck, ClipboardList, Download } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { isPjContractor } from '../../utils/roles';
 import { LanSharePanel } from './LanSharePanel';
 
 interface Props {
@@ -78,12 +80,14 @@ export const PwaLanBanner: React.FC<{ variant?: 'light' | 'dark' }> = ({ variant
 
 export const EmployeeMobileShortcuts: React.FC<Props> = ({ onNavigate, pendingSign }) => {
   const { t } = useTranslation('mobile');
+  const { user } = useAuth();
+  const isPj = isPjContractor(user);
 
   return (
     <div className="space-y-3 animate-in slide-in-from-bottom-4">
       <PwaLanBanner />
 
-      {pendingSign && (
+      {!isPj && pendingSign && (
         <button
           type="button"
           onClick={() => onNavigate('my-timesheet')}
@@ -99,16 +103,18 @@ export const EmployeeMobileShortcuts: React.FC<Props> = ({ onNavigate, pendingSi
         </button>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => onNavigate('my-timesheet')}
-          className="flex flex-col gap-2 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm text-left active:scale-[0.98] transition-transform min-h-[100px]"
-        >
-          <ClipboardList size={20} className="text-primary" aria-hidden />
-          <span className="text-sm font-semibold text-slate-800">{t('shortcutTimesheet')}</span>
-          <span className="text-[10px] text-slate-500 leading-snug">{t('shortcutTimesheetHint')}</span>
-        </button>
+      <div className={`grid gap-3 ${isPj ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {!isPj && (
+          <button
+            type="button"
+            onClick={() => onNavigate('my-timesheet')}
+            className="flex flex-col gap-2 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm text-left active:scale-[0.98] transition-transform min-h-[100px]"
+          >
+            <ClipboardList size={20} className="text-primary" aria-hidden />
+            <span className="text-sm font-semibold text-slate-800">{t('shortcutTimesheet')}</span>
+            <span className="text-[10px] text-slate-500 leading-snug">{t('shortcutTimesheetHint')}</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onNavigate('my-roster')}

@@ -21,5 +21,5 @@ export function useEmployeeMobileShell(): boolean {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  return shouldUseEmployeeMobileShell(user?.role, isMobile);
+  return shouldUseEmployeeMobileShell(user ?? undefined, isMobile);
 }

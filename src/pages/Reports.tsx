@@ -31,7 +31,7 @@ import {
 } from '../utils/reportPdf';
 import HelpButton from '../components/onboarding/HelpButton';
 import { useToast } from '../context/ToastContext';
-import { isNonPunchingStaff } from '../utils/roles';
+import { isPayrollExcluded, isRosterEligible } from '../utils/roles';
 import { formatIsoDateBr } from '../i18n/format';
 import { tStatus } from '../i18n/statusMaps';
 
@@ -239,7 +239,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
 
         const targetEmployees = employees.filter(e => {
           if (e.status !== 'ACTIVE') return false;
-          if (isNonPunchingStaff(e.role)) return false;
+          if (isPayrollExcluded(e)) return false;
           if (selectedDepts.length === 0 || !selectedDepts.includes(e.department)) return false;
           if (employeeFilter !== ALL_EMPLOYEES_FILTER && e.id !== employeeFilter) return false;
           return true;
@@ -348,7 +348,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
     });
 
     // Clock-facing roles only — Admin / Auxiliar RH / Diretoria skew “absent” metrics
-    const clockEmployees = employees.filter(e => !isNonPunchingStaff(e.role));
+    const clockEmployees = employees.filter(e => isRosterEligible(e));
 
     return calculateEmployeeSummaries({
       employees: clockEmployees,

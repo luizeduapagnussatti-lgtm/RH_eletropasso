@@ -310,6 +310,8 @@ export interface Team {
   organizationId?: string;
 }
 
+export type EmploymentType = 'PERMANENT' | 'CONTRACT' | 'TEMPORARY' | 'PJ';
+
 export interface User {
   id: string;
   employeeId: string;
@@ -324,6 +326,8 @@ export interface User {
   shiftId?: string;
   organizationId?: string;
   verified?: boolean;
+  /** Vínculo: PJ = escalas only, sem ponto/espelho. */
+  employmentType?: EmploymentType;
 }
 
 export type MessagingChannel = 'EMAIL' | 'WHATSAPP' | 'APP';
@@ -402,7 +406,7 @@ export interface Employee extends User {
   emergencyContact: string;
   salary: number;
   status: EmployeeStatus;
-  employmentType: 'PERMANENT' | 'CONTRACT' | 'TEMPORARY';
+  employmentType: EmploymentType;
   location: string;
   cpf?: string;
   /** PrintPoint / DMP REP Credencial (Matrícula). May differ from PIS (employeeId). */

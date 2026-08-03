@@ -100,7 +100,7 @@ export const StepIdentity: React.FC<Props> = ({
       <label>
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('officialEmployeeId')}</span>
         <input
-          required={needsClockAdmission(form.role)}
+          required={needsClockAdmission(form)}
           className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono"
           placeholder={t('employeeIdPlaceholder')}
           value={form.employeeId}
@@ -118,7 +118,7 @@ export const StepIdentity: React.FC<Props> = ({
         />
         <p className="text-[10px] text-slate-400 mt-1">{t('clockCredentialHint')}</p>
       </label>
-      {needsClockAdmission(form.role) && (
+      {needsClockAdmission(form) && (
         <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 px-4 py-3 cursor-pointer">
           <input
             type="checkbox"
@@ -272,7 +272,11 @@ export const StepContract: React.FC<Props> = ({
           <option value="PERMANENT">{t('onboarding.permanent')}</option>
           <option value="CONTRACT">{t('onboarding.contract')}</option>
           <option value="TEMPORARY">{t('onboarding.temporary')}</option>
+          <option value="PJ">{t('onboarding.pj')}</option>
         </select>
+        {form.employmentType === 'PJ' && (
+          <p className="mt-1.5 text-[11px] text-slate-500 leading-snug">{t('onboarding.pjHint')}</p>
+        )}
       </label>
       <label>
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('workType')}</span>
@@ -373,7 +377,7 @@ export const StepReview: React.FC<{ form: OnboardingFormState; teams: Team[]; sh
         resolveClockCredential(form.clockCredential, form.employeeId)
       ) || t('notAvailable'),
     ],
-    ...(needsClockAdmission(form.role)
+    ...(needsClockAdmission(form)
       ? [[
           t('clockBiometricRegistered'),
           form.clockBiometricRegistered ? t('clockBiometricOk') : t('clockBiometricPending'),

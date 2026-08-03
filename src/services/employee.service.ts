@@ -120,7 +120,7 @@ export const employeeService = {
     if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) return;
 
     const role = (emp.role || 'EMPLOYEE').toUpperCase();
-    if (needsClockAdmission(role)) {
+    if (needsClockAdmission({ role, employmentType: emp.employmentType })) {
       const pisCheck = validatePis(emp.employeeId);
       if (!pisCheck.ok) throw new Error('Invalid PIS');
       const credCheck = validateClockCredential(emp.clockCredential);
@@ -195,7 +195,7 @@ export const employeeService = {
     if (updates.designation !== undefined) payload.designation = updates.designation;
     if (updates.employeeId !== undefined) {
       const pis = normalizePis(updates.employeeId);
-      if (pis && needsClockAdmission(updates.role || 'EMPLOYEE')) {
+      if (pis && needsClockAdmission({ role: updates.role || 'EMPLOYEE', employmentType: updates.employmentType })) {
         const pisCheck = validatePis(updates.employeeId);
         if (!pisCheck.ok) throw new Error('Invalid PIS');
       }
@@ -227,7 +227,13 @@ export const employeeService = {
     if (updates.terminationDate !== undefined) {
       payload.termination_date = updates.terminationDate || null;
     }
-    if (updates.employmentType !== undefined) payload.employment_type = updates.employmentType;
+    if (updates.employmentType !== undefined) {
+      payload.employment_type = updates.employmentType;
+      if (String(updates.employmentType).toUpperCase() === 'PJ') {
+        payload.clock_onboarding_status = 'NOT_APPLICABLE';
+        payload.clock_onboarding_at = new Date().toISOString();
+      }
+    }
     if (updates.workType !== undefined)    payload.work_type = updates.workType;
     if (updates.salary !== undefined)      payload.salary = updates.salary;
     if (updates.location !== undefined)    payload.location = updates.location;
@@ -389,7 +395,7 @@ export const employeeService = {
       console.warn('[EmployeeService] closeEmploymentWindow on discharge failed:', e);
     }
 
-    if (needsClockAdmission(emp.role) && emp.employeeId) {
+    if (needsClockAdmission(emp) && emp.employeeId) {
       try {
         const { dmprepSyncService } = await import('./dmprepSync.service');
         await dmprepSyncService.triggerSync('export-employee-discharge', id);

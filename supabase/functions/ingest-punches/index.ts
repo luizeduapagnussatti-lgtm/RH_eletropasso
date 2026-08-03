@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
   // punches after termination_date (or any punch if inactive without a date).
   const { data: profiles, error: profileError } = await admin
     .from('profiles')
-    .select('id,employee_id,clock_credential,status,joining_date,termination_date')
+    .select('id,employee_id,clock_credential,status,joining_date,termination_date,employment_type')
     .eq('organization_id', organizationId);
   if (profileError) return json(500, { error: 'Employee validation failed' });
 
@@ -111,6 +111,7 @@ Deno.serve(async (req: Request) => {
     status: string | null;
     joining_date: string | null;
     termination_date: string | null;
+    employment_type: string | null;
   }>();
   for (const p of profiles ?? []) {
     const pis = String(p.employee_id || '').trim();
@@ -119,6 +120,7 @@ Deno.serve(async (req: Request) => {
         status: p.status ?? null,
         joining_date: p.joining_date ?? null,
         termination_date: p.termination_date ?? null,
+        employment_type: p.employment_type ?? null,
       });
     }
   }
@@ -136,6 +138,10 @@ Deno.serve(async (req: Request) => {
     const profile = profileByPis.get(canonical);
     const punchDate = saoPauloDate(String(row.punched_at));
     if (profile) {
+      if (String(profile.employment_type || '').toUpperCase() === 'PJ') {
+        rejectedEmployment.add(canonical);
+        continue;
+      }
       if (profile.joining_date && punchDate < profile.joining_date) {
         rejectedEmployment.add(canonical);
         continue;

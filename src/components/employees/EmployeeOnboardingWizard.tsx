@@ -124,7 +124,7 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
   const validateStep = (): string | null => {
     if (step === 'identity') {
       if (!form.name.trim()) return t('onboarding.errors.nameRequired');
-      if (needsClockAdmission(form.role)) {
+      if (needsClockAdmission(form)) {
         const pis = validatePis(form.employeeId);
         if (!pis.ok) return t('onboarding.errors.pisInvalid');
         const cred = validateClockCredential(form.clockCredential);
@@ -255,7 +255,7 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
         {step === 'review' && (
           <>
             <StepReview form={form} teams={teams} shifts={shifts} />
-            {needsClockAdmission(form.role) && mode === 'create' && (
+            {needsClockAdmission(form) && mode === 'create' && (
               <p className="mt-4 text-sm text-slate-500">{t('onboarding.clockAfterSave')}</p>
             )}
           </>

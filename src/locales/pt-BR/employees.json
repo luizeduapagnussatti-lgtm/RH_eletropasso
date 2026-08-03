@@ -189,6 +189,8 @@
     "permanent": "Efetivo",
     "contract": "Contrato",
     "temporary": "Temporário",
+    "pj": "PJ (prestador)",
+    "pjHint": "Sem ponto e sem espelho de horas. Entra nas escalas; carga horária flexível combinada com a diretoria.",
     "location": "Local de trabalho",
     "office": "Presencial",
     "field": "Externo / campo",

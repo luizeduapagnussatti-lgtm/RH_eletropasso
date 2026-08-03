@@ -4,7 +4,7 @@ import { Loader2, X } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { Employee, RosterDayKind, RosterSwapRequest, User, WorkRosterAssignment } from '../types';
-import { needsClockAdmission } from '../../utils/roles';
+import { isRosterEligible } from '../../utils/roles';
 import { formatIsoDateBr } from '../../i18n/format';
 
 interface Props {
@@ -185,6 +185,6 @@ export function SwapRequestList({
 
 export function filterSwapColleagues(employees: Employee[], selfId: string): Employee[] {
   return employees.filter(
-    e => e.id !== selfId && needsClockAdmission(e.role) && e.status !== 'INACTIVE'
+    e => e.id !== selfId && isRosterEligible(e)
   );
 }

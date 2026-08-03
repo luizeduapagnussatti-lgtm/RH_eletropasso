@@ -63,7 +63,7 @@ export const EmployeeProfilePanel: React.FC<Props> = ({ user, employeeId, onEdit
         resolveClockCredential(employee.clockCredential, employee.employeeId)
       ) || t('notAvailable'),
     ],
-    ...(needsClockAdmission(employee.role)
+    ...(needsClockAdmission(employee)
       ? [[
           t('clockBiometricRegistered'),
           employee.clockBiometricRegistered ? t('clockBiometricOk') : t('clockBiometricPending'),
@@ -118,7 +118,7 @@ export const EmployeeProfilePanel: React.FC<Props> = ({ user, employeeId, onEdit
         ))}
       </div>
 
-      {needsClockAdmission(employee.role) && (
+      {needsClockAdmission(employee) && (
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
           <ClockOnboardingPanel employee={employee} onRefresh={load} compact />
         </div>

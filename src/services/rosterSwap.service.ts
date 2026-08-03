@@ -5,7 +5,7 @@ import { notificationService } from './notification.service';
 import { messagingService } from './messaging.service';
 import { rosterService } from './roster.service';
 import { timesheetService } from './timesheet.service';
-import { needsClockAdmission } from '../utils/roles';
+import { isRosterEligible } from '../utils/roles';
 import type { Employee, RosterDayKind, RosterSwapRequest, RosterSwapStatus } from '../types';
 
 const mapRow = (r: any): RosterSwapRequest => ({
@@ -223,7 +223,7 @@ export const rosterSwapService = {
     if (existing.status !== 'PENDING_MANAGER') throw new Error('swapInvalidStatus');
 
     const employees = (await employeeService.getEmployees()).filter(
-      e => needsClockAdmission(e.role) && e.status !== 'INACTIVE'
+      e => isRosterEligible(e)
     );
     const requester = employees.find(e => e.id === existing.requester_profile_id);
     const target = employees.find(e => e.id === existing.target_profile_id);

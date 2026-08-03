@@ -24,7 +24,7 @@ const EmployeeOnboarding: React.FC<Props> = ({ user, mode, employeeId, onNavigat
         : t('personnelProfile');
 
   const handleDone = (employee?: Employee) => {
-    if (mode === 'create' && employee && needsClockAdmission(employee.role)) {
+    if (mode === 'create' && employee && needsClockAdmission(employee)) {
       onNavigate('employee-admission', { employeeId: employee.id });
       return;
     }

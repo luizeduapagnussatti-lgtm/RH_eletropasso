@@ -51,8 +51,12 @@ function validateCpf(value: string): boolean {
   return d2 === parseInt(cpf[10], 10);
 }
 
-function initialClockStatus(role: string): string {
-  return PUNCHING_ROLES.has(role.toUpperCase()) ? 'PENDING_EXPORT' : 'NOT_APPLICABLE';
+function requiresClockAdmission(role: string, employmentType: string): boolean {
+  return PUNCHING_ROLES.has(role.toUpperCase()) && employmentType.toUpperCase() !== 'PJ';
+}
+
+function initialClockStatus(role: string, employmentType: string): string {
+  return requiresClockAdmission(role, employmentType) ? 'PENDING_EXPORT' : 'NOT_APPLICABLE';
 }
 
 function normalizePhoneE164(raw: string): string | null {
@@ -139,7 +143,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const employeeId = normalizePis(employeeIdRaw);
-    if (PUNCHING_ROLES.has(role)) {
+    if (requiresClockAdmission(role, employmentType)) {
       if (!employeeIdRaw || !validatePis(employeeIdRaw)) {
         return jsonError(400, 'Invalid or missing PIS (11–12 digits) for clock-in roles');
       }
@@ -205,7 +209,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const clockStatus = initialClockStatus(role);
+    const clockStatus = initialClockStatus(role, employmentType);
     const now = new Date().toISOString();
 
     const { error: profileInsertErr } = await adminClient.from('profiles').upsert({

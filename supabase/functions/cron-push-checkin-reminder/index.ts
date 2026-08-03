@@ -184,12 +184,15 @@ Deno.serve(async (req: Request) => {
       // Get employees on this shift
       const { data: employees } = await admin
         .from('profiles')
-        .select('id, employee_id, full_name')
+        .select('id, employee_id, full_name, role, employment_type')
         .eq('organization_id', org.id)
         .eq('shift_id', shift.id)
         .eq('status', 'ACTIVE');
 
       for (const emp of employees ?? []) {
+        const role = String(emp.role || '').toUpperCase();
+        if (['ADMIN', 'HR', 'MANAGEMENT', 'SUPER_ADMIN'].includes(role)) continue;
+        if (String(emp.employment_type || '').toUpperCase() === 'PJ') continue;
         if (isMissedWindow) {
           // Check if employee already checked in today
           const { data: attendance } = await admin

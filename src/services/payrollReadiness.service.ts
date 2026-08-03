@@ -3,7 +3,7 @@ import { apiClient } from './api.client';
 import { employeeService } from './employee.service';
 import { timesheetService } from './timesheet.service';
 import { validateCpf, validatePis } from '../utils/employeeCredentials';
-import { isNonPunchingStaff } from '../utils/roles';
+import { isPayrollExcluded } from '../utils/roles';
 import { Employee } from '../types';
 
 export interface PayrollReadinessGap {
@@ -35,7 +35,7 @@ export const payrollReadinessService = {
     for (const [key, dayCount] of byKey) {
       const emp = resolveEmployee(employees, key);
       // ADMIN / HR / Diretoria do not punch — never treat as payroll gaps
-      if (!emp || isNonPunchingStaff(emp.role) || emp.role === 'SUPER_ADMIN') continue;
+      if (!emp || isPayrollExcluded(emp)) continue;
       const cpfOk = emp.cpf ? validateCpf(emp.cpf).ok : false;
       const pisOk = emp.employeeId ? validatePis(emp.employeeId).ok : false;
       const joinOk = !!emp.joiningDate;

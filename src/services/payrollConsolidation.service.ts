@@ -15,7 +15,7 @@ import { payrollReadinessService } from './payrollReadiness.service';
 import { esocialRubricService } from './esocialRubric.service';
 import { normalizeCnpj } from '../utils/employerCredentials';
 import { normalizeCpf, normalizePis } from '../utils/employeeCredentials';
-import { isNonPunchingStaff } from '../utils/roles';
+import { isPayrollExcluded } from '../utils/roles';
 
 export const PAYROLL_EXPORT_VERSION = '1.0';
 
@@ -187,7 +187,7 @@ export const payrollConsolidationService = {
     const results: PayrollConsolidation[] = [];
     for (const [profileId, empDays] of grouped) {
       const emp = employees.find(e => e.id === profileId) || resolveEmployee(employees, empDays[0]?.employeeId || '');
-      if (!emp || isNonPunchingStaff(emp.role) || emp.role === 'SUPER_ADMIN') continue;
+      if (!emp || isPayrollExcluded(emp)) continue;
 
       const agg = aggregateEmployeeDays(empDays, holidayDates);
       const row = {

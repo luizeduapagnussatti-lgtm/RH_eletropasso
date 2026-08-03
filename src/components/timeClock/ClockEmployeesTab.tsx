@@ -120,7 +120,7 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
       const clockByPis = new Map(clockEmployees.map((e) => [e.pis, e]));
       const rhByPis = new Map<string, Employee>();
       for (const emp of rhEmployees) {
-        if (isNonPunchingStaff(emp.role) || emp.role === 'SUPER_ADMIN' || !needsClockAdmission(emp.role)) {
+        if (isNonPunchingStaff(emp.role) || emp.role === 'SUPER_ADMIN' || !needsClockAdmission(emp)) {
           continue;
         }
         const pis = normalizePis(emp.employeeId);

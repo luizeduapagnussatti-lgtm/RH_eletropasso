@@ -158,7 +158,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       // Exclude system/admin accounts and people fully outside this competence.
       const staff = emps.filter(
         e =>
-          !isTimesheetExempt(e.role) &&
+          !isTimesheetExempt(e) &&
           !(e.joiningDate && e.joiningDate > p.endDate) &&
           !(e.terminationDate && e.terminationDate < p.startDate),
       );
@@ -286,7 +286,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         setEmployees(
           emps.filter(
             e =>
-              !isTimesheetExempt(e.role) &&
+              !isTimesheetExempt(e) &&
               !(e.joiningDate && e.joiningDate > p.endDate) &&
               !(e.terminationDate && e.terminationDate < p.startDate),
           ),

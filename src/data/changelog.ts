@@ -15,6 +15,22 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-08-03',
+    title: 'Colaborador PJ (só escalas, sem ponto)',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Vínculo employmentType PJ: entra nas escalas, sem batida de ponto, sem espelho/faltas/banco de horas e sem admissão no relógio (PIS opcional).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Helpers centralizados em roles.ts (isPjContractor, isRosterEligible, isPayrollExcluded, canAccessMyRoster); create-employee, timesheet, payroll, crons e ingest-punches alinhados.',
+      },
+    ],
+  },
+  {
     date: '2026-07-29',
     title: 'Ponto — meta prevista na tela, blindagem e reparo geral',
     entries: [

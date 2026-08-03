@@ -186,6 +186,8 @@
     "permanent": "Permanent",
     "contract": "Contract",
     "temporary": "Temporary",
+    "pj": "Contractor (PJ)",
+    "pjHint": "No time clock or timesheet. Appears on work rosters only; flexible hours agreed with leadership.",
     "location": "Work location",
     "office": "Office",
     "field": "Field / external",

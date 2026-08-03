@@ -61,7 +61,7 @@ import { PushPermissionPrompt } from './components/PushPermissionPrompt';
 import { useToast } from './context/ToastContext';
 import { useEmployeeMobileShell } from './hooks/useEmployeeMobileShell';
 import { isAttendanceRoute, shouldUseEmployeeMobileShell } from './utils/mobileShell';
-import { needsClockAdmission } from './utils/roles';
+import { canAccessMyRoster, isPjContractor, needsClockAdmission } from './utils/roles';
 
 // Legacy SaaS marketing paths — redirect to login on load
 const DEPRECATED_PUBLIC_PREFIXES = ['/blog', '/features', '/about'];
@@ -285,7 +285,7 @@ const AppContent: React.FC = () => {
   const handleNavigate = (path: string, params?: any) => {
     const mobilePunchBlock =
       user &&
-      shouldUseEmployeeMobileShell(user.role) &&
+      shouldUseEmployeeMobileShell(user) &&
       (path === 'attendance' ||
         path === 'attendance-quick-office' ||
         path === 'attendance-quick-factory' ||
@@ -447,7 +447,7 @@ const AppContent: React.FC = () => {
           />
         );
       case 'attendance':
-        if (needsClockAdmission(user.role) && employeeMobileShell) {
+        if (isPjContractor(user) || (needsClockAdmission(user) && employeeMobileShell)) {
           return <Dashboard user={user} onNavigate={handleNavigate} />;
         }
         if (user.role === 'ADMIN' || user.role === 'HR') {
@@ -470,12 +470,15 @@ const AppContent: React.FC = () => {
       case 'attendance-audit': return <AttendanceLogs user={user} viewMode="AUDIT" />;
       case 'timesheet': return <Timesheet user={user} onNavigate={handleNavigate} />;
       case 'my-timesheet':
-        if (needsClockAdmission(user.role)) {
+        if (isPjContractor(user)) {
+          return <MyRoster user={user} onNavigate={handleNavigate} />;
+        }
+        if (needsClockAdmission(user)) {
           return <MyTimesheet user={user} onNavigate={handleNavigate} />;
         }
         return <Timesheet user={user} onNavigate={handleNavigate} />;
       case 'my-roster':
-        if (needsClockAdmission(user.role)) {
+        if (canAccessMyRoster(user)) {
           return <MyRoster user={user} onNavigate={handleNavigate} />;
         }
         return <Dashboard user={user} onNavigate={handleNavigate} />;

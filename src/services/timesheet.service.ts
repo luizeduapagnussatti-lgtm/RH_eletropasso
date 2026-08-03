@@ -40,7 +40,7 @@ import {
   periodBoundsForCompetence,
   todayIsoLocal,
 } from '../utils/payrollPeriod';
-import { isNonPunchingStaff, isTimesheetExempt } from '../utils/roles';
+import { isPayrollExcluded, isTimesheetExempt } from '../utils/roles';
 import { convertToWebP } from '../utils/imageConvert';
 import { DEFAULT_PTRP_POLICY } from '../constants';
 
@@ -450,7 +450,7 @@ export const timesheetService = {
     // Timesheet-exempt accounts (system/admin/diretoria) do not punch and must
     // never carry a balance. Self-heal any residual day + auto ledger entries and
     // return a neutral OFF day without persisting expected/absence.
-    if (isTimesheetExempt(emp?.role)) {
+    if (isTimesheetExempt(emp)) {
       return purgeResidualDayAndReturnOff({
         orgId,
         periodId: p.id,
@@ -714,7 +714,7 @@ export const timesheetService = {
     const targets = employeeIds?.length
       ? employees.filter(e => employeeIds.includes(e.id) || employeeIds.includes(e.employeeId || ''))
       : employees.filter(e => {
-          if (isTimesheetExempt(e.role)) return false;
+          if (isTimesheetExempt(e)) return false;
           // Hired after this competence ends — nothing to calculate
           if (e.joiningDate && e.joiningDate > period.endDate) return false;
           // Left before this competence starts — skip full-period sweep
@@ -1124,7 +1124,7 @@ export const timesheetService = {
     canLock: boolean;
   }> {
     const employees = (await employeeService.getEmployees()).filter(
-      e => !isNonPunchingStaff(e.role) && e.role !== 'SUPER_ADMIN',
+      e => !isPayrollExcluded(e),
     );
     const reviews = await this.listEmployeeReviews(periodId);
     const reviewByKey = new Map<string, TimesheetEmployeeReview>();

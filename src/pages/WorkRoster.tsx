@@ -20,7 +20,7 @@ import {
   Shift,
   WorkRosterAssignment,
 } from '../types';
-import { canManageRoster, isNonPunchingStaff, isStaffAdmin } from '../utils/roles';
+import { canManageRoster, isRosterEligible, isStaffAdmin } from '../utils/roles';
 import { useSubscription } from '../context/SubscriptionContext';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { todayIsoLocal } from '../utils/payrollPeriod';
@@ -131,7 +131,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
   const clockEmployees = useMemo(
     () =>
       employees
-        .filter(e => !isNonPunchingStaff(e.role) && e.status !== 'INACTIVE')
+        .filter(e => isRosterEligible(e))
         .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR')),
     [employees]
   );

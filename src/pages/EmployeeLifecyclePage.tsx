@@ -129,7 +129,7 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
   }
 
   const punchKey = employee.employeeId || undefined;
-  const clockRole = needsClockAdmission(employee.role);
+  const clockRole = needsClockAdmission(employee);
   const credDisplay = formatClockCredentialDisplay(
     resolveClockCredential(employee.clockCredential, employee.employeeId)
   );

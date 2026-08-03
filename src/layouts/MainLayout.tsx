@@ -5,9 +5,8 @@ import Sidebar from '../components/Sidebar';
 import NotificationBell from '../components/notifications/NotificationBell';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { SubscriptionBanner } from '../components/subscription';
 import { APP_NAME, STORE_LOGO_PATH } from '../config/branding';
-import { isNonPunchingStaff } from '../utils/roles';
+import { isNonPunchingStaff, isPjContractor } from '../utils/roles';
 import { useEmployeeMobileShell } from '../hooks/useEmployeeMobileShell';
 
 const SIDEBAR_STORAGE_KEY = 'openhr_sidebar_collapsed';
@@ -54,6 +53,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsedPreference);
   const employeeMobileShell = useEmployeeMobileShell();
+  const isPjMobile = employeeMobileShell && isPjContractor(user);
   const historyPath = isNonPunchingStaff(user?.role) ? 'attendance-audit' : 'attendance-logs';
   const isWideContent = WIDE_CONTENT_PATHS.has(currentPath);
 
@@ -201,9 +201,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
            </div>
         </header>
 
-        {/* Subscription Banner - visible to all org users */}
-        <SubscriptionBanner onUpgradeClick={() => handleNavigate('upgrade')} userRole={user.role} />
-
         {/* Content */}
         <div
           id="main-content"
@@ -230,14 +227,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
                 <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
                 <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navHome')}</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handleNavigate('my-timesheet')}
-                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'my-timesheet' ? 'text-primary' : 'text-slate-400'}`}
-              >
-                <ClipboardList size={20} className={currentPath === 'my-timesheet' ? 'scale-110' : ''} />
-                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navTimesheet')}</span>
-              </button>
+              {!isPjMobile && (
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('my-timesheet')}
+                  className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'my-timesheet' ? 'text-primary' : 'text-slate-400'}`}
+                >
+                  <ClipboardList size={20} className={currentPath === 'my-timesheet' ? 'scale-110' : ''} />
+                  <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navTimesheet')}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleNavigate('my-roster')}

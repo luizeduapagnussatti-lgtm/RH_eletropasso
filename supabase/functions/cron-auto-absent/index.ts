@@ -116,13 +116,13 @@ Deno.serve(async (req: Request) => {
       continue;
     }
 
-    // Load active non-ADMIN employees for this org.
+    // Load active employees who punch (exclude ADMIN/SUPER_ADMIN/MANAGEMENT and PJ contractors).
     const { data: employees } = await admin
       .from('profiles')
-      .select('id, name, employee_id')
+      .select('id, name, employee_id, role, employment_type')
       .eq('organization_id', org.id)
       .eq('status', 'ACTIVE')
-      .not('role', 'in', '("ADMIN","SUPER_ADMIN")');
+      .not('role', 'in', '("ADMIN","SUPER_ADMIN","MANAGEMENT")');
 
     console.log(`[cron-auto-absent] ${org.name}: TIME MATCHED (${orgLocalTime}). Checking ${employees?.length ?? 0} employees for ${orgLocalDate}`);
 
@@ -130,6 +130,10 @@ Deno.serve(async (req: Request) => {
     let countSkipped = 0;
 
     for (const emp of employees ?? []) {
+      if (String(emp.employment_type || '').toUpperCase() === 'PJ') {
+        countSkipped++;
+        continue;
+      }
       // Already has attendance today?
       const { data: attRow } = await admin
         .from('attendance')

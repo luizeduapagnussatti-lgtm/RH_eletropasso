@@ -393,7 +393,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
         console.log('[EmployeeDirectory] Creating new employee');
         await hrService.addEmployee(formState as any);
         setShowModal(false);
-        if (needsClockAdmission(formState.role)) {
+        if (needsClockAdmission(formState)) {
           const list = await hrService.getEmployees();
           const created = list.find(
             e => e.email === formState.email || e.employeeId === formState.employeeId
@@ -772,8 +772,13 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                     {tRole(emp.role)}
                   </span>
                   <ClockStatusBadge status={emp.clockOnboardingStatus} />
-                  {needsClockAdmission(emp.role) && (
+                  {needsClockAdmission(emp) && (
                     <ClockBiometricBadge registered={!!emp.clockBiometricRegistered} />
+                  )}
+                  {emp.employmentType === 'PJ' && (
+                    <span className="inline-flex self-start px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-800">
+                      {t('onboarding.pj')}
+                    </span>
                   )}
                 </div>
               </div>
@@ -950,8 +955,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-1"><Hash size={10} /> {t('officialEmployeeId')}</label>
-                    <input type="text" placeholder={t('employeeIdPlaceholder')} required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light border-indigo-100" value={formState.employeeId} onChange={e => setFormState({...formState, employeeId: e.target.value})} />
-                    <p className="text-[10px] text-slate-400 px-1">{t('employeeIdPisHint')}</p>
+                    <input type="text" placeholder={t('employeeIdPlaceholder')} required={needsClockAdmission(formState)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light border-indigo-100" value={formState.employeeId} onChange={e => setFormState({...formState, employeeId: e.target.value})} />
+                    <p className="text-[10px] text-slate-400 px-1">{needsClockAdmission(formState) ? t('employeeIdPisHint') : t('onboarding.pjHint')}</p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('accessLevel')}</label>
@@ -964,6 +969,22 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                       <p className="text-[10px] text-slate-500 px-1 mt-1.5 leading-relaxed">
                         {t(`roleHints.${formState.role}`, { defaultValue: '' })}
                       </p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('onboarding.employmentType')}</label>
+                    <select
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light"
+                      value={formState.employmentType}
+                      onChange={e => setFormState({ ...formState, employmentType: e.target.value as any })}
+                    >
+                      <option value="PERMANENT">{t('onboarding.permanent')}</option>
+                      <option value="CONTRACT">{t('onboarding.contract')}</option>
+                      <option value="TEMPORARY">{t('onboarding.temporary')}</option>
+                      <option value="PJ">{t('onboarding.pj')}</option>
+                    </select>
+                    {formState.employmentType === 'PJ' && (
+                      <p className="text-[10px] text-slate-500 px-1 mt-1.5 leading-relaxed">{t('onboarding.pjHint')}</p>
                     )}
                   </div>
                 </div>

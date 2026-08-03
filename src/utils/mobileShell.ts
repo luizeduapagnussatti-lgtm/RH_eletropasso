@@ -1,4 +1,4 @@
-import { needsClockAdmission } from './roles';
+import { isPjContractor, needsClockAdmission, type RoleSubject } from './roles';
 
 export const EMPLOYEE_MOBILE_MAX_WIDTH = 767;
 
@@ -19,9 +19,15 @@ export function isEmployeeMobileViewport(): boolean {
   return window.matchMedia(`(max-width: ${EMPLOYEE_MOBILE_MAX_WIDTH}px)`).matches;
 }
 
-/** Punching roles on a phone-width viewport get the simplified mobile shell. */
-export function shouldUseEmployeeMobileShell(role?: string | null, isMobile = isEmployeeMobileViewport()): boolean {
-  return isMobile && needsClockAdmission(role);
+/**
+ * Punching CLT roles and PJ contractors get the simplified mobile shell.
+ * PJ sees roster/profile; timesheet shortcuts stay hidden in the UI.
+ */
+export function shouldUseEmployeeMobileShell(
+  roleOrUser?: RoleSubject,
+  isMobile = isEmployeeMobileViewport(),
+): boolean {
+  return isMobile && (needsClockAdmission(roleOrUser) || isPjContractor(roleOrUser));
 }
 
 export const EMPLOYEE_MOBILE_NAV_PATHS = new Set([
