@@ -23,6 +23,11 @@ export const changelog: ChangelogRelease[] = [
         description:
           'Cadastro CLT deixa de exportar para o DMPREP/DIMEP.MDB (software antigo). Enviar para o relógio usa WatchComm (send-employees); desligamento remove no PrintPoint (remove-employee). Aba Comunicação → Sync só coleta batidas; envio em lote fica em Colaboradores.',
       },
+      {
+        type: 'fix',
+        description:
+          'Validação do canal WatchComm: envio usa PIS 12 dígitos + credencial curta (teclado); a aba Empregados não trata lista vazia como sucesso quando o relógio recusa o comando; coleta grava o erro 1732 em vez de “não gerou JSON”.',
+      },
     ],
   },
   {

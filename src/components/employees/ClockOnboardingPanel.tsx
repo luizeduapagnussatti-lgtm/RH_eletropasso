@@ -12,7 +12,12 @@ import {
 import { Employee, ClockOnboardingStatus } from '../../types';
 import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
-import { formatPisDisplay, formatClockCredentialDisplay, resolveClockCredential } from '../../utils/employeeCredentials';
+import {
+  formatPisDisplay,
+  formatClockCredentialDisplay,
+  resolveClockCredential,
+  toWatchCommSendEmployee,
+} from '../../utils/employeeCredentials';
 import { isClockBusyError } from '../timeClock/clockCommandUi';
 import { ClockEmployeeGuide } from './ClockEmployeeGuide';
 
@@ -22,12 +27,6 @@ interface Props {
   onComplete?: () => void;
   compact?: boolean;
 }
-
-const STATUS_ORDER: ClockOnboardingStatus[] = [
-  'PENDING_EXPORT',
-  'PENDING_BIO',
-  'READY',
-];
 
 function statusStep(status: ClockOnboardingStatus | undefined): number {
   if (!status || status === 'NOT_APPLICABLE') return -1;
@@ -65,19 +64,19 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
   };
 
   const handleExport = async () => {
-    const pis = String(employee.employeeId || '').replace(/\D/g, '');
-    if (!pis) {
+    const payload = toWatchCommSendEmployee({
+      name: employee.name,
+      employeeId: employee.employeeId,
+      clockCredential: employee.clockCredential,
+    });
+    if (!payload) {
       showToast(t('clockOnboarding.sendFailed'), 'error');
       return;
     }
     setExporting(true);
     try {
       const result = await hrService.runClockCommand('send-employees', {
-        employees: [{
-          pis,
-          name: employee.name,
-          credential: credRaw || pis,
-        }],
+        employees: [payload],
       });
       if (result.busy || isClockBusyError(result.error)) {
         showToast(t('clockOnboarding.clockBusy'), 'warning');
@@ -94,9 +93,19 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
       const message = e instanceof Error ? e.message : t('clockOnboarding.sendFailed');
       if (isClockBusyError(message)) {
         showToast(t('clockOnboarding.clockBusy'), 'warning');
-      } else {
-        showToast(message || t('clockOnboarding.sendFailed'), 'error');
+        return;
       }
+      try {
+        await hrService.updateProfile(employee.id, {
+          clockOnboardingStatus: 'ERROR',
+          clockOnboardingAt: new Date().toISOString(),
+          clockOnboardingNotes: message.slice(0, 240),
+        });
+        await onRefresh();
+      } catch {
+        /* status update is best-effort */
+      }
+      showToast(message || t('clockOnboarding.sendFailed'), 'error');
     } finally {
       setExporting(false);
     }

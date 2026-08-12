@@ -234,6 +234,14 @@ if (-not (Test-Path -LiteralPath $outJson)) {
 }
 
 $result = Read-JsonFile $outJson
+$collectError = [string](Get-ConfigValue $result 'error' '')
+if ($collectError) {
+  Write-Log ("collect error: {0}" -f $collectError) 'ERROR'
+  Write-CycleResult -ResultPath $resultPath -Success $false -ExitCode 1 `
+    -Collected 0 -Forwarded 0 -Inserted 0 -LastNsr ([int]$state.lastNsr) `
+    -ErrorMessage $collectError -TriggerName $Trigger
+  exit 1
+}
 $punches = @()
 $punchesVal = Get-ConfigValue $result 'punches' $null
 if ($null -ne $punchesVal) { $punches = @($punchesVal) }

@@ -131,7 +131,9 @@
     "subtitle": "Employee: {{name}}",
     "warning": "HR registers the employee and sends them to the PrintPoint. Biometrics (91/92) use Credencial/ID — the clock does not accept PIS.",
     "copyPis": "Copy PIS",
+    "copyCredential": "Copy clock credential",
     "pisCopied": "PIS copied.",
+    "credentialCopied": "Clock credential copied.",
     "pisCopyFailed": "Could not copy employee ID.",
     "pullFromDmprep": "Import legacy records (DMPREP → HR)",
     "pullFromDmprepHint": "Only to sync employees already in DMPREP. Does not replace HR-first admission.",
@@ -181,8 +183,6 @@
         "detail": "Only after deleting fingerprints on the clock (step 1), confirm deletion of {{name}} below."
       }
     },
-    "copyCredential": "Copy clock credential",
-    "credentialCopied": "Clock credential copied.",
     "pisNotForClock": "do not use on the clock keypad"
   },
   "onboarding": {

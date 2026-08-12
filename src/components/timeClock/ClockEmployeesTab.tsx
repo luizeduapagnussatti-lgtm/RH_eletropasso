@@ -5,8 +5,9 @@ import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type { ClockEmployeeOnDevice, Employee } from '../../types';
-import { extractCommandData, normalizePis, runClockOp } from './clockCommandUi';
+import { extractCommandData, runClockOp } from './clockCommandUi';
 import { isNonPunchingStaff, needsClockAdmission } from '../../utils/roles';
+import { normalizePis, toWatchCommSendEmployee } from '../../utils/employeeCredentials';
 
 type DiffKind = 'both' | 'onlyClock' | 'onlyRh';
 type FilterKind = 'all' | DiffKind | 'fingerprint';
@@ -93,6 +94,10 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
       }
 
       const empData = extractCommandData(empResult);
+      if (empData.supported === false) {
+        showToast(String(empData.error || t('employees.listReadFailed')), 'error');
+        return;
+      }
       const rawEmployees = Array.isArray(empData.employees) ? empData.employees : [];
       const clockEmployees: ClockEmployeeOnDevice[] = rawEmployees.map((item) => {
         const obj = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
@@ -209,11 +214,14 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
         const payload = {
           employees: selectedRows()
             .filter((r) => r.rh)
-            .map((r) => ({
-              pis: r.pis,
-              name: r.rh!.name,
-              credential: r.rh!.clockCredential || r.pis,
-            })),
+            .map((r) =>
+              toWatchCommSendEmployee({
+                name: r.rh!.name,
+                employeeId: r.rh!.employeeId,
+                clockCredential: r.rh!.clockCredential,
+              }),
+            )
+            .filter((row): row is NonNullable<typeof row> => row !== null),
         };
         if (payload.employees.length === 0) {
           showToast(t('employees.selectOne'), 'warning');

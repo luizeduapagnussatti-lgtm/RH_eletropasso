@@ -70,7 +70,8 @@
       "protocolUnsupported": "Este PrintPoint não informa firmware/MAC por este protocolo — a conexão está ok (série lida). Não impede coleta de batidas.",
       "timeout": "O relógio não respondeu a tempo. Confira energia, cabo/rede e IP.",
       "connection": "Não foi possível conectar ao relógio. Verifique rede/IP e se o equipamento está ligado.",
-      "busy": "O relógio já está ocupado com outra operação. Tente de novo em instantes."
+      "busy": "O relógio já está ocupado com outra operação. Tente de novo em instantes.",
+      "rejected": "O relógio recusou o comando (menu aberto no equipamento, sessão ocupada ou protocolo 1732). Saia de qualquer tela no PrintPoint e tente de novo."
     },
     "overall": {
       "idle": {
@@ -126,6 +127,7 @@
     "excludeFpOk": "Digital excluída.",
     "excludeOrphansOk": "Digitais órfãs excluídas.",
     "empty": "Nenhum resultado. Carregue as listas do relógio.",
+    "listReadFailed": "Não foi possível ler a lista de empregados no relógio. Saia do menu do PrintPoint e tente de novo.",
     "fingerprintUnsupported": "Leitura de digitais não suportada neste equipamento — use a confirmação no cadastro do RH.",
     "selectOne": "Selecione ao menos um item."
   },

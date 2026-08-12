@@ -6,6 +6,10 @@ import {
   validateCpf,
   formatCpfDisplay,
   formatPisDisplay,
+  allocateNextClockCredential,
+  isShortClockCredential,
+  normalizeClockCredential,
+  toWatchCommSendEmployee,
 } from './employeeCredentials.ts';
 
 describe('employeeCredentials', () => {
@@ -36,5 +40,52 @@ describe('employeeCredentials', () => {
 
   it('formatCpfDisplay masks CPF', () => {
     assert.equal(formatCpfDisplay('52998224725'), '529.982.247-25');
+  });
+
+  it('isShortClockCredential rejects PIS-like values', () => {
+    assert.equal(isShortClockCredential('98'), true);
+    assert.equal(isShortClockCredential('000000000098'), true);
+    assert.equal(isShortClockCredential('012443149112'), false);
+    assert.equal(isShortClockCredential(''), false);
+  });
+
+  it('allocateNextClockCredential uses max short ID + 1', () => {
+    assert.equal(allocateNextClockCredential([]), '000000000001');
+    assert.equal(
+      allocateNextClockCredential(['000000000001', '000000000098', '17']),
+      '000000000099'
+    );
+  });
+
+  it('allocateNextClockCredential ignores PIS leftovers in the max', () => {
+    assert.equal(
+      allocateNextClockCredential(['000000000098', '012443149112']),
+      '000000000099'
+    );
+  });
+
+  it('allocateNextClockCredential skips a taken next slot', () => {
+    assert.equal(
+      allocateNextClockCredential(['98', '99', '000000000100']),
+      '000000000101'
+    );
+  });
+
+  it('normalizeClockCredential pads short IDs to 12', () => {
+    assert.equal(normalizeClockCredential('99'), '000000000099');
+  });
+
+  it('toWatchCommSendEmployee sends padded PIS and short credential', () => {
+    const row = toWatchCommSendEmployee({
+      name: 'Gustavo Guedes',
+      employeeId: '26740847000',
+      clockCredential: '000000000099',
+    });
+    assert.deepEqual(row, {
+      pis: '026740847000',
+      name: 'Gustavo Guedes',
+      credential: '99',
+    });
+    assert.equal(toWatchCommSendEmployee({ name: 'X', employeeId: '' }), null);
   });
 });

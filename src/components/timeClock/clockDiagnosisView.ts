@@ -75,7 +75,8 @@ export function deviceErrorI18nKey(message: string | undefined): string | null {
   if (!message?.trim()) return null;
   const m = message.trim();
   if (/protocol type does not support/i.test(m)) return 'diagnosis.errors.protocolUnsupported';
-  if (/timeout|timed?\s*out/i.test(m)) return 'diagnosis.errors.timeout';
+  if (/\b1732\b/.test(m) || /invalid message/i.test(m)) return 'diagnosis.errors.rejected';
+  if (/timeout|timed?\s*out|\b1730\b/i.test(m)) return 'diagnosis.errors.timeout';
   if (/connection|connect|network|unreachable|ECONNREFUSED/i.test(m)) {
     return 'diagnosis.errors.connection';
   }
