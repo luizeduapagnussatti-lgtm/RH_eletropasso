@@ -13,6 +13,7 @@ import { Employee, ClockOnboardingStatus } from '../../types';
 import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { formatPisDisplay, formatClockCredentialDisplay, resolveClockCredential } from '../../utils/employeeCredentials';
+import { isClockBusyError } from '../timeClock/clockCommandUi';
 import { ClockEmployeeGuide } from './ClockEmployeeGuide';
 
 interface Props {
@@ -64,19 +65,38 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
   };
 
   const handleExport = async () => {
+    const pis = String(employee.employeeId || '').replace(/\D/g, '');
+    if (!pis) {
+      showToast(t('clockOnboarding.sendFailed'), 'error');
+      return;
+    }
     setExporting(true);
     try {
-      const result = await hrService.triggerDmprepSync('export-employees', employee.id);
-      showToast(
-        t('clockOnboarding.exportResult', {
-          exported: result.export?.exported ?? 0,
-          failed: result.export?.failed ?? 0,
-        }),
-        (result.export?.failed ?? 0) > 0 ? 'warning' : 'success'
-      );
+      const result = await hrService.runClockCommand('send-employees', {
+        employees: [{
+          pis,
+          name: employee.name,
+          credential: credRaw || pis,
+        }],
+      });
+      if (result.busy || isClockBusyError(result.error)) {
+        showToast(t('clockOnboarding.clockBusy'), 'warning');
+        return;
+      }
+      await hrService.updateProfile(employee.id, {
+        clockOnboardingStatus: 'PENDING_BIO',
+        clockOnboardingAt: new Date().toISOString(),
+        clockOnboardingNotes: 'Enviado ao PrintPoint via WatchComm — aguardando biometria',
+      });
+      showToast(t('clockOnboarding.sendOk'), 'success');
       await onRefresh();
-    } catch (e: any) {
-      showToast(e?.message || t('clockOnboarding.exportFailed'), 'error');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : t('clockOnboarding.sendFailed');
+      if (isClockBusyError(message)) {
+        showToast(t('clockOnboarding.clockBusy'), 'warning');
+      } else {
+        showToast(message || t('clockOnboarding.sendFailed'), 'error');
+      }
     } finally {
       setExporting(false);
     }
@@ -159,7 +179,7 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-60"
           >
             {exporting ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
-            {t('clockOnboarding.sendToDmprep')}
+            {t('clockOnboarding.sendToClock')}
           </button>
         )}
         {current === 'PENDING_BIO' && (

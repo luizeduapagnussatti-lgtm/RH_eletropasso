@@ -349,7 +349,7 @@
     "description": "Records: HR exports to DIMEP.MDB (PC .69). Punches: automatic collection from PrintPoint SmartPoint B via TCP on the HR server.",
     "autoSyncTitle": "Automatic collection (server)",
     "autoSyncDetail": "Automatic collect at 09:00, 15:00 and 19:00 (WatchComm on HR server .245 → clock 192.168.15.201 → timesheet). Outside those times use “Collect punches”. Records come from RH export — no need to register in DMP REP.",
-    "note": "Biometrics are enrolled and deleted on the physical clock (functions 91 and 92). Deleting an employee in HR removes the MDB record but not fingerprints on the device — delete on clock first.",
+    "note": "Biometrics are enrolled and deleted on the physical clock (functions 91 and 92). Discharging in HR removes the PrintPoint record but not fingerprints — delete on clock first.",
     "syncAll": "Sync all",
     "syncAllHint": "Import legacy records (MDB → HR) + collect punches. New admission: use HR wizard + export, not this button.",
     "syncEmployees": "Import legacy records",

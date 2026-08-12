@@ -60,13 +60,13 @@
   },
   "comunicacao": {
     "title": "Comunicação com o relógio",
-    "subtitle": "Buscar batidas e enviar cadastros ao relógio de ponto — ações conscientes, separadas dos cadastros.",
+    "subtitle": "Buscar batidas e enviar cadastros ao relógio — ações conscientes, separadas dos cadastros.",
     "collectTitle": "Coletar marcações",
     "collectDesc": "Busca as batidas registradas no relógio e importa para o espelho.",
     "collectCta": "Coletar batidas",
-    "sendTitle": "Enviar / atualizar listas",
-    "sendDesc": "Envia colaboradores e cadastros atualizados para o relógio.",
-    "sendCta": "Enviar colaboradores",
+    "sendTitle": "Enviar colaboradores",
+    "sendDesc": "Envio em lote ao PrintPoint fica na aba Colaboradores. A admissão de um novo CLT também envia pela ficha do colaborador.",
+    "sendCta": "Abrir aba Colaboradores",
     "syncAllTitle": "Sincronizar tudo",
     "syncAllDesc": "Envia cadastros e coleta batidas em uma única operação.",
     "syncAllCta": "Sincronizar tudo",
@@ -112,7 +112,7 @@
     "advancedTitle": "Configuração do relógio",
     "advancedDesc": "Supervisores, dados do empregador e políticas ficam em Organização → Sistema.",
     "advancedCta": "Abrir Organização → Sistema",
-    "note": "Editar um cartão não envia nada ao relógio automaticamente. Use esta tela para enviar ou coletar.",
+    "note": "Editar um cartão não envia nada ao relógio automaticamente. Use Coletar batidas aqui, ou a aba Colaboradores / a ficha de admissão para enviar cadastros.",
     "onlyAdmin": "Somente ADMIN pode falar com o relógio."
   }
 }

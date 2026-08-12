@@ -15,6 +15,33 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-08-12',
+    title: 'Admissão no relógio via WatchComm (sem DMPREP)',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Cadastro CLT deixa de exportar para o DMPREP/DIMEP.MDB (software antigo). Enviar para o relógio usa WatchComm (send-employees); desligamento remove no PrintPoint (remove-employee). Aba Comunicação → Sync só coleta batidas; envio em lote fica em Colaboradores.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-12',
+    title: 'Credencial do relógio gerada na admissão',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Cadastro de colaborador deixa de pedir a credencial do relógio: o sistema lê os IDs já usados na organização e atribui o próximo (ex.: 98 → 99). O operador usa esse número na função 91 do PrintPoint; PIS não é mais copiado como credencial.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Resumo de cadastro e ficha do colaborador passam a mostrar vínculo, gestor, equipe, local, tipo de trabalho, admissão, celular, WhatsApp e contato de emergência — a credencial vazia não é mais substituída pelo PIS.',
+      },
+    ],
+  },
+  {
     date: '2026-08-03',
     title: 'Diretório — ativos vs histórico de demitidos',
     entries: [

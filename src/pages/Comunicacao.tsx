@@ -104,7 +104,12 @@ const Comunicacao: React.FC<Props> = ({ user, onNavigate }) => {
       </div>
 
       <div className="min-h-[12rem]">
-        {tab === 'sync' && <ClockSyncTab onBusyChange={setCommandBusy} />}
+        {tab === 'sync' && (
+          <ClockSyncTab
+            onBusyChange={setCommandBusy}
+            onGoToEmployees={() => setTab('employees')}
+          />
+        )}
         {tab === 'supervisors' && <ClockSupervisorsTab />}
         {tab === 'diagnosis' && <ClockDiagnosisTab onBusyChange={setCommandBusy} />}
         {tab === 'employees' && <ClockEmployeesTab onBusyChange={setCommandBusy} />}

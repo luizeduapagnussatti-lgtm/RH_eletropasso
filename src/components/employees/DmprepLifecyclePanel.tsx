@@ -3,9 +3,8 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Copy } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { hrService } from '../../services/hrService';
 import {
   ADMISSION_STEP_COUNT,
   ClockEmployeeGuide,
@@ -44,7 +43,6 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
   const { t } = useTranslation('employees');
   const { showToast } = useToast();
   const [checked, setChecked] = useState<boolean[]>(() => Array(stepCount(type)).fill(false));
-  const [syncing, setSyncing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const credForClock = clockCredential || punchKey;
 
@@ -63,27 +61,6 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
       showToast(t('dmprepChecklist.credentialCopied'), 'success');
     } catch {
       showToast(t('dmprepChecklist.pisCopyFailed'), 'error');
-    }
-  };
-
-  const runEmployeeSync = async () => {
-    setSyncing(true);
-    try {
-      const result = await hrService.triggerDmprepSync('employees');
-      showToast(
-        t('dmprepChecklist.syncResult', {
-          created: result.employees?.created ?? 0,
-          updated: result.employees?.updated ?? 0,
-        }),
-        'success'
-      );
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : t('dmprepChecklist.syncFailed'),
-        'error'
-      );
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -150,48 +127,24 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
         {children}
       </div>
 
-      <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 justify-between shrink-0">
-        <div className="flex flex-col gap-1">
-          {type === 'admission' ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void runEmployeeSync()}
-                disabled={syncing}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
-              >
-                <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
-                {syncing ? t('dmprepChecklist.syncing') : t('dmprepChecklist.pullFromDmprep')}
-              </button>
-              <p className="text-[10px] text-slate-400 max-w-md">{t('dmprepChecklist.pullFromDmprepHint')}</p>
-            </>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500 self-center">
-              <ExternalLink size={14} aria-hidden />
-              {t('dmprepChecklist.dmprepHostHint')}
-            </span>
-          )}
-        </div>
-
-        <div className="flex gap-2">
+      <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 justify-end shrink-0">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700"
+        >
+          {requiresConfirm ? t('dmprepChecklist.cancelDischarge') : t('dmprepChecklist.done')}
+        </button>
+        {requiresConfirm ? (
           <button
             type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700"
+            onClick={() => void handleConfirm()}
+            disabled={!allChecked || confirming}
+            className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50"
           >
-            {requiresConfirm ? t('dmprepChecklist.cancelDischarge') : t('dmprepChecklist.done')}
+            {confirming ? t('dmprepChecklist.confirming') : t('dmprepChecklist.confirmDischarge')}
           </button>
-          {requiresConfirm ? (
-            <button
-              type="button"
-              onClick={() => void handleConfirm()}
-              disabled={!allChecked || confirming}
-              className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50"
-            >
-              {confirming ? t('dmprepChecklist.confirming') : t('dmprepChecklist.confirmDischarge')}
-            </button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );

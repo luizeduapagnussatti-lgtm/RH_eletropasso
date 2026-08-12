@@ -212,7 +212,7 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
             .map((r) => ({
               pis: r.pis,
               name: r.rh!.name,
-              credential: r.pis,
+              credential: r.rh!.clockCredential || r.pis,
             })),
         };
         if (payload.employees.length === 0) {

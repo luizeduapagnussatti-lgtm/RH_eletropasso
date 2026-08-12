@@ -64,9 +64,9 @@
     "collectTitle": "Collect punches",
     "collectDesc": "Fetches punches recorded on the clock and imports them into the mirror.",
     "collectCta": "Collect punches",
-    "sendTitle": "Send / update lists",
-    "sendDesc": "Sends employees and updated records to the clock.",
-    "sendCta": "Send employees",
+    "sendTitle": "Send employees",
+    "sendDesc": "Bulk send to the PrintPoint is on the Employees tab. New CLT admission also sends from the employee record.",
+    "sendCta": "Open Employees tab",
     "syncAllTitle": "Sync everything",
     "syncAllDesc": "Sends records and collects punches in a single operation.",
     "syncAllCta": "Sync everything",
@@ -112,7 +112,7 @@
     "advancedTitle": "Clock configuration",
     "advancedDesc": "Supervisors, employer data and policies live under Organization → System.",
     "advancedCta": "Open Organization → System",
-    "note": "Editing a card does not send anything to the clock automatically. Use this screen to send or collect.",
+    "note": "Editing a card does not send anything to the clock automatically. Collect punches here, or use the Employees tab / admission screen to send records.",
     "onlyAdmin": "Only ADMIN can talk to the clock."
   }
 }

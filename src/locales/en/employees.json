@@ -77,7 +77,7 @@
   "activated": "{{name}} activated",
   "cannotEditAdmin": "Only an Administrator can edit or remove Administrator accounts.",
   "cannotAssignAdmin": "HR Assistants cannot create or promote to Administrator.",
-  "staffAccountCreated": "{{name}} created as {{role}}. No clock/REP link — DMPREP checklist skipped.",
+  "staffAccountCreated": "{{name}} created as {{role}}. No clock link — clock admission checklist skipped.",
   "roleHints": {
     "ADMIN": "Administers the app (does not punch).",
     "HR": "Operational RH assistant (does not punch).",
@@ -129,7 +129,7 @@
     "admissionTitle": "Admission checklist — HR + clock",
     "dischargeTitle": "Offboarding checklist — clock + HR",
     "subtitle": "Employee: {{name}}",
-    "warning": "HR registers and exports to DIMEP.MDB. PrintPoint biometrics (91/92) use Credencial/ID (DMP REP Matrícula) — the clock does not accept PIS.",
+    "warning": "HR registers the employee and sends them to the PrintPoint. Biometrics (91/92) use Credencial/ID — the clock does not accept PIS.",
     "copyPis": "Copy PIS",
     "pisCopied": "PIS copied.",
     "pisCopyFailed": "Could not copy employee ID.",
@@ -143,16 +143,16 @@
     "cancelDischarge": "Cancel",
     "confirmDischarge": "Confirm discharge",
     "confirming": "Discharging…",
-    "dischargeComplete": "{{name}} discharged: inactive account, timesheet closed through termination date, DMPREP removal requested. Punch history is kept.",
-    "dischargeWarning": "Before confirming: remove fingerprints on PrintPoint (function 92) with Credencial/ID — the clock does not accept PIS. Discharge marks INACTIVE, sets termination date, clears timesheet days after that date, and removes the MDB record (HR history is kept).",
+    "dischargeComplete": "{{name}} discharged: inactive account, timesheet closed through termination date, clock removal requested. Punch history is kept.",
+    "dischargeWarning": "Before confirming: remove fingerprints on PrintPoint (function 92) with Credencial/ID — the clock does not accept PIS. Discharge marks INACTIVE, sets termination date, clears timesheet days after that date, and removes the record on the clock (HR history is kept).",
     "admission": {
       "step1": {
         "title": "OpenHR registration complete",
         "detail": "{{name}} was saved. Employee ID: {{employeeId}}."
       },
       "step2": {
-        "title": "Export to DMPREP",
-        "detail": "Use Send to DMPREP in the employee panel. Writes to DIMEP.MDB (DMP REP closed during export). Do not re-register in DMP REP."
+        "title": "Send to the clock",
+        "detail": "Use Send to the clock in the employee panel. The record goes to the PrintPoint (WatchComm)."
       },
       "step3": {
         "title": "Enroll biometrics on clock",
@@ -169,8 +169,8 @@
         "detail": "On PrintPoint: F1 → 92 → supervisor → Credencial {{credential}} (not PIS). Confirm fingerprint deleted. Manual §3.6."
       },
       "step2": {
-        "title": "Remove record from MDB",
-        "detail": "Automatic when deleting {{name}} in HR (discharge export). No need to open DMP REP."
+        "title": "Remove record from the clock",
+        "detail": "Automatic when discharging {{name}} in HR (WatchComm). If the clock is busy, retry under Communication → Employees."
       },
       "step3": {
         "title": "Collect final punches (optional)",
@@ -194,6 +194,7 @@
     "mobile": "Mobile phone",
     "whatsappOptIn": "I agree to receive announcements and schedules via WhatsApp",
     "whatsappOptInHint": "We will use the mobile number above. You can revoke anytime in your profile.",
+    "whatsappOptInShort": "WhatsApp",
     "emergencyContact": "Emergency contact",
     "photo": "Photo",
     "employmentType": "Employment type",
@@ -206,7 +207,7 @@
     "office": "Office",
     "field": "Field / external",
     "editIdentityHint": "Email and employee ID/PIS cannot be changed here — contact support if needed.",
-    "clockAfterSave": "After saving, you will go to the clock admission screen (DMPREP export + biometrics).",
+    "clockAfterSave": "After saving, you will go to the clock admission screen (send to PrintPoint + biometrics).",
     "steps": {
       "identity": "Identity",
       "contract": "Contract",
@@ -237,37 +238,38 @@
   "clockOnboarding": {
     "title": "Clock integration",
     "subtitle": "Tracking for {{name}}",
-    "sendToDmprep": "Send to DMPREP",
+    "sendToClock": "Send to the clock",
     "markBioDone": "Biometrics registered on clock",
     "refresh": "Refresh status",
     "finish": "Done",
-    "exportResult": "Export: {{exported}} sent, {{failed}} failed.",
-    "exportFailed": "Failed to export to DMPREP.",
+    "sendOk": "Record sent to the PrintPoint. Now enroll the fingerprint on the clock (function 91).",
+    "sendFailed": "Failed to send the record to the clock.",
+    "clockBusy": "The clock is busy. Wait for the collect to finish and try again.",
     "bioMarked": "Biometrics marked — waiting for test punch.",
     "stepRh": "HR record saved",
     "stepRhDetail": "Employee saved with PIS {{pis}}.",
-    "stepExport": "Exported to DMPREP",
-    "stepExportDetail": "Record written to DIMEP.MDB — replaces manual DMP REP registration. Keep DMP REP closed during export; do not re-register manually.",
+    "stepExport": "Sent to the clock",
+    "stepExportDetail": "Record sent to the PrintPoint via WatchComm. Do not use DMP REP software.",
     "stepBio": "Clock biometrics",
     "stepBioDetail": "On PrintPoint: F1 → 91 → supervisor → Credencial {{credential}} (not PIS) → 2 fingers. Manual §3.5.",
     "stepPunch": "Test punch",
     "stepPunchDetail": "After the first punch, status becomes Ready automatically.",
     "status": {
       "NOT_APPLICABLE": "No clock",
-      "PENDING_EXPORT": "Pending export",
+      "PENDING_EXPORT": "Pending send to clock",
       "PENDING_BIO": "Pending biometrics",
       "READY": "Ready",
-      "ERROR": "Export error"
+      "ERROR": "Clock send error"
     },
     "badge": {
-      "PENDING_EXPORT": "Export pending",
+      "PENDING_EXPORT": "Send pending",
       "PENDING_BIO": "Bio pending",
       "READY": "Clock OK",
       "ERROR": "Clock error"
     },
     "filter": {
       "all": "All",
-      "pending_export": "Pending export",
+      "pending_export": "Pending send",
       "pending_bio": "Pending biometrics"
     }
   },
@@ -275,21 +277,21 @@
     "referenceTitle": "PrintPoint SmartPoint B clock guide",
     "admissionTitle": "How to enroll biometrics (admission)",
     "dischargeTitle": "How to delete biometrics (offboarding)",
-    "subtitle": "SmartPoint B Manual §3.5 and §3.6 — Eletropasso flow: HR exports record; biometrics on clock.",
+    "subtitle": "SmartPoint B Manual §3.5 and §3.6 — Eletropasso flow: HR sends the record to the clock; biometrics on the device.",
     "tabAdmission": "Admission",
     "tabDischarge": "Offboarding",
     "sectionSteps": "Step by step",
     "sectionManual": "Clock shortcuts",
     "sectionGlossary": "Glossary",
     "admission": {
-      "overview": "HR registers PIS + Credencial and exports to DIMEP.MDB. On PrintPoint use Credencial/ID for 91/92 — not PIS.",
+      "overview": "HR registers PIS + Credencial and sends them to the PrintPoint. On the clock use Credencial/ID for 91/92 — not PIS.",
       "step1": {
         "title": "Register in HR",
-        "detail": "Enter PIS (payroll) and clock Credencial (ID/Matrícula). If Credencial is empty, the system uses PIS."
+        "detail": "Enter PIS (payroll). The clock Credencial is assigned on save."
       },
       "step2": {
-        "title": "Export to DMPREP",
-        "detail": "Click Send to DMPREP. Writes name, PIS, and credential to DIMEP.MDB (PC .69). DMP REP must be closed during export."
+        "title": "Send to the clock",
+        "detail": "Click Send to the clock. The record goes to the PrintPoint. Do not use DMP REP software."
       },
       "step3": {
         "title": "Enroll biometrics on clock",
@@ -307,8 +309,8 @@
         "detail": "PrintPoint function 92: supervisor → Credencial {{credential}} for {{name}}."
       },
       "step2": {
-        "title": "Remove record from MDB",
-        "detail": "Automatic when deleting {{name}} in HR (discharge export). No need to open DMP REP."
+        "title": "Remove record from the clock",
+        "detail": "Automatic when discharging {{name}} in HR. If it fails, remove under Communication → Employees."
       },
       "step3": {
         "title": "Collect final punches (optional)",
@@ -325,12 +327,12 @@
       "dischargeTitle": "Fingerprint deletion — function 92",
       "dischargeSteps": "Prefer removing fingerprint/employee from the Time Clock console. Manual: F1 → 92 → E → supervisor PIS/password → E → password → E → credential {{credential}} → E → confirm deletion.",
       "modelNote": "SmartPoint B (Secukey): 2 reads per finger, up to 2 fingerprints per employee. Manual credential typing is only needed if RH send fails.",
-      "credentialNotPis": "Important: type Credencial/ID (DMP REP Matrícula). PrintPoint does not accept PIS on the keypad."
+      "credentialNotPis": "Important: type Credencial/ID. PrintPoint does not accept PIS on the keypad."
     },
     "warnings": {
       "pisMatch": "PIS and Credencial may differ. Always use Credencial/ID on the clock.",
-      "bioOnClock": "Biometrics are enrolled and deleted only on the physical clock (functions 91 and 92) — not via DMP REP software.",
-      "noDmprepRecadastro": "After successful export, do not manually re-register the employee in DMP REP.",
+      "bioOnClock": "Biometrics are enrolled and deleted only on the physical clock (functions 91 and 92).",
+      "noDmprepRecadastro": "After sending to the clock, do not re-register the employee in legacy time-clock software.",
       "noAutoOffboard": "Deleting in HR does not remove biometrics from the clock — use function 92 before deleting the account."
     },
     "glossary": {
@@ -344,11 +346,11 @@
       },
       "credential": {
         "term": "Credencial / Matrícula (clock)",
-        "definition": "Employee ID on PrintPoint and DMP REP Matrícula column. Used for 91/92. May differ from PIS."
+        "definition": "Employee ID on PrintPoint. Used for 91/92. May differ from PIS."
       },
       "dmprep": {
-        "term": "DMPREP / DIMEP.MDB",
-        "definition": "Master record database on PC .69. HR exports to it; no need to re-register in software unless export fails."
+        "term": "WatchComm / PrintPoint",
+        "definition": "Current channel to the clock. HR sends and removes records here; legacy DMP REP is not used for admission."
       },
       "printpoint": {
         "term": "PrintPoint SmartPoint B",
@@ -361,12 +363,16 @@
     "missingId": "Employee id missing.",
     "notFound": "Employee not found or already removed.",
     "forbidden": "You do not have permission for this flow.",
-    "admissionPageHint": "Complete the checklist and use the panel below to export to DMPREP and enroll biometrics. Then click Done.",
+    "admissionPageHint": "Send the record to the PrintPoint and enroll the fingerprint on the clock. Then click Done.",
     "dischargePageHint": "Check every step (including fingerprint removal on the clock). Only then is Confirm discharge enabled.",
     "simpleDischargeTitle": "Discharge account (no clock)",
     "simpleDischargeHint": "{{name}} ({{role}}) does not use the time clock. Discharge marks the account inactive and sets the termination date — HR history is kept."
   },
   "clockCredential": "Clock credential (ID/badge)",
-  "clockCredentialPlaceholder": "e.g. 20 (short DMP REP Matrícula)",
-  "clockCredentialHint": "Number PrintPoint accepts for functions 91/92 (DMP REP Matrícula). If empty, PIS is used. May differ from PIS."
+  "clockCredentialPlaceholder": "e.g. 20 (short clock ID)",
+  "clockCredentialHint": "Number PrintPoint accepts for functions 91/92. Do not type the PIS on the clock keypad.",
+  "clockCredentialAuto": "Assigned on save",
+  "clockCredentialAutoHint": "The system assigns the next free ID from existing credentials. Use that number on the clock (function 91) when enrolling fingerprints.",
+  "clockCredentialPreview": "Preview: {{id}} (confirmed on save)",
+  "clockCredentialNotApplicable": "Not applicable (no time clock)"
 }

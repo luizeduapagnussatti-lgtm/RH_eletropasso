@@ -2,7 +2,7 @@
 import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabase';
 import { apiClient, dedupe, resolveOrgId } from './api.client';
 import { Employee, ClockOnboardingStatus } from '../types';
-import { normalizePis, validatePis, normalizeCpf, validateCpf, normalizeClockCredential, validateClockCredential, resolveClockCredential } from '../utils/employeeCredentials';
+import { normalizePis, validatePis, normalizeCpf, validateCpf, normalizeClockCredential, validateClockCredential } from '../utils/employeeCredentials';
 import { normalizePhoneE164BR } from '../utils/phoneUtils';
 import { needsClockAdmission } from '../utils/roles';
 
@@ -143,8 +143,6 @@ export const employeeService = {
     if (needsClockAdmission({ role, employmentType: emp.employmentType })) {
       const pisCheck = validatePis(emp.employeeId);
       if (!pisCheck.ok) throw new Error('Invalid PIS');
-      const credCheck = validateClockCredential(emp.clockCredential);
-      if (!credCheck.ok) throw new Error('Invalid clock credential');
     }
     if (emp.cpf) {
       const cpfCheck = validateCpf(emp.cpf);
@@ -155,7 +153,6 @@ export const employeeService = {
     if (!session) throw new Error('Not authenticated');
 
     const normalizedPis = emp.employeeId ? normalizePis(emp.employeeId) : '';
-    const normalizedCred = resolveClockCredential(emp.clockCredential, emp.employeeId);
 
     const formData = new FormData();
     if (emp.email)       formData.append('email', emp.email);
@@ -165,7 +162,6 @@ export const employeeService = {
     if (emp.department)  formData.append('department', emp.department);
     if (emp.designation) formData.append('designation', emp.designation);
     if (normalizedPis)   formData.append('employeeId', normalizedPis);
-    if (normalizedCred)  formData.append('clockCredential', normalizedCred);
     if (emp.lineManagerId) formData.append('lineManagerId', emp.lineManagerId);
     if (emp.teamId)      formData.append('teamId', emp.teamId);
     if (emp.shiftId)     formData.append('shiftId', emp.shiftId);
@@ -418,7 +414,8 @@ export const employeeService = {
    * Soft discharge: marks INACTIVE + termination_date, clears clock credential /
    * biometrics / team-shift links, frees corporate e-mail, purges timesheet
    * outside the employment window, and best-effort removes the employee from
-   * DMPREP/MDB. Keeps the profile so historical espelho still resolves the name.
+   * the PrintPoint via WatchComm. Keeps the profile so historical espelho still
+   * resolves the name.
    */
   async dischargeEmployee(id: string, terminationDate: string): Promise<void> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
@@ -463,10 +460,10 @@ export const employeeService = {
 
     if (needsClockAdmission(emp) && emp.employeeId) {
       try {
-        const { dmprepSyncService } = await import('./dmprepSync.service');
-        await dmprepSyncService.triggerSync('export-employee-discharge', id);
-      } catch {
-        /* best-effort DMPREP cleanup */
+        const { clockCommandService } = await import('./clockCommand.service');
+        await clockCommandService.run('remove-employee', { pis: emp.employeeId });
+      } catch (e) {
+        console.warn('[EmployeeService] WatchComm remove-employee on discharge failed:', e);
       }
     }
 

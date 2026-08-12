@@ -43,7 +43,7 @@ function formatWhen(iso: string | undefined | null, locale: string): string {
 }
 
 interface ActionCard {
-  scope: Extract<DmprepSyncScope, 'punches' | 'employees' | 'all'>;
+  scope: Extract<DmprepSyncScope, 'punches'>;
   icon: LucideIcon;
   titleKey: string;
   descKey: string;
@@ -53,15 +53,14 @@ interface ActionCard {
 
 const ACTIONS: ActionCard[] = [
   { scope: 'punches', icon: Clock3, titleKey: 'comunicacao.collectTitle', descKey: 'comunicacao.collectDesc', ctaKey: 'comunicacao.collectCta', primary: true },
-  { scope: 'employees', icon: Users, titleKey: 'comunicacao.sendTitle', descKey: 'comunicacao.sendDesc', ctaKey: 'comunicacao.sendCta' },
-  { scope: 'all', icon: RefreshCw, titleKey: 'comunicacao.syncAllTitle', descKey: 'comunicacao.syncAllDesc', ctaKey: 'comunicacao.syncAllCta' },
 ];
 
 interface Props {
   onBusyChange?: (busy: boolean) => void;
+  onGoToEmployees?: () => void;
 }
 
-export const ClockSyncTab: React.FC<Props> = ({ onBusyChange }) => {
+export const ClockSyncTab: React.FC<Props> = ({ onBusyChange, onGoToEmployees }) => {
   const { t, i18n } = useTranslation('hub');
   const { showToast } = useToast();
   const { canPerformAction } = useSubscription();
@@ -140,9 +139,6 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange }) => {
       const summary = parts.join(' · ') || t('comunicacao.success');
       setSessionResult(summary);
       showToast(summary, 'success');
-      if (scope === 'all' || scope === 'employees') {
-        hrService.notify();
-      }
       await loadStatus();
     } catch (error) {
       console.error('DMPREP sync failed:', error);
@@ -176,7 +172,7 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange }) => {
         {t('comunicacao.note')}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {ACTIONS.map((action) => (
           <div key={action.scope} className="rounded-2xl border border-slate-100 bg-white p-5 flex flex-col">
             <span
@@ -203,6 +199,23 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange }) => {
             </button>
           </div>
         ))}
+        {onGoToEmployees ? (
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 flex flex-col">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+              <Users size={24} />
+            </span>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">{t('comunicacao.sendTitle')}</h2>
+            <p className="mt-1.5 text-sm text-slate-500 leading-relaxed flex-1">{t('comunicacao.sendDesc')}</p>
+            <button
+              type="button"
+              onClick={onGoToEmployees}
+              className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-white text-slate-800 border border-slate-200 hover:bg-slate-100"
+            >
+              <Users size={16} />
+              {t('comunicacao.sendCta')}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <section className="rounded-2xl border border-slate-100 bg-white p-5 space-y-4">
