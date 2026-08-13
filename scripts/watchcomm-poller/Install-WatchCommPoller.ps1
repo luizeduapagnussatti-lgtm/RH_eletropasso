@@ -4,8 +4,13 @@
   Instala Task Scheduler do poller WatchComm no host .245.
 
 .DESCRIPTION
-  Padrao: coleta estrategica as 09:00, 15:00 e 19:00 (horario local).
-  Alternativa: -IntervalHours N para repeticao horaria (legado).
+  Padrao: coleta automatica 1x por semana, segunda-feira as 09:00 (horario local).
+  Coleta manual em Comunicacao com o relogio permanece disponivel a qualquer momento.
+
+  Alternativas:
+    -DaysOfWeek Tuesday -ScheduleHour 8
+    -ScheduleHours 9,15,19   (legado diario)
+    -IntervalHours 1         (legado horario)
 
   O watchdog dmprep-sync (cada 5 min) e independente — so garante o servico :3099.
 #>
@@ -13,8 +18,10 @@
 param(
   [string]$TaskName = 'OpenHR-WatchComm-Poller',
   [string]$ConfigPath = '',
-  # Strategic daily times (local). Empty + IntervalHours > 0 => hourly legacy.
-  [int[]]$ScheduleHours = @(9, 15, 19),
+  [DayOfWeek]$DayOfWeek = [DayOfWeek]::Monday,
+  [int]$ScheduleHour = 9,
+  # Legacy daily times (local). When set, overrides weekly default.
+  [int[]]$ScheduleHours = @(),
   [int]$IntervalHours = 0,
   [switch]$Bootstrap
 )
@@ -37,12 +44,17 @@ $cmd = Join-Path $PSScriptRoot 'Run-Poller.cmd'
 if (-not (Test-Path -LiteralPath $cmd)) { throw "Run-Poller.cmd nao encontrado: $cmd" }
 
 $useHourly = $IntervalHours -ge 1
-if (-not $useHourly) {
-  if (-not $ScheduleHours -or $ScheduleHours.Count -eq 0) {
-    throw 'Informe -ScheduleHours (ex.: 9,15,19) ou -IntervalHours 1'
-  }
+$useDaily = -not $useHourly -and $ScheduleHours -and $ScheduleHours.Count -gt 0
+
+if ($useHourly) {
+  # ok
+} elseif ($useDaily) {
   foreach ($h in $ScheduleHours) {
     if ($h -lt 0 -or $h -gt 23) { throw "ScheduleHours invalido: $h (0-23)" }
+  }
+} else {
+  if ($ScheduleHour -lt 0 -or $ScheduleHour -gt 23) {
+    throw "ScheduleHour invalido: $ScheduleHour (0-23)"
   }
 }
 
@@ -85,7 +97,7 @@ if ($useHourly) {
     -Principal $principal `
     -Force | Out-Null
   Write-Host ("Task '$TaskName' instalada (a cada {0} h)." -f $IntervalHours)
-} else {
+} elseif ($useDaily) {
   $triggers = foreach ($h in ($ScheduleHours | Sort-Object -Unique)) {
     $at = Get-Date -Hour $h -Minute 0 -Second 0
     New-ScheduledTaskTrigger -Daily -At $at
@@ -99,6 +111,17 @@ if ($useHourly) {
     -Force | Out-Null
   $label = ($ScheduleHours | Sort-Object -Unique | ForEach-Object { '{0:D2}:00' -f $_ }) -join ', '
   Write-Host ("Task '$TaskName' instalada (diaria: {0})." -f $label)
+} else {
+  $at = Get-Date -Hour $ScheduleHour -Minute 0 -Second 0
+  $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $DayOfWeek -At $at
+  Register-ScheduledTask `
+    -TaskName $TaskName `
+    -Action $action `
+    -Trigger $trigger `
+    -Settings $settings `
+    -Principal $principal `
+    -Force | Out-Null
+  Write-Host ("Task '{0}' instalada (semanal: {1} {2:D2}:00)." -f $TaskName, $DayOfWeek, $ScheduleHour)
 }
 
 if ($Bootstrap) {

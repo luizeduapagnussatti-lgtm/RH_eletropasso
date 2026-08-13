@@ -15,6 +15,17 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-08-13',
+    title: 'Coleta automática — segunda-feira 09:00',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Poller WatchComm deixa de coletar 3 vezes ao dia: a automática passa a rodar 1 vez por semana, toda segunda-feira às 09:00. A coleta manual em Comunicação → Coletar batidas permanece.',
+      },
+    ],
+  },
+  {
     date: '2026-08-12',
     title: 'Admissão no relógio via WatchComm (sem DMPREP)',
     entries: [

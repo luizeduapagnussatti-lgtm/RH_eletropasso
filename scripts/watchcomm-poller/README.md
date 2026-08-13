@@ -7,7 +7,7 @@ Coleta batidas via TCP `:3000` (modo Server / Client Rest desligado) usando
 
 1. No relógio: **Habilita conexão** desmarcado (porta TCP 3000 aberta).
 2. Host `.245` com PowerShell **x86** (SysWOW64) — DLL 32-bit.
-3. DLLs em `services/rep-gateway/research/dimep-binaries/`.
+3. DLLs em `scripts/watchcomm-poller/lib/dimep-binaries/`.
 4. Chave `ingestApiKey` válida no `config.json`.
 
 ## Instalacao
@@ -21,9 +21,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-WatchCommPoller.ps
 
 A instalacao:
 
-- Cria a tarefa `OpenHR-WatchComm-Poller` (**09:00, 15:00 e 19:00** por padrao)
+- Cria a tarefa `OpenHR-WatchComm-Poller` (**segunda-feira 09:00** por padrao)
+- Legado diario: `Install-WatchCommPoller.ps1 -ScheduleHours 9,15,19`
 - Legado horario: `Install-WatchCommPoller.ps1 -IntervalHours 1`
-- Horarios custom: `Install-WatchCommPoller.ps1 -ScheduleHours 8,12,18`
 - Com `-Bootstrap`: grava watermark NSR **sem** enviar historico ao RH (so na primeira instalacao)
 
 > O watchdog `RH_Eletropasso_DmprepSync_Watchdog` (a cada 5 min) **nao coleta batidas** —

@@ -4,7 +4,8 @@
   Coleta MRP no PrintPoint (:3000) e envia ao ingest-punches.
 
   Deve rodar sob PowerShell x86 (SysWOW64) por causa do WatchComm.dll 32-bit.
-  Agendado tipicamente as 09:00, 15:00 e 19:00 via Task Scheduler (coleta estrategica).
+  Agendado 1x por semana (segunda-feira 09:00) via Task Scheduler.
+  Coleta manual em Comunicacao com o relogio permanece disponivel.
 #>
 [CmdletBinding()]
 param(

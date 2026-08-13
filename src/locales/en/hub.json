@@ -71,7 +71,7 @@
     "syncAllDesc": "Sends records and collects punches in a single operation.",
     "syncAllCta": "Sync everything",
     "statusTitle": "Status / last sync",
-    "statusDesc": "Track the latest punch collect (manual or scheduled at 09:00 / 15:00 / 19:00) and recent history.",
+    "statusDesc": "Track the latest punch collect (manual or scheduled every Monday at 09:00) and recent history.",
     "refreshStatus": "Refresh status",
     "statusLoading": "Loading status…",
     "statusLoadFailed": "Could not load sync status.",
