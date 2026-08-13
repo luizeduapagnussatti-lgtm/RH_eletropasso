@@ -3,6 +3,9 @@
 Coleta batidas via TCP `:3000` (modo Server / Client Rest desligado) usando
 `WatchComm.dll` + `InquiryMRPRecords`, e encaminha para `ingest-punches`.
 
+Protocolo, handshake RSA/AES, erros **1730/1732** e incidente de ago/2026:
+[`docs/watchcomm-printpoint-protocol.md`](../../docs/watchcomm-printpoint-protocol.md).
+
 ## Pre-requisitos
 
 1. No relógio: **Habilita conexão** desmarcado (porta TCP 3000 aberta).

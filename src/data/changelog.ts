@@ -28,6 +28,11 @@ export const changelog: ChangelogRelease[] = [
         description:
           'Erro 1732 no PrintPoint: o handshake WatchComm passou a enviar usuário/senha de comunicação (padrão DIMEP login/senha). Sem isso o AES falha (1730) e o relógio recusa empregador, coleta e lista de empregados.',
       },
+      {
+        type: 'improvement',
+        description:
+          'Documentação do protocolo WatchComm (TCP 3000, RSA, login/senha, erros 1730/1732 e incidente de agosto/2026) em docs/watchcomm-printpoint-protocol.md.',
+      },
     ],
   },
   {

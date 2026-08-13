@@ -190,12 +190,12 @@ Mensagens de display: **não suportadas** neste firmware PrintPoint III (`suppor
 | Componente | Pasta | Função |
 |------------|-------|--------|
 | Sync / comandos | `services/dmprep-sync` | HTTP local + Invoke-WatchComm* |
-| Poller (legado) | `scripts/watchcomm-poller` | Documentação de coleta |
+| Poller WatchComm | `scripts/watchcomm-poller` | Coleta MRP + ingest batidas (produção) |
 | Cliente LAN | `scripts/lan-client` | Atalho HTTPS na rede da loja |
-| Pesquisa / bridge | `services/rep-gateway` | Experimentos WatchComm (não é o caminho diário) |
 
 Documentação detalhada:
 
+- [`docs/watchcomm-printpoint-protocol.md`](docs/watchcomm-printpoint-protocol.md) — protocolo TCP, RSA, `login`/`senha`, erros 1730/1732
 - [`services/dmprep-sync/README.md`](services/dmprep-sync/README.md)
 - [`scripts/dmprep-agent/README.md`](scripts/dmprep-agent/README.md)
 - [`scripts/watchcomm-poller/README.md`](scripts/watchcomm-poller/README.md)

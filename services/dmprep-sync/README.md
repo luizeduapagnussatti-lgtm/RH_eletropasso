@@ -113,12 +113,16 @@ Requisitos adicionais para import de cadastros:
 - `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` no `.env` do serviço
 - Python + `pip install access-parser` no servidor do sync
 
-## Relação com rep-gateway
+## Relação com WatchComm poller
 
 | Componente | Papel |
 |------------|-------|
-| **dmprep-sync** | Importação via DMPREP/MOVIMENT (**Opção B — ativo**) |
-| **rep-gateway** | Client Rest HTTP (**discovery — handshake ainda bloqueado**) |
+| **dmprep-sync** | Importação via DMPREP/MOVIMENT + comandos WatchComm (**produção**) |
+| **watchcomm-poller** | Coleta MRP periódica (`scripts/watchcomm-poller`) |
+
+O Client Rest REP (`rep-gateway`) foi **removido** — produção usa apenas DMPREP `:3099` + poller.
+
+Protocolo WatchComm / erros 1730–1732: `docs/watchcomm-printpoint-protocol.md`.
 
 Não desligue o DMPREP enquanto o sync estiver em produção; ele é quem coleta
 as batidas do relógio e atualiza o `MOVIMENT.txt`.

@@ -58,6 +58,8 @@ Sequência: supervisor → **credencial do colaborador (Matrícula)** → opera�
 
 PrintPoint → WatchComm/poller (servidor .245) → ingest-punches → espelho de ponto.
 
+Handshake, RSA e erro 1732: `docs/watchcomm-printpoint-protocol.md`.
+
 O ingest resolve batidas por `clock_credential` **ou** `employee_id` (PIS), e grava o punch com o PIS canônico.
 
 Import legado DMPREP → RH (`import employees`) lê `PIS` → `employee_id` e `Credencial` → `clock_credential` (inclui backfill para quem já está no RH).
