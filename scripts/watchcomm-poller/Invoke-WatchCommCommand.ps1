@@ -226,9 +226,12 @@ try {
   $firmwareVersion = [string](Get-ConfigValue $config 'firmwareVersion' '03.00.0028')
   $modulusHex = [string](Get-ConfigValue $config 'modulusHex' '')
   $exponentHex = [string](Get-ConfigValue $config 'exponentHex' '010001')
+  $accessKey = [string](Get-ConfigValue $config 'accessKey' '')
+  $commUser = [string](Get-ConfigValue $config 'commUser' 'login')
+  $commPassword = [string](Get-ConfigValue $config 'commPassword' 'senha')
   if (-not $modulusHex) { throw 'modulusHex ausente no config do WatchComm' }
 
-  $rsaCore = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\WatchComm-RsaCore.ps1'))
+  $rsaCore = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'lib\WatchComm-RsaCore.ps1'))
   . $rsaCore
   Initialize-WatchCommRsa
   $assembly = $script:WatchCommAssembly
@@ -248,7 +251,7 @@ try {
   try { $tcp.SetTimeOut(20000) } catch {}
 
   $watch = [Activator]::CreateInstance($watchType)
-  [void]$create.Invoke($watch, @($protocol, $tcp, $equipmentId, '', $connection, $firmwareVersion, $modulusHex, $exponentHex, '', ''))
+  [void]$create.Invoke($watch, @($protocol, $tcp, $equipmentId, $accessKey, $connection, $firmwareVersion, $modulusHex, $exponentHex, $commUser, $commPassword))
   try {
     [void]$watchType.GetMethod('OpenConnection').Invoke($watch, @())
   } catch {

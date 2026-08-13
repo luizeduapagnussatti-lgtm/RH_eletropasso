@@ -206,10 +206,18 @@ $collectArgList = New-Object System.Collections.Generic.List[string]
   '-EquipmentId', ([string][int]$Config.equipmentId),
   '-ModulusHex', ([string]$Config.modulusHex),
   '-ExponentHex', ([string]$Config.exponentHex),
+  '-CommUser', ([string](Get-ConfigValue $Config 'commUser' 'login')),
+  '-CommPassword', ([string](Get-ConfigValue $Config 'commPassword' 'senha')),
   '-MaxBatches', ([string]$maxBatches),
   '-MaxRecords', ([string]$maxRecords),
   '-OutJson', $outJson
 ) | ForEach-Object { [void]$collectArgList.Add($_) }
+
+$accessKey = [string](Get-ConfigValue $Config 'accessKey' '')
+if ($accessKey) {
+  [void]$collectArgList.Add('-AccessKey')
+  [void]$collectArgList.Add($accessKey)
+}
 
 if ($doBootstrap) {
   # Bootstrap: so a partir de ontem (evita dump de anos de historico)

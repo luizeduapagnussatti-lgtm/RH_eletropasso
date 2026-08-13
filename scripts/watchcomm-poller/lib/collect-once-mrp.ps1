@@ -2,7 +2,8 @@
 <#
 .SYNOPSIS
   Coleta MRP (marcacoes) via WatchComm TCP PrintPoint III.
-  OpenConnection pode falhar com 1730; depois Reposition + InquiryMRPRecords.
+  CreateWatchCommVB6 exige user/password de comunicacao (padrao DIMEP: login/senha).
+  Sem isso o OpenConnection devolve 1730 (AES) e os comandos seguintes 1732.
 .NOTES
   Rodar PowerShell x86 (SysWOW64).
 #>
@@ -13,6 +14,9 @@ param(
   [string]$ExponentHex = '010001',
   [int]$EquipmentId = 1,
   [string]$FirmwareVersion = '03.00.0028',
+  [string]$CommUser = 'login',
+  [string]$CommPassword = 'senha',
+  [string]$AccessKey = '',
   [string]$DeviceSerial = '00003004820030709',
   [string]$StartNsr = '000000001',
   [datetime]$StartDate = [datetime]::MinValue,
@@ -94,7 +98,7 @@ $tcpType.GetMethod('CreateTcpComm', [Type[]]@([string], [int])).Invoke($tcp, @($
 try { $tcp.SetTimeOut(20000) } catch {}
 
 $wc = [Activator]::CreateInstance($wcType)
-$create.Invoke($wc, @($proto, $tcp, [int]$EquipmentId, '', $conn, $FirmwareVersion, $ModulusHex, $ExponentHex, '', ''))
+$create.Invoke($wc, @($proto, $tcp, [int]$EquipmentId, $AccessKey, $conn, $FirmwareVersion, $ModulusHex, $ExponentHex, $CommUser, $CommPassword))
 Write-Step 'CreateWatchComm OK'
 
 $openOk = $false

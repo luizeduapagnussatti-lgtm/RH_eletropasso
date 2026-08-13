@@ -71,7 +71,7 @@
       "timeout": "The clock did not respond in time. Check power, cable/network and IP.",
       "connection": "Could not connect to the clock. Check network/IP and that the device is on.",
       "busy": "The clock is busy with another operation. Try again shortly.",
-      "rejected": "The clock rejected the command (menu open on the device, busy session, or protocol 1732). Leave any PrintPoint screen and try again."
+      "rejected": "The clock rejected the command (open menu, busy session, 1732, or communication user/password). DIMEP default is login / senha. Leave any PrintPoint screen and try again."
     },
     "overall": {
       "idle": {

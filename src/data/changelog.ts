@@ -23,6 +23,11 @@ export const changelog: ChangelogRelease[] = [
         description:
           'Poller WatchComm deixa de coletar 3 vezes ao dia: a automática passa a rodar 1 vez por semana, toda segunda-feira às 09:00. A coleta manual em Comunicação → Coletar batidas permanece.',
       },
+      {
+        type: 'fix',
+        description:
+          'Erro 1732 no PrintPoint: o handshake WatchComm passou a enviar usuário/senha de comunicação (padrão DIMEP login/senha). Sem isso o AES falha (1730) e o relógio recusa empregador, coleta e lista de empregados.',
+      },
     ],
   },
   {

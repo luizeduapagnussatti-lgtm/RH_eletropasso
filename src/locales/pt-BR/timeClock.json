@@ -71,7 +71,7 @@
       "timeout": "O relógio não respondeu a tempo. Confira energia, cabo/rede e IP.",
       "connection": "Não foi possível conectar ao relógio. Verifique rede/IP e se o equipamento está ligado.",
       "busy": "O relógio já está ocupado com outra operação. Tente de novo em instantes.",
-      "rejected": "O relógio recusou o comando (menu aberto no equipamento, sessão ocupada ou protocolo 1732). Saia de qualquer tela no PrintPoint e tente de novo."
+      "rejected": "O relógio recusou o comando (menu aberto, sessão ocupada, 1732 ou usuário/senha de comunicação). Padrão DIMEP: login / senha. Saia de qualquer tela no PrintPoint e tente de novo."
     },
     "overall": {
       "idle": {

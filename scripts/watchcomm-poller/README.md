@@ -31,7 +31,10 @@ A instalacao:
 
 ## Ciclo operacional
 
-1. Conecta WatchComm TCP (`OpenConnection` pode avisar erro **1730** AES — ignoravel)
+1. Conecta WatchComm TCP com protocolo **PrintPoint III**, RSA (256 hex) e
+   usuario/senha de comunicacao (padrao de fabrica **`login` / `senha`**).
+   Sem essas credenciais o `OpenConnection` falha com **1730** (AES) e os
+   comandos seguintes com **1732** (Invalid Message).
 2. `RepositioningMRPRecordsPointer` a partir de `lastNsr+1`
 3. `InquiryMRPRecords` (marcacoes) em lotes + `ConfirmationReceiptMRPRecords`
 4. POST `ingest-punches` (idempotente por NSR)

@@ -7,7 +7,7 @@ param(
   [string]$FirmwareVersion = '03.00.0028'
 )
 $ErrorActionPreference = 'Stop'
-$core = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\WatchComm-RsaCore.ps1'))
+$core = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'lib\WatchComm-RsaCore.ps1'))
 . $core
 Initialize-WatchCommRsa
 $asm = $script:WatchCommAssembly
@@ -25,7 +25,7 @@ $tcp=[Activator]::CreateInstance($tcpType)
 $tcpType.GetMethod('CreateTcpComm',[type[]]@([string],[int])).Invoke($tcp,@($ClockIp,$ClockPort))
 try{$tcp.SetTimeOut(8000)}catch{}
 $wc=[Activator]::CreateInstance($wcType)
-$create.Invoke($wc,@($proto,$tcp,1,'',$conn,$FirmwareVersion,$ModulusHex,'010001','',''))
+$create.Invoke($wc,@($proto,$tcp,1,'',$conn,$FirmwareVersion,$ModulusHex,'010001','login','senha'))
 try{[void]$wcType.GetMethod('OpenConnection').Invoke($wc,@())}catch{}
 
 function Get-NextMarkingNsr([int]$from) {
