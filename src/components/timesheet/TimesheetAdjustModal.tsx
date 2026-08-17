@@ -66,6 +66,7 @@ interface Props {
   onDeletePunch: (punchId: string) => Promise<void>;
   onSetPunchIgnoredForCalc: (punchId: string, ignored: boolean) => Promise<void>;
   onApplyFixedBreak: () => Promise<void>;
+  onEndContract?: () => void;
 }
 
 function formatSlotTime(iso?: string): string {
@@ -120,6 +121,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   onDeletePunch,
   onSetPunchIgnoredForCalc,
   onApplyFixedBreak,
+  onEndContract,
 }) => {
   const { t } = useTranslation('ptrp');
   const [isSaving, setIsSaving] = useState(false);
@@ -132,6 +134,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   const [newPunchTime, setNewPunchTime] = useState('');
   const [newPunchDir, setNewPunchDir] = useState<PunchDirection>(() => suggestNextDirection(punches));
   const [newPunchNote, setNewPunchNote] = useState('');
+  const [showAbsentPunchEditor, setShowAbsentPunchEditor] = useState(false);
   const [editingPunchId, setEditingPunchId] = useState<string | null>(null);
   const [editPunchTime, setEditPunchTime] = useState('');
   const [editPunchDir, setEditPunchDir] = useState<PunchDirection>('IN');
@@ -193,6 +196,16 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   }, [day.id, dayPunches]);
 
   const remarksChanged = remarks.trim() !== (day.remarks || '').trim();
+  const restDay = new Set(['OFF', 'HOLIDAY', 'LEAVE']);
+  const noPunches = dayPunches.length === 0;
+  const isAbsentDay =
+    day.status === 'ABSENT' ||
+    liveCalc.status === 'ABSENT' ||
+    (noPunches &&
+      (liveCalc.expectedMinutes || day.expectedMinutes || 0) > 0 &&
+      !restDay.has(day.status) &&
+      !restDay.has(liveCalc.status));
+  const showPunchTools = !isAbsentDay || !noPunches || showAbsentPunchEditor;
 
   const handleToggleIgnorePunch = async (punchId: string, ignored: boolean) => {
     if (punchEditLocked) {
@@ -340,6 +353,27 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
     }
   };
 
+  const handleSaveAndApproveAbsence = async () => {
+    if (!canEditHours || !canManageAck || localAck) return;
+    if (!remarks.trim()) {
+      setError(t('adjustRemarksRequired'));
+      return;
+    }
+    setError(null);
+    setIsSaving(true);
+    try {
+      if (remarksChanged) {
+        await onSaveJustification(remarks.trim());
+      }
+      await onSetManagerAck(true);
+      setLocalAck(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('loadFailed'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const busy = isSaving || isAckBusy || isPunchBusy;
 
   return (
@@ -365,6 +399,11 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               })}
               {hasManualPunch ? ` · ${t('adjustHasManualPunchBadge')}` : ''}
             </p>
+            {isAbsentDay ? (
+              <p className="text-[11px] text-rose-200 font-medium leading-snug">
+                {t('adjustAbsentJustifyHint')}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -377,6 +416,81 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
+          {error && (
+            <div className="rounded-xl border-2 border-rose-600 bg-rose-50 px-3.5 py-2.5 flex gap-2 text-xs font-semibold text-rose-950">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" aria-hidden />
+              {error}
+            </div>
+          )}
+
+          <form
+            id="timesheet-adjust-remarks-form"
+            onSubmit={handleSaveJustification}
+            className={`space-y-2 rounded-xl border-2 px-3.5 py-3 ${
+              isAbsentDay ? 'border-rose-400 bg-rose-50' : 'border-slate-300 bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">1</span>
+              <label htmlFor="adjust-remarks" className="block text-sm font-bold text-slate-900">
+                {isAbsentDay ? t('adjustRemarksAbsentLabel') : t('adjustRemarksLabel')}
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-700 leading-relaxed ml-7">
+              {isAbsentDay ? t('adjustRemarksAbsentHint') : t('adjustRemarksOptionalHint')}
+            </p>
+            {isAbsentDay && canEditHours && !localAck ? (
+              <div className="flex flex-wrap gap-1.5 ml-7">
+                {(['adjustAbsenceChipNoShow', 'adjustAbsenceChipSickNote', 'adjustAbsenceChipDidNotAttend'] as const).map(key => (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setRemarks(t(key))}
+                    className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold border ${
+                      remarks.trim() === t(key)
+                        ? 'bg-rose-700 text-white border-rose-800'
+                        : 'bg-white text-rose-950 border-rose-300 hover:bg-rose-100'
+                    }`}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <textarea
+              id="adjust-remarks"
+              rows={3}
+              disabled={!canEditHours || localAck}
+              className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 resize-y min-h-[4.5rem] disabled:bg-slate-50 disabled:opacity-70"
+              placeholder={isAbsentDay ? t('adjustRemarksAbsentPlaceholder') : t('adjustRemarksPlaceholder')}
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+            />
+            {canEditHours && !localAck ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !remarks.trim() || !remarksChanged}
+                  className="h-10 px-3 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? t('adjustSaving') : t('saveJustification')}
+                </button>
+                {isAbsentDay && canManageAck ? (
+                  <button
+                    type="button"
+                    disabled={busy || !remarks.trim() || !storedCoherence.coherent}
+                    onClick={() => { void handleSaveAndApproveAbsence(); }}
+                    className="h-10 px-3 rounded-lg bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-600 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 size={14} aria-hidden />
+                    {isSaving ? t('adjustAckWorking') : t('adjustSaveAndApproveAbsence')}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </form>
+
           <section
             className={`rounded-xl border px-3.5 py-3 space-y-2 ${
               localAck
@@ -395,7 +509,11 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                   {localAck ? t('adjustAckApprovedTitle') : t('adjustAckPendingTitle')}
                 </p>
                 <p className={`text-xs leading-relaxed font-medium ${localAck ? 'text-emerald-900' : 'text-amber-900'}`}>
-                  {localAck ? t('adjustAckApprovedHint') : t('adjustAckPendingHint')}
+                  {localAck
+                    ? t('adjustAckApprovedHint')
+                    : isAbsentDay
+                      ? t('adjustAckPendingAbsentHint')
+                      : t('adjustAckPendingHint')}
                 </p>
               </div>
             </div>
@@ -435,13 +553,6 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
             )}
           </section>
 
-          {error && (
-            <div className="rounded-xl border-2 border-rose-600 bg-rose-50 px-3.5 py-2.5 flex gap-2 text-xs font-semibold text-rose-950">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" aria-hidden />
-              {error}
-            </div>
-          )}
-
           {!storedCoherence.coherent && (
             <div className="rounded-xl border border-amber-500 bg-amber-50 px-3.5 py-2.5 flex gap-2 text-xs text-amber-950">
               <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden />
@@ -454,14 +565,18 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
 
           <section className="space-y-3" aria-labelledby="adjust-punches-heading">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">1</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">2</span>
               <h3 id="adjust-punches-heading" className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                 <Clock size={14} className="text-slate-600" aria-hidden />
-                {t('adjustSectionPunches')}
+                {isAbsentDay ? t('adjustWorkedAnyway') : t('adjustSectionPunches')}
               </h3>
             </div>
-            <p className="text-xs text-slate-600 ml-7 leading-relaxed">{t('adjustSectionPunchesHint')}</p>
-            <p className="text-[11px] text-slate-500 ml-7 leading-relaxed">{t('adjustIgnorePunchHint')}</p>
+            <p className="text-xs text-slate-600 ml-7 leading-relaxed">
+              {isAbsentDay ? t('adjustWorkedAnywayHint') : t('adjustSectionPunchesHint')}
+            </p>
+            {!isAbsentDay && (
+              <p className="text-[11px] text-slate-500 ml-7 leading-relaxed">{t('adjustIgnorePunchHint')}</p>
+            )}
 
             <div className="grid grid-cols-4 gap-1.5 text-center">
               {[
@@ -594,12 +709,27 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                 ))}
               </ul>
             ) : (
-              <p className="text-xs font-semibold text-amber-950 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2.5">
-                {t('adjustNoPunchesHint')}
+              <p className={`text-xs font-semibold rounded-lg px-3 py-2.5 border ${
+                isAbsentDay
+                  ? 'text-slate-800 bg-slate-100 border-slate-300'
+                  : 'text-amber-950 bg-amber-100 border-amber-300'
+              }`}>
+                {isAbsentDay ? t('adjustNoPunchesAbsentHint') : t('adjustNoPunchesHint')}
               </p>
             )}
 
-            {canEditHours && fixedBreak && (
+            {isAbsentDay && noPunches && !showAbsentPunchEditor && canEditHours && !localAck ? (
+              <button
+                type="button"
+                onClick={() => setShowAbsentPunchEditor(true)}
+                className="h-9 px-3 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-800 hover:bg-slate-50 inline-flex items-center gap-1.5"
+              >
+                <Plus size={14} aria-hidden />
+                {t('adjustWorkedAnywayOpen')}
+              </button>
+            ) : null}
+
+            {showPunchTools && canEditHours && fixedBreak && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
                 <div className="flex items-start gap-2">
                   <Coffee size={16} className="text-emerald-800 shrink-0 mt-0.5" aria-hidden />
@@ -632,7 +762,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               </div>
             )}
 
-            {canEditHours && (
+            {showPunchTools && canEditHours && (
               <form
                 onSubmit={handleAddPunch}
                 className="rounded-xl border border-slate-300 bg-slate-100 p-3 space-y-2"
@@ -691,7 +821,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                   disabled={punchEditLocked || busy}
                   value={newPunchNote}
                   onChange={e => setNewPunchNote(e.target.value)}
-                  placeholder={t('adjustPunchNotePlaceholder')}
+                  placeholder={isAbsentDay ? t('adjustPunchNotePlaceholderAbsent') : t('adjustPunchNotePlaceholder')}
                   className="w-full h-9 px-3 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 disabled:bg-slate-200 disabled:text-slate-600"
                 />
               </form>
@@ -700,7 +830,7 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
 
           <section className="space-y-2" aria-labelledby="adjust-calc-heading">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">2</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">3</span>
               <h3 id="adjust-calc-heading" className="text-sm font-semibold text-slate-900">
                 {t('adjustSectionCalculated')}
               </h3>
@@ -724,24 +854,6 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               {t('adjustLiveStatusLabel')}: <span className="font-semibold text-slate-800">{dayStatusLabel(liveCalc.status)}</span>
             </p>
           </section>
-
-          {canEditHours && (
-            <form id="timesheet-adjust-remarks-form" onSubmit={handleSaveJustification} className="space-y-2">
-              <label htmlFor="adjust-remarks" className="block text-xs font-bold text-slate-900">
-                {t('adjustRemarksLabel')}
-              </label>
-              <p className="text-[11px] text-slate-600 leading-relaxed">{t('adjustRemarksOptionalHint')}</p>
-              <textarea
-                id="adjust-remarks"
-                rows={2}
-                disabled={localAck}
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/20 resize-y min-h-[4rem] disabled:bg-slate-50 disabled:opacity-70"
-                placeholder={t('adjustRemarksPlaceholder')}
-                value={remarks}
-                onChange={e => setRemarks(e.target.value)}
-              />
-            </form>
-          )}
         </div>
 
         <div className="shrink-0 p-4 sm:p-5 border-t border-slate-200 bg-slate-100 flex flex-col-reverse sm:flex-row gap-2">
@@ -753,6 +865,17 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
           >
             {t('common:close')}
           </button>
+          {onEndContract ? (
+            <button
+              type="button"
+              onClick={onEndContract}
+              disabled={busy}
+              title={t('endContractHint')}
+              className="flex-1 py-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-800 hover:bg-rose-100 disabled:opacity-50 shadow-sm"
+            >
+              {t('endContract')}
+            </button>
+          ) : null}
           {canEditHours && remarksChanged && !localAck && (
             <button
               type="submit"

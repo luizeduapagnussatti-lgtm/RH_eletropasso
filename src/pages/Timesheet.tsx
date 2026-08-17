@@ -997,9 +997,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     if (!adjustDay || locked) return;
     try {
       const wasAcked = adjustDay.managerAck;
-      await hrService.updateTimesheetDayJustification(adjustDay.id, remarks);
-      setAdjustDay(null);
+      const updated = await hrService.updateTimesheetDayJustification(adjustDay.id, remarks);
       showToast(wasAcked ? t('adjustSavedNeedsReack') : t('justificationSaved'), 'success');
+      setAdjustDay({ ...updated, managerAck: false });
       await load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : t('loadFailed');
@@ -1372,6 +1372,16 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
             >
               <Scale size={14} aria-hidden /> {t('goToApuracao')}
+            </button>
+          )}
+          {isHr && onNavigate && selectedEmployee && selectedEmployee.status === 'ACTIVE' && (
+            <button
+              type="button"
+              title={t('endContractHint')}
+              onClick={() => onNavigate('employee-discharge', { employeeId: selectedEmployee.id })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-rose-50 text-rose-800 hover:bg-rose-100 transition-colors"
+            >
+              {t('endContract')}
             </button>
           )}
           {period && (
@@ -2074,28 +2084,13 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           onSaveJustification={saveJustification}
           onSetManagerAck={async (acked) => {
             try {
-              if (acked) {
-                const dayPunchList = punchesForTimesheetDay(adjustDay, punches);
-                const coherenceCtx = buildDayCoherenceContext(adjustDay, {
-                  shift: adjustDayCalcContext.shift,
-                  holidays,
-                  leaves,
-                  employee: employees.find(
-                    e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId,
-                  ),
-                });
-                const v = isDayApprovable(adjustDay, dayPunchList, coherenceCtx);
-                if (!v.ok) {
-                  showToast(t(dayAckBlockI18nKey(v.reason || 'unknown')), 'warning');
-                  return;
-                }
-              }
               await hrService.acknowledgeTimesheetDay(adjustDay.id, 'manager', acked);
               setAdjustDay(prev => (prev ? { ...prev, managerAck: acked } : null));
               showToast(acked ? t('managerAckOk') : t('revokeManagerAckOk'), 'success');
               await load();
             } catch (e: unknown) {
               toastAckError(e);
+              throw e;
             }
           }}
           onAddPunch={addPunchFromModal}
@@ -2103,6 +2098,20 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           onDeletePunch={deletePunchFromModal}
           onSetPunchIgnoredForCalc={setPunchIgnoredFromModal}
           onApplyFixedBreak={applyFixedBreakFromModal}
+          onEndContract={
+            isHr && onNavigate
+              ? (() => {
+                  const emp = employees.find(
+                    e => e.id === adjustDay.employeeId || e.employeeId === adjustDay.employeeId
+                  );
+                  if (!emp || emp.status !== 'ACTIVE') return undefined;
+                  return () => {
+                    setAdjustDay(null);
+                    onNavigate('employee-discharge', { employeeId: emp.id });
+                  };
+                })()
+              : undefined
+          }
         />
       )}
 

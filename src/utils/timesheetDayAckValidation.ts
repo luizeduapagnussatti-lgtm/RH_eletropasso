@@ -111,6 +111,9 @@ export function isDayApprovable(
   }
 
   if (status === 'ABSENT') {
+    if (day.remarks && day.remarks.trim()) {
+      return { ok: true };
+    }
     return { ok: false, reason: 'absent' };
   }
 

@@ -15,6 +15,22 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-08-17',
+    title: 'Espelho — aprovar ausência com motivo',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Dia Ausente pode ser aprovado depois de informar e salvar o motivo (não exige mais lançar batidas falsas). No espelho, atalho Encerrar contrato leva ao desligamento em Equipe.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Modal da carga: Motivo da ausência no topo (caixa rosa), com atalhos Faltou / Atestado / Não compareceu e botão Salvar motivo e aprovar. Encerrar contrato também no rodapé do modal. Batidas ficam no passo 2, recolhidas quando o dia está sem trabalho.',
+      },
+    ],
+  },
+  {
     date: '2026-08-13',
     title: 'Coleta automática — segunda-feira 09:00',
     entries: [

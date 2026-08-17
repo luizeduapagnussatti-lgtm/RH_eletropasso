@@ -62,6 +62,18 @@ assert.equal(isDayApprovable(baseDay({ status: 'OK', expectedMinutes: 0 })).ok, 
 {
   const v = isDayApprovable(
     baseDay({
+      status: 'ABSENT',
+      workedMinutes: 0,
+      absenceMinutes: 480,
+      remarks: 'Não compareceu — atestado será anexado',
+    })
+  );
+  assert.equal(v.ok, true);
+}
+
+{
+  const v = isDayApprovable(
+    baseDay({
       status: 'INCOMPLETE',
       firstPunchAt: '2026-07-15T08:00:00',
       workedMinutes: 0,
