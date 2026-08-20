@@ -47,6 +47,8 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
   /** Hide collapse control (e.g. mobile drawer always expanded) */
   showCollapseToggle?: boolean;
+  /** Optional badge counts keyed by menu item id (e.g. comunicacao). */
+  badgeCounts?: Record<string, number>;
 }
 
 /** A single navigable entry inside a sidebar section. */
@@ -84,6 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onToggleCollapse,
   showCollapseToggle = false,
+  badgeCounts,
 }) => {
   const { t } = useTranslation(['nav', 'common']);
   const isSuperAdmin = role === 'SUPER_ADMIN';
@@ -231,13 +234,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const navId = item.route ?? item.id;
                 const isActive = !item.params && currentPath === navId;
                 const label = t(item.labelKey);
+                const badge = badgeCounts?.[item.id] ?? 0;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => onNavigate(navId, item.params)}
                     title={collapsed ? label : undefined}
-                    aria-label={label}
+                    aria-label={badge > 0 ? `${label} (${badge})` : label}
                     aria-current={isActive ? 'page' : undefined}
                     className={`w-full flex items-center rounded-2xl transition-all duration-200 relative group ${
                       collapsed
@@ -258,9 +262,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                       {!collapsed && (
                         <span className="font-bold text-sm tracking-tight">{label}</span>
                       )}
+                      {collapsed && badge > 0 ? (
+                        <span className="absolute top-1.5 right-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-[#e23d42] text-[9px] font-bold text-white flex items-center justify-center">
+                          {badge > 9 ? '9+' : badge}
+                        </span>
+                      ) : null}
                     </div>
                     {!collapsed && (
                       <div className="flex items-center gap-1">
+                        {badge > 0 ? (
+                          <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#e23d42] text-[10px] font-bold text-white flex items-center justify-center">
+                            {badge > 99 ? '99+' : badge}
+                          </span>
+                        ) : null}
                         {!isSuperAdmin && (
                           <HelpButton helpPointId={`sidebar.${item.id}`} size={14} variant="sidebar" />
                         )}

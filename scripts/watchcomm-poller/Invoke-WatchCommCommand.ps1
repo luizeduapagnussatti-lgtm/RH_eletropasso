@@ -252,11 +252,21 @@ try {
 
   $watch = [Activator]::CreateInstance($watchType)
   [void]$create.Invoke($watch, @($protocol, $tcp, $equipmentId, $accessKey, $connection, $firmwareVersion, $modulusHex, $exponentHex, $commUser, $commPassword))
+  $writeOps = @(
+    'set-datetime','set-dst','remove-dst','include-holidays','send-display-message','clear-display-message',
+    'send-employees','remove-employee','exclude-fingerprint','exclude-fingerprint-orphans',
+    'program-biometric-reader-use','program-trigger-type','update-communication-user','set-net-info','change-employer'
+  )
   try {
     [void]$watchType.GetMethod('OpenConnection').Invoke($watch, @())
   } catch {
-    # Tolerates OpenConnection 1730 (and other soft-open failures), same as Send-WatchCommMasters.
-    Write-Warning ("OpenConnection: {0}" -f (Get-InnerMessage $_.Exception))
+    $openMsg = Get-InnerMessage $_.Exception
+    # Soft-open (1730) is tolerated. Timeout on write ops causes AddEmployee NullRef later —
+    # fail clearly here instead.
+    if (($writeOps -contains $Operation) -and ($openMsg -match 'tempo limite|timed? ?out|Unable to read data from the transport')) {
+      throw ("OpenConnection falhou ({0}). Saia do menu do PrintPoint, confira cabo/rede e tente de novo." -f $openMsg)
+    }
+    Write-Warning ("OpenConnection: {0}" -f $openMsg)
   }
 
   switch ($Operation) {
@@ -483,24 +493,43 @@ try {
         throw 'payload.employees e obrigatorio'
       }
       $employees = @($rawEmployees)
+      # PrintPoint III (SmartPoint B): use AddEmployee(pis, name, password).
+      # Overloads with credential (5/7 args) are Face / PrintPoint Li only.
+      # Empty password string NullRefs inside WatchComm — always send a non-empty value
+      # (badge/credential when present, else 000000).
       $add3 = Get-WatchMethod $watchType 'AddEmployee' 3
       $add1 = Get-WatchMethod $watchType 'AddEmployee' 1
+      $include2 = Get-WatchMethod $watchType 'IncludeEmployeesList' 2
       $added = 0
       foreach ($item in $employees) {
         $pis = [string](Get-ConfigValue $item 'pis' '')
         $name = [string](Get-ConfigValue $item 'name' '')
         $credential = [string](Get-ConfigValue $item 'credential' '')
         if (-not $pis) { throw 'Employee.pis e obrigatorio' }
-        if ($add3 -and $name) {
-          [void]$add3.Invoke($watch, @($pis, $name, $credential))
-        } elseif ($add1) {
-          [void]$add1.Invoke($watch, @($pis))
-        } else {
-          throw 'AddEmployee overload nao encontrado'
+        $password = if (-not [string]::IsNullOrWhiteSpace($credential)) { $credential } else { '000000' }
+        try {
+          if ($add3 -and $name) {
+            [void]$add3.Invoke($watch, @($pis, $name, $password))
+          } elseif ($add1) {
+            [void]$add1.Invoke($watch, @($pis))
+          } else {
+            throw 'AddEmployee overload nao encontrado'
+          }
+        } catch {
+          throw ("AddEmployee falhou para PIS {0}: {1}" -f $pis, (Get-InnerMessage $_.Exception))
         }
         $added++
       }
-      [void](Invoke-WatchMethod $watch $watchType 'IncludeEmployeesList' @() 0)
+      try {
+        if ($include2) {
+          # usesPassword, isTotalProgramming — PrintPoint III preferred overload
+          [void]$include2.Invoke($watch, @($true, $false))
+        } else {
+          [void](Invoke-WatchMethod $watch $watchType 'IncludeEmployeesList' @() 0)
+        }
+      } catch {
+        throw ("IncludeEmployeesList falhou apos AddEmployee: {0}" -f (Get-InnerMessage $_.Exception))
+      }
       $data = [pscustomobject]@{ added = $added }
     }
 

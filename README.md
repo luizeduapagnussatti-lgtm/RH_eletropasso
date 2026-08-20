@@ -205,6 +205,14 @@ Documentação detalhada:
 
 - **PIS/PASEP** — identificação fiscal / espelho / eSocial  
 - **Credencial do relógio** (`clock_credential`) — número digitado no PrintPoint (pode diferir do PIS)
+- **Nunca reutilizar**: no desligamento a credencial permanece no profile `INACTIVE`; o próximo cadastro usa `MAX(todas) + 1`
+- Fila de sync: tabela `hardware_sync_queue` + UI em Comunicação → Fila hardware
+
+Tutoriais RH:
+
+- [`docs/tutoriais/adicionar-colaborador.md`](docs/tutoriais/adicionar-colaborador.md)
+- [`docs/tutoriais/desligar-colaborador.md`](docs/tutoriais/desligar-colaborador.md)
+- Correção pontual Paulo/Henrique: [`scripts/sql/fix-paulo-henrique-credentials.sql`](scripts/sql/fix-paulo-henrique-credentials.sql)
 
 ---
 

@@ -219,6 +219,11 @@
       "version": "0043",
       "file": "0043_messaging_whatsapp.sql",
       "title": "WhatsApp/E-mail — profiles whatsapp_e164 + messaging_outbox"
+    },
+    {
+      "version": "0044",
+      "file": "0044_hardware_sync_queue.sql",
+      "title": "Fila hardware_sync_queue + clock_discharge_status (sem reuso de credencial)"
     }
   ]
 }

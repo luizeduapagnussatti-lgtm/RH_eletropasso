@@ -4,10 +4,14 @@ import { Fingerprint, RefreshCw, Send, Trash2, UserMinus } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import type { ClockEmployeeOnDevice, Employee } from '../../types';
+import type { ClockEmployeeOnDevice, Employee, EmployeeStatus } from '../../types';
 import { extractCommandData, runClockOp } from './clockCommandUi';
 import { isNonPunchingStaff, needsClockAdmission } from '../../utils/roles';
-import { normalizePis, toWatchCommSendEmployee } from '../../utils/employeeCredentials';
+import {
+  clockCredentialSignificantDigits,
+  normalizePis,
+  toWatchCommSendEmployee,
+} from '../../utils/employeeCredentials';
 
 type DiffKind = 'both' | 'onlyClock' | 'onlyRh';
 type FilterKind = 'all' | DiffKind | 'fingerprint';
@@ -23,6 +27,8 @@ interface DiffRow {
   bioFromRh: boolean;
   rh?: Employee;
   clock?: ClockEmployeeOnDevice;
+  rhStatus?: EmployeeStatus;
+  clockCredential?: string;
 }
 
 interface Props {
@@ -56,6 +62,7 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [rows, setRows] = useState<DiffRow[]>([]);
   const [filter, setFilter] = useState<FilterKind>('all');
+  const [showInactive, setShowInactive] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<null | {
     kind: 'send' | 'remove' | 'excludeFp' | 'orphans';
@@ -63,13 +70,19 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
   }>(null);
   const [fpUnsupported, setFpUnsupported] = useState(false);
 
+  const inactiveCount = useMemo(
+    () => rows.filter((r) => r.rhStatus === 'INACTIVE').length,
+    [rows],
+  );
+
   const filtered = useMemo(() => {
     return rows.filter((row) => {
+      if (!showInactive && row.rhStatus === 'INACTIVE') return false;
       if (filter === 'all') return true;
       if (filter === 'fingerprint') return row.hasFingerprint;
       return row.kind === filter;
     });
-  }, [rows, filter]);
+  }, [rows, filter, showInactive]);
 
   const load = async () => {
     if (!canWrite) {
@@ -151,6 +164,8 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
           bioFromRh: !!rh,
           rh,
           clock,
+          rhStatus: rh?.status,
+          clockCredential: rh?.clockCredential,
         });
       }
       next.sort((a, b) => a.name.localeCompare(b.name) || a.pis.localeCompare(b.pis));
@@ -284,6 +299,18 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
     return t('employees.onlyRh');
   };
 
+  const kindHint = (kind: DiffKind) => {
+    if (kind === 'both') return t('employees.bothHint');
+    if (kind === 'onlyClock') return t('employees.onlyClockHint');
+    return t('employees.onlyRhHint');
+  };
+
+  const rhStatusLabel = (status: EmployeeStatus) => {
+    if (status === 'ACTIVE') return t('employees.rhActive');
+    if (status === 'INACTIVE') return t('employees.rhInactive');
+    return t('employees.rhOnLeave');
+  };
+
   const actionBusy = loading || busyAction !== null;
 
   return (
@@ -308,7 +335,7 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         {(
           [
             ['all', 'employees.filterAll'],
@@ -331,6 +358,23 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
             {t(key)}
           </button>
         ))}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+          <input
+            type="checkbox"
+            id="showInactive"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <label htmlFor="showInactive" className="text-xs text-slate-700 cursor-pointer">
+            {t('employees.showInactive')}
+          </label>
+          {!showInactive && inactiveCount > 0 ? (
+            <span className="text-[10px] text-slate-500">
+              ({t('employees.hiddenInactive', { count: inactiveCount })})
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -379,7 +423,11 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
                   <th className="px-3 py-2 w-10" />
                   <th className="px-3 py-2">{t('employees.pis')}</th>
                   <th className="px-3 py-2">{t('employees.name')}</th>
-                  <th className="px-3 py-2">{t('employees.source')}</th>
+                  <th className="px-3 py-2">{t('employees.credential')}</th>
+                  <th className="px-3 py-2">{t('employees.rhStatus')}</th>
+                  <th className="px-3 py-2" title={t('employees.sourceHint')}>
+                    {t('employees.source')}
+                  </th>
                   <th className="px-3 py-2">{t('employees.withFingerprint')}</th>
                 </tr>
               </thead>
@@ -396,7 +444,29 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.pis}</td>
                     <td className="px-3 py-2 text-slate-800">{row.name || '—'}</td>
+                    <td className="px-3 py-2 font-mono text-xs font-semibold text-slate-900">
+                      {row.clockCredential
+                        ? clockCredentialSignificantDigits(row.clockCredential) || '—'
+                        : '—'}
+                    </td>
                     <td className="px-3 py-2">
+                      {row.rhStatus ? (
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                            row.rhStatus === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : row.rhStatus === 'INACTIVE'
+                                ? 'bg-rose-50 text-rose-800'
+                                : 'bg-amber-50 text-amber-800'
+                          }`}
+                        >
+                          {rhStatusLabel(row.rhStatus)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2" title={kindHint(row.kind)}>
                       <span
                         className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold ${
                           row.kind === 'both'

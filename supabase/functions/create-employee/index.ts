@@ -27,8 +27,43 @@ function normalizeClockCredential(value: string): string {
   return digits.padStart(12, '0');
 }
 
-function resolveClockCredential(clockCredential: string, pis: string): string {
-  return normalizeClockCredential(clockCredential) || normalizePis(pis);
+const SHORT_CLOCK_CREDENTIAL_MAX_DIGITS = 6;
+
+function clockCredentialSignificantDigits(value: string): string {
+  const n = normalizeClockCredential(value);
+  if (!n) return '';
+  return n.replace(/^0+/, '') || '0';
+}
+
+function isShortClockCredential(value: string): boolean {
+  const sig = clockCredentialSignificantDigits(value);
+  return !!sig && sig.length <= SHORT_CLOCK_CREDENTIAL_MAX_DIGITS;
+}
+
+function allocateNextClockCredential(existing: Array<string | null | undefined>): string {
+  const used = new Set<string>();
+  let max = 0;
+  for (const raw of existing) {
+    const normalized = normalizeClockCredential(String(raw ?? ''));
+    if (!normalized) continue;
+    used.add(normalized);
+    if (!isShortClockCredential(normalized)) continue;
+    const n = parseInt(clockCredentialSignificantDigits(normalized), 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  let next = max + 1;
+  let padded = normalizeClockCredential(String(next));
+  while (used.has(padded)) {
+    next += 1;
+    padded = normalizeClockCredential(String(next));
+  }
+  return padded;
+}
+
+function isClockCredentialUniqueViolation(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  if (err.code === '23505' && /clock_credential/i.test(err.message || '')) return true;
+  return /duplicate key.*clock_credential/i.test(err.message || '');
 }
 
 function normalizeCpf(value: string): string {
@@ -112,7 +147,6 @@ Deno.serve(async (req: Request) => {
     const department  = formData.get('department')?.toString()?.trim() ?? '';
     const designation = formData.get('designation')?.toString()?.trim() ?? '';
     const employeeIdRaw = formData.get('employeeId')?.toString()?.trim() ?? '';
-    const clockCredentialRaw = formData.get('clockCredential')?.toString()?.trim() ?? '';
     const lineManagerId = formData.get('lineManagerId')?.toString()?.trim() || null;
     const teamId      = formData.get('teamId')?.toString()?.trim() || null;
     const shiftId     = formData.get('shiftId')?.toString()?.trim() || null;
@@ -148,7 +182,6 @@ Deno.serve(async (req: Request) => {
         return jsonError(400, 'Invalid or missing PIS (11–12 digits) for clock-in roles');
       }
     }
-    const clockCredential = resolveClockCredential(clockCredentialRaw, employeeId);
 
     const cpf = normalizeCpf(cpfRaw);
     if (cpf && !validateCpf(cpfRaw)) {
@@ -169,16 +202,24 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (clockCredential) {
-      const { data: dupCred } = await adminClient
+    async function allocateClockCredentialForOrg(): Promise<string> {
+      // Include ACTIVE + INACTIVE — credentials are never cleared on discharge.
+      const { data: credRows, error: credErr } = await adminClient
         .from('profiles')
-        .select('id')
+        .select('clock_credential')
         .eq('organization_id', orgId)
-        .eq('clock_credential', clockCredential)
-        .maybeSingle();
-      if (dupCred) {
-        return jsonError(409, 'Clock credential already registered for another employee in this organization');
+        .not('clock_credential', 'is', null);
+      if (credErr) {
+        throw new Error('Failed to list clock credentials: ' + credErr.message);
       }
+      return allocateNextClockCredential(
+        (credRows || []).map((r: { clock_credential?: string | null }) => r.clock_credential)
+      );
+    }
+
+    let clockCredential: string | null = null;
+    if (requiresClockAdmission(role, employmentType)) {
+      clockCredential = await allocateClockCredentialForOrg();
     }
 
     // Free corporate email held by a soft-discharged (INACTIVE) account so it
@@ -291,7 +332,7 @@ Deno.serve(async (req: Request) => {
     const clockStatus = initialClockStatus(role, employmentType);
     const now = new Date().toISOString();
 
-    const { error: profileInsertErr } = await adminClient.from('profiles').upsert({
+    const profilePayload: Record<string, unknown> = {
       id:              userId,
       organization_id: orgId,
       name,
@@ -320,15 +361,56 @@ Deno.serve(async (req: Request) => {
       clock_biometric_registered: clockBiometricRegistered,
       avatar:          avatarPath,
       verified:        false,
-    }, { onConflict: 'id' });
+    };
+
+    let profileInsertErr: { code?: string; message?: string } | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const result = await adminClient.from('profiles').upsert(profilePayload, { onConflict: 'id' });
+      profileInsertErr = result.error;
+      if (!profileInsertErr) break;
+      if (
+        !isClockCredentialUniqueViolation(profileInsertErr) ||
+        !requiresClockAdmission(role, employmentType)
+      ) {
+        break;
+      }
+      clockCredential = await allocateClockCredentialForOrg();
+      profilePayload.clock_credential = clockCredential;
+    }
 
     if (profileInsertErr) {
       await adminClient.auth.admin.deleteUser(userId);
       return jsonError(400, 'Failed to create profile: ' + profileInsertErr.message);
     }
 
+    // Enqueue PrintPoint sync — RH processes via Comunicação → Sincronização.
+    if (requiresClockAdmission(role, employmentType) && employeeId && clockCredential) {
+      try {
+        const shortCred = clockCredentialSignificantDigits(clockCredential);
+        await adminClient.from('hardware_sync_queue').insert({
+          organization_id: orgId,
+          command_type: 'ADD_EMPLOYEE',
+          target_employee_id: userId,
+          status: 'PENDING',
+          payload: {
+            pis: employeeId,
+            name,
+            credential: shortCred || clockCredential,
+          },
+          created_by: caller.id,
+        });
+      } catch (e) {
+        console.warn('[CREATE-EMPLOYEE] Failed to enqueue ADD_EMPLOYEE (non-fatal):', e);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, userId, clockOnboardingStatus: clockStatus }),
+      JSON.stringify({
+        success: true,
+        userId,
+        clockOnboardingStatus: clockStatus,
+        clockCredential: clockCredential || null,
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
 

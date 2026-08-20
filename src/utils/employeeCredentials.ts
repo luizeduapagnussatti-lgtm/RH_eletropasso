@@ -71,8 +71,10 @@ export function isShortClockCredential(value: string | null | undefined): boolea
 }
 
 /**
- * Next PrintPoint credential for an org: max(short IDs) + 1.
- * Does not fill gaps (discharged fingerprints may still be on the clock).
+ * Next PrintPoint credential for an org: max(short IDs) + 1 across ALL rows
+ * (active and inactive). Credentials must never be cleared on discharge —
+ * otherwise MAX+1 reuses old badge numbers and the physical clock shows the
+ * previous person's name.
  * Ignores PIS-like 11–12 digit values so a legacy fallback cannot jump the sequence.
  */
 export function allocateNextClockCredential(

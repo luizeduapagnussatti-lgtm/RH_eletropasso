@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { APP_NAME, STORE_LOGO_PATH } from '../config/branding';
 import { isNonPunchingStaff, isPjContractor } from '../utils/roles';
 import { useEmployeeMobileShell } from '../hooks/useEmployeeMobileShell';
+import { hrService } from '../services/hrService';
 
 const SIDEBAR_STORAGE_KEY = 'openhr_sidebar_collapsed';
 
@@ -52,6 +53,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   const { darkMode, setDarkModePreference } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsedPreference);
+  const [hardwareSyncPending, setHardwareSyncPending] = useState(0);
   const employeeMobileShell = useEmployeeMobileShell();
   const isPjMobile = employeeMobileShell && isPjContractor(user);
   const historyPath = isNonPunchingStaff(user?.role) ? 'attendance-audit' : 'attendance-logs';
@@ -65,7 +67,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
     }
   }, [sidebarCollapsed]);
 
+  useEffect(() => {
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN' && user.role !== 'HR')) {
+      setHardwareSyncPending(0);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const n = await hrService.countHardwareSyncPending(user.organizationId);
+        if (!cancelled) setHardwareSyncPending(n);
+      } catch {
+        if (!cancelled) setHardwareSyncPending(0);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [user?.id, user?.role, user?.organizationId, currentPath]);
+
   const toggleSidebarCollapsed = () => setSidebarCollapsed((v) => !v);
+
+  const sidebarBadges =
+    hardwareSyncPending > 0 ? { comunicacao: hardwareSyncPending } : undefined;
 
   const handleNavigate = (path: string, params?: any) => {
     onNavigate(path, params);
@@ -109,6 +136,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
             user={user}
             collapsed={false}
             showCollapseToggle={false}
+            badgeCounts={sidebarBadges}
           />
         </div>
         {/* Desktop sidebar */}
@@ -122,6 +150,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
             collapsed={sidebarCollapsed}
             onToggleCollapse={toggleSidebarCollapsed}
             showCollapseToggle
+            badgeCounts={sidebarBadges}
           />
         </div>
       </div>

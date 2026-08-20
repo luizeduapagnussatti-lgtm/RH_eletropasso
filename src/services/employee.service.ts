@@ -1,8 +1,16 @@
 
 import { supabase, isSupabaseConfigured, getSupabaseStorageUrl } from './supabase';
 import { apiClient, dedupe, resolveOrgId } from './api.client';
-import { Employee, ClockOnboardingStatus } from '../types';
-import { normalizePis, validatePis, normalizeCpf, validateCpf, normalizeClockCredential, validateClockCredential } from '../utils/employeeCredentials';
+import { Employee, ClockOnboardingStatus, ClockDischargeStatus } from '../types';
+import {
+  normalizePis,
+  validatePis,
+  normalizeCpf,
+  validateCpf,
+  normalizeClockCredential,
+  validateClockCredential,
+  clockCredentialSignificantDigits,
+} from '../utils/employeeCredentials';
 import { normalizePhoneE164BR } from '../utils/phoneUtils';
 import { needsClockAdmission } from '../utils/roles';
 
@@ -47,6 +55,7 @@ function mapProfileToEmployee(r: any): Employee {
     clockOnboardingStatus: r.clock_onboarding_status as ClockOnboardingStatus | undefined,
     clockOnboardingAt: r.clock_onboarding_at || undefined,
     clockOnboardingNotes: r.clock_onboarding_notes || undefined,
+    clockDischargeStatus: (r.clock_discharge_status as ClockDischargeStatus | undefined) || undefined,
   } as Employee;
 }
 
@@ -426,14 +435,21 @@ export const employeeService = {
     const term = terminationDate || new Date().toISOString().split('T')[0];
     const joiningDate = emp.joiningDate || null;
 
+    // Keep clock_credential forever so allocateNextClockCredential never reuses it.
+    const needsClock = needsClockAdmission(emp) && !!emp.employeeId;
+    const clockDischargeStatus: ClockDischargeStatus = needsClock
+      ? 'PENDING_HARDWARE'
+      : 'NOT_APPLICABLE';
+
     const { error } = await supabase
       .from('profiles')
       .update({
         status: 'INACTIVE',
         termination_date: term,
         clock_biometric_registered: false,
-        clock_credential: null,
+        // Do NOT clear clock_credential — reserved for this person historically.
         clock_onboarding_status: 'NOT_APPLICABLE',
+        clock_discharge_status: clockDischargeStatus,
         // Detach from live org graph so demitidos leave active team/shift filters.
         team_id: null,
         shift_id: null,
@@ -458,12 +474,26 @@ export const employeeService = {
       console.warn('[EmployeeService] closeEmploymentWindow on discharge failed:', e);
     }
 
-    if (needsClockAdmission(emp) && emp.employeeId) {
+    if (needsClock) {
       try {
-        const { clockCommandService } = await import('./clockCommand.service');
-        await clockCommandService.run('remove-employee', { pis: emp.employeeId });
+        const { data: authData } = await supabase.auth.getUser();
+        const shortCred =
+          clockCredentialSignificantDigits(emp.clockCredential) ||
+          clockCredentialSignificantDigits(emp.employeeId);
+        await supabase.from('hardware_sync_queue').insert({
+          organization_id: emp.organizationId,
+          command_type: 'REMOVE_EMPLOYEE',
+          target_employee_id: id,
+          status: 'PENDING',
+          payload: {
+            pis: normalizePis(emp.employeeId),
+            name: emp.name,
+            credential: shortCred || emp.clockCredential || null,
+          },
+          created_by: authData.user?.id ?? null,
+        });
       } catch (e) {
-        console.warn('[EmployeeService] WatchComm remove-employee on discharge failed:', e);
+        console.error('[EmployeeService] Failed to enqueue REMOVE_EMPLOYEE:', e);
       }
     }
 

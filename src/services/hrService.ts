@@ -26,6 +26,7 @@ import { esocialTransmissionService } from './esocialTransmission.service';
 import { timesheetPdfExportService } from './timesheetPdfExport.service';
 import { clockSupervisorService } from './clockSupervisor.service';
 import { clockCommandService } from './clockCommand.service';
+import { hardwareSyncQueueService } from './hardwareSyncQueue.service';
 import { messagingService } from './messaging.service';
 import { rosterPdfService } from './rosterPdf.service';
 
@@ -250,4 +251,10 @@ export const hrService = {
   // PrintPoint WatchComm commands (ADMIN console)
   runClockCommand: clockCommandService.run.bind(clockCommandService),
   listClockCommands: clockCommandService.list.bind(clockCommandService),
+
+  // Hardware sync queue (pending ADD/REMOVE until clock confirms)
+  listHardwareSyncPending: hardwareSyncQueueService.listPending.bind(hardwareSyncQueueService),
+  countHardwareSyncPending: hardwareSyncQueueService.countPending.bind(hardwareSyncQueueService),
+  processHardwareSyncCommand: hardwareSyncQueueService.processCommand.bind(hardwareSyncQueueService),
+  cancelHardwareSyncCommand: hardwareSyncQueueService.cancelCommand.bind(hardwareSyncQueueService),
 };

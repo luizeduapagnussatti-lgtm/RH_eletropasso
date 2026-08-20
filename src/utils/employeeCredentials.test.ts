@@ -75,6 +75,14 @@ describe('employeeCredentials', () => {
     assert.equal(normalizeClockCredential('99'), '000000000099');
   });
 
+  it('allocateNextClockCredential never reuses inactive credentials still in the list', () => {
+    // Paulo (INACTIVE) keeps 97; next hire must get 98+
+    assert.equal(
+      allocateNextClockCredential(['000000000097', null, '', '000000000050']),
+      '000000000098'
+    );
+  });
+
   it('toWatchCommSendEmployee sends padded PIS and short credential', () => {
     const row = toWatchCommSendEmployee({
       name: 'Gustavo Guedes',

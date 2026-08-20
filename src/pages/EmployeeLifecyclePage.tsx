@@ -12,6 +12,7 @@ import {
 import { formatClockCredentialDisplay, resolveClockCredential } from '../utils/employeeCredentials';
 import { DmprepLifecyclePanel } from '../components/employees/DmprepLifecyclePanel';
 import { ClockOnboardingPanel } from '../components/employees/ClockOnboardingPanel';
+import { HardwareSyncQueuePanel } from '../components/timeClock/HardwareSyncQueuePanel';
 
 interface Props {
   user: User;
@@ -25,12 +26,13 @@ interface Props {
  * Closes the clock/DMPREP cycle outside the Equipe grid overlay.
  */
 const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavigate }) => {
-  const { t } = useTranslation('employees');
+  const { t } = useTranslation(['employees', 'timeClock']);
   const { showToast } = useToast();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [simpleConfirming, setSimpleConfirming] = useState(false);
+  const [showSyncQueue, setShowSyncQueue] = useState(false);
   const [terminationDate, setTerminationDate] = useState(
     () => new Date().toISOString().split('T')[0],
   );
@@ -87,9 +89,15 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
     const term = terminationDate || new Date().toISOString().split('T')[0];
     setSimpleConfirming(true);
     try {
+      const clockRole = needsClockAdmission(employee);
       await hrService.dischargeEmployee(employee.id, term);
       showToast(t('dmprepChecklist.dischargeComplete', { name: employee.name }), 'success');
-      goDirectory();
+      if (clockRole) {
+        setShowSyncQueue(true);
+        await refreshEmployee();
+      } else {
+        goDirectory();
+      }
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : t('operationFailed'), 'error');
     } finally {
@@ -210,33 +218,54 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
 
       {mode === 'discharge' ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-5 space-y-2">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              {t('terminationDate')}
-            </label>
-            <input
-              type="date"
-              required
-              className="w-full max-w-xs px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
-              value={terminationDate}
-              onChange={e => setTerminationDate(e.target.value)}
-            />
-            <p className="text-[10px] text-slate-400">{t('terminationDateHint')}</p>
-          </div>
-          <DmprepLifecyclePanel
-            type="discharge"
-            employeeName={employee.name}
-            punchKey={punchKey}
-            clockCredential={credDisplay}
-            onCancel={goDirectory}
-            onConfirm={confirmDischarge}
-          />
+          {showSyncQueue ? (
+            <div className="space-y-3">
+              <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                {t('timeClock:hardwareSync.dischargePendingHint')}
+              </p>
+              <HardwareSyncQueuePanel organizationId={user.organizationId} />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={goDirectory}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold"
+                >
+                  {t('dmprepChecklist.done')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-5 space-y-2">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                  {t('terminationDate')}
+                </label>
+                <input
+                  type="date"
+                  required
+                  className="w-full max-w-xs px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+                  value={terminationDate}
+                  onChange={e => setTerminationDate(e.target.value)}
+                />
+                <p className="text-[10px] text-slate-400">{t('terminationDateHint')}</p>
+              </div>
+              <DmprepLifecyclePanel
+                type="discharge"
+                employeeName={employee.name}
+                punchKey={punchKey}
+                clockCredential={credDisplay}
+                onCancel={goDirectory}
+                onConfirm={confirmDischarge}
+              />
+            </>
+          )}
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-6 space-y-4">
           <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
             {t('dmprepChecklist.warning')}
           </div>
+          <HardwareSyncQueuePanel organizationId={user.organizationId} compact />
           {credDisplay ? (
             <p className="text-xs text-slate-500">
               {t('clockCredential')}:{' '}

@@ -11,6 +11,7 @@ import {
   Clock3,
   SlidersHorizontal,
   ScrollText,
+  AlertTriangle,
 } from 'lucide-react';
 import HelpButton from '../components/onboarding/HelpButton';
 import { ClockSyncTab } from '../components/timeClock/ClockSyncTab';
@@ -20,10 +21,11 @@ import { ClockEmployeesTab } from '../components/timeClock/ClockEmployeesTab';
 import { ClockDateTimeTab } from '../components/timeClock/ClockDateTimeTab';
 import { ClockSettingsTab } from '../components/timeClock/ClockSettingsTab';
 import { ClockAuditTab } from '../components/timeClock/ClockAuditTab';
+import { HardwareSyncQueuePanel } from '../components/timeClock/HardwareSyncQueuePanel';
 import { orgTabButtonClass } from '../components/organization/OrgUi';
 
 interface Props {
-  user: { id: string; role: string };
+  user: { id: string; role: string; organizationId?: string };
   onNavigate: (path: string, params?: any) => void;
 }
 
@@ -34,10 +36,12 @@ type ClockTab =
   | 'employees'
   | 'datetime'
   | 'settings'
-  | 'audit';
+  | 'audit'
+  | 'hardwareQueue';
 
 const TABS: { id: ClockTab; labelKey: string; icon: typeof Radio }[] = [
   { id: 'sync', labelKey: 'tabs.sync', icon: RefreshCw },
+  { id: 'hardwareQueue', labelKey: 'tabs.hardwareQueue', icon: AlertTriangle },
   { id: 'supervisors', labelKey: 'tabs.supervisors', icon: Shield },
   { id: 'diagnosis', labelKey: 'tabs.diagnosis', icon: Stethoscope },
   { id: 'employees', labelKey: 'tabs.employees', icon: Users },
@@ -105,10 +109,19 @@ const Comunicacao: React.FC<Props> = ({ user, onNavigate }) => {
 
       <div className="min-h-[12rem]">
         {tab === 'sync' && (
-          <ClockSyncTab
-            onBusyChange={setCommandBusy}
-            onGoToEmployees={() => setTab('employees')}
-          />
+          <div className="space-y-4">
+            <HardwareSyncQueuePanel
+              organizationId={user.organizationId}
+              compact
+            />
+            <ClockSyncTab
+              onBusyChange={setCommandBusy}
+              onGoToEmployees={() => setTab('employees')}
+            />
+          </div>
+        )}
+        {tab === 'hardwareQueue' && (
+          <HardwareSyncQueuePanel organizationId={user.organizationId} />
         )}
         {tab === 'supervisors' && <ClockSupervisorsTab />}
         {tab === 'diagnosis' && <ClockDiagnosisTab onBusyChange={setCommandBusy} />}

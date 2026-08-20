@@ -15,6 +15,38 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-08-20',
+    title: 'Relógio — tela Empregados mais clara + envio seguro',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'send-employees no WatchComm: senha/credencial nunca vazia no AddEmployee(pis,name,password); OpenConnection com timeout em escritas falha com mensagem clara (evita NullReference e “ocupado”).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Aba Empregados: demitidos ocultos por padrão (toggle), colunas Crachá e Status RH, tooltips em “Onde está cadastrado”; credencial destacada na fila hardware.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-20',
+    title: 'Relógio — fim do reuso de credencial + fila de sync',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Desligamento deixa de apagar clock_credential: credenciais de INACTIVE entram no MAX+1 e nunca são reatribuídas (corrige incidente Paulo/Henrique no PrintPoint).',
+      },
+      {
+        type: 'feature',
+        description:
+          'Fila hardware_sync_queue + clock_discharge_status: cadastro/exclusão no relógio ficam pendentes até confirmação. Painel em Comunicação e badge no menu; tutoriais em docs/tutoriais/.',
+      },
+    ],
+  },
+  {
     date: '2026-08-17',
     title: 'Espelho — aprovar ausência com motivo',
     entries: [
@@ -27,6 +59,22 @@ export const changelog: ChangelogRelease[] = [
         type: 'fix',
         description:
           'Modal da carga: Motivo da ausência no topo (caixa rosa), com atalhos Faltou / Atestado / Não compareceu e botão Salvar motivo e aprovar. Encerrar contrato também no rodapé do modal. Batidas ficam no passo 2, recolhidas quando o dia está sem trabalho.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-17',
+    title: 'Espelho — batidas até hoje após a coleta',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Coleta do relógio gravava as batidas (13–17/08), mas o espelho parava no dia 12: a fila de recálculo não rodava (npx no PowerShell + HTTPS com certificado local). O drain passa a usar o Kong HTTP, espera o recálculo e o espelho prioriza as datas novas.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Recálculo do espelho deixa de depender da tarefa agendada RH-RecalcQueue (a cada 10 min). Roda no fim de cada coleta de batidas (botão Coletar e segunda 09:00).',
       },
     ],
   },

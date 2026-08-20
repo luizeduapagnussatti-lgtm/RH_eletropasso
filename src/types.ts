@@ -8,6 +8,51 @@ export type ClockOnboardingStatus =
   | 'PENDING_BIO'
   | 'READY'
   | 'ERROR';
+
+/** After soft-discharge: wait until PrintPoint confirms ExcludeEmployeesList. */
+export type ClockDischargeStatus =
+  | 'NOT_APPLICABLE'
+  | 'PENDING_HARDWARE'
+  | 'HARDWARE_CONFIRMED'
+  | 'HARDWARE_FAILED';
+
+export type HardwareCommandType =
+  | 'ADD_EMPLOYEE'
+  | 'REMOVE_EMPLOYEE'
+  | 'UPDATE_EMPLOYEE'
+  | 'ADD_BIOMETRIC'
+  | 'REMOVE_BIOMETRIC';
+
+export type HardwareSyncStatus =
+  | 'PENDING'
+  | 'IN_PROGRESS'
+  | 'CONFIRMED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export interface HardwareSyncQueueJob {
+  id: string;
+  organizationId: string;
+  commandType: HardwareCommandType;
+  targetEmployeeId?: string;
+  status: HardwareSyncStatus;
+  payload: {
+    pis?: string;
+    name?: string;
+    credential?: string;
+    [key: string]: unknown;
+  };
+  hardwareResponse?: Record<string, unknown> | null;
+  errorMessage?: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  lastAttemptAt?: string | null;
+  nextRetryAt?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  targetEmployeeName?: string;
+}
 export type SubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'SUSPENDED' | 'AD_SUPPORTED';
 
 export type UpgradeRequestType = 'DONATION' | 'TRIAL_EXTENSION' | 'AD_SUPPORTED';
@@ -420,6 +465,8 @@ export interface Employee extends User {
   clockOnboardingStatus?: ClockOnboardingStatus;
   clockOnboardingAt?: string;
   clockOnboardingNotes?: string;
+  /** Soft-discharge sync with PrintPoint; credential must remain set when INACTIVE. */
+  clockDischargeStatus?: ClockDischargeStatus;
 }
 
 export interface Attendance {
