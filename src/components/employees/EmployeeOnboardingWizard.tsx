@@ -5,7 +5,7 @@ import { Employee, Shift, Team, User } from '../../types';
 import { hrService } from '../../services/hrService';
 import { organizationService } from '../../services/organization.service';
 import { assignableRoles, needsClockAdmission } from '../../utils/roles';
-import { normalizePis, validatePis, validateCpf, validateClockCredential, resolveClockCredential } from '../../utils/employeeCredentials';
+import { normalizePis, validatePis, validateCpf, allocateNextClockCredential, formatClockCredentialDisplay } from '../../utils/employeeCredentials';
 import {
   emptyOnboardingForm,
   OnboardingFormState,
@@ -46,6 +46,8 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [credentialPreview, setCredentialPreview] = useState('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   const stepIndex = STEPS.indexOf(step);
   const isLast = step === 'review';
@@ -65,8 +67,13 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       setDepts(deptList || []);
       setDesigs(desigList || []);
       const defaultShift = (shiftList || []).find(s => s.isDefault);
+      const list = await hrService.getEmployees().catch(() => []);
+      if (cancelled) return;
+      setEmployees(list || []);
       if (mode === 'create') {
         setForm(f => ({ ...f, shiftId: defaultShift?.id || f.shiftId }));
+        const next = allocateNextClockCredential((list || []).map(e => e.clockCredential));
+        setCredentialPreview(formatClockCredentialDisplay(next));
       }
     })();
     return () => { cancelled = true; };
@@ -127,8 +134,6 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       if (needsClockAdmission(form)) {
         const pis = validatePis(form.employeeId);
         if (!pis.ok) return t('onboarding.errors.pisInvalid');
-        const cred = validateClockCredential(form.clockCredential);
-        if (!cred.ok) return t('onboarding.errors.credentialInvalid');
       }
       if (form.cpf) {
         const cpf = validateCpf(form.cpf);
@@ -171,9 +176,9 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       const payload: Partial<Employee> & { password?: string } = {
         ...form,
         employeeId: normalizePis(form.employeeId) || form.employeeId,
-        clockCredential: resolveClockCredential(form.clockCredential, form.employeeId) || undefined,
         cpf: form.cpf,
       };
+      delete payload.clockCredential;
       if (mode === 'create') {
         await hrService.addEmployee(payload);
         const list = await hrService.getEmployees();
@@ -219,10 +224,11 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       desigs,
       rolesForForm,
       mode,
+      credentialPreview,
       onChange: patchForm,
       onPickAvatar: handleAvatar,
     }),
-    [form, teams, shifts, depts, desigs, rolesForForm, mode, patchForm]
+    [form, teams, shifts, depts, desigs, rolesForForm, mode, credentialPreview, patchForm]
   );
 
   if (loading) {
@@ -266,7 +272,14 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
         )}
         {step === 'review' && (
           <>
-            <StepReview form={form} teams={teams} shifts={shifts} />
+            <StepReview
+              form={form}
+              teams={teams}
+              shifts={shifts}
+              employees={employees}
+              mode={mode}
+              credentialPreview={credentialPreview}
+            />
             {needsClockAdmission(form) && mode === 'create' && (
               <p className="mt-4 text-sm text-slate-500">{t('onboarding.clockAfterSave')}</p>
             )}

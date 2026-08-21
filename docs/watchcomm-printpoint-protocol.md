@@ -268,6 +268,11 @@ CNPJ `01267333000144`, JSON da coleta com `"success": true`.
 
 Na UI: **Comunicação → Relógio de Ponto → Diagnóstico / Coletar batidas**.
 
+Coleta **não** é o mesmo que o espelho. As batidas vão para `punches`; o
+espelho só atualiza depois de `timesheet_recalc_queue` ser drenada
+(`scripts/Run-RecalcQueue.ps1`, tarefa `RH-RecalcQueue`). Se a coleta
+ok e o espelho parar numa data antiga, drenar a fila — não recolher o relógio.
+
 ---
 
 ## Referências

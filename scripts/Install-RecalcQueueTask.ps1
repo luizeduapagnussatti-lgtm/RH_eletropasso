@@ -1,8 +1,11 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Registra a tarefa agendada "RH-RecalcQueue" que drena timesheet_recalc_queue
-  a cada N minutos (blindagem contra "dias presos" — batidas sem recálculo).
+  OPCIONAL. Em produção o recálculo roda no fim de cada coleta WatchComm
+  (Coletar batidas + segunda 09:00). Não instale esta tarefa no dia a dia.
+
+  Fallback: drena timesheet_recalc_queue a cada N minutos se a coleta
+  não puder esperar o drain.
 
 .EXAMPLE
   # Produção (scripts sincronizados em E:\RH_eletropasso):
@@ -23,6 +26,19 @@ if (-not (Test-Path -LiteralPath $runner)) {
   throw "Run-RecalcQueue.ps1 nao encontrado em: $runner (sincronize os scripts primeiro)"
 }
 
+# Preserve existing principal when reinstalling
+$existingUser = $env:USERNAME
+$existingLogon = 'Interactive'
+$existingRunLevel = 'Limited'
+try {
+  $prev = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  if ($prev -and $prev.Principal.UserId) {
+    $existingUser = $prev.Principal.UserId
+    if ($prev.Principal.LogonType) { $existingLogon = [string]$prev.Principal.LogonType }
+    if ($prev.Principal.RunLevel -eq 'Highest') { $existingRunLevel = 'Highest' }
+  }
+} catch {}
+
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
   -Argument ("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"{0}`"" -f $runner)
 
@@ -35,7 +51,10 @@ $settings = New-ScheduledTaskSettingsSet `
   -MultipleInstances IgnoreNew `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
 
-$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal `
+  -UserId $existingUser `
+  -LogonType $existingLogon `
+  -RunLevel $existingRunLevel
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
   -Settings $settings -Principal $principal -Force | Out-Null

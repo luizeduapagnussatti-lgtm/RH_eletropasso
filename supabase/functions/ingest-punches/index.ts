@@ -211,6 +211,8 @@ Deno.serve(async (req: Request) => {
             employee_id: employeeId,
             work_date: workDate,
             status: 'PENDING',
+            attempts: 0,
+            last_error: null,
           },
         ];
       }),
@@ -220,7 +222,6 @@ Deno.serve(async (req: Request) => {
     .from('timesheet_recalc_queue')
     .upsert(recalcRows, {
       onConflict: 'organization_id,employee_id,work_date',
-      ignoreDuplicates: true,
     });
   if (queueError) {
     console.error('[INGEST-PUNCHES] Recalc queue failed:', queueError.code, queueError.message);

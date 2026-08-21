@@ -8,8 +8,8 @@ import {
   normalizeCpf,
   validateCpf,
   normalizeClockCredential,
-  validateClockCredential,
   clockCredentialSignificantDigits,
+  allocateNextClockCredential,
 } from '../utils/employeeCredentials';
 import { normalizePhoneE164BR } from '../utils/phoneUtils';
 import { needsClockAdmission } from '../utils/roles';
@@ -230,12 +230,10 @@ export const employeeService = {
       if (pis) await assertUniquePis(orgId, pis, id);
       payload.employee_id = pis || null;
     }
+    // Operators never set clock_credential — only create-employee (auto) or
+    // system rules below (PJ clear / CLT allocate when missing).
     if (updates.clockCredential !== undefined) {
-      const credCheck = validateClockCredential(updates.clockCredential);
-      if (!credCheck.ok) throw new Error('Invalid clock credential');
-      const cred = normalizeClockCredential(updates.clockCredential);
-      if (cred) await assertUniqueClockCredential(orgId, cred, id);
-      payload.clock_credential = cred || null;
+      console.warn('[EmployeeService] Ignoring client clockCredential update — system-assigned only');
     }
     if (updates.cpf !== undefined) {
       const cpf = normalizeCpf(updates.cpf);
@@ -260,6 +258,32 @@ export const employeeService = {
       if (String(updates.employmentType).toUpperCase() === 'PJ') {
         payload.clock_onboarding_status = 'NOT_APPLICABLE';
         payload.clock_onboarding_at = new Date().toISOString();
+        payload.clock_credential = null;
+      }
+    }
+
+    // Clock credential is system-owned: PJ/admin never keep one; CLT without
+    // credential gets the next free short ID (never from the operator form).
+    {
+      const current = (await this.getEmployees()).find(e => e.id === id);
+      if (current) {
+        const nextRole = String(updates.role ?? current.role ?? 'EMPLOYEE').toUpperCase();
+        const nextType = String(updates.employmentType ?? current.employmentType ?? 'PERMANENT');
+        const needsClock = needsClockAdmission({ role: nextRole, employmentType: nextType });
+        if (!needsClock) {
+          if (current.clockCredential || payload.clock_credential !== undefined) {
+            payload.clock_credential = null;
+          }
+        } else if (!current.clockCredential && payload.clock_credential === undefined) {
+          const list = await this.getEmployees();
+          const next = allocateNextClockCredential(list.map(e => e.clockCredential));
+          await assertUniqueClockCredential(orgId, next, id);
+          payload.clock_credential = next;
+          if (payload.clock_onboarding_status === undefined) {
+            payload.clock_onboarding_status = 'PENDING_EXPORT';
+            payload.clock_onboarding_at = new Date().toISOString();
+          }
+        }
       }
     }
     if (updates.workType !== undefined)    payload.work_type = updates.workType;
@@ -477,21 +501,23 @@ export const employeeService = {
     if (needsClock) {
       try {
         const { data: authData } = await supabase.auth.getUser();
-        const shortCred =
-          clockCredentialSignificantDigits(emp.clockCredential) ||
-          clockCredentialSignificantDigits(emp.employeeId);
-        await supabase.from('hardware_sync_queue').insert({
-          organization_id: emp.organizationId,
-          command_type: 'REMOVE_EMPLOYEE',
-          target_employee_id: id,
-          status: 'PENDING',
-          payload: {
-            pis: normalizePis(emp.employeeId),
-            name: emp.name,
-            credential: shortCred || emp.clockCredential || null,
-          },
-          created_by: authData.user?.id ?? null,
-        });
+        const shortCred = clockCredentialSignificantDigits(emp.clockCredential);
+        if (!shortCred) {
+          console.warn('[EmployeeService] REMOVE_EMPLOYEE skipped — no short clock credential');
+        } else {
+          await supabase.from('hardware_sync_queue').insert({
+            organization_id: emp.organizationId,
+            command_type: 'REMOVE_EMPLOYEE',
+            target_employee_id: id,
+            status: 'PENDING',
+            payload: {
+              pis: normalizePis(emp.employeeId),
+              name: emp.name,
+              credential: shortCred,
+            },
+            created_by: authData.user?.id ?? null,
+          });
+        }
       } catch (e) {
         console.error('[EmployeeService] Failed to enqueue REMOVE_EMPLOYEE:', e);
       }

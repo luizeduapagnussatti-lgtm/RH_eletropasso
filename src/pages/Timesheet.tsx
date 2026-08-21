@@ -229,15 +229,15 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         // Auto-recalc days that have clock punches but no espelho row yet (REP ingest).
         if (bankEmp && punchList.length > 0 && p.status !== 'LOCKED') {
           const dayByDate = new Map(filtered.map(d => [d.workDate, d]));
-          const punchDates = [
-            ...new Set(
-              punchList.map(px => punchLocalDateKey(px.punchedAt)),
-            ),
-          ].slice(0, 14);
-          const staleDates = punchDates.filter(d => {
-            const row = dayByDate.get(d);
-            return !row || !row.firstPunchAt;
-          });
+          const punchDates = [...new Set(punchList.map(px => punchLocalDateKey(px.punchedAt)))].sort();
+          // Newest stale dates first — the oldest 14 dates of the competence
+          // are usually already calculated, so slicing from the start skipped 13/08+.
+          const staleDates = punchDates
+            .filter(d => {
+              const row = dayByDate.get(d);
+              return !row || !row.firstPunchAt;
+            })
+            .slice(-31);
           if (staleDates.length > 0) {
             await Promise.all(
               staleDates.map(d => hrService.recalculateTimesheetDay(bankEmp, d, p).catch(() => null)),

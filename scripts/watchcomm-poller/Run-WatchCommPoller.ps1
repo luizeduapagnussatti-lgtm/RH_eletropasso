@@ -110,30 +110,8 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 function Send-Ingest([object]$Config, [array]$Punches) {
   if (-not $Punches -or $Punches.Count -eq 0) {
-    return [pscustomobject]@{ success = $true; inserted = 0; upserted = 0 }
+    return [pscustomobject]@{ success = $true; inserted = 0; upserted = 0; duplicates = 0 }
   }
-  $payload = @{
-    organizationId = $Config.organizationId
-    deviceSerial   = $Config.deviceSerial
-    punches        = @(
-      $Punches | ForEach-Object {
-        @{
-          employeeId = $_.employeeId
-          punchedAt  = $_.punchedAt
-          direction  = $(if ($_.direction) { $_.direction } else { 'UNKNOWN' })
-          source     = 'CLOCK'
-          deviceId   = $Config.deviceSerial
-          nsr        = $_.nsr
-          raw        = @{
-            agent  = 'watchcomm-poller'
-            origin = 'watchcomm-tcp'
-            detail = $_.raw
-          }
-        }
-      }
-    )
-  }
-  $body = $payload | ConvertTo-Json -Depth 8 -Compress
   $headers = @{
     'Content-Type' = 'application/json'
     'x-ingest-key' = $Config.ingestApiKey
@@ -141,7 +119,40 @@ function Send-Ingest([object]$Config, [array]$Punches) {
   $timeout = [int](Get-ConfigValue $Config 'timeoutSeconds' 30)
   if ($timeout -lt 15) { $timeout = 15 }
   Ensure-TrustAllCerts
-  return Invoke-RestMethod -Uri $Config.ingestUrl -Method Post -Headers $headers -Body $body -TimeoutSec $timeout
+
+  $inserted = 0
+  $duplicates = 0
+  $chunkSize = 100
+  for ($offset = 0; $offset -lt $Punches.Count; $offset += $chunkSize) {
+    $take = [Math]::Min($chunkSize, $Punches.Count - $offset)
+    $chunk = @($Punches[$offset..($offset + $take - 1)])
+    $payload = @{
+      organizationId = $Config.organizationId
+      deviceSerial   = $Config.deviceSerial
+      punches        = @(
+        $chunk | ForEach-Object {
+          @{
+            employeeId = $_.employeeId
+            punchedAt  = $_.punchedAt
+            direction  = $(if ($_.direction) { $_.direction } else { 'UNKNOWN' })
+            source     = 'CLOCK'
+            deviceId   = $Config.deviceSerial
+            nsr        = $_.nsr
+            raw        = @{
+              agent  = 'watchcomm-poller'
+              origin = 'watchcomm-tcp'
+              detail = $_.raw
+            }
+          }
+        }
+      )
+    }
+    $body = $payload | ConvertTo-Json -Depth 8 -Compress
+    $resp = Invoke-RestMethod -Uri $Config.ingestUrl -Method Post -Headers $headers -Body $body -TimeoutSec $timeout
+    if ($null -ne $resp.inserted) { $inserted += [int]$resp.inserted }
+    if ($null -ne $resp.duplicates) { $duplicates += [int]$resp.duplicates }
+  }
+  return [pscustomobject]@{ success = $true; inserted = $inserted; upserted = $duplicates; duplicates = $duplicates }
 }
 
 if (-not (Test-Path -LiteralPath $ConfigPath)) {
@@ -186,10 +197,10 @@ $startNsrNum = if ($state.lastNsr -gt 0) { $state.lastNsr + 1 } else { 1 }
 $startNsr = $startNsrNum.ToString('0000000000')
 
 $outJson = Join-Path $logDir ('collect-{0}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-$maxBatches = [int](Get-ConfigValue $Config 'maxBatchesPerCycle' 80)
-if ($maxBatches -le 0) { $maxBatches = 80 }
-$maxRecords = [int](Get-ConfigValue $Config 'maxRecordsPerCycle' 200)
-if ($maxRecords -le 0) { $maxRecords = 200 }
+$maxBatches = [int](Get-ConfigValue $Config 'maxBatchesPerCycle' 250)
+if ($maxBatches -le 0) { $maxBatches = 250 }
+$maxRecords = [int](Get-ConfigValue $Config 'maxRecordsPerCycle' 250)
+if ($maxRecords -le 0) { $maxRecords = 250 }
 $forwardEnabled = [bool](Get-ConfigValue $Config 'forwardEnabled' $true)
 
 Write-Log ("cycle start startNsr={0} bootstrap={1} forward={2}" -f $startNsr, $doBootstrap, $forwardEnabled)
@@ -346,10 +357,20 @@ if ($inserted -gt 0) {
     $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
     $runner = Join-Path $repoRoot 'scripts\Run-RecalcQueue.ps1'
     if (Test-Path -LiteralPath $runner) {
-      Start-Process -FilePath 'powershell.exe' `
-        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $runner) `
-        -WindowStyle Hidden | Out-Null
-      Write-Log 'recalc-queue drain disparado (best-effort)'
+      # Must Wait: fire-and-forget was killed when the poller/task exited,
+      # leaving timesheet_days stuck at the last drained date (e.g. 12/08).
+      $pwsh = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+      if (-not (Test-Path -LiteralPath $pwsh)) { $pwsh = 'powershell.exe' }
+      $drain = Start-Process -FilePath $pwsh -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $runner,
+        '-Limit', '500', '-LogDir', $logDir
+      ) -Wait -PassThru -NoNewWindow
+      $drainExit = if ($null -eq $drain.ExitCode) { -1 } else { [int]$drain.ExitCode }
+      if ($drainExit -eq 0) {
+        Write-Log 'recalc-queue drain OK'
+      } else {
+        Write-Log ("recalc-queue drain exit={0}" -f $drainExit) 'WARN'
+      }
     }
   } catch {
     Write-Log ("recalc-queue drain nao disparado: {0}" -f $_.Exception.Message) 'WARN'

@@ -221,6 +221,7 @@ Deno.serve(async (req: Request) => {
     if (requiresClockAdmission(role, employmentType)) {
       clockCredential = await allocateClockCredentialForOrg();
     }
+    // PJ / non-punching roles: never store a clock credential (PIS is separate).
 
     // Free corporate email held by a soft-discharged (INACTIVE) account so it
     // can be reassigned (e.g. financeiro@ after a demissão).

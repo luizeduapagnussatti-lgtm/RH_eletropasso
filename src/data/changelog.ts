@@ -76,6 +76,16 @@ export const changelog: ChangelogRelease[] = [
         description:
           'Recálculo do espelho deixa de depender da tarefa agendada RH-RecalcQueue (a cada 10 min). Roda no fim de cada coleta de batidas (botão Coletar e segunda 09:00).',
       },
+      {
+        type: 'fix',
+        description:
+          'Credencial do relógio: Victor voltou para 98 e Henrique para 99 (Victor estava com 011111111116 inválido e Henrique herdara o 98). Biometria no PrintPoint precisa seguir esses números curtos.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Credencial do relógio só o sistema atribui (cadastro novo CLT); operadores não editam. PIS ≠ credencial. PJ e contas sem ponto ficam sem credencial (Anelise limpa).',
+      },
     ],
   },
   {

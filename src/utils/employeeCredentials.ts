@@ -43,12 +43,15 @@ export function validateClockCredential(
   return { ok: true };
 }
 
-/** Prefer explicit clock credential; fall back to PIS for legacy rows only. */
+/**
+ * PrintPoint credential only — never fall back to PIS.
+ * PIS (employee_id) is payroll/eSocial; credential is the short keypad ID (91/92).
+ */
 export function resolveClockCredential(
   clockCredential?: string | null,
-  pis?: string | null
+  _pis?: string | null
 ): string {
-  return normalizeClockCredential(clockCredential) || normalizePis(pis);
+  return normalizeClockCredential(clockCredential);
 }
 
 /**
@@ -106,17 +109,15 @@ export function formatClockCredentialDisplay(value: string | null | undefined): 
   return trimmed.length <= 4 ? trimmed : n;
 }
 
-/** Payload for WatchComm AddEmployee: 12-digit PIS + short keypad credential. */
+/** Payload for WatchComm AddEmployee: 12-digit PIS + short keypad credential (never PIS as credential). */
 export function toWatchCommSendEmployee(input: {
   name: string;
   employeeId?: string | null;
   clockCredential?: string | null;
 }): { pis: string; name: string; credential: string } | null {
   const pis = normalizePis(input.employeeId);
-  if (!pis) return null;
-  const credential =
-    clockCredentialSignificantDigits(input.clockCredential) ||
-    clockCredentialSignificantDigits(pis);
+  const credential = clockCredentialSignificantDigits(input.clockCredential);
+  if (!pis || !credential) return null;
   return {
     pis,
     name: String(input.name || '').trim(),

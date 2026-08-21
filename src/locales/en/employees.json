@@ -368,11 +368,10 @@
     "simpleDischargeTitle": "Discharge account (no clock)",
     "simpleDischargeHint": "{{name}} ({{role}}) does not use the time clock. Discharge marks the account inactive and sets the termination date — HR history is kept."
   },
-  "clockCredential": "Clock credential (ID/badge)",
-  "clockCredentialPlaceholder": "e.g. 20 (short clock ID)",
-  "clockCredentialHint": "Number PrintPoint accepts for functions 91/92. Do not type the PIS on the clock keypad.",
-  "clockCredentialAuto": "Assigned on save",
-  "clockCredentialAutoHint": "The system assigns the next free ID from existing credentials. Use that number on the clock (function 91) when enrolling fingerprints.",
-  "clockCredentialPreview": "Preview: {{id}} (confirmed on save)",
-  "clockCredentialNotApplicable": "Not applicable (no time clock)"
-}
+  "clockCredential": "Clock credential",
+  "clockCredentialPlaceholder": "Assigned by the system",
+  "clockCredentialHint": "Short PrintPoint ID (e.g. 98). Not the PIS. Operators cannot edit — the system assigns it.",
+  "clockCredentialAuto": "Assigned automatically on save",
+  "clockCredentialAutoHint": "The system assigns the next free number (96, 97, 98…). Use it in clock function 91. PIS stays in Official ID.",
+  "clockCredentialPreview": "Preview: {{id}} (confirmed on save — not editable)",
+  "clockCredentialNotApplicable": "Not applicable (contractor / no clock — no credential)",

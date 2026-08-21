@@ -11,13 +11,19 @@
 [CmdletBinding()]
 param(
   [int]$Limit = 500,
-  [string]$LogDir = (Join-Path $PSScriptRoot 'watchcomm-poller\logs')
+  [string]$LogDir = '',
+  [string]$MinDate = ''
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+# $PSScriptRoot is empty in param() defaults when launched via Start-Process -File.
+$scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $scriptDir '..'))
+if (-not $LogDir) {
+  $LogDir = Join-Path $scriptDir 'watchcomm-poller\logs'
+}
 if (-not (Test-Path -LiteralPath $LogDir)) {
   New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 }
@@ -30,14 +36,42 @@ function Write-Log([string]$Message) {
 }
 
 try {
-  Write-Log ("drain start limit={0} repo={1}" -f $Limit, $repoRoot)
+  Write-Log ("drain start limit={0} minDate={1} repo={2}" -f $Limit, $(if ($MinDate) { $MinDate } else { '-' }), $repoRoot)
+  $node = Join-Path $env:ProgramFiles 'nodejs\node.exe'
+  if (-not (Test-Path -LiteralPath $node)) { $node = 'node.exe' }
+  $viteNode = Join-Path $repoRoot 'node_modules\vite-node\dist\cli.mjs'
+  $npxCmd = Join-Path $env:ProgramFiles 'nodejs\npx.cmd'
+  $argList = @()
+  $file = $node
+  if (Test-Path -LiteralPath $viteNode) {
+    $argList = @($viteNode, 'scripts/process-recalc-queue.mjs', "--limit=$Limit")
+  } elseif (Test-Path -LiteralPath $npxCmd) {
+    # npx.ps1 prompts and hangs under Task Scheduler; always use npx.cmd --yes.
+    $file = $npxCmd
+    $argList = @('--yes', 'vite-node', 'scripts/process-recalc-queue.mjs', "--limit=$Limit")
+  } else {
+    throw 'node/npx nao encontrado'
+  }
+  if ($MinDate) { $argList += "--min-date=$MinDate" }
+  # vite-node inlines VITE_* from .env (https://api-rh.eletropasso.local).
+  # Node rejects that self-signed cert → TypeError: fetch failed. Talk to Kong HTTP.
+  $env:VITE_SUPABASE_URL = 'http://127.0.0.1:54321'
   Push-Location $repoRoot
   try {
-    $output = & npx vite-node scripts/process-recalc-queue.mjs "--limit=$Limit" 2>&1
+    # Stream lines. Continue on native stderr so a stack trace does not abort the drain.
+    $exitCode = 0
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & $file @argList 2>&1 | ForEach-Object { Write-Log ([string]$_) }
+    $ErrorActionPreference = $prevEap
+    if ($null -ne $LASTEXITCODE) { $exitCode = [int]$LASTEXITCODE }
   } finally {
     Pop-Location
   }
-  foreach ($line in @($output)) { Write-Log ([string]$line) }
+  if ($exitCode -ne 0) {
+    Write-Log ("drain FAIL: process-recalc-queue exit={0}" -f $exitCode)
+    exit $exitCode
+  }
   Write-Log 'drain done'
   exit 0
 } catch {

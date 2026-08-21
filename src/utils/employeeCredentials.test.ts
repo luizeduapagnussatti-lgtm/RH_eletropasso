@@ -95,5 +95,10 @@ describe('employeeCredentials', () => {
       credential: '99',
     });
     assert.equal(toWatchCommSendEmployee({ name: 'X', employeeId: '' }), null);
+    // Never use PIS as keypad credential
+    assert.equal(
+      toWatchCommSendEmployee({ name: 'Y', employeeId: '026740847000', clockCredential: null }),
+      null
+    );
   });
 });

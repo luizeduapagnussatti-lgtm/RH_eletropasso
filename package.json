@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/generate-sitemap.mjs && node scripts/generate-feed.mjs",
+    "build": "node scripts/build-production.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "feed": "node scripts/generate-feed.mjs",
     "preview": "vite preview",
@@ -15,9 +15,10 @@
     "migrate:verify": "node scripts/migrate-from-pb/03-verify.mjs",
     "migrate:files": "node scripts/migrate-from-pb/04-files.mjs",
     "migrate:incremental": "node scripts/migrate-from-pb/05-incremental-attendance.mjs",
-    "seed:tutorials": "node scripts/seed-tutorials.mjs"
+    "seed:tutorials": "node scripts/seed-tutorials.mjs",
+    "test:rh": "node scripts/run-test-rh.mjs",
+    "recalc:queue": "vite-node scripts/process-recalc-queue.mjs"
   },
-
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "@types/dompurify": "^3.0.5",
@@ -45,6 +46,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-node": "^3.2.4",
     "vite-plugin-pwa": "^1.2.0"
   }
 }

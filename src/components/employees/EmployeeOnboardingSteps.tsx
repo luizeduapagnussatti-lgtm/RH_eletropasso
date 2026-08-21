@@ -1,9 +1,23 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Employee, Shift, Team } from '../../types';
-import { formatCpfDisplay, formatPisDisplay, formatClockCredentialDisplay, resolveClockCredential } from '../../utils/employeeCredentials';
+import { formatCpfDisplay, formatPisDisplay, formatClockCredentialDisplay } from '../../utils/employeeCredentials';
 import { needsClockAdmission } from '../../utils/roles';
 import { tRole } from '../../i18n/statusMaps';
+
+export function labelEmploymentType(t: (key: string) => string, type: string): string {
+  switch (String(type || '').toUpperCase()) {
+    case 'PERMANENT': return t('onboarding.permanent');
+    case 'CONTRACT': return t('onboarding.contract');
+    case 'TEMPORARY': return t('onboarding.temporary');
+    case 'PJ': return t('onboarding.pj');
+    default: return type || t('notAvailable');
+  }
+}
+
+export function labelWorkType(t: (key: string) => string, type: string): string {
+  return String(type || '').toUpperCase() === 'FIELD' ? t('onboarding.field') : t('onboarding.office');
+}
 
 export interface OnboardingFormState {
   name: string;
@@ -66,6 +80,7 @@ interface Props {
   desigs: string[];
   rolesForForm: Employee['role'][];
   mode: 'create' | 'edit';
+  credentialPreview?: string;
   onChange: (patch: Partial<OnboardingFormState>) => void;
   onPickAvatar: (file: File) => void;
 }
@@ -75,6 +90,7 @@ export const StepIdentity: React.FC<Props> = ({
   onChange,
   onPickAvatar,
   mode,
+  credentialPreview,
 }) => {
   const { t } = useTranslation('employees');
   return (
@@ -110,13 +126,35 @@ export const StepIdentity: React.FC<Props> = ({
       </label>
       <label>
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('clockCredential')}</span>
-        <input
-          className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono"
-          placeholder={t('clockCredentialPlaceholder')}
-          value={form.clockCredential}
-          onChange={e => onChange({ clockCredential: e.target.value.replace(/\D/g, '').slice(0, 12) })}
-        />
-        <p className="text-[10px] text-slate-400 mt-1">{t('clockCredentialHint')}</p>
+        {mode === 'create' ? (
+          <>
+            <input
+              readOnly
+              className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-slate-600 dark:text-slate-300"
+              value={
+                needsClockAdmission(form)
+                  ? (credentialPreview
+                    ? t('clockCredentialPreview', { id: credentialPreview })
+                    : t('clockCredentialAuto'))
+                  : t('clockCredentialNotApplicable')
+              }
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              {needsClockAdmission(form) ? t('clockCredentialAutoHint') : t('clockCredentialHint')}
+            </p>
+          </>
+        ) : (
+          <>
+            <input
+              readOnly
+              className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-slate-600 dark:text-slate-300"
+              value={
+                formatClockCredentialDisplay(form.clockCredential) || t('clockCredentialNotApplicable')
+              }
+            />
+            <p className="text-[10px] text-slate-400 mt-1">{t('clockCredentialHint')}</p>
+          </>
+        )}
       </label>
       {needsClockAdmission(form) && (
         <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 px-4 py-3 cursor-pointer">
@@ -339,7 +377,7 @@ export const StepAccess: React.FC<Props & { showPassword: boolean; onTogglePassw
             placeholder={mode === 'edit' ? t('leaveBlankPassword') : t('setLoginPassword')}
           />
           <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" onClick={onTogglePassword}>
-            {showPassword ? 'Hide' : 'Show'}
+            {showPassword ? t('hidePassword', { ns: 'auth' }) : t('showPassword', { ns: 'auth' })}
           </button>
         </div>
       </label>
@@ -360,36 +398,52 @@ export const StepAccess: React.FC<Props & { showPassword: boolean; onTogglePassw
   );
 };
 
-export const StepReview: React.FC<{ form: OnboardingFormState; teams: Team[]; shifts: Shift[] }> = ({
+export const StepReview: React.FC<{
+  form: OnboardingFormState;
+  teams: Team[];
+  shifts: Shift[];
+  employees?: Employee[];
+  mode: 'create' | 'edit';
+  credentialPreview?: string;
+}> = ({
   form,
   teams,
   shifts,
+  employees = [],
+  mode,
+  credentialPreview,
 }) => {
   const { t } = useTranslation('employees');
   const team = teams.find(x => x.id === form.teamId);
   const shift = shifts.find(x => x.id === form.shiftId);
+  const manager = employees.find(x => x.id === form.lineManagerId);
+  const credentialDisplay = !needsClockAdmission(form)
+    ? t('clockCredentialNotApplicable')
+    : mode === 'create'
+      ? (credentialPreview
+        ? t('clockCredentialPreview', { id: credentialPreview })
+        : t('clockCredentialAuto'))
+      : (formatClockCredentialDisplay(form.clockCredential) || t('notAvailable'));
   const rows = [
     [t('onboarding.fullName'), form.name],
-    [t('officialEmployeeId'), formatPisDisplay(form.employeeId) || t('notAvailable')],
-    [
-      t('clockCredential'),
-      formatClockCredentialDisplay(
-        resolveClockCredential(form.clockCredential, form.employeeId)
-      ) || t('notAvailable'),
-    ],
-    ...(needsClockAdmission(form)
-      ? [[
-          t('clockBiometricRegistered'),
-          form.clockBiometricRegistered ? t('clockBiometricOk') : t('clockBiometricPending'),
-        ] as [string, string]]
-      : []),
     [t('onboarding.cpf'), form.cpf ? formatCpfDisplay(form.cpf) : t('notAvailable')],
+    [t('officialEmployeeId'), formatPisDisplay(form.employeeId) || t('notAvailable')],
+    [t('clockCredential'), credentialDisplay],
+    [t('joiningDate'), form.joiningDate || t('notAvailable')],
+    [t('onboarding.mobile'), form.mobile || t('notAvailable')],
+    [t('onboarding.whatsappOptInShort'), form.whatsappOptIn ? t('yes', { ns: 'common' }) : t('no', { ns: 'common' })],
+    [t('onboarding.emergencyContact'), form.emergencyContact || t('notAvailable')],
+    [t('onboarding.employmentType'), labelEmploymentType(t, form.employmentType)],
+    [t('workType'), labelWorkType(t, form.workType)],
+    [t('onboarding.location'), form.location || t('notAvailable')],
     [t('department'), form.department || t('unassigned')],
     [t('designation'), form.designation || t('unassigned')],
     [t('assignedTeam'), team?.name || t('noTeamAssigned')],
+    [t('lineManager'), manager?.name || t('notAvailable')],
     [t('assignedShift'), shift?.name || t('noShiftAssigned')],
     [t('workEmail'), form.email],
     [t('accessLevel'), tRole(form.role)],
+    [t('status'), t(form.status === 'ACTIVE' ? 'active' : 'inactive')],
   ];
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">

@@ -27,35 +27,41 @@ function loadDmprepEnv() {
 
 const dmprep = loadDmprepEnv();
 const fileEnv = loadEnv('development', process.cwd(), '');
+// Prefer the local stack on this host. User/CI VITE_* can point at a cloud
+// project that Node cannot reach, which left timesheet_days stuck.
 const SUPABASE_URL =
+  dmprep.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
   fileEnv.VITE_SUPABASE_URL ||
-  dmprep.SUPABASE_URL ||
   'http://127.0.0.1:54321';
 const ANON_KEY =
   process.env.VITE_SUPABASE_ANON_KEY ||
   fileEnv.VITE_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NjM4MDExMzAsImV4cCI6MTk3OTM3NzEzMH0.fT5YV8mJ_4h5xK9zqP0nR2sT6uVwXyZaBcDeFgHiJkL';
 const SERVICE_KEY =
+  dmprep.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   fileEnv.SUPABASE_SERVICE_ROLE_KEY ||
-  dmprep.SUPABASE_SERVICE_ROLE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
 
 const limit = Number((process.argv.find(a => a.startsWith('--limit=')) || '').slice('--limit='.length)) || 500;
 const maxAttempts = Number((process.argv.find(a => a.startsWith('--max-attempts=')) || '').slice('--max-attempts='.length)) || 5;
+const minDate = (process.argv.find(a => a.startsWith('--min-date=')) || '').slice('--min-date='.length) || '';
 
 process.env.VITE_SUPABASE_URL = SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = ANON_KEY;
 
 const adminSb = createClient(SUPABASE_URL, SERVICE_KEY);
+console.log(`supabase_url ${SUPABASE_URL}`);
 
-const { data: pending, error: qErr } = await adminSb
+let q = adminSb
   .from('timesheet_recalc_queue')
   .select('*')
   .in('status', ['PENDING', 'FAILED'])
-  .lt('attempts', maxAttempts)
-  .order('created', { ascending: true })
+  .lt('attempts', maxAttempts);
+if (minDate) q = q.gte('work_date', minDate);
+const { data: pending, error: qErr } = await q
+  .order('work_date', { ascending: false })
   .limit(limit);
 
 if (qErr) {
@@ -67,8 +73,7 @@ if (!pending || pending.length === 0) {
   process.exit(0);
 }
 
-console.log(`supabase_url ${SUPABASE_URL}`);
-console.log(`Itens a processar: ${pending.length}`);
+console.log(`Itens a processar: ${pending.length}${minDate ? ` min-date=${minDate}` : ''}`);
 
 // Auth as an org admin so the service writes pass RLS (ADMIN/HR only).
 const authSb = createClient(SUPABASE_URL, ANON_KEY);
@@ -99,6 +104,7 @@ for (const job of pending) {
     .update({ status: 'PROCESSING', updated: new Date().toISOString() })
     .eq('id', job.id);
   try {
+    console.log(`recalc ${job.work_date} ${job.employee_id}`);
     await timesheetService.recalculateDay(job.employee_id, job.work_date);
     await adminSb
       .from('timesheet_recalc_queue')
