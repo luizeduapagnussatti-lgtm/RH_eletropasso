@@ -40,7 +40,8 @@ import {
   periodBoundsForCompetence,
   todayIsoLocal,
 } from '../utils/payrollPeriod';
-import { isPayrollExcluded, isTimesheetExempt } from '../utils/roles';
+import { isTimesheetExempt } from '../utils/roles';
+import { isActiveClockStaffInCompetence } from '../utils/timesheetScope';
 import { convertToWebP } from '../utils/imageConvert';
 import { DEFAULT_PTRP_POLICY } from '../constants';
 
@@ -878,9 +879,13 @@ export const timesheetService = {
       throw new Error('adjustRemarksRequired');
     }
 
+    const { data: authData } = await supabase.auth.getUser();
+    const actorId = authData.user?.id;
+
     const audit = {
       remarks: trimmed,
       editedAt: new Date().toISOString(),
+      ...(actorId ? { editedBy: actorId } : {}),
     };
 
     const { error: patchErr } = await supabase
@@ -1123,8 +1128,19 @@ export const timesheetService = {
     openCount: number;
     canLock: boolean;
   }> {
-    const employees = (await employeeService.getEmployees()).filter(
-      e => !isPayrollExcluded(e),
+    const { data: periodRow, error: periodErr } = await supabase
+      .from('timesheet_periods')
+      .select('*')
+      .eq('id', periodId)
+      .maybeSingle();
+    if (periodErr) throw periodErr;
+    if (!periodRow) {
+      return { totalEmployees: 0, approvedCount: 0, inReviewCount: 0, openCount: 0, canLock: false };
+    }
+    const period = mapPeriod(periodRow);
+
+    const employees = (await employeeService.getEmployees()).filter(e =>
+      isActiveClockStaffInCompetence(e, period),
     );
     const reviews = await this.listEmployeeReviews(periodId);
     const reviewByKey = new Map<string, TimesheetEmployeeReview>();

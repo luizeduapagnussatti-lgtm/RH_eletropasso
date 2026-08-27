@@ -31,6 +31,7 @@ import {
   ArrowRight,
   History,
   Unlink2,
+  CalendarDays,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import { organizationService } from '../services/organization.service';
@@ -52,6 +53,8 @@ import {
 } from '../components/employees/DmprepLifecycleModal';
 import { ClockBiometricBadge, ClockStatusBadge } from '../components/employees/ClockOnboardingPanel';
 import { formatIsoDateBr } from '../i18n/format';
+import { competenceForDate } from '../utils/payrollPeriod';
+import { DEFAULT_PTRP_POLICY } from '../constants';
 import {
   applyStandardTable,
   createPdfDocument,
@@ -101,7 +104,7 @@ function displayHistoryEmail(email?: string | null): string {
 
 interface EmployeeDirectoryProps {
   user: User;
-  onNavigate?: (path: string, params?: { employeeId?: string }) => void;
+  onNavigate?: (path: string, params?: { employeeId?: string; year?: number; month?: number }) => void;
 }
 
 const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate }) => {
@@ -893,6 +896,28 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                                 {t('releaseCorporateEmail')}
                               </button>
                             )}
+                            {onNavigate && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const iso = emp.terminationDate;
+                                  let ref = new Date();
+                                  if (iso) {
+                                    const parts = iso.split('-').map(Number);
+                                    if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+                                      ref = new Date(parts[0], parts[1] - 1, parts[2]);
+                                    }
+                                  }
+                                  const c = competenceForDate(ref, DEFAULT_PTRP_POLICY.periodStartDay);
+                                  onNavigate('timesheet', { employeeId: emp.id, year: c.year, month: c.month });
+                                }}
+                                className="min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-primary hover:bg-primary-light/40"
+                                title={t('historyOpenTimesheet')}
+                                aria-label={t('historyOpenTimesheet')}
+                              >
+                                <CalendarDays size={16} />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -1297,7 +1322,9 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                     value={formState.terminationDate || ''}
                     onChange={e => setFormState({ ...formState, terminationDate: e.target.value })}
                   />
-                  <p className="text-[10px] text-slate-400 px-1">{t('terminationDateHint')}</p>
+                  <p className="text-[10px] text-slate-400 px-1">
+                    {editingId ? t('terminationDateHistoryHint') : t('terminationDateHint')}
+                  </p>
                 </div>
               </div>
 

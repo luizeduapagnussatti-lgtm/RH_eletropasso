@@ -25,6 +25,8 @@ export interface DmprepLifecyclePanelProps {
   onConfirm?: () => void | Promise<void>;
   /** Extra block below the guide (e.g. ClockOnboardingPanel on admission page). */
   children?: React.ReactNode;
+  /** Discharge: disable Confirm even when checklist is complete (e.g. timesheet not closed). */
+  confirmDisabled?: boolean;
 }
 
 function stepCount(type: DmprepLifecycleType): number {
@@ -39,6 +41,7 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
   onCancel,
   onConfirm,
   children,
+  confirmDisabled = false,
 }) => {
   const { t } = useTranslation('employees');
   const { showToast } = useToast();
@@ -139,7 +142,7 @@ export const DmprepLifecyclePanel: React.FC<DmprepLifecyclePanelProps> = ({
           <button
             type="button"
             onClick={() => void handleConfirm()}
-            disabled={!allChecked || confirming}
+            disabled={!allChecked || confirming || confirmDisabled}
             className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50"
           >
             {confirming ? t('dmprepChecklist.confirming') : t('dmprepChecklist.confirmDischarge')}

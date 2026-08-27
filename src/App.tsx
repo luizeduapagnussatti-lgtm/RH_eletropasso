@@ -468,7 +468,15 @@ const AppContent: React.FC = () => {
         }
         return <AttendanceLogs user={user} viewMode="MY" />;
       case 'attendance-audit': return <AttendanceLogs user={user} viewMode="AUDIT" />;
-      case 'timesheet': return <Timesheet user={user} onNavigate={handleNavigate} />;
+      case 'timesheet': return (
+        <Timesheet
+          user={user}
+          onNavigate={handleNavigate}
+          initialEmployeeId={navParams?.employeeId}
+          initialYear={navParams?.year}
+          initialMonth={navParams?.month}
+        />
+      );
       case 'my-timesheet':
         if (isPjContractor(user)) {
           return <MyRoster user={user} onNavigate={handleNavigate} />;

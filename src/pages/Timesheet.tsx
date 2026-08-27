@@ -5,11 +5,11 @@ import {
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
 import {
-  Employee, Holiday, LeaveRequest, Punch, Shift, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User,
+  Employee, Holiday, LeaveRequest, Punch, Shift, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User, WorkRosterAssignment,
 } from '../types';
 import { useToast } from '../context/ToastContext';
 import HelpButton from '../components/onboarding/HelpButton';
-import { TimesheetMirrorGrid } from '../components/timesheet/TimesheetMirrorGrid';
+import { TimesheetMirrorGrid, dayStatusBadgeClass } from '../components/timesheet/TimesheetMirrorGrid';
 import { TimesheetAdjustModal, type DayCalcContextProps } from '../components/timesheet/TimesheetAdjustModal';
 import TimesheetReviewModal from '../components/timesheet/TimesheetReviewModal';
 import TimesheetReviewSummaryPanel, { ReviewRow } from '../components/timesheet/TimesheetReviewSummaryPanel';
@@ -19,7 +19,7 @@ import { competenceForDate, eachDateInRange, todayIsoLocal } from '../utils/payr
 import { DEFAULT_PTRP_POLICY } from '../constants';
 import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
 import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
-import { isTimesheetExempt } from '../utils/roles';
+import { clockStaffInCompetence, isDutyDayNeedingAck } from '../utils/timesheetScope';
 import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
@@ -31,6 +31,8 @@ import {
   TimesheetAckValidationError,
 } from '../utils/timesheetDayAckValidation';
 import { buildDayCoherenceContext } from '../utils/timesheetDayCoherence';
+import { minutesToDisplay, minutesToHm } from '../utils/durationHm';
+import { rosterStatusFromAssignments } from '../services/roster.service';
 
 function punchesForTimesheetDay(day: TimesheetDay, all: Punch[]): Punch[] {
   return all.filter(
@@ -38,19 +40,38 @@ function punchesForTimesheetDay(day: TimesheetDay, all: Punch[]): Punch[] {
   );
 }
 
+/** Inclusive day range: ALL/ALL = no filter; swap if from > to. */
+function isoInDayRange(iso: string, from: string, to: string): boolean {
+  let start = from;
+  let end = to;
+  if (start !== 'ALL' && end !== 'ALL' && start > end) {
+    const tmp = start;
+    start = end;
+    end = tmp;
+  }
+  if (start !== 'ALL' && iso < start) return false;
+  if (end !== 'ALL' && iso > end) return false;
+  return true;
+}
+
 interface Props {
   user: User;
   onNavigate?: (path: string, params?: any) => void;
+  initialEmployeeId?: string;
+  initialYear?: number;
+  initialMonth?: number;
 }
 
 type TimesheetViewMode = 'summary' | 'mirror';
 type ReviewModalMode = 'submit' | 'approve' | 'lock';
 
-function fmtMinutes(mins: number, t: (k: string, o?: object) => string) {
-  const h = Math.floor(Math.abs(mins) / 60);
-  const m = Math.abs(mins) % 60;
-  const sign = mins < 0 ? '-' : '';
-  return `${sign}${t('hoursShort', { h, m })}`;
+function fmtMinutes(mins: number) {
+  return minutesToDisplay(mins);
+}
+
+function fmtSignedMinutes(mins: number) {
+  const base = minutesToHm(mins);
+  return mins > 0 ? `+${base}` : base;
 }
 
 const statusLabelKey: Record<TimesheetPeriodStatus, string> = {
@@ -78,22 +99,24 @@ const dayStatusKey: Record<string, string> = {
   OFF: 'dayStatus_OFF',
 };
 
-const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
+const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initialYear, initialMonth }) => {
   const { t } = useTranslation('ptrp');
   const { showToast } = useToast();
   const isHr = user.role === 'ADMIN' || user.role === 'HR';
   const isManager = user.role === 'MANAGER' || isHr;
 
   const initialCompetence = competenceForDate(new Date(), DEFAULT_PTRP_POLICY.periodStartDay);
-  const [year, setYear] = useState(initialCompetence.year);
-  const [month, setMonth] = useState(initialCompetence.month);
-  const [dayFilter, setDayFilter] = useState('ALL');
+  const [year, setYear] = useState(initialYear ?? initialCompetence.year);
+  const [month, setMonth] = useState(initialMonth ?? initialCompetence.month);
+  const [dayFrom, setDayFrom] = useState('ALL');
+  const [dayTo, setDayTo] = useState('ALL');
   const [period, setPeriod] = useState<TimesheetPeriod | null>(null);
   const [days, setDays] = useState<TimesheetDay[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [rosterAssignments, setRosterAssignments] = useState<WorkRosterAssignment[]>([]);
   /** Managers/HR start with no employee selected — data loads only after Apply. */
   const [employeeFilter, setEmployeeFilter] = useState(
     isHr || isManager ? '' : user.id
@@ -117,6 +140,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const [selectedDayIds, setSelectedDayIds] = useState<string[]>([]);
   const [isBulkAck, setIsBulkAck] = useState(false);
   const [viewMode, setViewMode] = useState<TimesheetViewMode>('summary');
+  /** Hour-bank rail: closed by default so the table keeps full width (UI-only). */
+  const [hourBankOpen, setHourBankOpen] = useState(false);
   const [employeeReviews, setEmployeeReviews] = useState<TimesheetEmployeeReview[]>([]);
   const [reviewModal, setReviewModal] = useState<ReviewModalMode | null>(null);
   const [lockReadiness, setLockReadiness] = useState<Awaited<
@@ -127,6 +152,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const [focusedEmployeeId, setFocusedEmployeeId] = useState<string | null>(null);
   const focusedEmployeeIdRef = useRef<string | null>(null);
   focusedEmployeeIdRef.current = focusedEmployeeId;
+  const [staffScope, setStaffScope] = useState<'active' | 'dismissed'>('active');
+  const openedInitialEmployee = useRef(false);
 
   const locked = period?.status === 'LOCKED';
   const mustPickEmployee = isHr || isManager;
@@ -135,6 +162,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const clearResults = useCallback(() => {
     setDays([]);
     setPunches([]);
+    setRosterAssignments([]);
     setBankEntries([]);
     setBankBalance(0);
     setSelectedDayIds([]);
@@ -154,14 +182,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         hrService.getEmployees(),
         hrService.getOrCreateTimesheetPeriod(year, month),
       ]);
-      // Anyone who punches / must appear in the mirror (includes HR).
-      // Exclude system/admin accounts and people fully outside this competence.
-      const staff = emps.filter(
-        e =>
-          !isTimesheetExempt(e) &&
-          !(e.joiningDate && e.joiningDate > p.endDate) &&
-          !(e.terminationDate && e.terminationDate < p.startDate),
-      );
+      const staff = clockStaffInCompetence(emps, p);
       setEmployees(staff);
       setPeriod(p);
 
@@ -187,6 +208,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
 
       const start = p.startDate;
       const end = p.endDate;
+      const rosterList = await hrService.listRosterAssignments(start, end).catch(() => [] as WorkRosterAssignment[]);
+      setRosterAssignments(rosterList);
 
       if (activeEmployee === 'ALL') {
         // Org-wide punches; hour bank only for focused row (not the logged-in viewer).
@@ -283,14 +306,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           hrService.getLeaves().catch(() => [] as LeaveRequest[]),
         ]);
         if (cancelled) return;
-        setEmployees(
-          emps.filter(
-            e =>
-              !isTimesheetExempt(e) &&
-              !(e.joiningDate && e.joiningDate > p.endDate) &&
-              !(e.terminationDate && e.terminationDate < p.startDate),
-          ),
-        );
+        setEmployees(clockStaffInCompetence(emps, p));
         setPeriod(p);
         setShifts(shiftList);
         setHolidays(holidayList);
@@ -303,6 +319,17 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     })();
     return () => { cancelled = true; };
   }, [year, month]);
+
+  useEffect(() => {
+    if (openedInitialEmployee.current || isBootstrapping || !initialEmployeeId) return;
+    const emp = employees.find(e => e.id === initialEmployeeId || e.employeeId === initialEmployeeId);
+    if (!emp && employees.length === 0) return;
+    openedInitialEmployee.current = true;
+    if (emp?.status === 'INACTIVE') setStaffScope('dismissed');
+    const id = emp?.id || initialEmployeeId;
+    setEmployeeFilter(id);
+    void load(id);
+  }, [isBootstrapping, employees, initialEmployeeId, load]);
 
   /** Employees see their own mirror immediately; managers wait for Apply. */
   useEffect(() => {
@@ -323,7 +350,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   const filtersPrimed = useRef(false);
   const skipNextFilterClear = useRef(false);
   useEffect(() => {
-    setDayFilter('ALL');
+    setDayFrom('ALL');
+    setDayTo('ALL');
     setSelectedDayIds([]);
     if (!filtersPrimed.current) {
       filtersPrimed.current = true;
@@ -358,24 +386,39 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
     return [current - 1, current, current + 1];
   }, []);
 
+  const visibleStaff = useMemo(() => {
+    return employees.filter(e => {
+      if (!(isHr || e.lineManagerId === user.id || e.id === user.id)) return false;
+      if (staffScope === 'dismissed') return e.status === 'INACTIVE';
+      return e.status !== 'INACTIVE';
+    });
+  }, [employees, staffScope, isHr, user.id]);
+
   const elapsedDays = useMemo(() => {
     const today = todayIsoLocal();
     return days.filter(d => d.workDate <= today);
   }, [days]);
 
   const visibleDays = useMemo(() => {
-    const base = dayFilter === 'ALL' ? elapsedDays : elapsedDays.filter(d => d.workDate === dayFilter);
+    const base =
+      dayFrom === 'ALL' && dayTo === 'ALL'
+        ? elapsedDays
+        : elapsedDays.filter(d => isoInDayRange(d.workDate, dayFrom, dayTo));
     if (employeeFilter !== 'ALL') return base;
     const nameOf = (id: string) => {
       const e = employees.find(x => x.id === id || x.employeeId === id);
       return e?.name || id;
     };
-    return [...base].sort((a, b) => {
+    return [...base]
+      .filter(d =>
+        visibleStaff.some(e => e.id === d.employeeId || e.employeeId === d.employeeId),
+      )
+      .sort((a, b) => {
       const byDate = a.workDate.localeCompare(b.workDate);
       if (byDate !== 0) return byDate;
       return nameOf(a.employeeId).localeCompare(nameOf(b.employeeId), 'pt-BR');
     });
-  }, [elapsedDays, dayFilter, employeeFilter, employees]);
+  }, [elapsedDays, dayFrom, dayTo, employeeFilter, employees, visibleStaff]);
 
   /** Employee key driving the hour-bank / period-hours rail. */
   const railEmployeeKey = useMemo(() => {
@@ -455,10 +498,20 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
   }, [focusedEmployeeId, employeeFilter, hasQuery, period, employees]);
 
   useEffect(() => {
-    if (dayFilter !== 'ALL' && dayFilter > todayIsoLocal()) {
-      setDayFilter('ALL');
+    const today = todayIsoLocal();
+    if (dayFrom !== 'ALL' && dayFrom > today) setDayFrom('ALL');
+    if (dayTo !== 'ALL' && dayTo > today) setDayTo('ALL');
+  }, [dayFrom, dayTo, period?.endDate]);
+
+  const rosterByDate = useMemo(() => {
+    const map = new Map<string, WorkRosterAssignment[]>();
+    for (const row of rosterAssignments) {
+      const list = map.get(row.workDate) ?? [];
+      list.push(row);
+      map.set(row.workDate, list);
     }
-  }, [dayFilter, period?.endDate]);
+    return map;
+  }, [rosterAssignments]);
 
   const coherenceCtxByEmpDate = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildDayCoherenceContext>>();
@@ -470,13 +523,20 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         shifts.find(s => s.id === day.shiftId) ||
         shifts.find(s => s.id === emp?.shiftId) ||
         null;
+      const employeeKeys = [emp?.id, emp?.employeeId, day.employeeId].filter(
+        (k): k is string => !!k,
+      );
+      const rosterStatus = rosterStatusFromAssignments(
+        rosterByDate.get(day.workDate) ?? [],
+        employeeKeys,
+      );
       map.set(
         buildPunchMapKey(day.employeeId, day.workDate),
-        buildDayCoherenceContext(day, { shift, holidays, leaves, employee: emp }),
+        buildDayCoherenceContext(day, { shift, holidays, leaves, employee: emp, rosterStatus }),
       );
     }
     return map;
-  }, [days, employees, shifts, holidays, leaves]);
+  }, [days, employees, shifts, holidays, leaves, rosterByDate]);
 
   const coherenceCtxForDay = useCallback(
     (day: TimesheetDay) => coherenceCtxByEmpDate.get(buildPunchMapKey(day.employeeId, day.workDate)),
@@ -638,7 +698,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
 
   useEffect(() => {
     setSelectedDayIds([]);
-  }, [dayFilter]);
+  }, [dayFrom, dayTo]);
 
   const periodSummary = useMemo(() => {
     if (!period) return '';
@@ -655,8 +715,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
 
   const visiblePunches = useMemo(() => {
     let list = punches;
-    if (dayFilter !== 'ALL') {
-      list = list.filter(p => p.punchedAt.slice(0, 10) === dayFilter);
+    if (dayFrom !== 'ALL' || dayTo !== 'ALL') {
+      list = list.filter(p => isoInDayRange(p.punchedAt.slice(0, 10), dayFrom, dayTo));
     }
     if (employeeFilter === 'ALL') {
       if (!focusedEmployeeId) return [];
@@ -667,7 +727,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       list = list.filter(p => keys.has(p.employeeId));
     }
     return list;
-  }, [punches, dayFilter, employeeFilter, focusedEmployeeId, employees]);
+  }, [punches, dayFrom, dayTo, employeeFilter, focusedEmployeeId, employees]);
 
   const matchesFocusedEmployee = useCallback(
     (dayEmpId: string) => {
@@ -745,7 +805,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       reviewByKey.set(r.employeeId, r);
       if (r.profileId) reviewByKey.set(r.profileId, r);
     }
-    return employees.map(employee => {
+    return visibleStaff.map(employee => {
       const punchKey = employee.employeeId || employee.id;
       const review =
         reviewByKey.get(punchKey) ||
@@ -763,10 +823,10 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         employee,
         review,
         employeeDays,
-        pendingManagerAck: employeeDays.filter(d => !d.managerAck).length,
+        pendingManagerAck: employeeDays.filter(d => isDutyDayNeedingAck(d.status) && !d.managerAck).length,
       };
     });
-  }, [employeeFilter, hasQuery, employeeReviews, employees, days]);
+  }, [employeeFilter, hasQuery, employeeReviews, visibleStaff, days]);
 
   const openReviewModal = async (mode: ReviewModalMode) => {
     if (mode === 'lock') {
@@ -905,14 +965,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         colExit2: t('pdf.colExit2'),
         colWorked: t('pdf.colWorked'),
         colOvertime: t('pdf.colOvertime'),
-        colLate: t('pdf.colLate'),
         colAbsence: t('pdf.colAbsence'),
         colStatus: t('pdf.colStatus'),
         colEmployee: t('pdf.colEmployee'),
         metricExpected: t('pdf.metricExpected'),
         metricWorked: t('pdf.metricWorked'),
         metricOvertime: t('pdf.metricOvertime'),
-        metricLate: t('pdf.metricLate'),
         metricAbsence: t('pdf.metricAbsence'),
         summarySection: t('pdf.summarySection'),
         generatedBy: t('pdf.generatedBy'),
@@ -924,6 +982,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         signatureEmployee: t('pdf.signatureEmployee'),
         signatureManager: t('pdf.signatureManager'),
         totalsRow: t('pdf.totalsRow'),
+        adjustedDayLegend: t('pdf.adjustedDayLegend'),
       };
       const { blob, filename } = await hrService.exportTimesheetMirrorPdf({
         period,
@@ -934,6 +993,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         reviews: employeeReviews,
         labels,
         dayStatusLabel,
+        exportedBy: { id: user.id, name: user.name },
         reviewStatusLabel: (code: string) => {
           const key = employeeReviewStatusKey[code];
           return key ? t(key) : t('pdf.reviewPending');
@@ -1264,6 +1324,10 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       holidays,
       leaves,
       employee: emp,
+      rosterStatus: rosterStatusFromAssignments(
+        rosterByDate.get(adjustDay.workDate) ?? [],
+        [emp?.id, emp?.employeeId, adjustDay.employeeId].filter((k): k is string => !!k),
+      ),
     });
     return {
       shift: ctx.shift,
@@ -1274,7 +1338,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
       joiningDate: ctx.joiningDate,
       terminationDate: ctx.terminationDate,
     };
-  }, [adjustDay, employees, shifts, holidays, leaves]);
+  }, [adjustDay, employees, shifts, holidays, leaves, rosterByDate]);
 
   const adjustFixedBreak = useMemo(() => {
     if (!adjustDay) return null;
@@ -1415,22 +1479,16 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       )}
 
-      {/* Toolbar: equal filter fields (same label + control rhythm) then actions */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-4">
-        <div
-          className={`grid gap-x-4 gap-y-3 items-start ${
-            isHr || isManager
-              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-              : 'grid-cols-1 sm:grid-cols-3'
-          }`}
-        >
-          <div className="space-y-1.5 min-w-0">
+      {/* Toolbar: compact filters then actions */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-4 dark:border-slate-800">
+        <div className="flex flex-wrap gap-x-3 gap-y-3 items-end">
+          <div className="space-y-1.5 w-[5.5rem] shrink-0">
             <label htmlFor="ts-year" className="block text-xs font-medium text-slate-500 leading-4">
               {t('year')}
             </label>
             <select
               id="ts-year"
-              className="h-10 w-full px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800"
+              className="h-10 w-full px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
               value={year}
               onChange={e => setYear(parseInt(e.target.value, 10))}
             >
@@ -1440,13 +1498,13 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             </select>
           </div>
 
-          <div className="space-y-1.5 min-w-0">
+          <div className="space-y-1.5 w-[9rem] shrink-0">
             <label htmlFor="ts-month" className="block text-xs font-medium text-slate-500 leading-4">
               {t('month')}
             </label>
             <select
               id="ts-month"
-              className="h-10 w-full px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800"
+              className="h-10 w-full px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
               value={month}
               onChange={e => setMonth(parseInt(e.target.value, 10))}
             >
@@ -1456,52 +1514,109 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             </select>
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <label htmlFor="ts-day" className="block text-xs font-medium text-slate-500 leading-4">
-              {t('day')}
+          <div className="space-y-1.5 w-[9.5rem] shrink-0">
+            <label htmlFor="ts-day-from" className="block text-xs font-medium text-slate-500 leading-4">
+              {t('dayFrom')}
             </label>
             <select
-              id="ts-day"
-              className="h-10 w-full px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800"
-              value={dayFilter}
-              onChange={e => setDayFilter(e.target.value)}
+              id="ts-day-from"
+              className="h-10 w-full px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              value={dayFrom}
+              onChange={e => setDayFrom(e.target.value)}
             >
               <option value="ALL">{t('allDays')}</option>
               {periodDayOptions.map(iso => (
-                <option key={iso} value={iso}>{formatIsoDateBr(iso)}</option>
+                <option key={`from-${iso}`} value={iso}>{formatIsoDateBr(iso)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5 w-[9.5rem] shrink-0">
+            <label htmlFor="ts-day-to" className="block text-xs font-medium text-slate-500 leading-4">
+              {t('dayTo')}
+            </label>
+            <select
+              id="ts-day-to"
+              className="h-10 w-full px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              value={dayTo}
+              onChange={e => setDayTo(e.target.value)}
+            >
+              <option value="ALL">{t('allDays')}</option>
+              {periodDayOptions.map(iso => (
+                <option key={`to-${iso}`} value={iso}>{formatIsoDateBr(iso)}</option>
               ))}
             </select>
           </div>
 
           {(isHr || isManager) && (
-            <div className="space-y-1.5 min-w-0">
+            <div className="space-y-1.5 min-w-[12rem] flex-1 max-w-md">
               <label htmlFor="ts-employee" className="block text-xs font-medium text-slate-500 leading-4">
                 {t('employee')}
               </label>
+              <div className="flex rounded-lg bg-slate-100/80 p-0.5 dark:bg-slate-800 mb-1" role="group" aria-label={t('staffScopeLabel')}>
+                  <button
+                    type="button"
+                    className={orgTabButtonClass(staffScope === 'active')}
+                    onClick={() => {
+                      setStaffScope('active');
+                      if (employeeFilter && employeeFilter !== 'ALL') {
+                        const emp = employees.find(e => e.id === employeeFilter);
+                        if (emp?.status === 'INACTIVE') {
+                          setEmployeeFilter('');
+                          clearResults();
+                        }
+                      }
+                    }}
+                  >
+                    {t('staffScopeActive')}
+                  </button>
+                  <button
+                    type="button"
+                    className={orgTabButtonClass(staffScope === 'dismissed')}
+                    onClick={() => {
+                      setStaffScope('dismissed');
+                      if (employeeFilter && employeeFilter !== 'ALL') {
+                        const emp = employees.find(e => e.id === employeeFilter);
+                        if (emp && emp.status !== 'INACTIVE') {
+                          setEmployeeFilter('');
+                          clearResults();
+                        }
+                      }
+                    }}
+                  >
+                    {t('staffScopeDismissed')}
+                  </button>
+              </div>
               <select
                 id="ts-employee"
-                className="h-10 w-full px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800"
+                className="h-10 w-full px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 value={employeeFilter}
                 onChange={e => setEmployeeFilter(e.target.value)}
               >
                 <option value="">{t('selectEmployeePlaceholder')}</option>
-                {isHr && <option value="ALL">{t('allEmployees')}</option>}
-                {employees
-                  .filter(e => isHr || e.lineManagerId === user.id || e.id === user.id)
-                  .map(e => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
+                {isHr && (
+                  <option value="ALL">
+                    {staffScope === 'dismissed' ? t('allEmployeesDismissed') : t('allEmployees')}
+                  </option>
+                )}
+                {visibleStaff.map(e => (
+                  <option key={e.id} value={e.id}>
+                    {e.status === 'INACTIVE'
+                      ? `${e.name} (${t('dismissedBadge')}${e.terminationDate ? ` · ${formatIsoDateBr(e.terminationDate)}` : ''})`
+                      : e.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-slate-100">
+        <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             onClick={() => void applyFilters()}
             disabled={isLoading || isBootstrapping || (mustPickEmployee && !employeeFilter)}
-            className="h-10 px-4 bg-primary text-white rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 disabled:opacity-60"
+            className="h-10 px-4 bg-primary text-white rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 shadow-md hover:bg-primary-hover dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} aria-hidden />
             {isLoading ? t('loadingFilters') : t('applyFilters')}
@@ -1513,7 +1628,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                 type="button"
                 onClick={handleRecalc}
                 disabled={isRecalc || !hasQuery}
-                className="h-10 px-4 bg-slate-800 text-white rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 disabled:opacity-60"
+                className="h-10 px-4 bg-transparent text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
               >
                 <RefreshCw size={14} className={isRecalc ? 'animate-spin' : ''} aria-hidden />
                 {isRecalc ? t('recalculating') : t('recalculate')}
@@ -1523,7 +1638,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               type="button"
               onClick={handleExport}
               disabled={!hasQuery || !period}
-              className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 disabled:opacity-60"
+              className="h-10 px-4 bg-transparent text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             >
               <Download size={14} aria-hidden /> {t('exportCsv')}
             </button>
@@ -1536,7 +1651,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                   ? t('mirrorPdfNoDays')
                   : undefined
               }
-              className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 disabled:opacity-60"
+              className="h-10 px-4 bg-transparent text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             >
               <FileText size={14} className={isExportingPdf ? 'animate-pulse' : ''} aria-hidden />
               {isExportingPdf ? t('exportingMirrorPdf') : t('exportMirrorPdf')}
@@ -1545,7 +1660,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               type="button"
               onClick={() => void handlePrePayrollExport()}
               disabled={!period || !['APPROVED', 'LOCKED'].includes(period.status)}
-              className="h-10 px-4 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 disabled:opacity-60"
+              className="h-10 px-4 bg-transparent text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             >
               <FileJson size={14} aria-hidden /> {t('exportPrePayroll')}
             </button>
@@ -1595,6 +1710,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         <TimesheetReviewSummaryPanel
           rows={reviewSummaryRows}
           locked={locked}
+          dismissedScope={staffScope === 'dismissed'}
           onSelectEmployee={id => {
             skipNextFilterClear.current = true;
             setEmployeeFilter(id);
@@ -1603,9 +1719,28 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
         />
       )}
 
-      {/* Primary mirror + secondary rail */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_17.5rem] gap-4 items-start">
-        <div className="min-w-0">
+      {/* Primary mirror + collapsible hour-bank rail */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setHourBankOpen(open => !open)}
+            aria-expanded={hourBankOpen}
+            className="h-9 px-3 bg-transparent text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
+          >
+            <Scale size={14} className="text-primary shrink-0" aria-hidden />
+            {hourBankOpen ? t('toggleHourBankHide') : t('toggleHourBankShow')}
+          </button>
+        </div>
+
+        <div
+          className={
+            hourBankOpen
+              ? 'grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_20rem] gap-4 items-start'
+              : 'w-full'
+          }
+        >
+        <div className="min-w-0 w-full">
           {isLoading || isBootstrapping ? (
             <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-10 flex justify-center">
               <RefreshCw className="animate-spin text-primary" aria-hidden />
@@ -1637,7 +1772,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               isHr={isHr}
               isManager={isManager}
               dayStatusLabel={dayStatusLabel}
-              fmtMinutes={mins => fmtMinutes(mins, t)}
+              fmtMinutes={fmtMinutes}
               onAdjust={openAdjust}
               onAckEmployee={id => { void hrService.acknowledgeTimesheetDay(id, 'employee', true).then(load); }}
               onAckManager={id => { void handleManagerAckDay(id, true); }}
@@ -1698,11 +1833,11 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               }
             />
           ) : (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 space-y-3">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 space-y-3">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <CalendarDays size={16} className="text-primary shrink-0" aria-hidden />
-              <h2 className="text-sm font-semibold text-slate-800">{t('daysTitle')}</h2>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t('daysTitle')}</h2>
               {isManager && !locked && pendingManagerAckIds.length > 0 && (
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
                   {t('pendingManagerAck', { count: pendingManagerAckIds.length })}
@@ -1758,12 +1893,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
               </div>
             )}
           </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[52rem] text-left text-sm border-collapse">
-                <thead className="bg-slate-50 text-slate-500 sticky top-0 z-[1]">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[52rem] text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
+                <thead className="sticky top-0 z-[1]">
                   <tr>
                     {isManager && !locked && (
-                      <th className="px-3 py-3 w-10">
+                      <th className="px-4 py-3 w-10 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide">
                         <input
                           type="checkbox"
                           className="h-4 w-4 accent-primary rounded border-slate-300"
@@ -1775,18 +1910,18 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                         />
                       </th>
                     )}
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('date')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap min-w-[10rem]">{t('employee')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('expected')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('worked')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('late')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap" title={t('overtimeHint')}>
-                      {t('overtime')} <span className="font-normal text-slate-400">({t('overtimeFull')})</span>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('date')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap min-w-[10rem]">{t('employee')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('expected')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('worked')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('late')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap" title={t('overtimeHint')}>
+                      {t('overtime')} <span className="font-normal normal-case text-slate-400">({t('overtimeFull')})</span>
                     </th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('absence')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('status')}</th>
-                    <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('ack')}</th>
-                    <th className="px-3 py-3" />
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('absence')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('status')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap">{t('ack')}</th>
+                    <th className="px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap sticky right-0 z-[2] shadow-[-6px_0_8px_-6px_rgba(15,23,42,0.25)]" />
                   </tr>
                 </thead>
                 <tbody>
@@ -1801,21 +1936,25 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                     const prevDate = index > 0 ? visibleDays[index - 1]?.workDate : null;
                     const showDateHeader = showDaySeparators && d.workDate !== prevDate;
                     const rowFocused = employeeFilter === 'ALL' && matchesFocusedEmployee(d.employeeId);
+                    const dow = new Date(`${d.workDate}T12:00:00`).getDay();
+                    const isWeekend = dow === 0 || dow === 6;
                     return (
                       <React.Fragment key={d.id}>
                         {showDateHeader && (
-                          <tr className="bg-slate-100 border-t border-slate-200">
+                          <tr className="bg-slate-100 border-t border-slate-200 dark:bg-slate-800 dark:border-slate-700">
                             <td
                               colSpan={tableColSpan}
-                              className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700"
+                              className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200"
                             >
                               {t('dayGroupLabel', { date: formatIsoDateBr(d.workDate) })}
                             </td>
                           </tr>
                         )}
                         <tr
-                          className={`border-t border-slate-100 border-l-4 transition-colors ${
+                          className={`border-t border-slate-100 dark:border-slate-800 border-l-4 transition-colors ${
                             showDaySeparators ? 'cursor-pointer' : ''
+                          } ${
+                            isWeekend ? 'bg-slate-50 dark:bg-slate-800/50' : ''
                           } ${
                             rowFocused
                               ? 'bg-primary/10 border-l-primary'
@@ -1829,7 +1968,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                           aria-selected={rowFocused || undefined}
                         >
                         {isManager && !locked && (
-                          <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                          <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                             {canSelect ? (
                               <input
                                 type="checkbox"
@@ -1843,48 +1982,50 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                             )}
                           </td>
                         )}
-                        <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap tabular-nums">
+                        <td className={`px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap tabular-nums font-medium ${isWeekend ? 'text-rose-700 dark:text-rose-400' : 'text-slate-800 dark:text-slate-100'}`}>
                           {showDaySeparators ? (
                             <span className="text-slate-500 text-xs">{formatIsoDateBr(d.workDate)}</span>
                           ) : (
                             formatIsoDateBr(d.workDate)
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-700 max-w-[12rem]">
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap max-w-[12rem]">
                           <span className="block truncate font-medium" title={name}>{name}</span>
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{fmtMinutes(d.expectedMinutes, t)}</td>
-                        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{fmtMinutes(d.workedMinutes, t)}</td>
-                        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-amber-800">
-                          {d.lateMinutes ? fmtMinutes(d.lateMinutes, t) : '—'}
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap tabular-nums">{fmtMinutes(d.expectedMinutes)}</td>
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap tabular-nums">{fmtMinutes(d.workedMinutes)}</td>
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap tabular-nums text-amber-800">
+                          {d.lateMinutes ? fmtMinutes(d.lateMinutes) : '—'}
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-primary">
-                          {d.overtimeMinutes ? fmtMinutes(d.overtimeMinutes, t) : '—'}
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap tabular-nums text-primary">
+                          {d.overtimeMinutes ? fmtMinutes(d.overtimeMinutes) : '—'}
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap tabular-nums">
                           {(() => {
                             const absence = displayAbsenceMinutes(d);
                             if (absence > 0) {
                               return (
                                 <span className="inline-flex px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-medium">
-                                  {fmtMinutes(absence, t)}
+                                  {fmtMinutes(absence)}
                                 </span>
                               );
                             }
                             if (d.status === 'ADJUSTED' || (d.expectedMinutes > 0 && d.workedMinutes > 0)) {
                               return (
                                 <span className="inline-flex px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-medium">
-                                  {fmtMinutes(0, t)}
+                                  {fmtMinutes(0)}
                                 </span>
                               );
                             }
                             return <span className="text-slate-400">—</span>;
                           })()}
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <span className="font-medium text-slate-800">{dayStatusLabel(d.status)}</span>
+                        <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${dayStatusBadgeClass(d.status)}`}>
+                            {dayStatusLabel(d.status)}
+                          </span>
                         </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                  <td className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                           <div className="flex flex-wrap gap-1 items-center">
                             {!d.managerAck && (isManager || isHr) && !locked && (
                               <button
@@ -1917,11 +2058,15 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        <td
+                          className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap sticky right-0 z-[2] bg-white dark:bg-slate-900 shadow-[-6px_0_8px_-6px_rgba(15,23,42,0.25)]"
+                          onClick={e => e.stopPropagation()}
+                        >
                           {(isHr || isManager) && !locked && (
                             <button
                               type="button"
-                              className="text-primary font-semibold text-sm hover:underline"
+                              className="text-primary font-semibold text-sm hover:underline whitespace-nowrap"
+                              title={t('adjust')}
                               onClick={() => openAdjust(d)}
                             >
                               {t('adjust')}
@@ -1939,11 +2084,12 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           )}
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-24">
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
+        {hourBankOpen && (
+        <aside className="space-y-4 xl:sticky xl:top-24 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Scale size={16} className="text-primary shrink-0" aria-hidden />
-              <h3 className="text-sm font-semibold text-slate-800">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {railReady && railEmployeeName
                   ? t('hourBankFor', { name: railEmployeeName })
                   : t('hourBank')}
@@ -1955,7 +2101,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
             ) : (
               <>
                 <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-                  {fmtMinutes(bankBalance, t)}
+                  {fmtMinutes(bankBalance)}
                 </p>
                 <p className="text-xs text-slate-500 font-medium">{t('balance')}</p>
 
@@ -1968,7 +2114,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                 {periodHours.expectedFull > 0 && (
                   <div className="flex items-center justify-between rounded-lg border border-primary/15 bg-primary-light/30 px-3 py-2">
                     <span className="text-[11px] font-semibold text-slate-600">{t('pdf.metricExpected')}</span>
-                    <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMinutes(periodHours.expectedFull, t)}</span>
+                    <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMinutes(periodHours.expectedFull)}</span>
                   </div>
                 )}
 
@@ -1979,16 +2125,16 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                     </p>
                     <div className="grid grid-cols-3 gap-1 text-center">
                       <div>
-                        <p className="text-sm font-semibold text-slate-800 tabular-nums">{fmtMinutes(periodHours.expected, t)}</p>
+                        <p className="text-sm font-semibold text-slate-800 tabular-nums">{fmtMinutes(periodHours.expected)}</p>
                         <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursExpected')}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-emerald-700 tabular-nums">{fmtMinutes(periodHours.worked, t)}</p>
+                        <p className="text-sm font-semibold text-emerald-700 tabular-nums">{fmtMinutes(periodHours.worked)}</p>
                         <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursWorked')}</p>
                       </div>
                       <div>
                         <p className={`text-sm font-semibold tabular-nums ${periodHours.remaining > 0 ? 'text-amber-700' : 'text-slate-800'}`}>
-                          {fmtMinutes(periodHours.remaining, t)}
+                          {fmtMinutes(periodHours.remaining)}
                         </p>
                         <p className="text-[9px] text-slate-500 font-medium">{t('periodHoursRemaining')}</p>
                       </div>
@@ -2004,7 +2150,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
                         {formatIsoDateBr(e.entryDate)} · {entryTypeLabel(e.entryType)}
                       </span>
                       <span className={`shrink-0 tabular-nums ${e.minutesDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {e.minutesDelta >= 0 ? '+' : ''}{fmtMinutes(e.minutesDelta, t)}
+                        {fmtSignedMinutes(e.minutesDelta)}
                       </span>
                     </li>
                   ))}
@@ -2014,9 +2160,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           </div>
 
           {viewMode === 'summary' && (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-800">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {railReady && railEmployeeName
                   ? t('punchesTitleFor', { name: railEmployeeName })
                   : t('punchesTitle')}
@@ -2067,6 +2213,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           </div>
           )}
         </aside>
+        )}
+      </div>
       </div>
 
       {adjustDay && adjustDayCalcContext && (
@@ -2075,7 +2223,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate }) => {
           punches={adjustDayPunches}
           employeeName={empName(adjustDay.employeeId)}
           dayStatusLabel={dayStatusLabel}
-          fmtMinutes={mins => fmtMinutes(mins, t)}
+          fmtMinutes={fmtMinutes}
           canManageAck={(isManager || isHr) && !locked}
           canEditHours={(isHr || isManager) && !locked}
           fixedBreak={adjustFixedBreak}

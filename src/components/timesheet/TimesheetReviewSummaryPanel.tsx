@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Employee, TimesheetDay, TimesheetEmployeeReview } from '../../types';
 import { hrService } from '../../services/hrService';
+import { formatIsoDateBr } from '../../i18n/format';
 
 interface ReviewRow {
   employee: Employee;
@@ -13,6 +14,7 @@ interface ReviewRow {
 interface Props {
   rows: ReviewRow[];
   locked: boolean;
+  dismissedScope?: boolean;
   onSelectEmployee: (employeeId: string) => void;
 }
 
@@ -87,7 +89,7 @@ const ReviewSignatureCell: React.FC<{ review: TimesheetEmployeeReview | null }> 
   );
 };
 
-const TimesheetReviewSummaryPanel: React.FC<Props> = ({ rows, locked, onSelectEmployee }) => {
+const TimesheetReviewSummaryPanel: React.FC<Props> = ({ rows, locked, dismissedScope, onSelectEmployee }) => {
   const { t } = useTranslation('ptrp');
 
   if (rows.length === 0) return null;
@@ -100,7 +102,9 @@ const TimesheetReviewSummaryPanel: React.FC<Props> = ({ rows, locked, onSelectEm
       <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-slate-800">{t('reviewSummaryTitle')}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{t('reviewSummaryHint')}</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {dismissedScope ? t('reviewSummaryHintDismissed') : t('reviewSummaryHint')}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide">
           <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-800">
@@ -128,8 +132,22 @@ const TimesheetReviewSummaryPanel: React.FC<Props> = ({ rows, locked, onSelectEm
             {rows.map(({ employee, review, pendingManagerAck }) => {
               const status = review?.status ?? 'OPEN';
               return (
-                <tr key={employee.id} className="border-t border-slate-100 hover:bg-slate-50/80">
-                  <td className="px-3 py-2.5 font-medium text-slate-800">{employee.name}</td>
+                <tr key={employee.id} className="border-t border-slate-100 hover:bg-primary/10">
+                  <td className="px-3 py-2.5 font-medium text-slate-800">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span>{employee.name}</span>
+                      {employee.status === 'INACTIVE' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-slate-100 text-slate-600">
+                          {t('dismissedBadge')}
+                        </span>
+                      )}
+                    </div>
+                    {employee.status === 'INACTIVE' && employee.terminationDate ? (
+                      <p className="text-[11px] font-normal text-slate-500 mt-0.5">
+                        {t('lastWorkDayLabel')}: {formatIsoDateBr(employee.terminationDate)}
+                      </p>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2.5">
                     <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold ${reviewStatusClass[status]}`}>
                       {t(`reviewStatus_${status}`)}

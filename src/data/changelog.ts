@@ -16,12 +16,123 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-08-27',
+    title: 'Demissão e espelho — fila só de ativos',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Pendências e bloqueio da competência no espelho passam a contar só colaboradores ativos. Demitidos nesta competência ficam em Histórico, para ajustar o último dia e terminar o ponto.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Desligamento exige último dia trabalhado em destaque e ponto com ciência do gestor até essa data. Atalho Abrir espelho no histórico da Equipe.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Espelho — tolerância 10 min e HE 60%/100%',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Apuração ignora atraso, falta de jornada e hora extra com menos de 10 min. HE de 10 min ou mais conta o total do dia. Dia sem batida continua falta integral. Recalcular a competência (e re-gerar a pré-folha) para atualizar dias já gravados.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Hora extra na folha: em dia útil/sábado as primeiras 2h a 60% e o excedente a 100%. Domingo e feriado continuam 100% desde o primeiro minuto.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Relatórios — só quem bate ponto',
     entries: [
       {
         type: 'fix',
         description:
           'Resumo e Top ausências deixam de incluir PJ (e Admin/Diretoria). Prestador na escala sem relógio não vira falta. Auxiliar de RH que bate ponto permanece.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Espelho de ponto — layout responsivo',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Sábado sem escala publicada deixa de virar falta no espelho (não usa mais workingDays do turno). Só conta jornada se a escala estiver salva como WORK. Recalcular a competência (ou re-salvar o sábado) para limpar faltas já gravadas.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Espelho Resumo: filtros Ano/Mês mais estreitos, intervalo Dia início–fim, Aplicar filtros com contraste no dark, Banco fechado por padrão e coluna Ajustar sticky (sem corte).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Espelho: Aplicar filtros como ação primária; Banco de horas colapsável (tabela em largura total); status em badges e destaque de fim de semana com scroll horizontal.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Cadastro — incluso nas escalas',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Flag include_in_roster no cadastro: quem está marcado aparece na lista de escalas (mesmo ADMIN/PJ). Demitidos continuam fora; backfill mantém EMPLOYEE/MANAGER/TEAM_LEAD ativos.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Meio turno: jornada prevista usa o horário do turno (ex. 08:00–11:45 = 3h45), não um expectedDailyMinutes errado (4h). No espelho, filtrar o colaborador e Recalcular a competência para atualizar falta/atraso já gravados.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Durações na UI em HH:mm (tolerâncias, intervalo, carga diária/semanal, espelho, escalas, folha). Banco continua em minutos; inputs aceitam formato brasileiro (ex.: 03:45, 22:00).',
+      },
+    ],
+  },
+  {
+    date: '2026-08-26',
+    title: 'Espelho PDF — retrato, ajuste marcado e fix Todos',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Auto-ignore de batidas próximas agora é por colaborador; PDF/grade de slots não escondem mais CLOCK marcados AUTO por engano (só ignore MANUAL do gestor). Rebuild preview obrigatório após a correção.',
+      },
+      {
+        type: 'fix',
+        description:
+          'PDF “Todos”: batidas manuais do gestor voltam a aparecer — export recarrega punches por colaborador (evita limite 5000 da listagem org-wide).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Espelho de ponto em A4 retrato; dias com ajuste (MANUAL/ADJUSTED/justificativa) marcados com * na Situação, linha destacada e legenda.',
+      },
+      {
+        type: 'fix',
+        description:
+          'PDF do espelho: assinatura do gestor/RH usa quem editou/aprovou batidas na competência ou quem exportou o relatório (login), não mais só o gestor cadastrado no colaborador.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-21',
+    title: 'PrintPoint — envio grava crachá (função 91)',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'send-employees no PrintPoint III usa AddFullEmployee + credencial (não o overload Li 5/7). Crachá/senha vão com 6 dígitos (99→000099). Lista de empregados não é sobrescrita pelo recibo parcial.',
       },
     ],
   },
@@ -96,6 +207,11 @@ export const changelog: ChangelogRelease[] = [
         type: 'improvement',
         description:
           'Credencial do relógio só o sistema atribui (cadastro novo CLT); operadores não editam. PIS ≠ credencial. PJ e contas sem ponto ficam sem credencial (Anelise limpa).',
+      },
+      {
+        type: 'fix',
+        description:
+          'Comunicação → Empregados → Ver lista: deixou de disparar duas operações WatchComm em paralelo (lista + biometria), o que gerava falso “relógio ocupado”.',
       },
     ],
   },
