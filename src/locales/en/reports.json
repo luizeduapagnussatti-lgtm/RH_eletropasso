@@ -30,7 +30,7 @@
   "selectAll": "Select all",
   "clearAll": "Clear all",
   "employeeScoping": "Employee scoping",
-  "allEmployees": "All active employees",
+  "allEmployees": "Everyone who clocks in",
   "recipients": "Recipient(s)",
   "recipientsPlaceholder": "email1@example.com, email2@example.com",
   "employeeSummaryTitle": "Employee summary report",
@@ -57,7 +57,7 @@
     "periodLine": "{{preset}} · {{start}} to {{end}}",
     "teamLine": "{{count}} employees · {{depts}}/{{totalDepts}} departments",
     "singleEmployee": "Employee: {{name}}",
-    "clockFacingNote": "Clock-punching staff only (Admin, HR, and Executive roles excluded).",
+    "clockFacingNote": "Clock-punching staff only. PJ contractors, Admin, and Executive roles are excluded. An HR assistant who clocks in stays in the summary.",
     "inScope": "In scope",
     "teamTotalsNote": "Large numbers are team totals — sum of everyone in scope, not one person."
   },

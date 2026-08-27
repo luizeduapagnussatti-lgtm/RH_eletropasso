@@ -1,6 +1,39 @@
 
 import { Attendance, Employee, Shift, AppConfig, Holiday, LeaveRequest, EmployeeAttendanceSummary, TimesheetDay } from '../types';
 
+const LOCAL_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+
+/** Local calendar YYYY-MM-DD — never use toISOString() for civil dates (UTC-3 shifts the day). */
+export function toLocalISODate(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Parse YYYY-MM-DD as a local-calendar Date (noon-safe via Y/M/D ctor). */
+export function parseLocalISODate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y!, (m ?? 1) - 1, d ?? 1);
+}
+
+export function localWeekdayLong(isoDate: string): string {
+  return LOCAL_WEEKDAYS[parseLocalISODate(isoDate).getDay()] ?? 'Monday';
+}
+
+/** Inclusive list of local YYYY-MM-DD dates from start through end. */
+export function eachLocalISODate(startDate: string, endDate: string): string[] {
+  const out: string[] = [];
+  if (!startDate || !endDate || startDate > endDate) return out;
+  const cursor = parseLocalISODate(startDate);
+  const end = parseLocalISODate(endDate);
+  while (cursor <= end) {
+    out.push(toLocalISODate(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
 /**
  * Consolidates multiple attendance records into a single daily record per employee.
  * Logic: 
@@ -89,7 +122,6 @@ export const getDateRangeFromPreset = (
   preset: string,
   today: Date = new Date()
 ): { startDate: string; endDate: string } => {
-  const toISO = (d: Date) => d.toISOString().split('T')[0];
   const y = today.getFullYear();
   const m = today.getMonth(); // 0-indexed
   const d = today.getDate();
@@ -102,27 +134,28 @@ export const getDateRangeFromPreset = (
       const monday = new Date(y, m, d + mondayOffset);
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
-      return { startDate: toISO(monday), endDate: toISO(sunday) };
+      return { startDate: toLocalISODate(monday), endDate: toLocalISODate(sunday) };
     }
     case 'THIS_MONTH': {
       const start = new Date(y, m, 1);
-      const end = new Date(y, m + 1, 0);
-      return { startDate: toISO(start), endDate: toISO(end) };
+      // Cap at today — future days are not absences (same rule as timesheet calc).
+      const end = new Date(y, m, d);
+      return { startDate: toLocalISODate(start), endDate: toLocalISODate(end) };
     }
     case 'THIS_YEAR': {
       const start = new Date(y, 0, 1);
-      const end = new Date(y, 11, 31);
-      return { startDate: toISO(start), endDate: toISO(end) };
+      const end = new Date(y, m, d);
+      return { startDate: toLocalISODate(start), endDate: toLocalISODate(end) };
     }
     case 'LAST_MONTH': {
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0);
-      return { startDate: toISO(start), endDate: toISO(end) };
+      return { startDate: toLocalISODate(start), endDate: toLocalISODate(end) };
     }
     case 'LAST_YEAR': {
       const start = new Date(y - 1, 0, 1);
       const end = new Date(y - 1, 11, 31);
-      return { startDate: toISO(start), endDate: toISO(end) };
+      return { startDate: toLocalISODate(start), endDate: toLocalISODate(end) };
     }
     default:
       // Fallback: current month
@@ -183,14 +216,15 @@ export const getWorkingDaysInPeriod = (
 
   const holidaySet = new Set(holidays.map(h => h.date));
   let count = 0;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const todayStr = toLocalISODate();
+  const effectiveEnd = endDate > todayStr ? todayStr : endDate;
 
-  for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-    const dateStr = dt.toISOString().split('T')[0];
-    const dayName = dt.toLocaleDateString('en-US', { weekday: 'long' });
+  for (const dateStr of eachLocalISODate(startDate, effectiveEnd)) {
+    const dayName = localWeekdayLong(dateStr);
 
     if (holidaySet.has(dateStr)) continue;
+    if (emp.joiningDate && emp.joiningDate > dateStr) continue;
+    if (emp.terminationDate && emp.terminationDate < dateStr) continue;
 
     const workingDays = resolveWorkingDays(dateStr);
     if (workingDays.includes(dayName)) {
@@ -292,18 +326,13 @@ export const calculateEmployeeSummaries = (params: {
     if (selectedDepts.length === 0 || !selectedDepts.includes(emp.department || '')) continue;
     if (!isAllEmployeesFilter(employeeFilter) && emp.id !== employeeFilter) continue;
 
-    const lStart = new Date(Math.max(
-      new Date(lv.startDate.split(' ')[0]).getTime(),
-      new Date(startDate).getTime()
-    ));
-    const lEnd = new Date(Math.min(
-      new Date(lv.endDate.split(' ')[0]).getTime(),
-      new Date(endDate).getTime()
-    ));
+    const lvStart = lv.startDate.split(' ')[0]!;
+    const lvEnd = lv.endDate.split(' ')[0]!;
+    const rangeStart = lvStart > startDate ? lvStart : startDate;
+    const rangeEnd = lvEnd < endDate ? lvEnd : endDate;
 
-    for (let dt = new Date(lStart); dt <= lEnd; dt.setDate(dt.getDate() + 1)) {
-      const dateStr = dt.toISOString().split('T')[0];
-      const dayName = dt.toLocaleDateString('en-US', { weekday: 'long' });
+    for (const dateStr of eachLocalISODate(rangeStart, rangeEnd)) {
+      const dayName = localWeekdayLong(dateStr);
       if (holidaySet.has(dateStr)) continue;
 
       // Check if this date is a working day for this employee
@@ -337,19 +366,19 @@ export const calculateEmployeeSummaries = (params: {
     const leaveDays = empLeaveDates.size;
 
     // Single pass: iterate every calendar day once to compute totalWorkingDays, gapAbsent, and leave days.
-    // This ensures totalWorkingDays, present, absent, late, and leave always add up consistently.
+    // Cap at today — future days must never inflate “ausências” (THIS_MONTH used to run to month-end).
     const empRecordedDates = recordedDateMap.get(emp.id) || new Set();
     let totalWorkingDays = 0;
     let gapAbsentDays = 0;
+    const todayStr = toLocalISODate();
+    const effectiveEnd = endDate > todayStr ? todayStr : endDate;
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      const dateStr = dt.toISOString().split('T')[0];
-      const dayName = dt.toLocaleDateString('en-US', { weekday: 'long' });
+    for (const dateStr of eachLocalISODate(startDate, effectiveEnd)) {
+      const dayName = localWeekdayLong(dateStr);
 
       if (holidaySet.has(dateStr)) continue;
       if (emp.joiningDate && emp.joiningDate > dateStr) continue;
+      if (emp.terminationDate && emp.terminationDate < dateStr) continue;
 
       // Resolve working days for this employee on this date
       const override = shiftOverrides.find(
@@ -380,9 +409,11 @@ export const calculateEmployeeSummaries = (params: {
 
     const presentDays = presentMap.get(emp.id)?.size ?? 0;
     const lateDays = lateMap.get(emp.id)?.size ?? 0;
-    const recordedAbsentDays = absentMap.get(emp.id)?.size ?? 0;
+    // Only count explicit ABSENT rows on/before today (future ABSENT rows are data bugs)
+    const recordedAbsentDays = [...(absentMap.get(emp.id) ?? [])].filter(d => d <= todayStr).length;
     const halfDays = halfDayMap.get(emp.id)?.size ?? 0;
     // Absent = explicitly marked absent records + gap analysis (working days with no punch)
+    // Deduplicate: a date already in absentMap must not also inflate via gap (gaps skip recorded dates).
     const absentDays = recordedAbsentDays + gapAbsentDays;
 
     const effectiveWorkingDays = Math.max(1, totalWorkingDays - leaveDays);
@@ -455,9 +486,12 @@ export function timesheetDaysToAttendance(
         status = 'ABSENT';
         break;
       case 'LEAVE':
+      case 'HOLIDAY':
+      case 'OFF':
+        // Cover the day so Reports gap analysis does not invent a false ABSENT
+        // (OFF/HOLIDAY are not duty days in the espelho).
         status = 'LEAVE';
         break;
-      case 'HOLIDAY':
       default:
         status = null;
         break;

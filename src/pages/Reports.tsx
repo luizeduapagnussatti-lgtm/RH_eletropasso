@@ -10,7 +10,17 @@ import { hrService } from '../services/hrService';
 import { emailService } from '../services/emailService';
 import { organizationService } from '../services/organization.service';
 import { User, Employee, Attendance, LeaveRequest, AppConfig, Holiday, Shift, EmployeeAttendanceSummary } from '../types';
-import { consolidateAttendance, getDateRangeFromPreset, calculateEmployeeSummaries, ALL_EMPLOYEES_FILTER, timesheetDaysToAttendance, mergeAttendanceSources } from '../utils/attendanceUtils';
+import {
+  consolidateAttendance,
+  getDateRangeFromPreset,
+  calculateEmployeeSummaries,
+  ALL_EMPLOYEES_FILTER,
+  timesheetDaysToAttendance,
+  mergeAttendanceSources,
+  eachLocalISODate,
+  localWeekdayLong,
+  toLocalISODate,
+} from '../utils/attendanceUtils';
 import { buildTeamSummaryMetrics, topEmployeesByAbsentDays, formatScopeSubtitle } from '../utils/reportMetrics';
 import { ReportsScopeBanner } from '../components/reports/ReportsScopeBanner';
 import { ReportsSummaryMetrics } from '../components/reports/ReportsSummaryMetrics';
@@ -31,7 +41,7 @@ import {
 } from '../utils/reportPdf';
 import HelpButton from '../components/onboarding/HelpButton';
 import { useToast } from '../context/ToastContext';
-import { isPayrollExcluded, isRosterEligible } from '../utils/roles';
+import { isClockReportEmployee, isPayrollExcluded } from '../utils/roles';
 import { formatIsoDateBr } from '../i18n/format';
 import { tStatus } from '../i18n/statusMaps';
 
@@ -234,8 +244,6 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
       if (appConfig) {
         const globalWorkingDays = appConfig.workingDays || [];
         const defaultShift = shifts.find(s => s.isDefault);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
 
         const targetEmployees = employees.filter(e => {
           if (e.status !== 'ACTIVE') return false;
@@ -275,16 +283,18 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
 
         // Use a set for quick lookup
         const presentSet = new Set(combinedData.map(d => `${d.employeeId}_${d.date}`));
+        const todayStr = toLocalISODate();
+        const effectiveEnd = endDate > todayStr ? todayStr : endDate;
 
-        for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-          const dateStr = dt.toISOString().split('T')[0];
-          const dayName = dt.toLocaleDateString('en-US', { weekday: 'long' });
+        for (const dateStr of eachLocalISODate(startDate, effectiveEnd)) {
+          const dayName = localWeekdayLong(dateStr);
           const isHoliday = holidays.some(h => h.date === dateStr);
 
           if (isHoliday) continue;
 
           targetEmployees.forEach(emp => {
             if (emp.joiningDate && emp.joiningDate > dateStr) return;
+            if (emp.terminationDate && emp.terminationDate < dateStr) return;
 
             const empWorkingDays = getWorkingDays(emp, dateStr);
             if (!empWorkingDays.includes(dayName)) return;
@@ -347,8 +357,8 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
       return l.startDate <= endDate && l.endDate >= startDate;
     });
 
-    // Clock-facing roles only — Admin / Auxiliar RH / Diretoria skew “absent” metrics
-    const clockEmployees = employees.filter(e => isRosterEligible(e));
+    // Clock-punching staff only — PJ (roster-only) must not inflate absences.
+    const clockEmployees = employees.filter(e => isClockReportEmployee(e));
 
     return calculateEmployeeSummaries({
       employees: clockEmployees,
@@ -825,7 +835,9 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
                 <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('employeeScoping')}</label>
                 <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)}>
                   <option value={ALL_EMPLOYEES_FILTER}>{t('allEmployees')}</option>
-                  {employees.filter(e => selectedDepts.includes(e.department || '')).map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
+                  {employees
+                    .filter(e => isClockReportEmployee(e) && selectedDepts.includes(e.department || ''))
+                    .map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
                 </select>
               </div>
               <div className="space-y-1">

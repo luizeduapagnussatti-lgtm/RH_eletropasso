@@ -30,7 +30,7 @@
   "selectAll": "Selecionar todos",
   "clearAll": "Limpar",
   "employeeScoping": "Escopo de colaboradores",
-  "allEmployees": "Todos os colaboradores ativos",
+  "allEmployees": "Todos que batem ponto",
   "recipients": "Destinatário(s)",
   "recipientsPlaceholder": "email1@exemplo.com, email2@exemplo.com",
   "employeeSummaryTitle": "Relatório resumido por colaborador",
@@ -57,7 +57,7 @@
     "periodLine": "{{preset}} · {{start}} a {{end}}",
     "teamLine": "{{count}} colaboradores · {{depts}}/{{totalDepts}} departamentos",
     "singleEmployee": "Colaborador: {{name}}",
-    "clockFacingNote": "Apenas colaboradores que batem ponto no relógio (Admin, RH e Diretoria excluídos).",
+    "clockFacingNote": "Apenas quem bate ponto no relógio. Prestadores PJ, Admin e Diretoria ficam de fora. Auxiliar de RH que bate ponto permanece no resumo.",
     "inScope": "No escopo",
     "teamTotalsNote": "Os números grandes são totais da equipe — soma de todos no escopo, não de uma pessoa."
   },

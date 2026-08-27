@@ -15,6 +15,17 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-08-27',
+    title: 'Relatórios — só quem bate ponto',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Resumo e Top ausências deixam de incluir PJ (e Admin/Diretoria). Prestador na escala sem relógio não vira falta. Auxiliar de RH que bate ponto permanece.',
+      },
+    ],
+  },
+  {
     date: '2026-08-20',
     title: 'Relógio — tela Empregados mais clara + envio seguro',
     entries: [

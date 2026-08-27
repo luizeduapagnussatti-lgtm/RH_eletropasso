@@ -72,6 +72,16 @@ export function isTimesheetExempt(subject?: RoleSubject, employmentType?: string
   return p.role === 'ADMIN' || p.role === 'SUPER_ADMIN' || p.role === 'MANAGEMENT';
 }
 
+/** Active staff who punch the clock — reports metrics (PJ and Diretoria out). */
+export function isClockReportEmployee(emp: {
+  status?: string | null;
+  role?: string | null;
+  employmentType?: string | null;
+}): boolean {
+  if (emp.status === 'INACTIVE') return false;
+  return !isTimesheetExempt(emp);
+}
+
 /**
  * Roles that require REP/DMPREP admission checklist after create.
  * PJ contractors never need clock admission even with EMPLOYEE role.
