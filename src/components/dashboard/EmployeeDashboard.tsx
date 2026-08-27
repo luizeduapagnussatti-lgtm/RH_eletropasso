@@ -6,8 +6,7 @@ import { DashboardHeader } from './DashboardHeader';
 import { DashboardStats } from './DashboardStats';
 import { AnnouncementWidget } from './AnnouncementWidget';
 import { useEmployeeMobileShell } from '../../hooks/useEmployeeMobileShell';
-import { EmployeeMobileShortcuts } from '../mobile/EmployeeMobileShortcuts';
-import { usePendingTimesheetSign } from '../../hooks/mobile/usePendingTimesheetSign';
+import { EmployeeMobileHome } from '../mobile/EmployeeMobileHome';
 
 interface Props {
   data: DashboardData;
@@ -18,7 +17,16 @@ interface Props {
 export const EmployeeDashboard: React.FC<Props> = ({ data, isLoading, onNavigate }) => {
   const { t } = useTranslation('dashboard');
   const employeeMobileShell = useEmployeeMobileShell();
-  const pendingSign = usePendingTimesheetSign(data.freshUser);
+
+  if (employeeMobileShell) {
+    return (
+      <EmployeeMobileHome
+        user={data.freshUser}
+        isLoading={isLoading}
+        onNavigate={onNavigate}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6 animate-in fade-in duration-700">
@@ -28,12 +36,8 @@ export const EmployeeDashboard: React.FC<Props> = ({ data, isLoading, onNavigate
         appConfig={data.appConfig}
         isLoading={isLoading}
         onNavigate={onNavigate}
-        showPunchActions={!employeeMobileShell}
+        showPunchActions
       />
-
-      {employeeMobileShell && !isLoading && (
-        <EmployeeMobileShortcuts onNavigate={onNavigate} pendingSign={pendingSign} />
-      )}
 
       <DashboardStats
         leaveUsed={data.leaveUsed}

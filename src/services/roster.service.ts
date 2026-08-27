@@ -1,6 +1,9 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { apiClient } from './api.client';
 import type { RosterAssignmentStatus, RosterDayKind, WorkRosterAssignment } from '../types';
+import { notificationService } from './notification.service';
+import { employeeService } from './employee.service';
+import { formatIsoDateBr } from '../i18n/format';
 
 const mapRow = (r: any): WorkRosterAssignment => ({
   id: r.id,
@@ -14,6 +17,21 @@ const mapRow = (r: any): WorkRosterAssignment => ({
   created: r.created,
   updated: r.updated,
 });
+
+/**
+ * Resolve WORK/OFF from already-loaded assignments for one date.
+ * No rows → null (unpublished). Match → that status. Listed day without the employee → OFF.
+ */
+export function rosterStatusFromAssignments(
+  rowsForDate: WorkRosterAssignment[],
+  employeeKeys: string[],
+): RosterAssignmentStatus | null {
+  if (!employeeKeys.length || rowsForDate.length === 0) return null;
+  const keySet = new Set(employeeKeys.filter(Boolean));
+  const match = rowsForDate.find(r => keySet.has(r.employeeId));
+  if (match) return match.status;
+  return 'OFF';
+}
 
 export const rosterService = {
   async listAssignments(startDate: string, endDate: string): Promise<WorkRosterAssignment[]> {
@@ -42,7 +60,8 @@ export const rosterService = {
 
   /**
    * Replace all assignments for a date.
-   * Passing an empty array clears the roster for that day (falls back to shift rules).
+   * Passing an empty array clears the roster for that day.
+   * Saturday then stays OFF in the timesheet (not a shift workingDays fallback).
    */
   async saveDay(params: {
     workDate: string;
@@ -85,8 +104,43 @@ export const rosterService = {
       .select();
     if (error) throw error;
 
+    const saved = (data ?? []).map(mapRow);
     apiClient.notify();
-    return (data ?? []).map(mapRow);
+
+    // Notify assigned employees that the roster day was published/updated.
+    try {
+      const employees = await employeeService.getEmployees();
+      const byKey = new Map<string, string>();
+      for (const e of employees) {
+        byKey.set(e.id, e.id);
+        if (e.employeeId) byKey.set(e.employeeId, e.id);
+      }
+      const dateLabel = formatIsoDateBr(workDate);
+      const kindLabel = dayKind === 'HOLIDAY' ? 'feriado' : dayKind === 'SATURDAY' ? 'sábado' : 'dia';
+      const bulk = [];
+      for (const a of assignments) {
+        const userId = byKey.get(a.employeeId);
+        if (!userId) continue;
+        const statusLabel = a.status === 'WORK' ? 'trabalha' : 'folga';
+        bulk.push({
+          userId,
+          type: 'SYSTEM' as const,
+          title: 'Escala atualizada',
+          message: `Sua escala de ${kindLabel} (${dateLabel}) foi publicada: ${statusLabel}. Consulte Escalas no app.`,
+          referenceId: workDate,
+          referenceType: 'roster',
+          actionUrl: 'my-roster',
+          metadata: { workDate, status: a.status, dayKind },
+        });
+      }
+      if (bulk.length > 0) {
+        await notificationService.createBulkNotifications(bulk);
+      }
+    } catch (e) {
+      console.error('[rosterService] notify after saveDay failed', e);
+    }
+
+    return saved;
   },
 
   /** Assignments for one employee in a date range. */
@@ -103,11 +157,6 @@ export const rosterService = {
   ): Promise<RosterAssignmentStatus | null> {
     if (!employeeKeys.length) return null;
     const rows = await this.listForDate(workDate);
-    if (rows.length === 0) return null;
-    const keySet = new Set(employeeKeys.filter(Boolean));
-    const match = rows.find(r => keySet.has(r.employeeId));
-    if (match) return match.status;
-    // Roster exists but employee not listed → treat as off
-    return 'OFF';
+    return rosterStatusFromAssignments(rows, employeeKeys);
   },
 };

@@ -802,6 +802,27 @@ export const timesheetService = {
       who === 'employee' ? { employee_ack: acked } : { manager_ack: acked };
     const { error } = await supabase.from('timesheet_days').update(payload).eq('id', dayId);
     if (error) throw error;
+
+    if (who === 'manager') {
+      try {
+        const { data: dayRow } = await supabase
+          .from('timesheet_days')
+          .select('period_id, employee_id')
+          .eq('id', dayId)
+          .maybeSingle();
+        if (dayRow?.period_id && dayRow?.employee_id) {
+          const { data: authData } = await supabase.auth.getUser();
+          await this.reconcileEmployeeReviewAfterManagerAcks(
+            dayRow.period_id,
+            dayRow.employee_id,
+            authData.user?.id,
+          );
+        }
+      } catch (e) {
+        console.error('[timesheet] reconcile after acknowledgeDay failed', e);
+      }
+    }
+
     apiClient.notify();
   },
 
@@ -859,6 +880,31 @@ export const timesheetService = {
       .update(payload, { count: 'exact' })
       .in('id', ids);
     if (error) throw error;
+
+    if (who === 'manager') {
+      try {
+        const { data: touched } = await supabase
+          .from('timesheet_days')
+          .select('period_id, employee_id')
+          .in('id', ids);
+        const pairs = new Map<string, { periodId: string; employeeId: string }>();
+        for (const row of touched || []) {
+          if (!row.period_id || !row.employee_id) continue;
+          pairs.set(`${row.period_id}:${row.employee_id}`, {
+            periodId: row.period_id,
+            employeeId: row.employee_id,
+          });
+        }
+        const { data: authData } = await supabase.auth.getUser();
+        const actorId = authData.user?.id;
+        for (const { periodId, employeeId } of pairs.values()) {
+          await this.reconcileEmployeeReviewAfterManagerAcks(periodId, employeeId, actorId);
+        }
+      } catch (e) {
+        console.error('[timesheet] reconcile after acknowledgeDays failed', e);
+      }
+    }
+
     apiClient.notify();
     return count ?? ids.length;
   },
@@ -983,6 +1029,91 @@ export const timesheetService = {
       if (data) return mapReview(data);
     }
     return null;
+  },
+
+  /**
+   * After manager ciência (ack/revoke): open IN_REVIEW for employee sign when all
+   * elapsed days are approved; retract to OPEN if ciência is incomplete.
+   */
+  async reconcileEmployeeReviewAfterManagerAcks(
+    periodId: string,
+    employeeKey: string,
+    actorId?: string,
+  ): Promise<TimesheetEmployeeReview | null> {
+    if (!isSupabaseConfigured()) return null;
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) return null;
+
+    const employees = await employeeService.getEmployees();
+    const emp = resolveEmployeeRecord(employees, employeeKey);
+    if (!emp) return null;
+
+    const punchKey = punchKeyForEmployee(emp, employeeKey);
+    const allDays = await this.listDays(periodId, punchKey);
+    const scoped = daysForEmployee(allDays, emp, employeeKey);
+    const workDates = scoped.map(d => d.workDate).sort();
+    const punches =
+      workDates.length > 0
+        ? await punchService.listPunches({
+            employeeId: punchKey,
+            startDate: workDates[0]!,
+            endDate: workDates[workDates.length - 1]!,
+          })
+        : [];
+    const validation = validateTimesheetEmployeeReview(scoped, todayIsoLocal(), punches);
+    const existing = await this.getEmployeeReview(periodId, employeeKey);
+    const status = existing?.status;
+
+    if (status === 'EMPLOYEE_SIGNED' || status === 'APPROVED') {
+      return existing;
+    }
+
+    const now = new Date().toISOString();
+
+    if (validation.canSubmit) {
+      const wasOpen = !existing || status === 'OPEN';
+      const row = {
+        organization_id: orgId,
+        period_id: periodId,
+        employee_id: punchKey,
+        profile_id: emp.id,
+        status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
+        submitted_at: existing?.submittedAt || now,
+        submitted_by: existing?.submittedBy || actorId || null,
+        updated: now,
+      };
+      const { data, error } = await supabase
+        .from('timesheet_employee_reviews')
+        .upsert(row, { onConflict: 'period_id,employee_id' })
+        .select()
+        .single();
+      if (error) throw error;
+      const mapped = mapReview(data);
+      if (wasOpen) {
+        await this.notifyTimesheetReviewSubmitted(emp, periodId, punchKey);
+      }
+      apiClient.notify();
+      return mapped;
+    }
+
+    if (status === 'IN_REVIEW' && existing) {
+      const { data, error } = await supabase
+        .from('timesheet_employee_reviews')
+        .update({
+          status: 'OPEN',
+          submitted_at: null,
+          submitted_by: null,
+          updated: now,
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      apiClient.notify();
+      return mapReview(data);
+    }
+
+    return existing;
   },
 
   async submitEmployeeReview(
@@ -1185,20 +1316,31 @@ export const timesheetService = {
     const period = (await this.listPeriods()).find(p => p.id === periodId);
     const label = period ? `${String(period.month).padStart(2, '0')}/${period.year}` : '';
 
-    const bulk: Parameters<typeof notificationService.createBulkNotifications>[0] = [];
+    const bulk: Parameters<typeof notificationService.createBulkNotifications>[0] = [
+      {
+        userId: emp.id,
+        type: 'ATTENDANCE' as const,
+        title: 'Espelho disponível para assinar',
+        message: `O gestor aprovou seu espelho de ponto da competência ${label}. Abra o app e assine (selfie + rubrica) para confirmar ciência.`,
+        referenceId: periodId,
+        referenceType: 'timesheet_review',
+        actionUrl: 'my-timesheet',
+        priority: 'URGENT' as const,
+        metadata: { employeeId: punchKey, periodId, periodLabel: label },
+      },
+    ];
     if (emp.lineManagerId) {
       bulk.push({
         userId: emp.lineManagerId,
         type: 'ATTENDANCE' as const,
-        title: 'Aprovar espelho de ponto',
-        message: `O espelho de ${emp.name} (${label}) aguarda sua aprovação.`,
+        title: 'Espelho liberado para assinatura',
+        message: `Após a ciência dos dias, o espelho de ${emp.name} (${label}) está disponível para o colaborador assinar no app.`,
         referenceId: periodId,
         referenceType: 'timesheet_review',
         actionUrl: 'timesheet',
         metadata: { employeeId: punchKey, periodId, employeeName: emp.name },
       });
     }
-    if (bulk.length === 0) return;
     await notificationService.createBulkNotifications(bulk);
   },
 
@@ -1212,7 +1354,7 @@ export const timesheetService = {
       message: `Seu espelho de ponto da competência ${label} foi aprovado pelo gestor/RH.`,
       referenceId: periodId,
       referenceType: 'timesheet_review',
-      actionUrl: 'timesheet',
+      actionUrl: 'my-timesheet',
     });
   },
 
@@ -1282,11 +1424,13 @@ export const timesheetService = {
     const { data, error } = await supabase
       .from('timesheet_employee_reviews')
       .update({
-        status: 'EMPLOYEE_SIGNED',
+        status: 'APPROVED',
         employee_signed_at: now,
         employee_selfie_path: selfiePath,
         employee_signature_path: signaturePath,
         employee_sign_metadata: metadata,
+        approved_at: now,
+        approved_by: emp.id,
         updated: now,
       })
       .eq('id', existing.id)
@@ -1316,8 +1460,8 @@ export const timesheetService = {
       bulk.push({
         userId: emp.lineManagerId,
         type: 'ATTENDANCE' as const,
-        title: 'Espelho assinado — aprovar',
-        message: `${emp.name} assinou o espelho da competência ${label}. Aprove no espelho PTRP.`,
+        title: 'Espelho assinado pelo colaborador',
+        message: `${emp.name} assinou o espelho da competência ${label}.`,
         referenceId: periodId,
         referenceType: 'timesheet_review',
         actionUrl: 'timesheet',

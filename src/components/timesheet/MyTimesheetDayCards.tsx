@@ -16,88 +16,80 @@ function formatSlotTime(iso?: string): string {
   return formatTime(iso, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+/** Compact day list for PWA — full punch detail lives in the PDF download. */
 export const MyTimesheetDayCards: React.FC<Props> = ({ days, punches, fmtMinutes }) => {
   const { t } = useTranslation(['mobile', 'ptrp']);
 
   const punchesByDate = useMemo(() => groupPunchesByDate(punches), [punches]);
 
-  if (days.length === 0) {
+  const orderedDays = useMemo(
+    () => [...days].sort((a, b) => b.workDate.localeCompare(a.workDate)),
+    [days],
+  );
+
+  if (orderedDays.length === 0) {
     return (
-      <p className="text-sm text-slate-500 py-8 text-center">{t('mobile:noDays')}</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">
+        {t('mobile:noDays')}
+      </p>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {days.map(day => {
+    <ul className="rounded-xl border border-slate-100 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 divide-y divide-slate-100 dark:divide-slate-700/80 overflow-hidden">
+      {orderedDays.map((day) => {
         const dayPunches = punchesByDate.get(day.workDate) ?? [];
         const slots = pairPunchesToSlots(dayPunches, day.workDate);
+        const punchLine = [slots.entry1, slots.exit1, slots.entry2, slots.exit2]
+          .map(formatSlotTime)
+          .join(' · ');
         const d = new Date(`${day.workDate}T12:00:00`);
         const weekday = d.toLocaleDateString(undefined, { weekday: 'short' });
+        const absence = displayAbsenceMinutes(day);
+        const hasOt = day.overtimeMinutes > 0;
+        const hasAbsence = absence > 0;
 
         return (
-          <article
-            key={day.id}
-            className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-          >
-            <div className="flex items-start justify-between gap-2 mb-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 capitalize">
-                  {formatIsoDateBr(day.workDate)} · {weekday}
+          <li key={day.id} className="px-3.5 py-2.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 capitalize truncate">
+                  {formatIsoDateBr(day.workDate)}
+                  <span className="font-medium text-slate-400"> · {weekday}</span>
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
                   {t(`ptrp:dayStatus_${day.status}`, { defaultValue: day.status })}
                 </p>
               </div>
-              <span className="text-xs font-semibold text-primary tabular-nums">
-                {fmtMinutes(day.workedMinutes)}
-              </span>
+              <div className="text-right shrink-0 tabular-nums">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {fmtMinutes(day.workedMinutes)}
+                </p>
+                <p className="text-[10px] mt-0.5 space-x-1.5">
+                  {hasOt ? (
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                      HE {fmtMinutes(day.overtimeMinutes)}
+                    </span>
+                  ) : null}
+                  {hasAbsence ? (
+                    <span className="text-rose-700 dark:text-rose-400 font-semibold">
+                      {t('mobile:absenceHours')} {fmtMinutes(absence)}
+                    </span>
+                  ) : null}
+                  {!hasOt && !hasAbsence ? (
+                    <span className="text-slate-400">
+                      {t('mobile:dayExpected')} {fmtMinutes(day.expectedMinutes || 0)}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg bg-slate-50 px-2 py-1.5">
-                <span className="text-slate-400 block text-[9px] uppercase">{t('ptrp:colEntry1')}</span>
-                <span className="font-semibold tabular-nums">{formatSlotTime(slots.entry1)}</span>
-              </div>
-              <div className="rounded-lg bg-slate-50 px-2 py-1.5">
-                <span className="text-slate-400 block text-[9px] uppercase">{t('ptrp:colExit1')}</span>
-                <span className="font-semibold tabular-nums">{formatSlotTime(slots.exit1)}</span>
-              </div>
-              <div className="rounded-lg bg-slate-50 px-2 py-1.5">
-                <span className="text-slate-400 block text-[9px] uppercase">{t('ptrp:colEntry2')}</span>
-                <span className="font-semibold tabular-nums">{formatSlotTime(slots.entry2)}</span>
-              </div>
-              <div className="rounded-lg bg-slate-50 px-2 py-1.5">
-                <span className="text-slate-400 block text-[9px] uppercase">{t('ptrp:colExit2')}</span>
-                <span className="font-semibold tabular-nums">{formatSlotTime(slots.exit2)}</span>
-              </div>
-            </div>
-
-            {(() => {
-              const absence = displayAbsenceMinutes(day);
-              if (day.overtimeMinutes <= 0 && absence <= 0) return null;
-              return (
-              <div className="flex flex-wrap gap-2 mt-2 text-[10px] font-semibold">
-                {day.overtimeMinutes > 0 && (
-                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    HE {fmtMinutes(day.overtimeMinutes)}
-                  </span>
-                )}
-                {absence > 0 ? (
-                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md">
-                    {t('mobile:absenceHours')} {fmtMinutes(absence)}
-                  </span>
-                ) : day.status === 'ADJUSTED' ? (
-                  <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    {t('mobile:absenceHours')} {fmtMinutes(0)}
-                  </span>
-                ) : null}
-              </div>
-              );
-            })()}
-          </article>
+            <p className="mt-1 text-[11px] tabular-nums text-slate-500 dark:text-slate-400 truncate">
+              {punchLine}
+            </p>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 };

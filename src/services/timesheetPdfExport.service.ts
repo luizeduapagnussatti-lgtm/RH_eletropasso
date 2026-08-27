@@ -1,9 +1,10 @@
-import { pairPunchesToSlots, groupPunchesByDate } from './punch.service';
+import { pairPunchesToSlots, groupPunchesByDate, punchService } from './punch.service';
 import { organizationService } from './organization.service';
 import { formatIsoDateBr, formatTime, getDateLocale } from '../i18n/format';
 import { formatCpfDisplay, formatPisDisplay } from '../utils/employeeCredentials';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
 import { canExportMirrorPdf } from '../utils/timesheetDayAckValidation';
+import { minutesToDisplay } from '../utils/durationHm';
 import { APP_NAME } from '../config/branding';
 import {
   applyStandardTable,
@@ -47,14 +48,16 @@ export type TimesheetPdfLabels = {
   colExit2: string;
   colWorked: string;
   colOvertime: string;
-  colLate: string;
+  /** @deprecated Not shown on PDF (accounting prefers absence only). Kept optional for callers. */
+  colLate?: string;
   colAbsence: string;
   colStatus: string;
   colEmployee: string;
   metricExpected?: string;
   metricWorked: string;
   metricOvertime: string;
-  metricLate: string;
+  /** @deprecated Not shown on PDF. Kept optional for callers. */
+  metricLate?: string;
   metricAbsence: string;
   summarySection: string;
   generatedBy: string;
@@ -66,6 +69,21 @@ export type TimesheetPdfLabels = {
   signatureEmployee: string;
   signatureManager: string;
   totalsRow: string;
+  /** Legend for rows marked with * (manual punch adjustment). */
+  adjustedDayLegend?: string;
+};
+
+/** Portrait A4 usable width (~182mm) - 9-column mirror (no late/atraso). */
+const MIRROR_TABLE_COLUMN_STYLES: Record<number, { cellWidth?: number; halign?: 'center' | 'left' | 'right' }> = {
+  0: { cellWidth: 28 },
+  1: { cellWidth: 18 },
+  2: { cellWidth: 18 },
+  3: { cellWidth: 18 },
+  4: { cellWidth: 18 },
+  5: { cellWidth: 18, halign: 'center' },
+  6: { cellWidth: 14, halign: 'center' },
+  7: { cellWidth: 18, halign: 'center' },
+  8: { cellWidth: 24 },
 };
 
 /** Strip English sentinel fallbacks from employee.service / session mapping. */
@@ -85,14 +103,6 @@ function displayField(value: string | undefined | null, fallback: string): strin
   if (!trimmed) return fallback;
   if (EMPTY_FIELD_SENTINELS.has(trimmed.toLowerCase())) return fallback;
   return trimmed;
-}
-
-function minutesToDisplay(mins: number): string {
-  if (!mins) return '—';
-  const h = Math.floor(Math.abs(mins) / 60);
-  const m = Math.abs(mins) % 60;
-  const sign = mins < 0 ? '-' : '';
-  return `${sign}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 function slotTime(iso?: string): string {
@@ -154,9 +164,143 @@ function daysForEmployee(allDays: TimesheetDay[], employee: Employee): Timesheet
     .sort((a, b) => a.workDate.localeCompare(b.workDate));
 }
 
-/** Active staff for the combined "Todos" PDF — terminated accounts stay out. */
+/** Match punches by profile id and/or PIS (same dual-key rule as Timesheet adjust UI). */
+function punchesForEmployee(all: Punch[], employee: Employee): Punch[] {
+  const keys = new Set(
+    [employee.id, employee.employeeId].filter((k): k is string => !!k && k.trim() !== ''),
+  );
+  if (keys.size === 0) return [];
+  return all.filter(p => keys.has(p.employeeId));
+}
+
+function dayHadPunchAdjustment(day: TimesheetDay, dayPunches: Punch[]): boolean {
+  if (day.status === 'ADJUSTED') return true;
+  if (day.remarks?.trim()) return true;
+  return dayPunches.some(
+    p =>
+      (p.source === 'MANUAL' && !p.ignoredForCalc) ||
+      p.ignoreSource === 'MANUAL',
+  );
+}
+
+export type PdfActingUser = { id: string; name?: string };
+
+function employeeNameById(employees: Employee[], userId: string): string | undefined {
+  const hit = employees.find(e => e.id === userId);
+  const name = hit?.name?.trim();
+  return name || undefined;
+}
+
+/**
+ * Gestor/RH on the PDF signature line: most recent punch editor in the period,
+ * else whoever is exporting (logged-in user), else cadastral line manager.
+ */
+export function resolvePdfManagerName(opts: {
+  periodDays: TimesheetDay[];
+  punches: Punch[];
+  employees: Employee[];
+  review: TimesheetEmployeeReview | null;
+  exportedBy?: PdfActingUser;
+  lineManagerName?: string;
+}): string {
+  const candidates: { userId: string; at: string }[] = [];
+
+  for (const p of opts.punches) {
+    const raw = p.rawPayload;
+    if (p.source === 'MANUAL' && raw && typeof raw === 'object') {
+      const createdBy = (raw as Record<string, unknown>).createdBy;
+      if (typeof createdBy === 'string' && createdBy.trim()) {
+        candidates.push({ userId: createdBy.trim(), at: p.punchedAt });
+      }
+    }
+    if (p.ignoredBy?.trim() && p.ignoreSource === 'MANUAL') {
+      candidates.push({
+        userId: p.ignoredBy.trim(),
+        at: p.ignoredAt || p.punchedAt,
+      });
+    }
+  }
+
+  for (const day of opts.periodDays) {
+    const adj = day.manualAdjustment;
+    if (adj && typeof adj === 'object') {
+      const editedBy = (adj as Record<string, unknown>).editedBy;
+      const editedAt = (adj as Record<string, unknown>).editedAt;
+      if (typeof editedBy === 'string' && editedBy.trim()) {
+        candidates.push({
+          userId: editedBy.trim(),
+          at: typeof editedAt === 'string' ? editedAt : `${day.workDate}T23:59:59`,
+        });
+      }
+    }
+  }
+
+  if (opts.review?.approvedBy?.trim()) {
+    candidates.push({
+      userId: opts.review.approvedBy.trim(),
+      at: opts.review.approvedAt || '',
+    });
+  }
+
+  if (candidates.length) {
+    candidates.sort((a, b) => b.at.localeCompare(a.at));
+    for (const c of candidates) {
+      const name = employeeNameById(opts.employees, c.userId);
+      if (name) return name;
+    }
+  }
+
+  if (opts.exportedBy?.name?.trim()) return opts.exportedBy.name.trim();
+  if (opts.exportedBy?.id) {
+    const name = employeeNameById(opts.employees, opts.exportedBy.id);
+    if (name) return name;
+  }
+
+  return opts.lineManagerName?.trim() || '';
+}
+
+/**
+ * Load period punches per employee (avoids org-wide listPunches 5000 cap that
+ * drops MANUAL rows from the combined "Todos" PDF).
+ */
+async function loadPunchesForEmployees(
+  employees: Employee[],
+  startDate: string,
+  endDate: string,
+): Promise<Punch[]> {
+  const punchKeys = [
+    ...new Set(
+      employees
+        .flatMap(e => [e.employeeId, e.id])
+        .filter((k): k is string => !!k && k.trim() !== ''),
+    ),
+  ];
+  const CHUNK = 8;
+  const byId = new Map<string, Punch>();
+  for (let i = 0; i < punchKeys.length; i += CHUNK) {
+    const chunk = punchKeys.slice(i, i + CHUNK);
+    const lists = await Promise.all(
+      chunk.map(employeeId =>
+        punchService.listPunches({ employeeId, startDate, endDate }),
+      ),
+    );
+    for (const list of lists) {
+      for (const p of list) {
+        if (!byId.has(p.id)) byId.set(p.id, p);
+      }
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+}
+
+/** Active staff for the combined "Todos" PDF — terminated accounts stay out.
+ * When the caller already passed a filtered list (e.g. histórico), keep it as-is
+ * if it has no ACTIVE rows but has INACTIVE (histórico export).
+ */
 function employeesForAllMirrorPdf(employees: Employee[]): Employee[] {
-  return employees.filter(e => e.status !== 'INACTIVE');
+  const active = employees.filter(e => e.status !== 'INACTIVE');
+  if (active.length > 0) return active;
+  return employees.filter(e => e.status === 'INACTIVE');
 }
 
 function daysForActiveEmployees(days: TimesheetDay[], employees: Employee[]): TimesheetDay[] {
@@ -293,7 +437,6 @@ async function renderMirrorForEmployee(
     expected: periodDays.reduce((s, d) => s + (d.expectedMinutes || 0), 0),
     worked: periodDays.reduce((s, d) => s + (d.workedMinutes || 0), 0),
     overtime: periodDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
-    late: periodDays.reduce((s, d) => s + (d.lateMinutes || 0), 0),
     absence: periodDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
   };
 
@@ -306,7 +449,6 @@ async function renderMirrorForEmployee(
         : []),
       { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
       { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
-      { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
       {
         label: labels.metricAbsence,
         value: minutesToDisplay(totals.absence),
@@ -317,9 +459,14 @@ async function renderMirrorForEmployee(
   );
 
   const noteLines: string[] = [];
+  const adjustedRowIndexes = new Set<number>();
 
-  const tableRows = periodDays.map(day => {
-    const slots = pairPunchesToSlots(punchesByDate.get(day.workDate) ?? [], day.workDate);
+  const tableRows = periodDays.map((day, rowIndex) => {
+    const dayPunches = punchesByDate.get(day.workDate) ?? [];
+    const slots = pairPunchesToSlots(dayPunches, day.workDate);
+    const adjusted = dayHadPunchAdjustment(day, dayPunches);
+    if (adjusted) adjustedRowIndexes.add(rowIndex);
+
     const exit2 = slotTime(slots.exit2);
     const exit2Cell =
       slots.overflow.length > 0
@@ -354,6 +501,8 @@ async function renderMirrorForEmployee(
       );
     }
 
+    const statusText = statusLabel(day.status) + (adjusted ? '*' : '');
+
     return [
       formatDayCell(day.workDate),
       slotTime(slots.entry1),
@@ -362,11 +511,14 @@ async function renderMirrorForEmployee(
       exit2Cell,
       minutesToDisplay(day.workedMinutes),
       minutesToDisplay(day.overtimeMinutes),
-      minutesToDisplay(day.lateMinutes),
       minutesToDisplay(displayAbsenceMinutes(day)),
-      statusLabel(day.status),
+      statusText,
     ];
   });
+
+  if (adjustedRowIndexes.size > 0 && labels.adjustedDayLegend) {
+    noteLines.unshift(labels.adjustedDayLegend);
+  }
 
   applyStandardTable(doc, {
     startY: y,
@@ -378,7 +530,6 @@ async function renderMirrorForEmployee(
       labels.colExit2,
       labels.colWorked,
       labels.colOvertime,
-      labels.colLate,
       labels.colAbsence,
       labels.colStatus,
     ]],
@@ -391,24 +542,23 @@ async function renderMirrorForEmployee(
       '',
       minutesToDisplay(totals.worked),
       minutesToDisplay(totals.overtime),
-      minutesToDisplay(totals.late),
       minutesToDisplay(totals.absence),
       '',
     ]],
     showFoot: 'lastPage',
-    styles: { fontSize: 7, cellPadding: 2 },
+    styles: { fontSize: 6, cellPadding: 1.5 },
+    headStyles: { fontSize: 6, cellPadding: 1.5 },
     footStyles: {
       fillColor: [248, 250, 252],
       textColor: [15, 23, 42],
       fontStyle: 'bold',
-      fontSize: 7,
+      fontSize: 6,
     },
-    columnStyles: {
-      0: { cellWidth: 28 },
-      5: { halign: 'center' },
-      6: { halign: 'center' },
-      7: { halign: 'center' },
-      8: { halign: 'center' },
+    columnStyles: MIRROR_TABLE_COLUMN_STYLES,
+    willDrawCell: (data: { section: string; row: { index: number }; cell: { styles: { fillColor?: number[] } } }) => {
+      if (data.section === 'body' && adjustedRowIndexes.has(data.row.index)) {
+        data.cell.styles.fillColor = [241, 245, 249];
+      }
     },
   });
 
@@ -471,7 +621,6 @@ async function renderSummarySection(
       const expected = empDays.reduce((s, d) => s + (d.expectedMinutes || 0), 0);
       const worked = empDays.reduce((s, d) => s + (d.workedMinutes || 0), 0);
       const overtime = empDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0);
-      const late = empDays.reduce((s, d) => s + (d.lateMinutes || 0), 0);
       const absence = empDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0);
       return {
         name: emp.name || '',
@@ -480,14 +629,12 @@ async function renderSummarySection(
           emp.employeeId || '—',
           minutesToDisplay(worked),
           minutesToDisplay(overtime),
-          minutesToDisplay(late),
           minutesToDisplay(absence),
           reviewStatusLabel(review, empDays, labels, revLabel),
         ],
         expected,
         worked,
         overtime,
-        late,
         absence,
       };
     })
@@ -497,7 +644,6 @@ async function renderSummarySection(
     expected: number;
     worked: number;
     overtime: number;
-    late: number;
     absence: number;
   }>;
 
@@ -508,10 +654,9 @@ async function renderSummarySection(
       expected: acc.expected + e.expected,
       worked: acc.worked + e.worked,
       overtime: acc.overtime + e.overtime,
-      late: acc.late + e.late,
       absence: acc.absence + e.absence,
     }),
-    { expected: 0, worked: 0, overtime: 0, late: 0, absence: 0 },
+    { expected: 0, worked: 0, overtime: 0, absence: 0 },
   );
 
   y = drawMetricStrip(doc, y, [
@@ -520,7 +665,6 @@ async function renderSummarySection(
       : []),
     { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
     { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
-    { label: labels.metricLate, value: minutesToDisplay(totals.late), tone: 'late' },
     { label: labels.metricAbsence, value: minutesToDisplay(totals.absence), tone: 'absent' },
   ]);
 
@@ -531,7 +675,6 @@ async function renderSummarySection(
       labels.employeeId,
       labels.colWorked,
       labels.colOvertime,
-      labels.colLate,
       labels.colAbsence,
       labels.reviewStatus,
     ]],
@@ -541,17 +684,16 @@ async function renderSummarySection(
       '',
       minutesToDisplay(totals.worked),
       minutesToDisplay(totals.overtime),
-      minutesToDisplay(totals.late),
       minutesToDisplay(totals.absence),
       '',
     ]],
     showFoot: 'lastPage',
-    styles: { fontSize: 7.5, cellPadding: 2.5 },
+    styles: { fontSize: 7, cellPadding: 2 },
     footStyles: {
       fillColor: [248, 250, 252],
       textColor: [15, 23, 42],
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 7,
     },
   });
 }
@@ -599,7 +741,7 @@ export const timesheetPdfExportService = {
     periodStatusLabel?: (code: string) => string;
     managerName?: string;
   }): Promise<Blob> {
-    const doc = await createPdfDocument('landscape');
+    const doc = await createPdfDocument('portrait');
     await renderMirrorForEmployee(doc, opts, false);
     drawTimesheetFooters(doc, opts.labels);
     return doc.output('blob') as Blob;
@@ -614,7 +756,7 @@ export const timesheetPdfExportService = {
     labels: TimesheetPdfLabels;
     reviewStatusLabel: (code: string) => string;
   }): Promise<Blob> {
-    const doc = await createPdfDocument('landscape');
+    const doc = await createPdfDocument('portrait');
     await renderSummarySection(doc, opts);
     drawTimesheetFooters(doc, opts.labels);
     return doc.output('blob') as Blob;
@@ -635,8 +777,9 @@ export const timesheetPdfExportService = {
     statusLabel: (dayStatus: string) => string;
     reviewStatusLabel: (code: string) => string;
     periodStatusLabel?: (code: string) => string;
+    exportedBy?: PdfActingUser;
   }): Promise<Blob> {
-    const doc = await createPdfDocument('landscape');
+    const doc = await createPdfDocument('portrait');
 
     // Page 1: overview across all employees.
     await renderSummarySection(doc, {
@@ -659,13 +802,11 @@ export const timesheetPdfExportService = {
       .sort((a, b) => (a.emp.name || '').localeCompare(b.emp.name || ''));
 
     for (const { emp, empDays } of withDays) {
-      const punchKey = emp.employeeId || emp.id;
-      const empPunches = opts.punches.filter(
-        p => p.employeeId === punchKey || p.employeeId === emp.id
-      );
-      const manager = emp.lineManagerId
+      const empPunches = punchesForEmployee(opts.punches, emp);
+      const lineManager = emp.lineManagerId
         ? opts.employees.find(e => e.id === emp.lineManagerId)
         : undefined;
+      const review = resolveReview(opts.reviews, emp);
       await renderMirrorForEmployee(
         doc,
         {
@@ -674,12 +815,19 @@ export const timesheetPdfExportService = {
           employee: emp,
           days: empDays,
           punches: empPunches,
-          review: resolveReview(opts.reviews, emp),
+          review,
           labels: opts.labels,
           statusLabel: opts.statusLabel,
           reviewStatusLabel: opts.reviewStatusLabel,
           periodStatusLabel: opts.periodStatusLabel,
-          managerName: manager?.name,
+          managerName: resolvePdfManagerName({
+            periodDays: empDays,
+            punches: empPunches,
+            employees: opts.employees,
+            review,
+            exportedBy: opts.exportedBy,
+            lineManagerName: lineManager?.name,
+          }),
         },
         true,
       );
@@ -700,9 +848,13 @@ export const timesheetPdfExportService = {
     dayStatusLabel: (status: string) => string;
     reviewStatusLabel: (code: string) => string;
     periodStatusLabel?: (code: string) => string;
+    exportedBy?: PdfActingUser;
+    /** RH export requires manager ack on elapsed days. Employee self-download may skip. */
+    requireManagerAcks?: boolean;
   }): Promise<{ blob: Blob; filename: string }> {
     const org = await this.getOrgInfo();
     const ym = `${opts.period.year}_${String(opts.period.month).padStart(2, '0')}`;
+    const requireAcks = opts.requireManagerAcks !== false;
 
     if (opts.employeeFilter !== 'ALL') {
       const employee = opts.employees.find(
@@ -711,47 +863,72 @@ export const timesheetPdfExportService = {
       if (!employee) throw new Error('employee_not_found');
       const empDays = daysInPeriod(daysForEmployee(opts.days, employee), opts.period);
       if (!empDays.length) throw new Error('employee_no_days');
-      const pdfGate = canExportMirrorPdf(empDays);
-      if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
-      const punchKey = employee.employeeId || employee.id;
-      const empPunches = opts.punches.filter(p => p.employeeId === punchKey || p.employeeId === employee.id);
-      const manager = employee.lineManagerId
+      if (requireAcks) {
+        const pdfGate = canExportMirrorPdf(empDays);
+        if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
+      }
+      // Fresh load clears wrongly AUTO-ignored CLOCK (proximity must be per employee).
+      const freshPunches = await loadPunchesForEmployees(
+        [employee],
+        opts.period.startDate,
+        opts.period.endDate,
+      );
+      const empPunches = punchesForEmployee(freshPunches, employee);
+      const lineManager = employee.lineManagerId
         ? opts.employees.find(e => e.id === employee.lineManagerId)
         : undefined;
+      const review = resolveReview(opts.reviews, employee);
       const blob = await this.buildEmployeeMirrorPdf({
         period: opts.period,
         org,
         employee,
         days: empDays,
         punches: empPunches,
-        review: resolveReview(opts.reviews, employee),
+        review,
         labels: opts.labels,
         statusLabel: opts.dayStatusLabel,
         reviewStatusLabel: opts.reviewStatusLabel,
         periodStatusLabel: opts.periodStatusLabel,
-        managerName: manager?.name,
+        managerName: resolvePdfManagerName({
+          periodDays: empDays,
+          punches: empPunches,
+          employees: opts.employees,
+          review,
+          exportedBy: opts.exportedBy,
+          lineManagerName: lineManager?.name,
+        }),
       });
-      const safeName = (employee.name || punchKey).replace(/[^\w.-]+/g, '_');
+      const safeName = (employee.name || employee.employeeId || employee.id).replace(/[^\w.-]+/g, '_');
       return { blob, filename: `espelho_ponto_${safeName}_${ym}.pdf` };
     }
 
     // "Todos": only ACTIVE collaborators (demitidos ficam de fora do PDF combinado).
     const activeEmployees = employeesForAllMirrorPdf(opts.employees);
     const activeDays = daysForActiveEmployees(opts.days, activeEmployees);
-    const pdfGate = canExportMirrorPdf(activeDays);
-    if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
+    if (requireAcks) {
+      const pdfGate = canExportMirrorPdf(activeDays);
+      if (!pdfGate.ok) throw new Error('mirror_pdf_requires_all_approved');
+    }
+
+    // Fresh per-employee punch load — do not rely on org-wide UI list (5000 cap).
+    const completePunches = await loadPunchesForEmployees(
+      activeEmployees,
+      opts.period.startDate,
+      opts.period.endDate,
+    );
 
     const blob = await this.buildAllEmployeesDetailedPdf({
       period: opts.period,
       org,
       employees: activeEmployees,
       days: activeDays,
-      punches: opts.punches,
+      punches: completePunches,
       reviews: opts.reviews,
       labels: opts.labels,
       statusLabel: opts.dayStatusLabel,
       reviewStatusLabel: opts.reviewStatusLabel,
       periodStatusLabel: opts.periodStatusLabel,
+      exportedBy: opts.exportedBy,
     });
     return { blob, filename: `espelho_ponto_completo_${ym}.pdf` };
   },

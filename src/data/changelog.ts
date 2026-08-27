@@ -16,6 +16,137 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-08-27',
+    title: 'PDF espelho — só jornada precisa de ciência',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Exportar espelho PDF (Todos) deixa de bloquear por dias OFF/feriado/licença sem ciência e por dias de quem não está na lista (órfãos). Só conta jornada sem ciência do gestor dos colaboradores filtrados — alinhado à coluna Ciências OK.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — totais HE e faltas',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'No Meu espelho, texto discreto sob os totais: hora extra e faltas somam dias diferentes e não se cancelam; o líquido é Trabalhado menos a meta.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — espelho resumido + PDF',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Meu espelho no celular mostra só o resumo de cada dia (data, situação, horas e batidas em uma linha). O detalhe completo fica no PDF Baixar PDF.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — assinatura digital do espelho e avisos',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Quando o RH/gestor libera o espelho (Liberar para assinatura), o colaborador vê o espelho no app, recebe notificação e assina com selfie + rubrica. Depois disso o gestor/RH aprova.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Notificações ao colaborador: espelho disponível para assinar (sino + CTA na Início e ponto na aba Espelho) e escala publicada/atualizada (atalho Escalas).',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — Espelho de ponto do colaborador',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Meu espelho: setas para competências anteriores, consulta por crachá/UUID no banco, cards do dia com previsto/trabalhado/HE/falta e batidas E1–S2. Visual dark alinhado ao shell mobile.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — ícones vermelhos e totais do mês',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Início e barra inferior do app colaborador usam o vermelho Eletropasso (#e23d42) nos ícones. Totais do mês passam a ser um card com três métricas (trabalhado, HE, faltas) e atalho para o espelho.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Desligamento — solta líder e gestor',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Ao desligar (e ao abrir Organização), quem está INACTIVE deixa de ser líder de equipe e gestor direto dos subordinados. Pedidos de férias ainda PENDING_MANAGER desse gestor passam para RH. Equipes sem líder ativo mostram “Nenhum líder atribuído”.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Console — script.js / Vercel Analytics',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Removido @vercel/analytics do App na loja local. Ele pedia /_vercel/insights/script.js, o preview devolvia HTML e o console mostrava Unexpected token “<”.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Console — import map inválido',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Removido o import map esm.sh legado do index.html (JSON inválido por vírgula final). O app já empacota React via Vite; o erro “Failed to parse import map” some no próximo build/preview.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Equipes — líder só entre ativos',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Na edição de equipe, a lista de líder e a de membros deixam de incluir demitidos. Se o líder atual já estiver desligado, aparece marcado para ser trocado.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'App colaborador — Início e shell mobile',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Início no celular passa a mostrar o que precisa agora: saudação, lembrete de ponto no relógio, próxima escala, totais do mês e último aviso. Atalhos só para Férias e Avisos (Espelho/Escalas ficam na barra inferior).',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Link da loja e instalar PWA saem da Início e ficam em Conta; na primeira visita resta só um aviso leve para adicionar à tela inicial.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Demissão e espelho — fila só de ativos',
     entries: [
       {

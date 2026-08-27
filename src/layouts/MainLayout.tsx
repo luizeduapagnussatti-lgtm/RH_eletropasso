@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { APP_NAME, STORE_LOGO_PATH } from '../config/branding';
 import { isNonPunchingStaff, isPjContractor } from '../utils/roles';
 import { useEmployeeMobileShell } from '../hooks/useEmployeeMobileShell';
+import { usePendingTimesheetSign } from '../hooks/mobile/usePendingTimesheetSign';
 import { hrService } from '../services/hrService';
 
 const SIDEBAR_STORAGE_KEY = 'openhr_sidebar_collapsed';
@@ -48,7 +49,7 @@ interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNavigate }) => {
-  const { t } = useTranslation(['common', 'nav']);
+  const { t } = useTranslation(['common', 'nav', 'mobile']);
   const { user, logout } = useAuth();
   const { darkMode, setDarkModePreference } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -56,6 +57,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   const [hardwareSyncPending, setHardwareSyncPending] = useState(0);
   const employeeMobileShell = useEmployeeMobileShell();
   const isPjMobile = employeeMobileShell && isPjContractor(user);
+  const pendingTimesheetSign = usePendingTimesheetSign(
+    employeeMobileShell && !isPjMobile ? user : null,
+  );
   const historyPath = isNonPunchingStaff(user?.role) ? 'attendance-audit' : 'attendance-logs';
   const isWideContent = WIDE_CONTENT_PATHS.has(currentPath);
 
@@ -245,13 +249,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
         </div>
 
         {/* Bottom Navigation (Mobile) */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around px-2 pt-3 z-50 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <nav
+          className={`md:hidden fixed bottom-0 left-0 right-0 backdrop-blur-2xl flex items-center justify-around px-2 pt-2.5 z-50 pb-[calc(0.75rem+env(safe-area-inset-bottom))] ${
+            employeeMobileShell
+              ? 'bg-white/95 dark:bg-[#182230]/95 border-t border-slate-200/80 dark:border-[#243044] shadow-[0_-4px_24px_rgba(15,23,42,0.04)]'
+              : 'bg-white/95 border-t border-slate-200/80 shadow-[0_-4px_24px_rgba(15,23,42,0.04)]'
+          }`}
+          aria-label={t('mobile:bottomNavLabel')}
+        >
           {employeeMobileShell ? (
             <>
               <button
                 type="button"
                 onClick={() => handleNavigate('dashboard')}
-                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'dashboard' ? 'text-primary' : 'text-slate-400'}`}
+                aria-current={currentPath === 'dashboard' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'dashboard'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
               >
                 <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
                 <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navHome')}</span>
@@ -260,16 +276,34 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
                 <button
                   type="button"
                   onClick={() => handleNavigate('my-timesheet')}
-                  className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'my-timesheet' ? 'text-primary' : 'text-slate-400'}`}
+                  aria-current={currentPath === 'my-timesheet' ? 'page' : undefined}
+                  className={`relative flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                    currentPath === 'my-timesheet'
+                      ? 'text-[#e23d42]'
+                      : 'text-slate-500 dark:text-white/45'
+                  }`}
                 >
-                  <ClipboardList size={20} className={currentPath === 'my-timesheet' ? 'scale-110' : ''} />
+                  <span className="relative inline-flex">
+                    <ClipboardList size={20} className={currentPath === 'my-timesheet' ? 'scale-110' : ''} />
+                    {pendingTimesheetSign && (
+                      <span
+                        className="absolute -top-0.5 -right-1.5 h-2 w-2 rounded-full bg-[#c41e24] ring-2 ring-white dark:ring-[#182230]"
+                        aria-hidden
+                      />
+                    )}
+                  </span>
                   <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navTimesheet')}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => handleNavigate('my-roster')}
-                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'my-roster' ? 'text-primary' : 'text-slate-400'}`}
+                aria-current={currentPath === 'my-roster' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'my-roster'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
               >
                 <CalendarCheck size={20} className={currentPath === 'my-roster' ? 'scale-110' : ''} />
                 <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navRoster')}</span>
@@ -277,7 +311,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
               <button
                 type="button"
                 onClick={() => handleNavigate('profile')}
-                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 ${currentPath === 'profile' ? 'text-primary' : 'text-slate-400'}`}
+                aria-current={currentPath === 'profile' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'profile'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
               >
                 <UserCircle size={20} className={currentPath === 'profile' ? 'scale-110' : ''} />
                 <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navAccount')}</span>

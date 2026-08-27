@@ -797,6 +797,23 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
     return isManager && selectedEmployee.lineManagerId === user.id;
   }, [selectedEmployee, currentEmployeeReview, locked, employeeReviewValidation.canApprove, isHr, isManager, user.id]);
 
+  const canReleaseForSignSelectedEmployee = useMemo(() => {
+    if (!selectedEmployee || locked) return false;
+    const status = currentEmployeeReview?.status;
+    if (status === 'IN_REVIEW' || status === 'EMPLOYEE_SIGNED' || status === 'APPROVED') return false;
+    if (!employeeReviewValidation.canSubmit) return false;
+    if (isHr) return true;
+    return isManager && selectedEmployee.lineManagerId === user.id;
+  }, [
+    selectedEmployee,
+    locked,
+    currentEmployeeReview?.status,
+    employeeReviewValidation.canSubmit,
+    isHr,
+    isManager,
+    user.id,
+  ]);
+
   const reviewSummaryRows = useMemo((): ReviewRow[] => {
     if (employeeFilter !== 'ALL' || !hasQuery) return [];
     const today = todayIsoLocal();
@@ -935,7 +952,17 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
       showToast(t('mirrorPdfNoDays'), 'warning');
       return;
     }
-    const pdfGate = canExportMirrorPdf(days);
+    // Same scope as the review table / combined PDF: only staff currently listed
+    // (active or histórico), not orphan days from other people in the period.
+    const daysForPdfGate =
+      employeeFilter === 'ALL'
+        ? days.filter(d =>
+            visibleStaff.some(
+              e => e.id === d.employeeId || e.employeeId === d.employeeId,
+            ),
+          )
+        : days;
+    const pdfGate = canExportMirrorPdf(daysForPdfGate);
     if (!pdfGate.ok) {
       showToast(t('mirrorPdfRequiresAllApproved', { pending: pdfGate.pendingCount }), 'warning');
       return;
@@ -987,8 +1014,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
       const { blob, filename } = await hrService.exportTimesheetMirrorPdf({
         period,
         employeeFilter,
-        employees,
-        days,
+        employees: employeeFilter === 'ALL' ? visibleStaff : employees,
+        days: daysForPdfGate,
         punches,
         reviews: employeeReviews,
         labels,
@@ -1017,7 +1044,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
       } else if (raw === 'employee_no_days') {
         showToast(t('mirrorPdfNoDays'), 'warning');
       } else if (raw === 'mirror_pdf_requires_all_approved') {
-        const gate = canExportMirrorPdf(days);
+        const gate = canExportMirrorPdf(daysForPdfGate);
         showToast(t('mirrorPdfRequiresAllApproved', { pending: gate.pendingCount }), 'warning');
       } else {
         showToast(raw || t('loadFailed'), 'error');
@@ -1664,6 +1691,15 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
             >
               <FileJson size={14} aria-hidden /> {t('exportPrePayroll')}
             </button>
+            {isSingleEmployee && !locked && hasQuery && canReleaseForSignSelectedEmployee && (
+              <button
+                type="button"
+                onClick={() => void openReviewModal('submit')}
+                className="h-10 px-4 border border-[#c41e24]/35 text-[#e23d42] rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-[#c41e24]/10"
+              >
+                <Send size={14} aria-hidden /> {t('releaseForEmployeeSign')}
+              </button>
+            )}
             {isSingleEmployee && !locked && hasQuery && canApproveSelectedEmployee && (
               <button
                 type="button"

@@ -47,6 +47,7 @@ export const hrService = {
   addEmployee: employeeService.addEmployee,
   updateProfile: employeeService.updateProfile,
   dischargeEmployee: employeeService.dischargeEmployee.bind(employeeService),
+  repairInactiveOrgLinks: employeeService.repairInactiveOrgLinks.bind(employeeService),
   releaseCorporateEmail: employeeService.releaseCorporateEmail.bind(employeeService),
   deleteEmployee: employeeService.deleteEmployee,
   activateUser: verificationService.adminActivateUser,
@@ -172,6 +173,8 @@ export const hrService = {
   getEsocialTransmissionConfig: esocialTransmissionService.getConfig.bind(esocialTransmissionService),
   listTimesheetEmployeeReviews: timesheetService.listEmployeeReviews.bind(timesheetService),
   getTimesheetEmployeeReview: timesheetService.getEmployeeReview.bind(timesheetService),
+  reconcileTimesheetEmployeeReviewAfterManagerAcks:
+    timesheetService.reconcileEmployeeReviewAfterManagerAcks.bind(timesheetService),
   submitTimesheetEmployeeReview: timesheetService.submitEmployeeReview.bind(timesheetService),
   approveTimesheetEmployeeReview: timesheetService.approveEmployeeReview.bind(timesheetService),
   signTimesheetEmployeeReview: timesheetService.signEmployeeReview.bind(timesheetService),
