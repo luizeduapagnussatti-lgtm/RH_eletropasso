@@ -393,6 +393,15 @@ deno_version = 2
 [functions.ingest-punches]
 verify_jwt = false
 
+[functions.cron-process-reports-queue]
+verify_jwt = false
+
+[functions.leave-notifications]
+verify_jwt = false
+
+[functions.cron-pwa-punch-selfie-cleanup]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

@@ -1,9 +1,18 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, getSupabaseSignedUrl } from './supabase';
 import { apiClient } from './api.client';
 import { Punch, PunchDirection, PunchIgnoreSource, PunchSource } from '../types';
+import { convertToWebP } from '../utils/imageConvert';
 
 /** Window for auto-ignoring accidental double CLOCK punches (keep first). */
 export const PUNCH_PROXIMITY_DEDUP_MINUTES = 10;
+
+const PWA_PUNCH_SELFIE_BUCKET = 'selfies';
+
+/** Storage path from APP punch raw_payload (if present). */
+export function appPunchSelfiePath(punch: Punch): string | null {
+  const raw = punch.rawPayload?.selfiePath;
+  return typeof raw === 'string' && raw.length > 0 ? raw : null;
+}
 
 const mapPunch = (r: any): Punch => ({
   id: r.id,
@@ -83,13 +92,25 @@ export function punchesForApuration(punches: Punch[]): Punch[] {
   return punches.filter(p => !p.ignoredForCalc);
 }
 
+/**
+ * Slots on the PDF / mirror grid: hide only punches the manager intentionally
+ * ignored (ignore_source=MANUAL). AUTO proximity flags must not blank Entrada/Saída
+ * when org-wide listPunches previously poisoned coworkers' CLOCK rows.
+ */
+export function punchesForDisplaySlots(punches: Punch[]): Punch[] {
+  return punches.filter(p => !(p.ignoredForCalc && p.ignoreSource === 'MANUAL'));
+}
+
 function minutesBetweenIso(a: string, b: string): number {
   return Math.abs(new Date(b).getTime() - new Date(a).getTime()) / 60000;
 }
 
 /**
- * Plan AUTO proximity ignores: keep first CLOCK/IMPORT in a &lt;window cluster;
- * never mutate punches with ignore_source=MANUAL.
+ * Plan AUTO proximity ignores: keep first CLOCK/IMPORT in a &lt;window cluster
+ * **per employee**. Never mix employees on the same calendar day (org-wide
+ * listPunches used to collapse everyone into one timeline and wrongly ignore
+ * valid punches within 10 minutes of a coworker).
+ * Never mutate punches with ignore_source=MANUAL.
  */
 export function planProximityAutoIgnores(
   punches: Punch[],
@@ -100,43 +121,98 @@ export function planProximityAutoIgnores(
     .filter(p => punchDateKey(p.punchedAt) === date)
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
 
-  const eligible = day.filter(p => p.source === 'CLOCK' || p.source === 'IMPORT');
-  const shouldIgnore = new Set<string>();
-  let lastKept: Punch | null = null;
-
-  for (const p of eligible) {
-    if (p.ignoreSource === 'MANUAL') {
-      if (!p.ignoredForCalc) lastKept = p;
-      continue;
-    }
-    if (!lastKept) {
-      lastKept = p;
-      continue;
-    }
-    if (minutesBetweenIso(lastKept.punchedAt, p.punchedAt) <= windowMinutes) {
-      shouldIgnore.add(p.id);
-    } else {
-      lastKept = p;
-    }
+  const byEmployee = new Map<string, Punch[]>();
+  for (const p of day) {
+    const key = p.employeeId || '_';
+    const list = byEmployee.get(key) ?? [];
+    list.push(p);
+    byEmployee.set(key, list);
   }
 
   const toIgnore: string[] = [];
   const toClear: string[] = [];
-  for (const p of eligible) {
-    if (p.ignoreSource === 'MANUAL') continue;
-    const want = shouldIgnore.has(p.id);
-    const currentlyAuto =
-      !!p.ignoredForCalc && (p.ignoreSource === 'AUTO' || !p.ignoreSource);
-    if (want && !currentlyAuto) toIgnore.push(p.id);
-    if (!want && currentlyAuto) toClear.push(p.id);
+
+  for (const empPunches of byEmployee.values()) {
+    const eligible = empPunches.filter(p => p.source === 'CLOCK' || p.source === 'IMPORT');
+    const shouldIgnore = new Set<string>();
+    let lastKept: Punch | null = null;
+
+    for (const p of eligible) {
+      if (p.ignoreSource === 'MANUAL') {
+        if (!p.ignoredForCalc) lastKept = p;
+        continue;
+      }
+      if (!lastKept) {
+        lastKept = p;
+        continue;
+      }
+      if (minutesBetweenIso(lastKept.punchedAt, p.punchedAt) <= windowMinutes) {
+        shouldIgnore.add(p.id);
+      } else {
+        lastKept = p;
+      }
+    }
+
+    for (const p of eligible) {
+      if (p.ignoreSource === 'MANUAL') continue;
+      const want = shouldIgnore.has(p.id);
+      const currentlyAuto =
+        !!p.ignoredForCalc && (p.ignoreSource === 'AUTO' || !p.ignoreSource);
+      if (want && !currentlyAuto) toIgnore.push(p.id);
+      if (!want && currentlyAuto) toClear.push(p.id);
+    }
   }
 
   return { toIgnore, toClear };
 }
 
-/** Chronological slots from non-ignored punches: Entrada1…Saída2; extras in overflow. */
+/**
+ * APP punches fill holes only: if any CLOCK/IMPORT exists within the proximity
+ * window for the same employee/day, ignore the APP (CLOCK wins). Never touches
+ * MANUAL ignore decisions. Late CLOCK ingest + recalc re-runs this plan.
+ */
+export function planAppVsClockIgnores(
+  punches: Punch[],
+  date: string,
+  windowMinutes: number = PUNCH_PROXIMITY_DEDUP_MINUTES,
+): ProximityAutoIgnorePlan {
+  const day = punches
+    .filter(p => punchDateKey(p.punchedAt) === date)
+    .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
+
+  const byEmployee = new Map<string, Punch[]>();
+  for (const p of day) {
+    const key = p.employeeId || '_';
+    const list = byEmployee.get(key) ?? [];
+    list.push(p);
+    byEmployee.set(key, list);
+  }
+
+  const toIgnore: string[] = [];
+  const toClear: string[] = [];
+
+  for (const empPunches of byEmployee.values()) {
+    const clockish = empPunches.filter(p => p.source === 'CLOCK' || p.source === 'IMPORT');
+    const apps = empPunches.filter(p => p.source === 'APP');
+
+    for (const app of apps) {
+      if (app.ignoreSource === 'MANUAL') continue;
+      const superseded = clockish.some(
+        c => minutesBetweenIso(c.punchedAt, app.punchedAt) <= windowMinutes,
+      );
+      const currentlyAuto =
+        !!app.ignoredForCalc && (app.ignoreSource === 'AUTO' || !app.ignoreSource);
+      if (superseded && !currentlyAuto) toIgnore.push(app.id);
+      if (!superseded && currentlyAuto) toClear.push(app.id);
+    }
+  }
+
+  return { toIgnore, toClear };
+}
+
+/** Chronological slots from displayable punches: Entrada1…Saída2; extras in overflow. */
 export function pairPunchesToSlots(punches: Punch[], date: string): PunchDaySlots {
-  const dayPunches = punchesForApuration(punches)
+  const dayPunches = punchesForDisplaySlots(punches)
     .filter(p => punchDateKey(p.punchedAt) === date)
     .filter(p => p.direction !== 'BREAK_START' && p.direction !== 'BREAK_END')
     .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt));
@@ -232,9 +308,13 @@ export const punchService = {
     const dates = [...new Set(mapped.map(p => punchLocalDateKey(p.punchedAt)))];
     let changed = false;
     for (const date of dates) {
-      const plan = planProximityAutoIgnores(mapped, date);
+      const proximity = planProximityAutoIgnores(mapped, date);
+      const appVsClock = planAppVsClockIgnores(mapped, date);
+      const plan: ProximityAutoIgnorePlan = {
+        toIgnore: [...new Set([...proximity.toIgnore, ...appVsClock.toIgnore])],
+        toClear: [...new Set([...proximity.toClear, ...appVsClock.toClear])],
+      };
       if (plan.toIgnore.length > 0 || plan.toClear.length > 0) {
-        // Call via module export path-safe style: avoid `this` when method is detached on hrService
         await punchService.applyProximityAutoIgnorePlan(plan);
         changed = true;
       }
@@ -288,19 +368,118 @@ export const punchService = {
     const orgId = apiClient.getOrganizationId();
     if (!orgId) throw new Error('No organization ID');
 
+    const { data: authData } = await supabase.auth.getUser();
+    const actorId = authData.user?.id;
+
     const payload = {
       organization_id: orgId,
       employee_id: input.employeeId,
       punched_at: input.punchedAt,
       direction: input.direction,
       source: 'MANUAL' as PunchSource,
-      raw_payload: input.remarks ? { remarks: input.remarks } : null,
+      raw_payload: {
+        ...(input.remarks ? { remarks: input.remarks } : {}),
+        ...(actorId ? { createdBy: actorId } : {}),
+      },
     };
 
     const { data, error } = await supabase.from('punches').insert(payload).select().single();
     if (error) throw error;
     apiClient.notify();
     return mapPunch(data);
+  },
+
+  /**
+   * Employee PWA punch — only when profiles.allow_pwa_punch.
+   * Writes source=APP; never mutates CLOCK. Selfie + GPS required.
+   */
+  async createAppPunch(input: {
+    selfieDataUrl: string;
+    location: { lat: number; lng: number; accuracy?: number; address?: string };
+    direction?: PunchDirection;
+  }): Promise<Punch> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) throw new Error('No organization ID');
+
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) throw new Error('Not authenticated');
+
+    if (!input.selfieDataUrl) throw new Error('selfieRequired');
+    if (
+      input.location == null ||
+      !Number.isFinite(input.location.lat) ||
+      !Number.isFinite(input.location.lng)
+    ) {
+      throw new Error('locationRequired');
+    }
+
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('id, organization_id, employee_id, allow_pwa_punch, status')
+      .eq('id', userId)
+      .single();
+    if (profileErr) throw profileErr;
+    if (!profile?.allow_pwa_punch) throw new Error('pwaPunchDisabled');
+    if (!profile.employee_id) throw new Error('pwaPunchNoEmployeeId');
+    if (profile.status && profile.status !== 'ACTIVE') throw new Error('pwaPunchInactive');
+
+    const punchKey = String(profile.employee_id);
+    const today = punchLocalDateKey(new Date().toISOString());
+    const existingToday = await punchService.listPunches({
+      employeeId: punchKey,
+      startDate: today,
+      endDate: today,
+    });
+    const activeToday = punchesForApuration(existingToday).sort((a, b) =>
+      a.punchedAt.localeCompare(b.punchedAt),
+    );
+    const last = activeToday[activeToday.length - 1];
+    let direction: PunchDirection = input.direction || 'IN';
+    if (!input.direction) {
+      if (!last || last.direction === 'OUT' || last.direction === 'BREAK_END') {
+        direction = 'IN';
+      } else {
+        direction = 'OUT';
+      }
+    }
+
+    const selfieBlob = await convertToWebP(input.selfieDataUrl, 0.65, 720);
+    const selfiePath = `${userId}/pwa-punches/${Date.now()}.webp`;
+    const { error: upErr } = await supabase.storage
+      .from(PWA_PUNCH_SELFIE_BUCKET)
+      .upload(selfiePath, selfieBlob, { upsert: false, contentType: 'image/webp' });
+    if (upErr) throw upErr;
+
+    const punchedAt = new Date().toISOString();
+    const payload = {
+      organization_id: orgId,
+      employee_id: punchKey,
+      punched_at: punchedAt,
+      direction,
+      source: 'APP' as PunchSource,
+      device_id: 'PWA',
+      raw_payload: {
+        lat: input.location.lat,
+        lng: input.location.lng,
+        accuracy: input.location.accuracy ?? null,
+        address: input.location.address ?? null,
+        selfiePath,
+        createdBy: userId,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      },
+    };
+
+    const { data, error } = await supabase.from('punches').insert(payload).select().single();
+    if (error) throw error;
+    apiClient.notify();
+    return mapPunch(data);
+  },
+
+  async getAppPunchSelfieUrl(path?: string | null): Promise<string | null> {
+    if (!path || !isSupabaseConfigured()) return null;
+    return getSupabaseSignedUrl(PWA_PUNCH_SELFIE_BUCKET, path, 3600);
   },
 
   async updateManualPunch(

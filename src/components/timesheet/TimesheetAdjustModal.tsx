@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   Info,
+  MapPin,
   Pencil,
   Plus,
   Trash2,
@@ -16,7 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { Punch, PunchDirection, Shift, TimesheetDay } from '../../types';
-import { pairPunchesToSlots, punchLocalDateKey } from '../../services/punch.service';
+import { appPunchSelfiePath, pairPunchesToSlots, punchLocalDateKey } from '../../services/punch.service';
+import { hrService } from '../../services/hrService';
 import { calculateDay } from '../../services/timeCalculation.service';
 import { checkDayCoherence, type DayCoherenceContext } from '../../utils/timesheetDayCoherence';
 import { dayAckBlockI18nKey, isDayApprovable } from '../../utils/timesheetDayAckValidation';
@@ -138,6 +140,9 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
   const [editingPunchId, setEditingPunchId] = useState<string | null>(null);
   const [editPunchTime, setEditPunchTime] = useState('');
   const [editPunchDir, setEditPunchDir] = useState<PunchDirection>('IN');
+  /** Signed selfie URLs for APP punches (punchId → url | null when missing). */
+  const [appSelfieUrls, setAppSelfieUrls] = useState<Record<string, string | null>>({});
+  const [selfieViewerPunchId, setSelfieViewerPunchId] = useState<string | null>(null);
 
   const coherenceCtx = useMemo(() => toCoherenceContext(dayCalcContext), [dayCalcContext]);
 
@@ -147,6 +152,34 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
         .filter(p => punchLocalDateKey(p.punchedAt) === day.workDate)
         .sort((a, b) => a.punchedAt.localeCompare(b.punchedAt)),
     [punches, day.workDate],
+  );
+
+  useEffect(() => {
+    let active = true;
+    const appWithPath = dayPunches.filter(p => p.source === 'APP' && appPunchSelfiePath(p));
+    if (appWithPath.length === 0) {
+      setAppSelfieUrls({});
+      return;
+    }
+    void (async () => {
+      const entries = await Promise.all(
+        appWithPath.map(async p => {
+          const path = appPunchSelfiePath(p)!;
+          const url = await hrService.getAppPunchSelfieUrl(path);
+          return [p.id, url] as const;
+        }),
+      );
+      if (!active) return;
+      setAppSelfieUrls(Object.fromEntries(entries));
+    })();
+    return () => {
+      active = false;
+    };
+  }, [dayPunches]);
+
+  const selfieViewerPunch = useMemo(
+    () => (selfieViewerPunchId ? dayPunches.find(p => p.id === selfieViewerPunchId) ?? null : null),
+    [dayPunches, selfieViewerPunchId],
   );
 
   const slots = useMemo(() => pairPunchesToSlots(dayPunches, day.workDate), [dayPunches, day.workDate]);
@@ -653,10 +686,39 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                         <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
                           p.source === 'MANUAL'
                             ? 'bg-violet-100 text-violet-900'
-                            : 'bg-slate-200 text-slate-700'
+                            : p.source === 'APP'
+                              ? 'bg-sky-100 text-sky-900'
+                              : 'bg-slate-200 text-slate-700'
                         }`}>
-                          {p.source === 'MANUAL' ? t('punchSourceManual') : t('punchSourceClock')}
+                          {p.source === 'MANUAL'
+                            ? t('punchSourceManual')
+                            : p.source === 'APP'
+                              ? t('punchSourceApp')
+                              : t('punchSourceClock')}
                         </span>
+                        {p.source === 'APP' && appPunchSelfiePath(p) ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelfieViewerPunchId(p.id)}
+                            className="shrink-0 rounded-md overflow-hidden border border-sky-200 bg-sky-50 h-10 w-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                            aria-label={t('appPunchSelfie')}
+                            title={t('appPunchSelfie')}
+                          >
+                            {appSelfieUrls[p.id] ? (
+                              <img
+                                src={appSelfieUrls[p.id]!}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-[9px] font-semibold text-sky-800 px-0.5 leading-tight text-center">
+                                {Object.prototype.hasOwnProperty.call(appSelfieUrls, p.id)
+                                  ? t('appPunchSelfieMissing')
+                                  : '…'}
+                              </span>
+                            )}
+                          </button>
+                        ) : null}
                         {p.ignoredForCalc && (
                           <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
                             p.ignoreSource === 'MANUAL'
@@ -888,6 +950,76 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
           )}
         </div>
       </div>
+
+      {selfieViewerPunch ? (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('appPunchSelfie')}
+          onClick={() => setSelfieViewerPunchId(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
+              <div>
+                <p className="text-sm font-bold text-slate-900">{t('appPunchSelfie')}</p>
+                <p className="text-xs text-slate-600">
+                  {formatTime(selfieViewerPunch.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  {' · '}
+                  {directionLabel(selfieViewerPunch.direction, t)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelfieViewerPunchId(null)}
+                className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-700"
+                aria-label={t('appPunchSelfieClose')}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="bg-slate-100 aspect-[3/4] max-h-[70vh] flex items-center justify-center">
+              {appSelfieUrls[selfieViewerPunch.id] ? (
+                <img
+                  src={appSelfieUrls[selfieViewerPunch.id]!}
+                  alt={t('appPunchSelfie')}
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <p className="text-sm text-slate-600 px-6 text-center">{t('appPunchSelfieMissing')}</p>
+              )}
+            </div>
+            {(() => {
+              const lat = selfieViewerPunch.rawPayload?.lat;
+              const lng = selfieViewerPunch.rawPayload?.lng;
+              const address = selfieViewerPunch.rawPayload?.address;
+              const hasCoords = typeof lat === 'number' && typeof lng === 'number';
+              const hasAddress = typeof address === 'string' && address.trim().length > 0;
+              if (!hasCoords && !hasAddress) return null;
+              return (
+                <div className="px-4 py-3 border-t border-slate-200 text-xs text-slate-700 space-y-1">
+                  <p className="font-semibold flex items-center gap-1.5">
+                    <MapPin size={14} className="text-sky-700 shrink-0" />
+                    {t('appPunchLocation')}
+                  </p>
+                  {hasAddress ? <p className="text-slate-800">{String(address)}</p> : null}
+                  {hasCoords ? (
+                    <p className="tabular-nums text-slate-600">
+                      {t('appPunchLocationCoords', {
+                        lat: Number(lat).toFixed(5),
+                        lng: Number(lng).toFixed(5),
+                      })}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

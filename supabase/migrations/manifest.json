@@ -224,6 +224,26 @@
       "version": "0044",
       "file": "0044_hardware_sync_queue.sql",
       "title": "Fila hardware_sync_queue + clock_discharge_status (sem reuso de credencial)"
+    },
+    {
+      "version": "0045",
+      "file": "0045_profiles_include_in_roster.sql",
+      "title": "profiles.include_in_roster — flag de inclusão nas escalas"
+    },
+    {
+      "version": "0046",
+      "file": "0046_perf_reviews_scope_and_timesheet_sign_rls.sql",
+      "title": "RLS — Desempenho só próprio/gestor; MANAGER insert review; colaborador assina OPEN/IN_REVIEW→APPROVED"
+    },
+    {
+      "version": "0047",
+      "file": "0047_pwa_punch.sql",
+      "title": "Ponto PWA — profiles.allow_pwa_punch + punches.source APP + RLS insert"
+    },
+    {
+      "version": "0048",
+      "file": "0048_pwa_punch_selfie_cleanup.sql",
+      "title": "RPC list_old_pwa_punch_selfies — limpeza de selfies PWA (90d)"
     }
   ]
 }

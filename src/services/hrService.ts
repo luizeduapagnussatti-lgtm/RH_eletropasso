@@ -44,6 +44,7 @@ export const hrService = {
 
   // Employee
   getEmployees: employeeService.getEmployees,
+  clearEmployeeCache: employeeService.clearCache.bind(employeeService),
   addEmployee: employeeService.addEmployee,
   updateProfile: employeeService.updateProfile,
   dischargeEmployee: employeeService.dischargeEmployee.bind(employeeService),
@@ -127,6 +128,8 @@ export const hrService = {
   // listPunches uses `this.applyProximityAutoIgnorePlan` — must keep punchService as `this`
   listPunches: punchService.listPunches.bind(punchService),
   createManualPunch: punchService.createManualPunch.bind(punchService),
+  createAppPunch: punchService.createAppPunch.bind(punchService),
+  getAppPunchSelfieUrl: punchService.getAppPunchSelfieUrl.bind(punchService),
   updateManualPunch: punchService.updateManualPunch.bind(punchService),
   deletePunch: punchService.deletePunch.bind(punchService),
   setPunchIgnoredForCalc: punchService.setPunchIgnoredForCalc.bind(punchService),

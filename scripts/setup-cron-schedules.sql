@@ -149,3 +149,21 @@ select cron.schedule(
 -- Verify all jobs registered:
 -- ============================================================
 -- select jobid, jobname, schedule, active from cron.job order by jobname;
+
+-- ============================================================
+-- pwa_punch_selfie_cleanup — daily 02:00 UTC (90-day retention)
+-- ============================================================
+select cron.schedule(
+  'pwa-punch-selfie-cleanup',
+  '0 2 * * *',
+  $$
+  select net.http_post(
+    url := 'https://cixryuwtlwbofabctrkk.supabase.co/functions/v1/cron-pwa-punch-selfie-cleanup',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || current_setting('app.cron_secret', true)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);

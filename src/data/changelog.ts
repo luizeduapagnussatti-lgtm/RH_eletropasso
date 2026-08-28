@@ -1,4 +1,4 @@
-// 2026-04-27: Capacitor / Android removal — PWA-only build pipeline
+﻿// 2026-04-27: Capacitor / Android removal — PWA-only build pipeline
 export type ChangelogEntryType = 'feature' | 'fix' | 'improvement' | 'security' | 'breaking';
 
 export interface ChangelogEntry {
@@ -14,6 +14,135 @@ export interface ChangelogRelease {
 }
 
 export const changelog: ChangelogRelease[] = [
+  {
+    date: '2026-08-28',
+    title: 'Ponto pelo PWA (secundário ao REP)',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Colaborador pode bater ponto no app só se o gestor habilitar “Permitir bater ponto pelo app” no perfil. Grava punches source=APP com selfie+GPS; o relógio (CLOCK) prevalece na mesma janela (~10 min) e a batida do app é ignorada na apuração.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Home do colaborador: aviso de ponto alinhado à nova regra (relógio é principal; app quando o gestor liberar). CTA e tela de batida leem a flag ao vivo do perfil.',
+      },
+      {
+        type: 'security',
+        description:
+          'Acesso remoto: guia Tailscale (VPN) com front+API+banco no servidor local — sem Vercel neste modelo; ver docs/remote-access-tailscale-eletropasso.md.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Acesso remoto mais estável: CoreDNS no boot (Split DNS Tailscale), Docker service Automatic, edge_runtime/coredns unless-stopped; ver docs/remote-access-tailscale-eletropasso.md §7.',
+      },
+      {
+        type: 'feature',
+        description:
+          'Gestor vê selfie e GPS das batidas pelo app no ajuste do dia do espelho (TimesheetAdjustModal). Limpeza automática remove fotos PWA em selfies/*/pwa-punches após 90 dias (cron-pwa-punch-selfie-cleanup).',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Menu colaborador — P0 a P2',
+    entries: [
+      {
+        type: 'security',
+        description:
+          'Desempenho: colaborador/gestor só carregam as próprias reviews (e subordinados); RLS restringe SELECT. Antes vinha a lista da org inteira.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Espelho: o PWA do colaborador deixa de fazer upsert em timesheet_employee_reviews (403). Assinatura usa linha OPEN/IN_REVIEW já criada pelo gestor; RLS de insert inclui MANAGER e assinatura permite OPEN→APPROVED.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Menu: EMPLOYEE vê “Meu espelho” e “Minha escala” (não o espelho de gestão). Desktop EMPLOYEE abre MyTimesheet.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'Espelho — texto do fluxo de revisão',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Painel “Status de revisão por colaborador”: instrução alinhada ao fluxo atual (ciência nos dias → assinatura no app → aprovação da competência).',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — meta prevista do período inteiro',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'No Meu espelho, Meta prevista passa a ser a carga do período completo (26→25): dias já apurados + projeção dos dias futuros pelo turno e escala. Trabalhado/HE/faltas continuam acumulados até hoje, para acompanhar o progresso em tempo real.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — botão Assinar espelho',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Assinar espelho (selfie + rubrica) volta a aparecer quando a ciência do gestor está completa nos dias de jornada: a validação deixava de liberar por exigir ack em OFF/feriado e por revalidar batidas sem a lista de punches. Texto da tela alinhado ao fluxo (ciência do gestor, não “liberar RH”).',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — totais após virada da competência',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Na Início, se a competência atual (ex.: 09 após o dia 26) ainda não tem horas, os totais usam a competência anterior com apuração (ex.: 08). Inclui credencial do relógio nas chaves de busca.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PDF espelho — colunas HE 60% e HE 100%',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Espelho PDF separa hora extra em HE 60% (até 2h/dia útil) e HE 100% (excedente; domingo/feriado 100% desde o 1º minuto), com totais no cabeçalho — mesma regra da folha.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PWA — totais do mês na Início',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Totais do mês na Início passam a buscar dias do espelho por crachá e UUID (como no Meu espelho), em vez de uma chave só que deixava Trabalhado/HE/Faltas em “—”.',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
+    title: 'PDF espelho — toast com exemplo dos dias pendentes',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Bloqueio do PDF mostra exemplo (data + nome) dos dias de jornada sem ciência; contador de pendências ignora OFF/feriado/licença — alinhado ao gate e à coluna Ciências OK.',
+      },
+    ],
+  },
   {
     date: '2026-08-27',
     title: 'PDF espelho — só jornada precisa de ciência',
