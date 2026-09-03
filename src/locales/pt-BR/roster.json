@@ -84,6 +84,12 @@
   "pdfColStatus": "Status",
   "pdfColShift": "Horário",
   "pdfGenerated": "Gerado em",
+  "pdfAbbrevWork": "Trab.",
+  "pdfAbbrevOff": "Folga",
+  "copyMonth": "Replicar mês…",
+  "copyMonthDesc": "Copia os sábados de {{source}} para {{target}} por ordem (1º sábado para 1º sábado, etc.). Feriados não são copiados.",
+  "copyMonthConfirmOverwrite": "O mês de destino já possui sábados com escala gravada. Replicar irá apagar a escala atual desses sábados e sobrescrever com a origem. Deseja continuar?",
+  "pdfLegendTitle": "Legenda:",
   "pdfPage": "Pág.",
   "channel": {
     "EMAIL": "E-mail",

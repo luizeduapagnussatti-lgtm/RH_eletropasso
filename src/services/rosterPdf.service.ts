@@ -20,11 +20,14 @@ export type RosterPdfLabels = {
   employee: string;
   shift: string;
   department: string;
+  legendTitle?: string;
   legendWork: string;
   legendOff: string;
   legendHoliday: string;
   legendSaturday: string;
   legendShiftDay: string;
+  abbrevWork?: string;
+  abbrevOff?: string;
   colDate: string;
   colDay: string;
   colStatus: string;
@@ -318,18 +321,66 @@ export const rosterPdfService = {
     const rosterDates = [...new Set(rosterAssignments.map(a => a.workDate))].sort();
     const satAndHolDates = monthDays.filter(d => isSaturday(d) || holidays.some(h => h.date === d));
     const columns = satAndHolDates.length ? satAndHolDates : rosterDates;
+    const holidayMap = new Map(holidays.map(h => [h.date, h.name]));
 
-    const subtitle = `${labels.monthLabel} ${month}/${year}`;
-    await drawReportHeader(doc, {
+    const monthStr = new Date(year, month - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+    const subtitle = monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
+    
+    let y = await drawReportHeader(doc, {
       org,
       title: labels.titleTeam,
       subtitle,
     });
 
+    // Draw Legend
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.muted);
+    doc.text(labels.legendTitle || 'Legenda:', PDF_MARGIN, y + 2);
+    
+    let legX = PDF_MARGIN + 20;
+    
+    // Legend WORK
+    doc.setFillColor(...PDF_COLORS.present);
+    if (doc.roundedRect) {
+      doc.roundedRect(legX, y - 2, 8, 5, 1, 1, 'F');
+    } else {
+      doc.rect(legX, y - 2, 8, 5, 'F');
+    }
+    // Mini-icon WORK (check)
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.4);
+    doc.line(legX + 2, y + 0.5, legX + 3.5, y + 2);
+    doc.line(legX + 3.5, y + 2, legX + 6, y - 0.5);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...PDF_COLORS.ink);
+    doc.text(labels.legendWork, legX + 10, y + 2);
+    
+    legX += 30;
+
+    // Legend OFF
+    doc.setFillColor(...PDF_COLORS.surfaceAlt);
+    if (doc.roundedRect) {
+      doc.roundedRect(legX, y - 2, 8, 5, 1, 1, 'F');
+    } else {
+      doc.rect(legX, y - 2, 8, 5, 'F');
+    }
+    // Mini-icon OFF (dash)
+    doc.setDrawColor(156, 163, 175);
+    doc.setLineWidth(0.4);
+    doc.line(legX + 2, y + 0.5, legX + 6, y + 0.5);
+    
+    doc.text(labels.legendOff, legX + 10, y + 2);
+    
+    y += 10;
+
     const head = [labels.employee, ...columns.map(d => {
       const parts = d.split('-');
       return `${parts[2]}/${parts[1]}`;
     })];
+
+    const isTrab = (st: string) => st === 'WORK' || st === 'SHIFT';
 
     const body = employees.map(emp => {
       const shift = emp.shiftId ? shiftById.get(emp.shiftId) ?? null : null;
@@ -340,16 +391,94 @@ export const rosterPdfService = {
         ...columns.map(d => {
           const day = byDate.get(d);
           if (!day) return '—';
-          return day.status === 'WORK' || day.status === 'SHIFT' ? 'T' : 'F';
+          return isTrab(day.status) ? (labels.abbrevWork || 'Trab.') : (labels.abbrevOff || 'Folga');
         }),
       ];
     });
 
     applyStandardTable(doc, {
-      startY: 42,
+      startY: y,
       head: [head],
       body,
-      styles: { fontSize: 7, cellPadding: 1.5 },
+      styles: { fontSize: 7, cellPadding: 2, valign: 'middle' },
+      headStyles: { minCellHeight: 12 },
+      columnStyles: {
+        0: { cellWidth: 50, fontStyle: 'bold' } // employee name column
+      },
+      willDrawCell: (data: any) => {
+        const { section, row, column, cell } = data;
+        
+        // Header
+        if (section === 'head' && column.index > 0) {
+          cell.styles.halign = 'center';
+        }
+        
+        // Body
+        if (section === 'body') {
+          // Zebra stripes for employee names
+          if (column.index === 0 && row.index % 2 === 1) {
+            cell.styles.fillColor = [250, 250, 250];
+          }
+          
+          if (column.index > 0 && cell.raw !== '—') {
+            cell.styles.halign = 'center';
+            const text = cell.raw as string;
+            const isW = text === (labels.abbrevWork || 'Trab.');
+            
+            // We draw custom shapes in didDrawCell instead, to avoid background fill covering it.
+            // But we must remove the cell background if we are drawing custom pill.
+            // Wait, we can just use doc.setFillColor inside didDrawCell!
+            // Let's hide the text and draw both text and pill in didDrawCell.
+            cell.styles.textColor = [255, 255, 255]; // hide text
+            // remove background so we can draw cleanly
+            if (row.index % 2 === 1) cell.styles.fillColor = [250, 250, 250];
+            else cell.styles.fillColor = [255, 255, 255];
+          }
+        }
+      },
+      didDrawCell: (data: any) => {
+        const { section, row, column, cell } = data;
+        if (section === 'head' && column.index > 0) {
+          const dateIso = columns[column.index - 1];
+          const isSat = isSaturday(dateIso);
+          const isHol = holidayMap.has(dateIso);
+          const subText = isHol ? 'fer.' : isSat ? 'sáb.' : '';
+          
+          if (subText) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+            doc.setTextColor(...PDF_COLORS.muted);
+            doc.text(subText, cell.x + cell.width / 2, cell.y + 10, { align: 'center' });
+          }
+        }
+        
+        if (section === 'body' && column.index > 0 && cell.raw !== '—') {
+          const text = cell.raw as string;
+          const isW = text === (labels.abbrevWork || 'Trab.');
+          
+          const pad = 1.5;
+          const bgW = cell.width - pad * 2;
+          const bgH = cell.height - pad * 2;
+          
+          if (isW) {
+            doc.setFillColor(...PDF_COLORS.present);
+            doc.setTextColor(255, 255, 255);
+          } else {
+            doc.setFillColor(...PDF_COLORS.surfaceAlt);
+            doc.setTextColor(...PDF_COLORS.muted);
+          }
+          
+          if (doc.roundedRect) {
+            doc.roundedRect(cell.x + pad, cell.y + pad, bgW, bgH, 1.5, 1.5, 'F');
+          } else {
+            doc.rect(cell.x + pad, cell.y + pad, bgW, bgH, 'F');
+          }
+          
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6.5);
+          doc.text(text, cell.x + cell.width / 2, cell.y + cell.height / 2 + 2, { align: 'center' });
+        }
+      }
     });
 
     const fileName = `escala-equipe-${year}-${pad2(month)}.pdf`;

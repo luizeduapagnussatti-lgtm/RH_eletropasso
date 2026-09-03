@@ -44,6 +44,7 @@ export const hrService = {
 
   // Employee
   getEmployees: employeeService.getEmployees,
+  getMyAllowPwaPunch: employeeService.getMyAllowPwaPunch.bind(employeeService),
   clearEmployeeCache: employeeService.clearCache.bind(employeeService),
   addEmployee: employeeService.addEmployee,
   updateProfile: employeeService.updateProfile,
@@ -117,6 +118,7 @@ export const hrService = {
   listRosterForDate: rosterService.listForDate.bind(rosterService),
   listRosterForEmployee: rosterService.listForEmployee.bind(rosterService),
   saveRosterDay: rosterService.saveDay.bind(rosterService),
+  copyMonthSaturdays: rosterService.copyMonthSaturdays.bind(rosterService),
   listRosterSwapRequests: rosterSwapService.listForProfile.bind(rosterSwapService),
   listPendingRosterSwaps: rosterSwapService.listPendingManager.bind(rosterSwapService),
   createRosterSwapRequest: rosterSwapService.createRequest.bind(rosterSwapService),

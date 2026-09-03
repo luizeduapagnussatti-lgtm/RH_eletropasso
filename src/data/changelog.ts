@@ -1,4 +1,4 @@
-﻿// 2026-04-27: Capacitor / Android removal — PWA-only build pipeline
+// 2026-04-27: Capacitor / Android removal — PWA-only build pipeline
 export type ChangelogEntryType = 'feature' | 'fix' | 'improvement' | 'security' | 'breaking';
 
 export interface ChangelogEntry {
@@ -15,9 +15,76 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-09-03',
+    title: 'Escalas — Redesign do PDF e Cópia entre meses',
+    entries: [
+      {
+        type: 'improvement',
+        description: 'Redesign do PDF da Escala da Equipe: inclusão de faixa de legenda colorida, mês por extenso no subtítulo, células de Trabalha/Folga com fundo colorido (Trabalha em verde, Folga em cinza), e mini-ícones customizados. Colunas com destaque para sábados e feriados.',
+      },
+      {
+        type: 'feature',
+        description: 'Nova funcionalidade de "Replicar mês..." na tela de Escalas. Permite copiar todos os sábados de um mês para outro, respeitando a ordem (1º sábado para 1º sábado). Feriados não são copiados para evitar desalinhamento. Conta com alerta de substituição caso o destino já possua escala.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
+    title: 'Painel — Resumo de hoje alinhado ao ponto',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Cards do painel passam a contar só colaboradores de ponto ativos (não demitidos/PJ/Admin), presentes de hoje pelas batidas do relógio (com fallback do PWA), licenças pendentes no mesmo universo, e feriado sem atrasar um dia por parse UTC.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
+    title: 'Perfil — salvar sem erro de senha',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Espelho com 4 batidas e 8h de falta: a fila de recálculo falhava no login e deixava as horas da última batida PWA. Processador usa service role; watchdog a cada 5 min; abrir o espelho recalcula o dia se a 1ª/última batida não bater com o gravado; mistura APP+CLOCK volta a somar o dia.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Atualizar perfil (Cartões) não falha mais com “New password should be different…” quando o navegador autofill preenche a senha atual no campo “deixe em branco”. Senha só é enviada em reset intencional; se for igual à atual, o update de senha é ignorado.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
+    title: 'Coleta de batidas — assíncrona e navegação livre',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Coletar batidas não trava mais a UI até o fim do WatchComm: o serviço dmprep-sync responde 202 e coleta em background; a UI faz polling de busy/lastPunchCycle, mostra banner global e toast com o resultado real — evita falso “Failed to fetch” pelo timeout Edge de 120s.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'MRP: se ConfirmReceipt e Reposition falharem no mesmo lote, o ciclo aborta (evita ponteiro NSR preso). Cap 250 lotes/ciclo permanece; rode a coleta de novo se o backlog for grande.',
+      },
+    ],
+  },
+  {
     date: '2026-08-28',
     title: 'Ponto pelo PWA (secundário ao REP)',
     entries: [
+      {
+        type: 'fix',
+        description:
+          'HTTPS LAN: watchdog Ensure-NpmRhSsl.ps1 mantém certificado mkcert no NPM (rh + api-rh); evita regressão ao autoassinado legado que quebra PWA/celular após instalar a CA. Cópia ouro em E:\\RH_eletropasso\\certs\\npm-mkcert\\; roda no boot e a cada 5 min.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Ponto PWA: flag allow_pwa_punch lida direto do perfil (não do cache da lista). RLS de insert APP corrigida (employee_id/org). Douglas e demais liberados passam a ver o botão e gravar batida; tolerância de 10 min no cálculo do espelho permanece.',
+      },
       {
         type: 'feature',
         description:

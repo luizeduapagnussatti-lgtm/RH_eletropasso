@@ -84,6 +84,12 @@
   "pdfColStatus": "Status",
   "pdfColShift": "Hours",
   "pdfGenerated": "Generated",
+  "pdfAbbrevWork": "Work",
+  "pdfAbbrevOff": "Off",
+  "copyMonth": "Replicate month…",
+  "copyMonthDesc": "Copies Saturdays from {{source}} to {{target}} in order (1st to 1st, etc.). Holidays are not copied.",
+  "copyMonthConfirmOverwrite": "The target month already has scheduled Saturdays. Replicating will erase and overwrite their schedules. Continue?",
+  "pdfLegendTitle": "Legend:",
   "pdfPage": "Page",
   "channel": {
     "EMAIL": "Email",

@@ -12,6 +12,7 @@ import {
   Send,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
+import { saturdaysInMonth } from '../utils/rosterDates';
 import {
   Employee,
   Holiday,
@@ -23,6 +24,7 @@ import {
 import { canManageRoster, isRosterEligible, isStaffAdmin } from '../utils/roles';
 import { useSubscription } from '../context/SubscriptionContext';
 import { resolveShiftDay } from '../services/timeCalculation.service';
+import { minutesToHm } from '../utils/durationHm';
 import { todayIsoLocal } from '../utils/payrollPeriod';
 import RosterSwapManagerPanel from '../components/roster/RosterSwapManagerPanel';
 import RosterPublishModal from '../components/roster/RosterPublishModal';
@@ -43,15 +45,6 @@ function toIso(y: number, m: number, d: number) {
   return `${y}-${pad2(m)}-${pad2(d)}`;
 }
 
-function saturdaysInMonth(year: number, month: number): string[] {
-  const out: string[] = [];
-  const days = new Date(year, month, 0).getDate();
-  for (let d = 1; d <= days; d++) {
-    const date = new Date(year, month - 1, d);
-    if (date.getDay() === 6) out.push(toIso(year, month, d));
-  }
-  return out;
-}
 
 function formatDayLabel(iso: string, locale: string) {
   const d = new Date(`${iso}T12:00:00`);
@@ -70,10 +63,7 @@ function dayTone(iso: string, today: string): DayTone {
 
 function formatLoadMinutes(mins: number): string {
   if (!mins || mins <= 0) return '—';
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (m === 0) return `${h}h`;
-  return `${h}h${String(m).padStart(2, '0')}`;
+  return minutesToHm(mins);
 }
 
 function chipClass(tone: DayTone, active: boolean, published: boolean): string {
@@ -126,6 +116,12 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
   const [swapFirst, setSwapFirst] = useState<string | null>(null);
   const [fullMonthAssignments, setFullMonthAssignments] = useState<WorkRosterAssignment[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [copyMonthOpen, setCopyMonthOpen] = useState(false);
+  const [copyMonthTarget, setCopyMonthTarget] = useState(() => {
+    const next = new Date(year, month, 1);
+    return { year: next.getFullYear(), month: next.getMonth() + 1 };
+  });
+  const [copyMonthBusy, setCopyMonthBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
 
   const clockEmployees = useMemo(
@@ -444,11 +440,14 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     employee: t('pdfEmployee'),
     shift: t('pdfShift'),
     department: t('pdfDepartment'),
+    legendTitle: t('pdfLegendTitle'),
     legendWork: t('working'),
     legendOff: t('off'),
     legendHoliday: t('holidayLabel'),
     legendSaturday: t('saturdayLabel'),
     legendShiftDay: t('pdfShiftDay'),
+    abbrevWork: t('pdfAbbrevWork'),
+    abbrevOff: t('pdfAbbrevOff'),
     colDate: t('pdfColDate'),
     colDay: t('pdfColDay'),
     colStatus: t('pdfColStatus'),
@@ -562,6 +561,116 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     </div>
   );
 
+  const handleCopyMonth = async () => {
+    if (copyMonthBusy || publishedDates.size === 0) return;
+    
+    // Check if target month has published saturdays
+    const targetSats = saturdaysInMonth(copyMonthTarget.year, copyMonthTarget.month);
+    let hasTarget = false;
+    for (const sat of targetSats) {
+      const existing = await hrService.listRosterForDate(sat);
+      if (existing.length > 0) {
+        hasTarget = true;
+        break;
+      }
+    }
+    
+    if (hasTarget && !window.confirm(t('copyMonthConfirmOverwrite'))) {
+      return;
+    }
+
+    setCopyMonthBusy(true);
+    try {
+      const res = await hrService.copyMonthSaturdays({
+        sourceYear: year,
+        sourceMonth: month,
+        targetYear: copyMonthTarget.year,
+        targetMonth: copyMonthTarget.month,
+        createdBy: user.id,
+      });
+      
+      for (const pair of res.copiedDates) {
+        await syncTimesheetForDate(pair.to);
+      }
+      
+      setCopyMonthOpen(false);
+      setYear(copyMonthTarget.year);
+      setMonth(copyMonthTarget.month);
+      // Mode will refresh via useEffect
+    } catch (err) {
+      console.error(err);
+      setMessage(t('saveError'));
+    } finally {
+      setCopyMonthBusy(false);
+    }
+  };
+
+  const copyMonthModal = copyMonthOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <h2 className="text-lg font-bold">{t('copyMonth')}</h2>
+        </div>
+        <div className="p-5 space-y-4 text-sm">
+          <p className="text-slate-600 dark:text-slate-300">
+            {t('copyMonthDesc', { 
+              source: `${pad2(month)}/${year}`, 
+              target: `${pad2(copyMonthTarget.month)}/${copyMonthTarget.year}` 
+            })}
+          </p>
+          
+          <div className="flex gap-4">
+            <label className="flex-1">
+              <span className="block text-xs text-slate-400 mb-1">{t('month')}</span>
+              <select
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+                value={copyMonthTarget.month}
+                onChange={e => setCopyMonthTarget(s => ({ ...s, month: Number(e.target.value) }))}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>
+                    {new Date(2000, m - 1, 1).toLocaleString(i18n.language === 'en' ? 'en' : 'pt-BR', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex-1">
+              <span className="block text-xs text-slate-400 mb-1">{t('year')}</span>
+              <select
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+                value={copyMonthTarget.year}
+                onChange={e => setCopyMonthTarget(s => ({ ...s, year: Number(e.target.value) }))}
+              >
+                {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="px-5 py-4 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+          <button
+            type="button"
+            disabled={copyMonthBusy}
+            onClick={() => setCopyMonthOpen(false)}
+            className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            type="button"
+            disabled={copyMonthBusy}
+            onClick={() => void handleCopyMonth()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white disabled:opacity-50"
+          >
+            {copyMonthBusy && <Loader2 size={16} className="animate-spin" />}
+            {t('copyMonth')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -573,6 +682,15 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
           <p className="mt-1 text-sm text-slate-500 max-w-2xl">{t('subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={publishedDates.size === 0}
+            onClick={() => setCopyMonthOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+          >
+            <Copy size={16} />
+            {t('copyMonth')}
+          </button>
           <button
             type="button"
             disabled={pdfBusy || publishedDates.size === 0}
@@ -867,6 +985,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         pdfLabels={pdfLabels}
         locale={i18n.language === 'en' ? 'en-US' : 'pt-BR'}
       />
+      {copyMonthModal}
     </div>
   );
 };
