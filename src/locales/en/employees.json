@@ -68,8 +68,11 @@
   "employeeIdPlaceholder": "e.g. 026740847000",
   "accessLevel": "Access level",
   "resetPassword": "Reset password",
+  "resetPasswordHint": "Set a new password for {{name}} ({{email}}). The employee will use it on the next login.",
+  "passwordResetSuccess": "Password for {{name}} was reset.",
   "initialPassword": "Initial password",
   "leaveBlankPassword": "Leave blank to keep current",
+  "leaveBlankPasswordFirstAccess": "Leave blank if the employee will set the password on first access (CPF)",
   "setLoginPassword": "Set login password",
   "assignedTeam": "Assigned team",
   "noTeamAssigned": "No team assigned",
@@ -166,7 +169,7 @@
       },
       "step4": {
         "title": "Validate punches in HR",
-        "detail": "After the first punch, status becomes Ready. Automatic collection every Monday at 09:00, or Communication → Collect punches."
+        "detail": "After the first punch, status becomes Ready. Automatic collection at 09:00, 15:00 and 19:00, or Communication → Collect punches."
       }
     },
     "discharge": {
@@ -209,6 +212,8 @@
     "pjHint": "No time clock or timesheet. Check “Include in schedules” if they should appear on the roster; flexible hours agreed with leadership.",
     "includeInRoster": "Include in schedules",
     "includeInRosterHint": "When checked, appears on the Saturday/holiday roster list, regardless of access level.",
+    "allowPwaPunch": "Allow clock-in via app",
+    "allowPwaPunchHint": "When checked, the employee can punch on the PWA (selfie + GPS). The physical clock remains primary and wins if a nearby punch exists.",
     "location": "Work location",
     "office": "Office",
     "field": "Field / external",
@@ -224,6 +229,7 @@
       "nameRequired": "Enter the full name.",
       "pisInvalid": "Invalid PIS — use 11 or 12 numeric digits.",
       "cpfInvalid": "Invalid CPF.",
+      "cpfRequired": "CPF is required for clock/PWA employees.",
       "emailRequired": "Enter the work email.",
       "passwordShort": "Password must be at least 8 characters.",
       "credentialInvalid": "Invalid clock credential — use up to 12 numeric digits.",
@@ -232,10 +238,11 @@
       "emailLockedDischarged": "Could not free the email from the discharged account. Contact technical support.",
       "pisConflict": "This PIS is already registered for another employee.",
       "credentialConflict": "This clock credential is already used by another employee.",
-      "missingFields": "Fill in email, password, and name."
+      "missingFields": "Fill in email and name."
     },
     "emailLoginPlaceholder": "name@company.com",
     "emailLoginHint": "This is the system login email. Replace any technical import address (@import.eletropasso.local) with the employee's real email.",
+    "cpfPwaHint": "Required for first access on the phone (CPF → email and password).",
     "save": "Save employee",
     "saving": "Saving…",
     "next": "Next",
@@ -252,6 +259,8 @@
     "sendFailed": "Failed to send the record to the clock.",
     "clockBusy": "The clock is busy. Wait for the collect to finish and try again.",
     "bioMarked": "Biometrics marked — waiting for test punch.",
+    "pwaPunchEnabled": "App punch enabled for this employee.",
+    "pwaPunchDisabled": "App punch disabled — use the physical clock.",
     "stepRh": "HR record saved",
     "stepRhDetail": "Employee saved with PIS {{pis}}.",
     "stepExport": "Sent to the clock",
@@ -305,7 +314,7 @@
       },
       "step4": {
         "title": "Validate punch in HR",
-        "detail": "After the first punch, status becomes Ready automatically. Automatic collection every Monday at 09:00, or Communication → Collect punches."
+        "detail": "After the first punch, status becomes Ready automatically. Automatic collection at 09:00, 15:00 and 19:00, or Communication → Collect punches."
       }
     },
     "discharge": {

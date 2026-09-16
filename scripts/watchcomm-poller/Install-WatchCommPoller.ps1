@@ -4,13 +4,14 @@
   Instala Task Scheduler do poller WatchComm no host .245.
 
 .DESCRIPTION
-  Padrao: coleta automatica 1x por semana, segunda-feira as 09:00 (horario local).
+  Padrao: coleta automatica 3x ao dia (09:00, 15:00, 19:00 horario local).
   Coleta manual em Comunicacao com o relogio permanece disponivel a qualquer momento.
 
   Alternativas:
-    -DaysOfWeek Tuesday -ScheduleHour 8
-    -ScheduleHours 9,15,19   (legado diario)
-    -IntervalHours 1         (legado horario)
+    -Weekly                     (segunda-feira 09:00)
+    -DaysOfWeek Tuesday -ScheduleHour 8 -Weekly
+    -ScheduleHours 8,12,18
+    -IntervalHours 1            (legado horario)
 
   O watchdog dmprep-sync (cada 5 min) e independente — so garante o servico :3099.
 #>
@@ -20,9 +21,9 @@ param(
   [string]$ConfigPath = '',
   [DayOfWeek]$DayOfWeek = [DayOfWeek]::Monday,
   [int]$ScheduleHour = 9,
-  # Legacy daily times (local). When set, overrides weekly default.
-  [int[]]$ScheduleHours = @(),
+  [int[]]$ScheduleHours = @(9, 15, 19),
   [int]$IntervalHours = 0,
+  [switch]$Weekly,
   [switch]$Bootstrap
 )
 
@@ -44,7 +45,8 @@ $cmd = Join-Path $PSScriptRoot 'Run-Poller.cmd'
 if (-not (Test-Path -LiteralPath $cmd)) { throw "Run-Poller.cmd nao encontrado: $cmd" }
 
 $useHourly = $IntervalHours -ge 1
-$useDaily = -not $useHourly -and $ScheduleHours -and $ScheduleHours.Count -gt 0
+$useWeekly = -not $useHourly -and $Weekly
+$useDaily = -not $useHourly -and -not $useWeekly -and $ScheduleHours -and $ScheduleHours.Count -gt 0
 
 if ($useHourly) {
   # ok

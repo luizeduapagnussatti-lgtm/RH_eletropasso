@@ -16,22 +16,33 @@ import { saturdaysInMonth } from '../utils/rosterDates';
 import {
   Employee,
   Holiday,
+  Punch,
   RosterAssignmentStatus,
   RosterDayKind,
   Shift,
   WorkRosterAssignment,
 } from '../types';
-import { canManageRoster, isRosterEligible, isStaffAdmin } from '../utils/roles';
+import { canManageRoster, isRosterEligible } from '../utils/roles';
 import { useSubscription } from '../context/SubscriptionContext';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { minutesToHm } from '../utils/durationHm';
 import { todayIsoLocal } from '../utils/payrollPeriod';
+import {
+  buildRosterDayOutcome,
+  formatPunchHm,
+  type RosterDayOutcome,
+  type RosterDayPerson,
+} from '../utils/rosterDayOutcome';
 import RosterSwapManagerPanel from '../components/roster/RosterSwapManagerPanel';
 import RosterPublishModal from '../components/roster/RosterPublishModal';
 import { rosterPdfService } from '../services/rosterPdf.service';
 
 interface Props {
   user: { id: string; role: string; name?: string };
+  onNavigate?: (path: string, params?: Record<string, unknown>) => void;
+  initialYear?: number;
+  initialMonth?: number;
+  focusDate?: string;
 }
 
 type Mode = 'SATURDAY' | 'HOLIDAY';
@@ -44,7 +55,6 @@ function pad2(n: number) {
 function toIso(y: number, m: number, d: number) {
   return `${y}-${pad2(m)}-${pad2(d)}`;
 }
-
 
 function formatDayLabel(iso: string, locale: string) {
   const d = new Date(`${iso}T12:00:00`);
@@ -68,33 +78,38 @@ function formatLoadMinutes(mins: number): string {
 
 function chipClass(tone: DayTone, active: boolean, published: boolean): string {
   const base =
-    'relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm border transition-all duration-150';
+    'relative inline-flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-full text-sm border transition-all duration-150';
   if (active) {
-    // Selected = what the user is editing — strongest visual signal
-    return `${base} z-[1] scale-[1.06] font-bold text-white border-transparent bg-primary shadow-lg shadow-primary/40 ring-2 ring-white/40 dark:ring-white/25`;
+    return `${base} z-[1] font-bold text-white border-transparent bg-primary shadow-md shadow-primary/30 ring-2 ring-white/40 dark:ring-white/25`;
   }
   if (tone === 'past') {
-    return `${base} border-slate-600/80 bg-slate-800/50 text-slate-400 ${
-      published ? 'opacity-90' : 'opacity-65'
-    } hover:opacity-100 hover:border-slate-500`;
+    return `${base} border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300 ${
+      published ? 'opacity-100' : 'opacity-70'
+    } hover:border-slate-400 dark:hover:border-slate-500`;
   }
   if (tone === 'today') {
-    return `${base} border-sky-500/60 bg-sky-950/40 text-sky-200 hover:border-sky-400 hover:bg-sky-900/50`;
+    return `${base} border-sky-400 bg-sky-50 text-sky-800 dark:border-sky-500/60 dark:bg-sky-950/40 dark:text-sky-200 hover:border-sky-500`;
   }
-  return `${base} border-emerald-700/50 bg-emerald-950/20 text-emerald-100/90 hover:border-emerald-500 hover:bg-emerald-950/40 ${
-    published ? 'shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)]' : ''
+  return `${base} border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-950/20 dark:text-emerald-100/90 hover:border-emerald-500 ${
+    published ? 'shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]' : ''
   }`;
 }
 
-const WorkRoster: React.FC<Props> = ({ user }) => {
+const WorkRoster: React.FC<Props> = ({
+  user,
+  onNavigate,
+  initialYear,
+  initialMonth,
+  focusDate,
+}) => {
   const { t, i18n } = useTranslation('roster');
   const { canPerformAction } = useSubscription();
   const canWrite = canPerformAction('write') && canManageRoster(user.role);
   const today = todayIsoLocal();
 
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(initialYear ?? now.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? now.getMonth() + 1);
   const [mode, setMode] = useState<Mode>('SATURDAY');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -123,6 +138,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
   });
   const [copyMonthBusy, setCopyMonthBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [dayOutcome, setDayOutcome] = useState<RosterDayOutcome | null>(null);
 
   const clockEmployees = useMemo(
     () =>
@@ -143,7 +159,6 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     return map;
   }, [shifts]);
 
-  /** Expected minutes for this date from the employee profile shift (or org default). */
   const loadMinutesFor = useCallback(
     (emp: Employee, date: string): number => {
       const shift = (emp.shiftId && shiftById.get(emp.shiftId)) || defaultShift;
@@ -162,11 +177,9 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
   const dayList = mode === 'SATURDAY' ? saturdays : monthHolidays.map(h => h.date);
 
   const selectedTone = selectedDate ? dayTone(selectedDate, today) : null;
-  /** Past days: view + history only. Admin/HR may still correct. */
-  const canEditSelected =
-    !!selectedDate &&
-    canWrite &&
-    (selectedTone !== 'past' || isStaffAdmin(user.role));
+  /** Past days: view + history only — no role can edit. */
+  const canEditSelected = !!selectedDate && canWrite && selectedTone !== 'past';
+  const isPastView = selectedTone === 'past';
 
   const refreshPublishedMonth = useCallback(async () => {
     const start = toIso(year, month, 1);
@@ -206,7 +219,16 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     void refreshPublishedMonth();
   }, [refreshPublishedMonth]);
 
-  // Prefer next upcoming day in current month; otherwise first day
+  useEffect(() => {
+    if (focusDate && /^\d{4}-\d{2}-\d{2}$/.test(focusDate)) {
+      const y = Number(focusDate.slice(0, 4));
+      const m = Number(focusDate.slice(5, 7));
+      if (y) setYear(y);
+      if (m) setMonth(m);
+      setSelectedDate(focusDate);
+    }
+  }, [focusDate]);
+
   useEffect(() => {
     if (dayList.length === 0) {
       setSelectedDate(null);
@@ -226,6 +248,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
       setMessage(null);
       setSwapMode(false);
       setSwapFirst(null);
+      setDayOutcome(null);
       try {
         const rows = await hrService.listRosterForDate(date);
         const map: Record<string, RosterAssignmentStatus> = {};
@@ -243,6 +266,20 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
           setPublished(true);
         }
         setStatusByEmp(map);
+
+        if (date < todayIsoLocal()) {
+          const punches = await hrService
+            .listPunches({ startDate: date, endDate: date })
+            .catch(() => [] as Punch[]);
+          setDayOutcome(
+            buildRosterDayOutcome({
+              employees: clockEmployees,
+              assignments: rows,
+              punches,
+              workDate: date,
+            })
+          );
+        }
       } finally {
         setDayLoading(false);
       }
@@ -276,7 +313,20 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     [filtered, statusByEmp]
   );
 
-  /** Preview of Saturday expected minutes this month from published roster + draft of selected day. */
+  const filterOutcomePeople = useCallback(
+    (people: RosterDayPerson[]) => {
+      const q = search.trim().toLowerCase();
+      if (!q) return people;
+      return people.filter(
+        p =>
+          p.name.toLowerCase().includes(q) ||
+          (p.employeeId || '').toLowerCase().includes(q) ||
+          (p.department || '').toLowerCase().includes(q)
+      );
+    },
+    [search]
+  );
+
   const monthLoadByEmp = useMemo(() => {
     const map: Record<string, number> = {};
     clockEmployees.forEach(e => {
@@ -316,6 +366,10 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
 
   const setStatus = (id: string, status: RosterAssignmentStatus) => {
     setStatusByEmp(prev => ({ ...prev, [id]: status }));
+  };
+
+  const openEmployeeTimesheet = (employeeId: string) => {
+    onNavigate?.('timesheet', { employeeId });
   };
 
   const handlePersonClick = (id: string) => {
@@ -527,7 +581,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                   type="button"
                   disabled={!canEditSelected}
                   onClick={() => handlePersonClick(id)}
-                  className={`w-full text-left px-4 py-3 flex items-center justify-between gap-2 transition-colors ${
+                  className={`w-full text-left px-4 py-3 min-h-[52px] flex items-center justify-between gap-2 transition-colors ${
                     selected
                       ? 'bg-amber-100 dark:bg-amber-900/40'
                       : 'hover:bg-slate-50 dark:hover:bg-slate-800/80'
@@ -540,7 +594,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                     <span className="block text-xs text-slate-400 truncate">
                       {[emp.employeeId, emp.department, shift?.name].filter(Boolean).join(' · ')}
                     </span>
-                    <span className="block text-xs text-slate-500 mt-0.5">
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {t('loadHours', { hours: formatLoadMinutes(mins) })}
                       {column === 'WORK' && monthLoadByEmp[id] > 0
                         ? ` · ${t('monthLoadHint', { hours: formatLoadMinutes(monthLoadByEmp[id]) })}`
@@ -561,20 +615,86 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     </div>
   );
 
+  const renderOutcomeColumn = (
+    people: RosterDayPerson[],
+    kind: 'worked' | 'absent' | 'off',
+  ) => {
+    const title =
+      kind === 'worked'
+        ? t('outcomeWorkedCount', { count: people.length })
+        : kind === 'absent'
+          ? t('outcomeAbsentCount', { count: people.length })
+          : t('outcomeOffCount', { count: people.length });
+    const headerClass =
+      kind === 'worked'
+        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+        : kind === 'absent'
+          ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200'
+          : 'bg-slate-50 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300';
+
+    return (
+      <div className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+        <div className={`px-4 py-2.5 text-sm font-semibold border-b border-slate-100 dark:border-slate-800 ${headerClass}`}>
+          {title}
+        </div>
+        <ul className="max-h-[28rem] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+          {people.length === 0 ? (
+            <li className="px-4 py-8 text-center text-sm text-slate-400">{t('emptyColumn')}</li>
+          ) : (
+            people.map(p => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => openEmployeeTimesheet(p.id)}
+                  className="w-full text-left px-4 py-3 min-h-[52px] hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
+                >
+                  <span className="block text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                    {p.name}
+                  </span>
+                  <span className="block text-xs text-slate-400 truncate">
+                    {[p.employeeId, p.department].filter(Boolean).join(' · ')}
+                  </span>
+                  {kind === 'worked' && p.pjNoClock ? (
+                    <span className="block text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                      {t('outcomePjPresent')}
+                    </span>
+                  ) : null}
+                  {kind === 'worked' && p.firstAt ? (
+                    <span className="block text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                      {t('outcomePunchRange', {
+                        first: formatPunchHm(p.firstAt),
+                        last: formatPunchHm(p.lastAt || p.firstAt),
+                      })}
+                    </span>
+                  ) : null}
+                  {kind === 'absent' ? (
+                    <span className="block text-xs text-rose-600 dark:text-rose-300 mt-0.5">
+                      {t('outcomeNoPunch')}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+    );
+  };
+
   const handleCopyMonth = async () => {
     if (copyMonthBusy || publishedDates.size === 0) return;
-    
-    // Check if target month has published saturdays
+
     const targetSats = saturdaysInMonth(copyMonthTarget.year, copyMonthTarget.month);
     let hasTarget = false;
     for (const sat of targetSats) {
+      if (sat < today) continue;
       const existing = await hrService.listRosterForDate(sat);
       if (existing.length > 0) {
         hasTarget = true;
         break;
       }
     }
-    
+
     if (hasTarget && !window.confirm(t('copyMonthConfirmOverwrite'))) {
       return;
     }
@@ -588,15 +708,17 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         targetMonth: copyMonthTarget.month,
         createdBy: user.id,
       });
-      
+
       for (const pair of res.copiedDates) {
         await syncTimesheetForDate(pair.to);
       }
-      
+
       setCopyMonthOpen(false);
       setYear(copyMonthTarget.year);
       setMonth(copyMonthTarget.month);
-      // Mode will refresh via useEffect
+      if (res.skippedPast > 0) {
+        setMessage(t('copyMonthSkippedPast', { count: res.skippedPast }));
+      }
     } catch (err) {
       console.error(err);
       setMessage(t('saveError'));
@@ -606,24 +728,25 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
   };
 
   const copyMonthModal = copyMonthOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-4">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold">{t('copyMonth')}</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('copyMonth')}</h2>
         </div>
         <div className="p-5 space-y-4 text-sm">
           <p className="text-slate-600 dark:text-slate-300">
-            {t('copyMonthDesc', { 
-              source: `${pad2(month)}/${year}`, 
-              target: `${pad2(copyMonthTarget.month)}/${copyMonthTarget.year}` 
+            {t('copyMonthDesc', {
+              source: `${pad2(month)}/${year}`,
+              target: `${pad2(copyMonthTarget.month)}/${copyMonthTarget.year}`,
             })}
           </p>
-          
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('copyMonthPastHint')}</p>
+
           <div className="flex gap-4">
             <label className="flex-1">
               <span className="block text-xs text-slate-400 mb-1">{t('month')}</span>
               <select
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 min-h-[44px]"
                 value={copyMonthTarget.month}
                 onChange={e => setCopyMonthTarget(s => ({ ...s, month: Number(e.target.value) }))}
               >
@@ -637,7 +760,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             <label className="flex-1">
               <span className="block text-xs text-slate-400 mb-1">{t('year')}</span>
               <select
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 min-h-[44px]"
                 value={copyMonthTarget.year}
                 onChange={e => setCopyMonthTarget(s => ({ ...s, year: Number(e.target.value) }))}
               >
@@ -653,7 +776,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             type="button"
             disabled={copyMonthBusy}
             onClick={() => setCopyMonthOpen(false)}
-            className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            className="min-h-[44px] px-4 py-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           >
             {t('cancel')}
           </button>
@@ -661,7 +784,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             type="button"
             disabled={copyMonthBusy}
             onClick={() => void handleCopyMonth()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white disabled:opacity-50"
           >
             {copyMonthBusy && <Loader2 size={16} className="animate-spin" />}
             {t('copyMonth')}
@@ -671,22 +794,26 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
     </div>
   );
 
+  const workedPeople = dayOutcome ? filterOutcomePeople(dayOutcome.worked) : [];
+  const absentPeople = dayOutcome ? filterOutcomePeople(dayOutcome.absent) : [];
+  const offPeople = dayOutcome ? filterOutcomePeople(dayOutcome.off) : [];
+
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-5">
+    <div className="md:p-6 max-w-6xl mx-auto space-y-5 px-0 md:px-0">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <CalendarDays className="text-primary" size={22} />
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">{t('title')}</h1>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white text-balance">{t('title')}</h1>
           </div>
-          <p className="mt-1 text-sm text-slate-500 max-w-2xl">{t('subtitle')}</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">{t('subtitle')}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             type="button"
             disabled={publishedDates.size === 0}
             onClick={() => setCopyMonthOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50 flex-1 sm:flex-none"
           >
             <Copy size={16} />
             {t('copyMonth')}
@@ -695,7 +822,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             type="button"
             disabled={pdfBusy || publishedDates.size === 0}
             onClick={() => void handleExportTeamPdf()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50 flex-1 sm:flex-none"
           >
             {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
             {t('exportTeamPdf')}
@@ -704,7 +831,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             type="button"
             disabled={publishedDates.size === 0}
             onClick={() => setPublishOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white disabled:opacity-50 flex-1 sm:flex-none"
           >
             <Send size={16} />
             {t('publishAndSend')}
@@ -712,11 +839,13 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         </div>
       </header>
 
+      <RosterSwapManagerPanel />
+
       <div className="flex flex-wrap gap-3 items-end">
         <label className="text-sm">
           <span className="block text-xs text-slate-400 mb-1">{t('month')}</span>
           <select
-            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 min-h-[44px] text-sm"
             value={month}
             onChange={e => setMonth(Number(e.target.value))}
           >
@@ -732,7 +861,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         <label className="text-sm">
           <span className="block text-xs text-slate-400 mb-1">{t('year')}</span>
           <select
-            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 min-h-[44px] text-sm"
             value={year}
             onChange={e => setYear(Number(e.target.value))}
           >
@@ -747,10 +876,10 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
           <button
             type="button"
-            className={`px-4 py-2 text-sm font-medium ${
+            className={`min-h-[44px] px-4 py-2 text-sm font-medium ${
               mode === 'SATURDAY'
                 ? 'bg-primary text-white'
-                : 'bg-white dark:bg-slate-900 text-slate-600'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300'
             }`}
             onClick={() => setMode('SATURDAY')}
           >
@@ -758,10 +887,10 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
           </button>
           <button
             type="button"
-            className={`px-4 py-2 text-sm font-medium ${
+            className={`min-h-[44px] px-4 py-2 text-sm font-medium ${
               mode === 'HOLIDAY'
                 ? 'bg-primary text-white'
-                : 'bg-white dark:bg-slate-900 text-slate-600'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300'
             }`}
             onClick={() => setMode('HOLIDAY')}
           >
@@ -770,17 +899,17 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-[11px] text-slate-400">
+      <div className="flex flex-wrap gap-3 text-[11px] text-slate-500 dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-slate-600/80 border border-slate-500" />
+          <span className="w-3 h-3 rounded-full bg-slate-300 border border-slate-400 dark:bg-slate-600 dark:border-slate-500" />
           {t('legendPast')}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-sky-500/80 border border-sky-400" />
+          <span className="w-3 h-3 rounded-full bg-sky-400 border border-sky-500" />
           {t('legendToday')}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-emerald-700/70 border border-emerald-500" />
+          <span className="w-3 h-3 rounded-full bg-emerald-400 border border-emerald-500" />
           {t('legendFuture')}
         </span>
       </div>
@@ -808,7 +937,9 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                 aria-current={active ? 'date' : undefined}
                 title={
                   active
-                    ? t('editingThisDay')
+                    ? canEditSelected
+                      ? t('editingThisDay')
+                      : t('viewingPanelTitle')
                     : tone === 'past'
                       ? t('chipPastTitle')
                       : isPub
@@ -829,7 +960,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                   <span className="text-[10px] uppercase opacity-70">{t('chipPast')}</span>
                 ) : null}
                 {!active && isPub ? (
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                 ) : null}
               </button>
             );
@@ -841,13 +972,13 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
         <>
           <div
             className={`rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-3 ${
-              selectedTone === 'past'
-                ? 'border-slate-600 bg-slate-800/40'
+              isPastView
+                ? 'border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/40'
                 : 'border-primary/40 bg-primary/10'
             }`}
           >
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">
                 {canEditSelected ? t('editingPanelTitle') : t('viewingPanelTitle')}
               </p>
               <p className="text-lg font-bold text-slate-900 dark:text-white truncate">
@@ -855,8 +986,8 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                   ? `${formatDayLabel(selectedDate, i18n.language)} — ${holidayName(selectedDate) || t('holidayLabel')}`
                   : formatDayLabel(selectedDate, i18n.language)}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {selectedTone === 'past'
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {isPastView
                   ? t('pastBanner')
                   : mode === 'HOLIDAY'
                     ? t('hintHoliday')
@@ -864,8 +995,8 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {selectedTone === 'past' && (
-                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-700/80 text-slate-200">
+              {isPastView && (
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-200 text-slate-700 dark:bg-slate-700/80 dark:text-slate-200">
                   {t('chipPast')}
                 </span>
               )}
@@ -881,7 +1012,9 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             </div>
           </div>
 
-          <p className="text-xs text-slate-400">{t('loadFromShiftHint')}</p>
+          {!isPastView && (
+            <p className="text-xs text-slate-400 dark:text-slate-500">{t('loadFromShiftHint')}</p>
+          )}
 
           <div className="flex flex-wrap gap-2 items-center">
             <input
@@ -889,7 +1022,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={t('search')}
-              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-w-[12rem] flex-1 max-w-xs"
+              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 min-h-[44px] text-sm min-w-[12rem] flex-1 max-w-xs"
             />
             {canEditSelected && (
               <>
@@ -899,9 +1032,9 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                     setSwapMode(s => !s);
                     setSwapFirst(null);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border ${
+                  className={`inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm border ${
                     swapMode
-                      ? 'border-amber-400 bg-amber-50 text-amber-900'
+                      ? 'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
                       : 'border-slate-200 dark:border-slate-700'
                   }`}
                 >
@@ -912,7 +1045,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                   <button
                     type="button"
                     onClick={() => void handleCopyPrev()}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700"
+                    className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-700"
                     title={t('copyPrevHint')}
                   >
                     <Copy size={16} />
@@ -923,7 +1056,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                   type="button"
                   disabled={saving}
                   onClick={() => void handleSave()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white disabled:opacity-60"
                 >
                   {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                   {saving ? t('saving') : t('save')}
@@ -933,7 +1066,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                     type="button"
                     disabled={saving}
                     onClick={() => void handleClear()}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-red-200 text-red-700 dark:border-red-900 dark:text-red-300"
+                    className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm border border-red-200 text-red-700 dark:border-red-900 dark:text-red-300"
                   >
                     <Trash2 size={16} />
                     {t('clear')}
@@ -941,8 +1074,8 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
                 )}
               </>
             )}
-            {!canEditSelected && canWrite && selectedTone === 'past' && (
-              <span className="text-xs text-slate-400">{t('pastReadOnlyManager')}</span>
+            {isPastView && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">{t('pastReadOnly')}</span>
             )}
           </div>
 
@@ -964,6 +1097,18 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
             </div>
           ) : clockEmployees.length === 0 ? (
             <p className="text-sm text-slate-400">{t('emptyTeam')}</p>
+          ) : isPastView ? (
+            !published || !dayOutcome?.published ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-8 text-center">
+                {t('pastUnpublished')}
+              </p>
+            ) : (
+              <div className="flex flex-col lg:flex-row gap-4">
+                {renderOutcomeColumn(workedPeople, 'worked')}
+                {renderOutcomeColumn(absentPeople, 'absent')}
+                {renderOutcomeColumn(offPeople, 'off')}
+              </div>
+            )
           ) : (
             <div className="flex flex-col md:flex-row gap-4">
               {renderColumn(workingIds, 'WORK')}
@@ -972,7 +1117,7 @@ const WorkRoster: React.FC<Props> = ({ user }) => {
           )}
         </>
       )}
-      <RosterSwapManagerPanel />
+
       <RosterPublishModal
         isOpen={publishOpen}
         onClose={() => setPublishOpen(false)}

@@ -4,7 +4,7 @@
   Coleta MRP no PrintPoint (:3000) e envia ao ingest-punches.
 
   Deve rodar sob PowerShell x86 (SysWOW64) por causa do WatchComm.dll 32-bit.
-  Agendado 1x por semana (segunda-feira 09:00) via Task Scheduler.
+  Agendado 3x ao dia (09:00, 15:00, 19:00) via Task Scheduler.
   Coleta manual em Comunicacao com o relogio permanece disponivel.
 #>
 [CmdletBinding()]
@@ -196,7 +196,6 @@ $doBootstrap = $Bootstrap -or (-not $state.bootstrapped)
 $startNsrNum = if ($state.lastNsr -gt 0) { $state.lastNsr + 1 } else { 1 }
 $startNsr = $startNsrNum.ToString('0000000000')
 
-$outJson = Join-Path $logDir ('collect-{0}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 $maxBatches = [int](Get-ConfigValue $Config 'maxBatchesPerCycle' 250)
 if ($maxBatches -le 0) { $maxBatches = 250 }
 $maxRecords = [int](Get-ConfigValue $Config 'maxRecordsPerCycle' 250)
@@ -206,57 +205,72 @@ $forwardEnabled = [bool](Get-ConfigValue $Config 'forwardEnabled' $true)
 Write-Log ("cycle start startNsr={0} bootstrap={1} forward={2}" -f $startNsr, $doBootstrap, $forwardEnabled)
 
 $selfX86 = "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
-$collectArgList = New-Object System.Collections.Generic.List[string]
-@(
-  '-NoProfile', '-ExecutionPolicy', 'Bypass',
-  '-File', $collectScript,
-  '-ClockIp', ([string]$Config.clockIp),
-  '-ClockPort', ([string][int]$Config.clockPort),
-  '-DeviceSerial', ([string]$Config.deviceSerial),
-  '-FirmwareVersion', ([string]$Config.firmwareVersion),
-  '-EquipmentId', ([string][int]$Config.equipmentId),
-  '-ModulusHex', ([string]$Config.modulusHex),
-  '-ExponentHex', ([string]$Config.exponentHex),
-  '-CommUser', ([string](Get-ConfigValue $Config 'commUser' 'login')),
-  '-CommPassword', ([string](Get-ConfigValue $Config 'commPassword' 'senha')),
-  '-MaxBatches', ([string]$maxBatches),
-  '-MaxRecords', ([string]$maxRecords),
-  '-OutJson', $outJson
-) | ForEach-Object { [void]$collectArgList.Add($_) }
-
 $accessKey = [string](Get-ConfigValue $Config 'accessKey' '')
-if ($accessKey) {
-  [void]$collectArgList.Add('-AccessKey')
-  [void]$collectArgList.Add($accessKey)
+$maxCollectAttempts = [int](Get-ConfigValue $Config 'collectRetries' 3)
+if ($maxCollectAttempts -lt 1) { $maxCollectAttempts = 1 }
+
+$collectExit = -1
+$result = $null
+$collectError = ''
+
+for ($attempt = 1; $attempt -le $maxCollectAttempts; $attempt++) {
+  $outJson = Join-Path $logDir ('collect-{0}-a{1}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $attempt)
+  $collectArgList = New-Object System.Collections.Generic.List[string]
+  @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass',
+    '-File', $collectScript,
+    '-ClockIp', ([string]$Config.clockIp),
+    '-ClockPort', ([string][int]$Config.clockPort),
+    '-DeviceSerial', ([string]$Config.deviceSerial),
+    '-FirmwareVersion', ([string]$Config.firmwareVersion),
+    '-EquipmentId', ([string][int]$Config.equipmentId),
+    '-ModulusHex', ([string]$Config.modulusHex),
+    '-ExponentHex', ([string]$Config.exponentHex),
+    '-CommUser', ([string](Get-ConfigValue $Config 'commUser' 'login')),
+    '-CommPassword', ([string](Get-ConfigValue $Config 'commPassword' 'senha')),
+    '-MaxBatches', ([string]$maxBatches),
+    '-MaxRecords', ([string]$maxRecords),
+    '-OutJson', $outJson
+  ) | ForEach-Object { [void]$collectArgList.Add($_) }
+
+  if ($accessKey) {
+    [void]$collectArgList.Add('-AccessKey')
+    [void]$collectArgList.Add($accessKey)
+  }
+
+  if ($doBootstrap) {
+    # Bootstrap: so a partir de ontem (evita dump de anos de historico)
+    $bootDate = (Get-Date).Date.AddDays(-1)
+    [void]$collectArgList.Add('-StartDate')
+    [void]$collectArgList.Add($bootDate.ToString('yyyy-MM-dd'))
+    Write-Log ("bootstrap reposition date={0}" -f $bootDate.ToString('yyyy-MM-dd'))
+  } else {
+    [void]$collectArgList.Add('-StartNsr')
+    [void]$collectArgList.Add($startNsr)
+  }
+
+  Write-Log ("collect attempt {0}/{1} startNsr={2}" -f $attempt, $maxCollectAttempts, $startNsr)
+  $collectProc = Start-Process -FilePath $selfX86 -ArgumentList $collectArgList.ToArray() -Wait -PassThru -NoNewWindow
+  $collectExit = $collectProc.ExitCode
+  if ($null -eq $collectExit) { $collectExit = -1 }
+
+  $collectError = ''
+  if (-not (Test-Path -LiteralPath $outJson)) {
+    $collectError = ("collect nao gerou JSON (exit={0})" -f $collectExit)
+  } else {
+    $result = Read-JsonFile $outJson
+    $collectError = [string](Get-ConfigValue $result 'error' '')
+  }
+
+  if (-not $collectError) { break }
+  Write-Log ("collect attempt {0}/{1} FAIL: {2}" -f $attempt, $maxCollectAttempts, $collectError) 'WARN'
+  if ($attempt -lt $maxCollectAttempts) {
+    Start-Sleep -Seconds (15 * $attempt)
+  }
 }
 
-if ($doBootstrap) {
-  # Bootstrap: so a partir de ontem (evita dump de anos de historico)
-  $bootDate = (Get-Date).Date.AddDays(-1)
-  [void]$collectArgList.Add('-StartDate')
-  [void]$collectArgList.Add($bootDate.ToString('yyyy-MM-dd'))
-  Write-Log ("bootstrap reposition date={0}" -f $bootDate.ToString('yyyy-MM-dd'))
-} else {
-  [void]$collectArgList.Add('-StartNsr')
-  [void]$collectArgList.Add($startNsr)
-}
-
-$collectProc = Start-Process -FilePath $selfX86 -ArgumentList $collectArgList.ToArray() -Wait -PassThru -NoNewWindow
-$collectExit = $collectProc.ExitCode
-if ($null -eq $collectExit) { $collectExit = -1 }
-
-if (-not (Test-Path -LiteralPath $outJson)) {
-  Write-Log ("collect nao gerou JSON (exit={0})" -f $collectExit) 'ERROR'
-  Write-CycleResult -ResultPath $resultPath -Success $false -ExitCode 1 `
-    -Collected 0 -Forwarded 0 -Inserted 0 -LastNsr ([int]$state.lastNsr) `
-    -ErrorMessage ("collect failed exit={0}" -f $collectExit) -TriggerName $Trigger
-  exit 1
-}
-
-$result = Read-JsonFile $outJson
-$collectError = [string](Get-ConfigValue $result 'error' '')
 if ($collectError) {
-  Write-Log ("collect error: {0}" -f $collectError) 'ERROR'
+  Write-Log $collectError 'ERROR'
   Write-CycleResult -ResultPath $resultPath -Success $false -ExitCode 1 `
     -Collected 0 -Forwarded 0 -Inserted 0 -LastNsr ([int]$state.lastNsr) `
     -ErrorMessage $collectError -TriggerName $Trigger
@@ -350,31 +364,29 @@ Write-CycleResult -ResultPath $resultPath -Success $true -ExitCode 0 `
   -Collected $punches.Count -Forwarded $toSend.Count -Inserted $inserted -LastNsr ([int]$state.lastNsr) `
   -TriggerName $Trigger
 
-# Fecha o ciclo: batidas recém-ingeridas enfileiram recálculo; drena a fila
-# agora (best-effort) para que os dias não fiquem "presos" até a próxima tarefa.
-if ($inserted -gt 0) {
-  try {
-    $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-    $runner = Join-Path $repoRoot 'scripts\Run-RecalcQueue.ps1'
-    if (Test-Path -LiteralPath $runner) {
-      # Must Wait: fire-and-forget was killed when the poller/task exited,
-      # leaving timesheet_days stuck at the last drained date (e.g. 12/08).
-      $pwsh = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
-      if (-not (Test-Path -LiteralPath $pwsh)) { $pwsh = 'powershell.exe' }
-      $drain = Start-Process -FilePath $pwsh -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $runner,
-        '-Limit', '500', '-LogDir', $logDir
-      ) -Wait -PassThru -NoNewWindow
-      $drainExit = if ($null -eq $drain.ExitCode) { -1 } else { [int]$drain.ExitCode }
-      if ($drainExit -eq 0) {
-        Write-Log 'recalc-queue drain OK'
-      } else {
-        Write-Log ("recalc-queue drain exit={0}" -f $drainExit) 'WARN'
-      }
+# Always drain after a collect cycle (empty queue is a no-op). Skipping when
+# inserted=0 used to leave PENDING jobs from a previous LOGIN_FAIL forever.
+try {
+  $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+  $runner = Join-Path $repoRoot 'scripts\Run-RecalcQueue.ps1'
+  if (Test-Path -LiteralPath $runner) {
+    # Must Wait: fire-and-forget was killed when the poller/task exited,
+    # leaving timesheet_days stuck at the last drained date (e.g. 12/08).
+    $pwsh = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    if (-not (Test-Path -LiteralPath $pwsh)) { $pwsh = 'powershell.exe' }
+    $drain = Start-Process -FilePath $pwsh -ArgumentList @(
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $runner,
+      '-Limit', '500', '-LogDir', $logDir
+    ) -Wait -PassThru -NoNewWindow
+    $drainExit = if ($null -eq $drain.ExitCode) { -1 } else { [int]$drain.ExitCode }
+    if ($drainExit -eq 0) {
+      Write-Log 'recalc-queue drain OK'
+    } else {
+      Write-Log ("recalc-queue drain exit={0}" -f $drainExit) 'WARN'
     }
-  } catch {
-    Write-Log ("recalc-queue drain nao disparado: {0}" -f $_.Exception.Message) 'WARN'
   }
+} catch {
+  Write-Log ("recalc-queue drain nao disparado: {0}" -f $_.Exception.Message) 'WARN'
 }
 
 # limpa JSON intermediario antigo (mantem o ultimo)

@@ -91,23 +91,76 @@ $mrpMethod = $wcType.GetMethods() | Where-Object {
 $repoMethod = $wcType.GetMethod('RepositioningMRPRecordsPointer', [type[]]@([string]))
 $repoDateMethod = $wcType.GetMethod('RepositioningMRPRecordsPointer', [type[]]@([datetime]))
 
+function New-CollectWatchComm {
+  $tcpLocal = [Activator]::CreateInstance($tcpType)
+  $tcpType.GetMethod('CreateTcpComm', [Type[]]@([string], [int])).Invoke($tcpLocal, @($ClockIp, $ClockPort))
+  try { $tcpLocal.SetTimeOut(20000) } catch {}
+  $wcLocal = [Activator]::CreateInstance($wcType)
+  $create.Invoke($wcLocal, @($proto, $tcpLocal, [int]$EquipmentId, $AccessKey, $conn, $FirmwareVersion, $ModulusHex, $ExponentHex, $CommUser, $CommPassword))
+  return @{ Tcp = $tcpLocal; Wc = $wcLocal }
+}
+
+function Test-WatchCommConnected($Watch) {
+  try { return [bool]$Watch.Connected } catch { return $false }
+}
+
 Write-Step ("collect-once {0}:{1} startNsr={2} startDate={3}" -f $ClockIp, $ClockPort, $StartNsr, $(if ($StartDate -gt [datetime]::MinValue) { $StartDate.ToString('s') } else { '-' }))
 
-$tcp = [Activator]::CreateInstance($tcpType)
-$tcpType.GetMethod('CreateTcpComm', [Type[]]@([string], [int])).Invoke($tcp, @($ClockIp, $ClockPort))
-try { $tcp.SetTimeOut(20000) } catch {}
-
-$wc = [Activator]::CreateInstance($wcType)
-$create.Invoke($wc, @($proto, $tcp, [int]$EquipmentId, $AccessKey, $conn, $FirmwareVersion, $ModulusHex, $ExponentHex, $CommUser, $CommPassword))
+$session = New-CollectWatchComm
+$tcp = $session.Tcp
+$wc = $session.Wc
 Write-Step 'CreateWatchComm OK'
 
 $openOk = $false
-try {
-  $wcType.GetMethod('OpenConnection').Invoke($wc, @())
-  $openOk = $true
-  Write-Step ("OpenConnection OK Connected={0}" -f $wc.Connected)
-} catch {
-  Write-Step ("OpenConnection WARN: {0} Connected={1}" -f (Get-InnerMessage $_.Exception), $wc.Connected)
+$connected = $false
+$maxOpenAttempts = 4
+for ($openAttempt = 1; $openAttempt -le $maxOpenAttempts; $openAttempt++) {
+  try {
+    $wcType.GetMethod('OpenConnection').Invoke($wc, @())
+    $openOk = $true
+  } catch {
+    Write-Step ("OpenConnection attempt {0}/{1}: {2}" -f $openAttempt, $maxOpenAttempts, (Get-InnerMessage $_.Exception))
+  }
+  $connected = Test-WatchCommConnected $wc
+  Write-Step ("OpenConnection attempt {0}/{1} openOk={2} Connected={3}" -f $openAttempt, $maxOpenAttempts, $openOk, $connected)
+  if ($connected) { break }
+  if ($openAttempt -lt $maxOpenAttempts) {
+    try { $wcType.GetMethod('CloseConnection').Invoke($wc, @()) } catch {}
+    Start-Sleep -Seconds (4 * $openAttempt)
+    $session = New-CollectWatchComm
+    $tcp = $session.Tcp
+    $wc = $session.Wc
+    $openOk = $false
+  }
+}
+if (-not $connected) {
+  $failMsg = "OpenConnection nao estabeleceu soquete (Connected=false) apos $maxOpenAttempts tentativas"
+  Write-Step ("collect aborted: {0}" -f $failMsg)
+  $failResult = [pscustomobject]@{
+    success      = $false
+    openOk       = [bool]$openOk
+    clockIp      = [string]$ClockIp
+    clockPort    = [int]$ClockPort
+    deviceSerial = [string]$DeviceSerial
+    employerCnpj = $null
+    startNsr     = [string]$StartNsr
+    batches      = 0
+    totalNsr     = 0
+    punchCount   = 0
+    otherCount   = 0
+    punches      = @()
+    others       = @()
+    error        = $failMsg
+    collectedAt  = (Get-Date).ToString('o')
+  }
+  try { $wcType.GetMethod('CloseConnection').Invoke($wc, @()) } catch {}
+  if ($OutJson) {
+    $dir = Split-Path -Parent $OutJson
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    ($failResult | ConvertTo-Json -Depth 8) | Set-Content -Path $OutJson -Encoding UTF8
+    Write-Step ("wrote {0}" -f $OutJson)
+  }
+  exit 1
 }
 
 $employerCnpj = $null
@@ -224,9 +277,11 @@ while ($batches -lt $MaxBatches -and $total -lt $MaxRecords) {
     [void][int]::TryParse(([string]$rec.NSR), [ref]$n)
     if ($n -gt $maxNsr) { $maxNsr = $n }
   }
+  $confirmOk = $true
   try {
     [void]$wcType.GetMethod('ConfirmationReceiptMRPRecords').Invoke($wc, @())
   } catch {
+    $confirmOk = $false
     Write-Step ("ConfirmReceipt WARN: {0}" -f (Get-InnerMessage $_.Exception))
   }
   if ($maxNsr -gt 0) {
@@ -236,6 +291,9 @@ while ($batches -lt $MaxBatches -and $total -lt $MaxRecords) {
       Write-Step ("advanced pointer to NSR {0}" -f $nextNsr)
     } catch {
       Write-Step ("advance WARN: {0}" -f (Get-InnerMessage $_.Exception))
+      if (-not $confirmOk) {
+        throw ("ConfirmReceipt e Reposition falharam apos o lote (max NSR {0}) - risco de ponteiro preso" -f $maxNsr)
+      }
     }
   }
 

@@ -71,7 +71,7 @@
     "syncAllDesc": "Sends records and collects punches in a single operation.",
     "syncAllCta": "Sync everything",
     "statusTitle": "Status / last sync",
-    "statusDesc": "Track the latest punch collect (manual or scheduled every Monday at 09:00) and recent history.",
+    "statusDesc": "Track the latest punch collect (manual or scheduled at 09:00, 15:00 and 19:00) and recent history.",
     "refreshStatus": "Refresh status",
     "statusLoading": "Loading status…",
     "statusLoadFailed": "Could not load sync status.",
@@ -99,6 +99,13 @@
       "unknown": "System"
     },
     "syncing": "Running…",
+    "collectStarted": "Punch collect started. You can keep navigating — we will notify you when it finishes.",
+    "collectRunning": "Punch collect is running on the clock. You can keep using the system.",
+    "collectRunningShort": "Collecting…",
+    "collectOpenSync": "Open sync",
+    "collectFailed": "Punch collect failed.",
+    "collectTimeout": "Punch collect took too long. Check status under Communication → Sync and retry if needed.",
+    "collectNetworkRetry": "Connection to the sync service was interrupted. If collect already started, Communication status will update when it finishes.",
     "readOnly": "Action unavailable in read-only mode.",
     "busy": "A sync is already in progress.",
     "success": "Sync completed.",
@@ -112,7 +119,7 @@
     "advancedTitle": "Clock configuration",
     "advancedDesc": "Supervisors, employer data and policies live under Organization → System.",
     "advancedCta": "Open Organization → System",
-    "note": "Editing a card does not send anything to the clock automatically. Collect punches here, or use the Employees tab / admission screen to send records.",
+    "note": "Editing a card does not send anything to the clock automatically. Collect punches here, or use the Employees tab / admission screen to send records. After starting collect you can leave this screen — a toast appears when it finishes.",
     "onlyAdmin": "Only ADMIN can talk to the clock."
   }
 }

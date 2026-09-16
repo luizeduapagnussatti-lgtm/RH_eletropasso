@@ -15,6 +15,151 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-09-16',
+    title: 'Escalas — PJ presente e sync do relógio',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Escalas de dia passado: PJ em “Trabalha” conta como presente (não bate relógio). Batidas CLOCK/APP conferem PIS e credencial com zeros à esquerda.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Coleta WatchComm: OpenConnection sem soquete aborta em vez de seguir no Reposition; 3 tentativas por ciclo; automática volta a 09:00, 15:00 e 19:00 (a semanal na segunda parou de trazer batidas após 03/09).',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Escalas — passado, trocas e WhatsApp',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Escalas: dias passados só consulta (trabalhou / faltou / folga com batidas); ninguém edita; réplica pula sábados passados. Pedidos de troca no topo (aprovar/recusar, nomes); badge PWA; sino leva o gestor a Escalas. Troca PWA só com colega em status oposto. Publicar e enviar WhatsApp liberado para MANAGER (Evolution/chat_eletropasso).',
+      },
+      {
+        type: 'fix',
+        description:
+          'RLS de roster_swap_requests com WITH CHECK para aceitar/recusar/aprovar; data “hoje” da troca usa calendário local (não UTC).',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'PWA do gestor — presentes da equipe',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'No celular, o MANAGER deixa a home de colaborador e passa a ver presentes hoje (com 1ª/última batida), quem ainda não bateu, e atalhos para espelho da equipe, escalas e auditoria. Bottom nav: Início / Equipe / Escalas / Conta; timesheet deixa de redirecionar para Meu espelho.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Minha escala — passado pelo ponto',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'PWA Minha escala: sábados/feriados passados com escala “Trabalha” passam a “Trabalhado” (com batida) ou “Não trabalhado” (sem ponto). Hoje/futuro e Folga permanecem iguais; PDF da escala não muda.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Meu espelho — loop e competências aprovadas',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'PWA Meu espelho: fim do loop de recarregamento (auto-ignore de batidas e recálculo stale não disparam mais o event bus; subscribe com debounce e guarda de loading).',
+      },
+      {
+        type: 'fix',
+        description:
+          'Competências anteriores/aprovadas: período lido sem realign forçado; badge deixa de ficar preso em “Aguardando ciência” quando a ciência já está completa; dias mesclados por crachá+UUID.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Login PWA — link da loja',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'No login do celular, o aviso do link da loja fica abaixo do formulário (login primeiro) e a seção ficou mais compacta, sem o texto longo de WhatsApp/setup.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Notificações de escala → Minha escala',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Clique em “Escala atualizada” (desktop e PWA) abre Minha escala no mês/dia da notificação; fallback por referenceType=roster quando action_url vier vazio; Admin/HR sem Minha escala vão para Escalas.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Minha escala mais clara: resumo dos dias Trabalha, legenda Trabalha/Folga/Ainda sem escala, mês por nome, nome do feriado, destaque do dia da notificação e dark mode nos cards.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'PWA colaborador — primeiro acesso e espelho',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Primeiro acesso no PWA por CPF: link na tela de login, confirmação do primeiro nome, definição de e-mail real e senha (Edge claim-employee-access). CPF obrigatório no cadastro de quem bate ponto; senha inicial no Cartões pode ficar em branco.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Assinatura do espelho grava EMPLOYEE_SIGNED (não APPROVED), para o gestor concluir a aprovação no painel.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Cartões: botão “Redefinir senha” na ficha do colaborador. Trocas de escala: lista enviados/recebidos com nome do colega.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'PWA remoto — Cloudflare Tunnel',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Ponto no celular via https://rh.eletropasso-wa.com.br (Cloudflare Tunnel): Android não resolve bem *.eletropasso.local na Tailscale. API em api-rh.eletropasso-wa.com.br; LAN local preservada.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Acesso do PWA pelo celular via Tailscale: o CoreDNS passa a responder rh/api-rh com o IP Tailscale e watchdog a cada 5 min (mitigação; no Android o caminho suportado é o Tunnel).',
+      },
+    ],
+  },
+  {
+    date: '2026-09-10',
+    title: 'PWA — faltas do espelho',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Totais do motorista no PWA (15h+ de “faltas”): dias incompletos (3 batidas, inclusive o dia de hoje ainda em andamento) não entram mais em Faltas. Só dia fechado sem ponto conta como falta; o gestor continua vendo Incompleto para ajustar.',
+      },
+    ],
+  },
+  {
     date: '2026-09-03',
     title: 'Escalas — Redesign do PDF e Cópia entre meses',
     entries: [

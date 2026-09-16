@@ -68,8 +68,11 @@
   "employeeIdPlaceholder": "ex.: 026740847000",
   "accessLevel": "Nível de acesso",
   "resetPassword": "Redefinir senha",
+  "resetPasswordHint": "Defina uma nova senha para {{name}} ({{email}}). O colaborador usará esta senha no próximo login.",
+  "passwordResetSuccess": "Senha de {{name}} redefinida.",
   "initialPassword": "Senha inicial",
   "leaveBlankPassword": "Deixe em branco para manter a atual",
+  "leaveBlankPasswordFirstAccess": "Deixe em branco se o colaborador for definir a senha no primeiro acesso (CPF)",
   "setLoginPassword": "Defina a senha de acesso",
   "assignedTeam": "Equipe atribuída",
   "noTeamAssigned": "Sem equipe",
@@ -174,7 +177,7 @@
       },
       "step4": {
         "title": "Validar batidas no RH",
-        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática toda segunda-feira às 09:00, ou Comunicação → Coletar batidas."
+        "detail": "Após a primeira batida, o status muda para Pronto. Coleta automática às 09:00, 15:00 e 19:00, ou Comunicação → Coletar batidas."
       }
     },
     "discharge": {
@@ -216,6 +219,8 @@
     "pjHint": "Sem ponto e sem espelho de horas. Marque “Incluso nas escalas” se deve aparecer na grade; carga horária flexível combinada com a diretoria.",
     "includeInRoster": "Incluso nas escalas",
     "includeInRosterHint": "Quando marcado, aparece na lista de escalas (sábado/feriado), independente do nível de acesso.",
+    "allowPwaPunch": "Permitir bater ponto pelo app",
+    "allowPwaPunchHint": "Quando marcado, o colaborador pode registrar batidas no PWA (selfie + GPS). O relógio físico continua como fonte principal e prevalece se houver batida próxima.",
     "location": "Local de trabalho",
     "office": "Presencial",
     "field": "Externo / campo",
@@ -232,6 +237,7 @@
       "pisInvalid": "PIS inválido — use 11 ou 12 dígitos numéricos.",
       "credentialInvalid": "Credencial do relógio inválida — use até 12 dígitos numéricos.",
       "cpfInvalid": "CPF inválido.",
+      "cpfRequired": "CPF é obrigatório para colaboradores de ponto (PWA / relógio).",
       "emailRequired": "Informe o e-mail corporativo.",
       "passwordShort": "A senha deve ter pelo menos 8 caracteres.",
       "emailActiveConflict": "Este e-mail já está em uso por outro colaborador ativo.",
@@ -239,10 +245,11 @@
       "emailLockedDischarged": "Não foi possível liberar o e-mail da conta demitida. Contate o suporte técnico.",
       "pisConflict": "Este PIS já está cadastrado para outro colaborador.",
       "credentialConflict": "Esta credencial de relógio já está em uso por outro colaborador.",
-      "missingFields": "Preencha e-mail, senha e nome."
+      "missingFields": "Preencha e-mail e nome."
     },
     "emailLoginPlaceholder": "nome@eletropasso.com.br",
     "emailLoginHint": "Este é o e-mail de login do sistema. Substitua o endereço técnico de importação (@import.eletropasso.local) pelo e-mail real do colaborador.",
+    "cpfPwaHint": "Obrigatório para o primeiro acesso pelo celular (CPF → e-mail e senha).",
     "save": "Salvar colaborador",
     "saving": "Salvando…",
     "next": "Próximo",
@@ -259,6 +266,8 @@
     "sendFailed": "Falha ao enviar o cadastro ao relógio.",
     "clockBusy": "O relógio está ocupado. Aguarde a coleta terminar e tente de novo.",
     "bioMarked": "Biometria marcada — aguardando batida de teste.",
+    "pwaPunchEnabled": "Ponto pelo app habilitado para este colaborador.",
+    "pwaPunchDisabled": "Ponto pelo app desabilitado — use o relógio físico.",
     "stepRh": "Cadastro no RH",
     "stepRhDetail": "Colaborador salvo com PIS {{pis}}.",
     "stepExport": "Enviado ao relógio",
@@ -312,7 +321,7 @@
       },
       "step4": {
         "title": "Validar batida no RH",
-        "detail": "Após a primeira batida, o status muda para Pronto automaticamente. Coleta automática toda segunda-feira às 09:00, ou Comunicação → Coletar batidas."
+        "detail": "Após a primeira batida, o status muda para Pronto automaticamente. Coleta automática às 09:00, 15:00 e 19:00, ou Comunicação → Coletar batidas."
       }
     },
     "discharge": {

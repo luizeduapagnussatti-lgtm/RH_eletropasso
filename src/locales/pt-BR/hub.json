@@ -71,7 +71,7 @@
     "syncAllDesc": "Envia cadastros e coleta batidas em uma única operação.",
     "syncAllCta": "Sincronizar tudo",
     "statusTitle": "Status / última sincronização",
-    "statusDesc": "Acompanhe a última coleta (manual ou automática toda segunda-feira às 09:00) e o histórico recente.",
+    "statusDesc": "Acompanhe a última coleta (manual ou automática às 09:00, 15:00 e 19:00) e o histórico recente.",
     "refreshStatus": "Atualizar status",
     "statusLoading": "Carregando status…",
     "statusLoadFailed": "Não foi possível carregar o status da sincronização.",
@@ -99,6 +99,13 @@
       "unknown": "Sistema"
     },
     "syncing": "Executando…",
+    "collectStarted": "Coleta de batidas iniciada. Você pode continuar navegando — avisaremos ao terminar.",
+    "collectRunning": "Coleta de batidas em andamento no relógio. Pode continuar usando o sistema.",
+    "collectRunningShort": "Coletando…",
+    "collectOpenSync": "Ver sincronização",
+    "collectFailed": "A coleta de batidas falhou.",
+    "collectTimeout": "A coleta demorou demais. Confira o status em Comunicação → Sincronização e tente de novo se necessário.",
+    "collectNetworkRetry": "A conexão com o serviço foi interrompida. Se a coleta já tinha começado, o status em Comunicação será atualizado ao terminar.",
     "readOnly": "Ação indisponível no modo somente leitura.",
     "busy": "Já existe uma sincronização em andamento.",
     "success": "Sincronização concluída.",
@@ -112,7 +119,7 @@
     "advancedTitle": "Configuração do relógio",
     "advancedDesc": "Supervisores, dados do empregador e políticas ficam em Organização → Sistema.",
     "advancedCta": "Abrir Organização → Sistema",
-    "note": "Editar um cartão não envia nada ao relógio automaticamente. Use Coletar batidas aqui, ou a aba Colaboradores / a ficha de admissão para enviar cadastros.",
+    "note": "Editar um cartão não envia nada ao relógio automaticamente. Use Coletar batidas aqui, ou a aba Colaboradores / a ficha de admissão para enviar cadastros. Depois de iniciar a coleta, você pode sair desta tela — o aviso aparece ao concluir.",
     "onlyAdmin": "Somente ADMIN pode falar com o relógio."
   }
 }
