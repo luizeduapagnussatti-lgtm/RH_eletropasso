@@ -2,8 +2,9 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Employee, Shift, Team } from '../../types';
 import { formatCpfDisplay, formatPisDisplay, formatClockCredentialDisplay } from '../../utils/employeeCredentials';
-import { needsClockAdmission } from '../../utils/roles';
+import { needsClockAdmission, defaultIncludeInRoster } from '../../utils/roles';
 import { tRole } from '../../i18n/statusMaps';
+import { isInternalAuthEmail } from '../../utils/emailUtils';
 
 export function labelEmploymentType(t: (key: string) => string, type: string): string {
   switch (String(type || '').toUpperCase()) {
@@ -44,6 +45,8 @@ export interface OnboardingFormState {
   teamId: string;
   shiftId: string;
   status: Employee['status'];
+  includeInRoster: boolean;
+  allowPwaPunch: boolean;
 }
 
 export const emptyOnboardingForm = (defaultShiftId = ''): OnboardingFormState => ({
@@ -70,6 +73,8 @@ export const emptyOnboardingForm = (defaultShiftId = ''): OnboardingFormState =>
   teamId: '',
   shiftId: defaultShiftId,
   status: 'ACTIVE',
+  includeInRoster: true,
+  allowPwaPunch: false,
 });
 
 interface Props {
@@ -105,13 +110,20 @@ export const StepIdentity: React.FC<Props> = ({
         />
       </label>
       <label>
-        <span className="text-xs font-semibold text-slate-500 uppercase">{t('onboarding.cpf')}</span>
+        <span className="text-xs font-semibold text-slate-500 uppercase">
+          {t('onboarding.cpf')}
+          {needsClockAdmission(form) ? ' *' : ''}
+        </span>
         <input
+          required={needsClockAdmission(form)}
           className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
           placeholder="000.000.000-00"
           value={form.cpf}
           onChange={e => onChange({ cpf: e.target.value })}
         />
+        {needsClockAdmission(form) && (
+          <p className="text-[10px] text-slate-400 mt-1">{t('onboarding.cpfPwaHint')}</p>
+        )}
       </label>
       <label>
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('officialEmployeeId')}</span>
@@ -300,6 +312,38 @@ export const StepContract: React.FC<Props> = ({
           ))}
         </select>
       </label>
+      <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 px-4 py-3 cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-0.5 rounded border-slate-300"
+          checked={form.includeInRoster}
+          onChange={e => onChange({ includeInRoster: e.target.checked })}
+        />
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+            {t('onboarding.includeInRoster')}
+          </span>
+          <span className="block mt-1 text-[11px] text-slate-500 leading-snug">
+            {t('onboarding.includeInRosterHint')}
+          </span>
+        </span>
+      </label>
+      <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 px-4 py-3 cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-0.5 rounded border-slate-300"
+          checked={form.allowPwaPunch}
+          onChange={e => onChange({ allowPwaPunch: e.target.checked })}
+        />
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+            {t('onboarding.allowPwaPunch')}
+          </span>
+          <span className="block mt-1 text-[11px] text-slate-500 leading-snug">
+            {t('onboarding.allowPwaPunchHint')}
+          </span>
+        </span>
+      </label>
       <label>
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('onboarding.employmentType')}</span>
         <select
@@ -361,6 +405,9 @@ export const StepAccess: React.FC<Props & { showPassword: boolean; onTogglePassw
           placeholder={t('onboarding.emailLoginPlaceholder')}
         />
         <p className="text-[10px] text-slate-400 mt-1">{t('onboarding.emailLoginHint')}</p>
+        {isInternalAuthEmail(form.email) && (
+          <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1">{t('onboarding.placeholderEmailWarning')}</p>
+        )}
       </label>
       <label className="md:col-span-2">
         <span className="text-xs font-semibold text-slate-500 uppercase">
@@ -369,24 +416,40 @@ export const StepAccess: React.FC<Props & { showPassword: boolean; onTogglePassw
         <div className="relative mt-1">
           <input
             type={showPassword ? 'text' : 'password'}
-            required={mode === 'create'}
+            required={false}
             minLength={8}
+            name={mode === 'edit' ? 'new-password' : 'password'}
+            autoComplete="new-password"
             className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pr-12"
             value={form.password}
             onChange={e => onChange({ password: e.target.value })}
-            placeholder={mode === 'edit' ? t('leaveBlankPassword') : t('setLoginPassword')}
+            placeholder={
+              mode === 'edit'
+                ? t('leaveBlankPassword')
+                : t('leaveBlankPasswordFirstAccess')
+            }
           />
           <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" onClick={onTogglePassword}>
             {showPassword ? t('hidePassword', { ns: 'auth' }) : t('showPassword', { ns: 'auth' })}
           </button>
         </div>
+        {mode === 'create' && (
+          <p className="text-[10px] text-slate-400 mt-1">{t('leaveBlankPasswordFirstAccess')}</p>
+        )}
       </label>
       <label className="md:col-span-2">
         <span className="text-xs font-semibold text-slate-500 uppercase">{t('accessLevel')}</span>
         <select
           className="mt-1 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
           value={form.role}
-          onChange={e => onChange({ role: e.target.value as Employee['role'] })}
+          onChange={e => {
+            const role = e.target.value as Employee['role'];
+            if (mode === 'create') {
+              onChange({ role, includeInRoster: defaultIncludeInRoster(role) });
+            } else {
+              onChange({ role });
+            }
+          }}
         >
           {rolesForForm.map(r => (
             <option key={r} value={r}>{tRole(r)}</option>
@@ -441,6 +504,8 @@ export const StepReview: React.FC<{
     [t('assignedTeam'), team?.name || t('noTeamAssigned')],
     [t('lineManager'), manager?.name || t('notAvailable')],
     [t('assignedShift'), shift?.name || t('noShiftAssigned')],
+    [t('onboarding.includeInRoster'), form.includeInRoster ? t('yes', { ns: 'common' }) : t('no', { ns: 'common' })],
+    [t('onboarding.allowPwaPunch'), form.allowPwaPunch ? t('yes', { ns: 'common' }) : t('no', { ns: 'common' })],
     [t('workEmail'), form.email],
     [t('accessLevel'), tRole(form.role)],
     [t('status'), t(form.status === 'ACTIVE' ? 'active' : 'inactive')],

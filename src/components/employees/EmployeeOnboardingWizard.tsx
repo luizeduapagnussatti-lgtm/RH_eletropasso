@@ -6,6 +6,7 @@ import { hrService } from '../../services/hrService';
 import { organizationService } from '../../services/organization.service';
 import { assignableRoles, needsClockAdmission } from '../../utils/roles';
 import { normalizePis, validatePis, validateCpf, allocateNextClockCredential, formatClockCredentialDisplay } from '../../utils/employeeCredentials';
+import { isInternalAuthEmail, isUsableLoginEmail } from '../../utils/emailUtils';
 import {
   emptyOnboardingForm,
   OnboardingFormState,
@@ -110,6 +111,10 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
           teamId: emp.teamId || '',
           shiftId: emp.shiftId || '',
           status: emp.status,
+          whatsappOptIn: !!emp.whatsappOptIn,
+          messagingChannelPref: emp.messagingChannelPref || ['APP', 'EMAIL'],
+          includeInRoster: emp.includeInRoster === true,
+          allowPwaPunch: emp.allowPwaPunch === true,
         });
       } finally {
         if (!cancelled) setLoading(false);
@@ -134,15 +139,24 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
       if (needsClockAdmission(form)) {
         const pis = validatePis(form.employeeId);
         if (!pis.ok) return t('onboarding.errors.pisInvalid');
-      }
-      if (form.cpf) {
+        const cpf = validateCpf(form.cpf);
+        if (!cpf.ok) return t(form.cpf ? 'onboarding.errors.cpfInvalid' : 'onboarding.errors.cpfRequired');
+      } else if (form.cpf) {
         const cpf = validateCpf(form.cpf);
         if (!cpf.ok) return t('onboarding.errors.cpfInvalid');
       }
     }
     if (step === 'access') {
       if (!form.email.trim()) return t('onboarding.errors.emailRequired');
-      if (mode === 'create' && form.password.length < 8) return t('onboarding.errors.passwordShort');
+      if (mode === 'create' && !isUsableLoginEmail(form.email)) {
+        return t('onboarding.errors.placeholderEmail');
+      }
+      if (form.password && form.password.length < 8) {
+        return t('onboarding.errors.passwordShort');
+      }
+      if (form.password && isInternalAuthEmail(form.email)) {
+        return t('onboarding.errors.passwordNeedsRealEmail');
+      }
     }
     return null;
   };
@@ -189,7 +203,13 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
         onDone(created);
         return;
       } else if (employeeId) {
-        if (!form.password) delete payload.password;
+        // Never send autofilled current password — only intentional reset.
+        const intentionalPassword = String(form.password || '').trim();
+        if (!intentionalPassword) {
+          delete payload.password;
+        } else {
+          payload.password = intentionalPassword;
+        }
         await hrService.updateProfile(employeeId, payload);
         const list = await hrService.getEmployees();
         const updated = list.find(e => e.id === employeeId) || null;
@@ -202,10 +222,14 @@ export const EmployeeOnboardingWizard: React.FC<Props> = ({
         EMAIL_ACTIVE_CONFLICT: 'onboarding.errors.emailActiveConflict',
         EMAIL_AUTH_CONFLICT: 'onboarding.errors.emailAuthConflict',
         EMAIL_LOCKED_DISCHARGED: 'onboarding.errors.emailLockedDischarged',
+        PLACEHOLDER_EMAIL: 'onboarding.errors.passwordNeedsRealEmail',
+        ACCESS_FORBIDDEN: 'onboarding.errors.accessForbidden',
+        AUTH_UPDATE: 'onboarding.errors.authUpdate',
         PIS_CONFLICT: 'onboarding.errors.pisConflict',
         CREDENTIAL_CONFLICT: 'onboarding.errors.credentialConflict',
         PIS_INVALID: 'onboarding.errors.pisInvalid',
         CPF_INVALID: 'onboarding.errors.cpfInvalid',
+        CPF_REQUIRED: 'onboarding.errors.cpfRequired',
         PASSWORD_SHORT: 'onboarding.errors.passwordShort',
         MISSING_FIELDS: 'onboarding.errors.missingFields',
       };

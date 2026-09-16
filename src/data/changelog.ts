@@ -16,6 +16,33 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-09-16',
+    title: 'Login de colaborador — e-mail real e senha',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'RH não consegue mais “salvar senha” em e-mail técnico @import.eletropasso.local (login inválido). Conta importada exige e-mail real junto com a senha; auth confirma o e-mail e marca a conta como verificada na hora.',
+      },
+      {
+        type: 'fix',
+        description:
+          'Redefinir senha no login trata e-mail de importação e redirect não autorizado com mensagem clara; tenta origens alternativas. Cadastro novo com senha já entra confirmado (sem ficar “credenciais inválidas”).',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Auditoria de ponto — batidas do relógio',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Auditoria de ponto deixa de depender só da tabela legada attendance (selfie) — lista principal consolida punches CLOCK/APP por colaborador/dia, com timeline, período, erros visíveis e histórico selfie em seção secundária.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
     title: 'PWA ponto — câmera, GPS e cache',
     entries: [
       {

@@ -90,6 +90,11 @@ function requiresClockAdmission(role: string, employmentType: string): boolean {
   return PUNCHING_ROLES.has(role.toUpperCase()) && employmentType.toUpperCase() !== 'PJ';
 }
 
+function defaultIncludeInRoster(role: string): boolean {
+  const r = role.toUpperCase();
+  return r === 'EMPLOYEE' || r === 'MANAGER' || r === 'TEAM_LEAD';
+}
+
 function initialClockStatus(role: string, employmentType: string): string {
   return requiresClockAdmission(role, employmentType) ? 'PENDING_EXPORT' : 'NOT_APPLICABLE';
 }
@@ -165,14 +170,28 @@ Deno.serve(async (req: Request) => {
     const emergencyContact = formData.get('emergencyContact')?.toString()?.trim() ?? '';
     const cpfRaw      = formData.get('cpf')?.toString()?.trim() ?? '';
     const status      = formData.get('status')?.toString()?.trim() || 'ACTIVE';
+    const includeInRosterRaw = formData.get('includeInRoster')?.toString();
+    const includeInRoster =
+      includeInRosterRaw === undefined || includeInRosterRaw === null || includeInRosterRaw === ''
+        ? defaultIncludeInRoster(role)
+        : includeInRosterRaw.toLowerCase() === 'true';
+    const allowPwaPunch =
+      (formData.get('allowPwaPunch')?.toString() ?? '').toLowerCase() === 'true';
     const clockBiometricRegistered =
       (formData.get('clockBiometricRegistered')?.toString() ?? '').toLowerCase() === 'true';
     const avatarFile  = formData.get('avatar') instanceof File ? formData.get('avatar') as File : null;
 
-    if (!email || !password || !name) {
-      return jsonError(400, 'Missing required fields: email, password, name');
+    if (!email || !name) {
+      return jsonError(400, 'Missing required fields: email, name', 'MISSING_FIELDS');
     }
-    if (password.length < 8) {
+    if (isPlaceholderEmail(email)) {
+      return jsonError(400, 'Use a real login email, not an import/technical address.', 'PLACEHOLDER_EMAIL');
+    }
+    // Blank password = first-access claim later (random unusable secret until claim).
+    let effectivePassword = password;
+    if (!effectivePassword) {
+      effectivePassword = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+    } else if (effectivePassword.length < 8) {
       return jsonError(400, 'Password must be at least 8 characters');
     }
 
@@ -184,7 +203,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const cpf = normalizeCpf(cpfRaw);
-    if (cpf && !validateCpf(cpfRaw)) {
+    if (requiresClockAdmission(role, employmentType)) {
+      if (!cpf || !validateCpf(cpfRaw)) {
+        return jsonError(400, 'CPF is required for PWA/clock employees');
+      }
+    } else if (cpf && !validateCpf(cpfRaw)) {
       return jsonError(400, 'Invalid CPF');
     }
 
@@ -251,10 +274,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    const staffSetPassword = Boolean(password);
     const firstCreate = await adminClient.auth.admin.createUser({
       email,
-      password,
-      email_confirm: false,
+      password: effectivePassword,
+      email_confirm: true,
       user_metadata: { name },
     });
     let createdUser = firstCreate.data?.user ?? null;
@@ -292,8 +316,8 @@ Deno.serve(async (req: Request) => {
         }
         const retry = await adminClient.auth.admin.createUser({
           email,
-          password,
-          email_confirm: false,
+          password: effectivePassword,
+          email_confirm: true,
           user_metadata: { name },
         });
         if (retry.error || !retry.data.user) {
@@ -305,17 +329,15 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Best-effort confirmation e-mail — never block / hang employee creation.
-    try {
-      await Promise.race([
-        adminClient.auth.resend({ type: 'signup', email }),
-        new Promise((resolve) => setTimeout(resolve, 2500)),
-      ]);
-    } catch (e) {
-      console.warn('[CREATE-EMPLOYEE] resend signup skipped:', e);
-    }
-
     const userId = createdUser.id;
+
+    if (staffSetPassword) {
+      try {
+        await adminClient.auth.admin.updateUserById(userId, { email_confirm: true });
+      } catch (e) {
+        console.warn('[CREATE-EMPLOYEE] email_confirm follow-up skipped:', e);
+      }
+    }
 
     let avatarPath: string | null = null;
     if (avatarFile && avatarFile.size > 0) {
@@ -357,11 +379,14 @@ Deno.serve(async (req: Request) => {
       location:        location || null,
       emergency_contact: emergencyContact || null,
       status:          status,
+      include_in_roster: includeInRoster,
+      allow_pwa_punch: allowPwaPunch,
       clock_onboarding_status: clockStatus,
       clock_onboarding_at: clockStatus === 'PENDING_EXPORT' ? now : null,
       clock_biometric_registered: clockBiometricRegistered,
       avatar:          avatarPath,
-      verified:        false,
+      verified:        staffSetPassword,
+      first_access_at: staffSetPassword ? now : null,
     };
 
     let profileInsertErr: { code?: string; message?: string } | null = null;
@@ -421,8 +446,17 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ message }), {
+function isPlaceholderEmail(email: string): boolean {
+  const e = String(email || '').trim().toLowerCase();
+  return (
+    e.endsWith('@import.eletropasso.local') ||
+    e.endsWith('@inactive.eletropasso.local') ||
+    e.endsWith('@eletropasso.loja')
+  );
+}
+
+function jsonError(status: number, message: string, code?: string): Response {
+  return new Response(JSON.stringify({ message, ...(code ? { code } : {}) }), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

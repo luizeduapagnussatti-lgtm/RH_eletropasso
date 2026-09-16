@@ -13,6 +13,12 @@ import {
 } from '../utils/employeeCredentials';
 import { normalizePhoneE164BR } from '../utils/phoneUtils';
 import { needsClockAdmission } from '../utils/roles';
+import {
+  dischargedIdsFromProfiles,
+  planDischargeOrgDetach,
+  type DischargeOrgDetachPlan,
+} from '../utils/dischargeOrgDetach';
+import { isUsableLoginEmail, staffPasswordRequiresRealEmail } from '../utils/emailUtils';
 
 let cachedEmployees: Employee[] | null = null;
 let empCacheTimestamp = 0;
@@ -56,6 +62,8 @@ function mapProfileToEmployee(r: any): Employee {
     clockOnboardingAt: r.clock_onboarding_at || undefined,
     clockOnboardingNotes: r.clock_onboarding_notes || undefined,
     clockDischargeStatus: (r.clock_discharge_status as ClockDischargeStatus | undefined) || undefined,
+    includeInRoster: r.include_in_roster === true,
+    allowPwaPunch: r.allow_pwa_punch === true,
   } as Employee;
 }
 
@@ -89,8 +97,26 @@ async function assertUniqueClockCredential(
 
 /** Stable codes so the onboarding UI can translate API errors. */
 function mapCreateEmployeeApiError(raw: string): string {
+  const token = String(raw || '').trim();
+  if (
+    token === 'PLACEHOLDER_EMAIL' ||
+    token === 'ACCESS_FORBIDDEN' ||
+    token === 'EMAIL_ACTIVE_CONFLICT' ||
+    token === 'EMAIL_AUTH_CONFLICT' ||
+    token === 'EMAIL_LOCKED_DISCHARGED' ||
+    token === 'PASSWORD_SHORT' ||
+    token === 'AUTH_UPDATE'
+  ) {
+    return token;
+  }
   if (/Email already registered for another active employee/i.test(raw)) {
     return 'EMAIL_ACTIVE_CONFLICT';
+  }
+  if (/Use a real login email|PLACEHOLDER_EMAIL|import\/technical/i.test(raw)) {
+    return 'PLACEHOLDER_EMAIL';
+  }
+  if (/Only ADMIN or HR/i.test(raw)) {
+    return 'ACCESS_FORBIDDEN';
   }
   if (/Email already registered in authentication|Email already in use/i.test(raw)) {
     return 'EMAIL_AUTH_CONFLICT';
@@ -102,6 +128,7 @@ function mapCreateEmployeeApiError(raw: string): string {
   if (/Clock credential already registered/i.test(raw)) return 'CREDENTIAL_CONFLICT';
   if (/Invalid or missing PIS/i.test(raw)) return 'PIS_INVALID';
   if (/Invalid CPF/i.test(raw)) return 'CPF_INVALID';
+  if (/CPF is required/i.test(raw)) return 'CPF_REQUIRED';
   if (/Password must be at least 8/i.test(raw)) return 'PASSWORD_SHORT';
   if (/Missing required fields/i.test(raw)) return 'MISSING_FIELDS';
   return raw;
@@ -145,15 +172,39 @@ export const employeeService = {
     });
   },
 
+  /**
+   * Live allow_pwa_punch for the signed-in user (bypasses employee list cache).
+   * Prefer this for punch UI gates — list cache / stale auth user caused false "use clock" toasts.
+   */
+  async getMyAllowPwaPunch(): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const { data: authData } = await supabase.auth.getUser();
+    const uid = authData.user?.id;
+    if (!uid) return false;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('allow_pwa_punch')
+      .eq('id', uid)
+      .maybeSingle();
+    if (error) {
+      console.error('[EmployeeService] getMyAllowPwaPunch:', error.message);
+      return false;
+    }
+    return data?.allow_pwa_punch === true;
+  },
+
   async addEmployee(emp: Partial<Employee>) {
-    if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) return;
+    if (!isSupabaseConfigured() || !SUPABASE_FUNCTIONS_URL) {
+      throw new Error('Supabase not configured');
+    }
 
     const role = (emp.role || 'EMPLOYEE').toUpperCase();
     if (needsClockAdmission({ role, employmentType: emp.employmentType })) {
       const pisCheck = validatePis(emp.employeeId);
       if (!pisCheck.ok) throw new Error('Invalid PIS');
-    }
-    if (emp.cpf) {
+      const cpfCheck = validateCpf(emp.cpf);
+      if (!cpfCheck.ok) throw new Error(emp.cpf ? 'Invalid CPF' : 'CPF_REQUIRED');
+    } else if (emp.cpf) {
       const cpfCheck = validateCpf(emp.cpf);
       if (!cpfCheck.ok) throw new Error('Invalid CPF');
     }
@@ -186,6 +237,12 @@ export const employeeService = {
     if (emp.emergencyContact) formData.append('emergencyContact', emp.emergencyContact);
     if (emp.cpf)         formData.append('cpf', normalizeCpf(emp.cpf));
     if (emp.status)      formData.append('status', emp.status);
+    if (emp.includeInRoster !== undefined) {
+      formData.append('includeInRoster', emp.includeInRoster ? 'true' : 'false');
+    }
+    if (emp.allowPwaPunch !== undefined) {
+      formData.append('allowPwaPunch', emp.allowPwaPunch ? 'true' : 'false');
+    }
     if (emp.clockBiometricRegistered !== undefined) {
       formData.append('clockBiometricRegistered', emp.clockBiometricRegistered ? 'true' : 'false');
     }
@@ -204,7 +261,7 @@ export const employeeService = {
 
     const json = await res.json();
     if (!res.ok) {
-      const raw = String(json.message || json.error || 'Failed to create employee');
+      const raw = String(json.message || json.error || json.code || 'Failed to create employee');
       throw new Error(mapCreateEmployeeApiError(raw));
     }
 
@@ -291,6 +348,12 @@ export const employeeService = {
     if (updates.location !== undefined)    payload.location = updates.location;
     if (updates.emergencyContact !== undefined) payload.emergency_contact = updates.emergencyContact;
     if (updates.status !== undefined)      payload.status = updates.status;
+    if (updates.includeInRoster !== undefined) {
+      payload.include_in_roster = !!updates.includeInRoster;
+    }
+    if (updates.allowPwaPunch !== undefined) {
+      payload.allow_pwa_punch = !!updates.allowPwaPunch;
+    }
     if (updates.clockOnboardingStatus !== undefined) {
       payload.clock_onboarding_status = updates.clockOnboardingStatus;
       payload.clock_onboarding_at = new Date().toISOString();
@@ -330,8 +393,20 @@ export const employeeService = {
     const { data: { session } } = await supabase.auth.getSession();
     const isSelf = session?.user?.id === id;
 
+    if (!isSelf && staffPasswordRequiresRealEmail(nextEmail, nextPassword)) {
+      throw new Error('PLACEHOLDER_EMAIL');
+    }
+
+    const shouldUpdateAuth = !isSelf && (
+      (Boolean(nextEmail) && isUsableLoginEmail(nextEmail))
+      || (Boolean(nextPassword) && (!nextEmail || isUsableLoginEmail(nextEmail)))
+    );
+
     // Admin/HR changing another user's login (email and/or password) via Edge Function.
-    if (!isSelf && (nextEmail || nextPassword) && SUPABASE_FUNCTIONS_URL && session?.access_token) {
+    if (shouldUpdateAuth) {
+      if (!SUPABASE_FUNCTIONS_URL || !session?.access_token) {
+        throw new Error('Cannot update employee login without Edge Function');
+      }
       const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/update-employee-access`, {
         method: 'POST',
         headers: {
@@ -340,16 +415,17 @@ export const employeeService = {
         },
         body: JSON.stringify({
           employeeId: id,
-          ...(nextEmail ? { email: nextEmail } : {}),
+          ...(nextEmail && isUsableLoginEmail(nextEmail) ? { email: nextEmail } : {}),
           ...(nextPassword ? { password: nextPassword } : {}),
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json.error || json.message || 'Failed to update employee login');
+        throw new Error(mapCreateEmployeeApiError(json.code || json.error || json.message || 'Failed to update employee login'));
       }
     } else if (isSelf && nextPassword) {
       // Self-service password change via supabase.auth.updateUser.
+      // Skip when managers autofill the current password into "leave blank" fields.
       if (!session?.user?.email) {
         throw new Error('No active session. Please log in again.');
       }
@@ -365,7 +441,15 @@ export const employeeService = {
       const { error: updateError } = await supabase.auth.updateUser({
         password: nextPassword,
       });
-      if (updateError) throw updateError;
+      if (updateError) {
+        const msg = String(updateError.message || '');
+        if (/different from the old password/i.test(msg)) {
+          // Autofill re-submitted the current password — treat as "no password change".
+          console.warn('[EmployeeService] Ignoring same-as-old password on profile update');
+        } else {
+          throw updateError;
+        }
+      }
     } else if (isSelf && nextEmail && nextEmail !== session?.user?.email?.toLowerCase()) {
       // Changing own login email also needs the admin Edge Function (or invite flow).
       if (!SUPABASE_FUNCTIONS_URL || !session?.access_token) {
@@ -444,6 +528,115 @@ export const employeeService = {
   },
 
   /**
+   * Apply a detach plan: clear team leaders, report line managers, reroute open leave.
+   */
+  async applyOrgDetachPlan(plan: DischargeOrgDetachPlan): Promise<DischargeOrgDetachPlan> {
+    if (!isSupabaseConfigured()) return plan;
+    const now = new Date().toISOString();
+
+    if (plan.teamIdsToClearLeader.length > 0) {
+      const { error } = await supabase
+        .from('teams')
+        .update({ leader_id: null })
+        .in('id', plan.teamIdsToClearLeader);
+      if (error) throw error;
+      try {
+        const { organizationService } = await import('./organization.service');
+        organizationService.clearCache();
+      } catch {
+        /* cache clear optional */
+      }
+    }
+
+    if (plan.profileIdsToClearManager.length > 0) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ line_manager_id: null, updated: now })
+        .in('id', plan.profileIdsToClearManager);
+      if (error) throw error;
+      employeeService.clearCache();
+    }
+
+    if (plan.leaveIdsToRerouteHr.length > 0) {
+      const { error } = await supabase
+        .from('leaves')
+        .update({ status: 'PENDING_HR' })
+        .in('id', plan.leaveIdsToRerouteHr)
+        .eq('status', 'PENDING_MANAGER');
+      if (error) throw error;
+    }
+
+    return plan;
+  },
+
+  /**
+   * Detach one (or many) discharged people from live org graph:
+   * team leader slots, direct reports' line_manager, open PENDING_MANAGER leave → HR.
+   */
+  async detachDischargedFromOrgGraph(dischargedIds: string[]): Promise<DischargeOrgDetachPlan> {
+    if (!isSupabaseConfigured() || dischargedIds.length === 0) {
+      return { teamIdsToClearLeader: [], profileIdsToClearManager: [], leaveIdsToRerouteHr: [] };
+    }
+    const orgId = await resolveOrgId();
+    const uniqueIds = [...new Set(dischargedIds.filter(Boolean))];
+
+    let teamsQuery = supabase.from('teams').select('id, leader_id');
+    if (orgId) teamsQuery = teamsQuery.eq('organization_id', orgId);
+    const { data: teamRows, error: teamErr } = await teamsQuery;
+    if (teamErr) throw teamErr;
+
+    let profilesQuery = supabase.from('profiles').select('id, status, line_manager_id');
+    if (orgId) profilesQuery = profilesQuery.eq('organization_id', orgId);
+    const { data: profileRows, error: profileErr } = await profilesQuery;
+    if (profileErr) throw profileErr;
+
+    let leavesQuery = supabase
+      .from('leaves')
+      .select('id, status, line_manager_id')
+      .eq('status', 'PENDING_MANAGER')
+      .in('line_manager_id', uniqueIds);
+    if (orgId) leavesQuery = leavesQuery.eq('organization_id', orgId);
+    const { data: leaveRows, error: leaveErr } = await leavesQuery;
+    if (leaveErr) throw leaveErr;
+
+    const plan = planDischargeOrgDetach({
+      dischargedIds: uniqueIds,
+      teams: (teamRows ?? []).map(r => ({ id: r.id, leaderId: r.leader_id })),
+      profiles: (profileRows ?? []).map(r => ({
+        id: r.id,
+        status: r.status,
+        lineManagerId: r.line_manager_id,
+      })),
+      leaves: (leaveRows ?? []).map(r => ({
+        id: r.id,
+        status: r.status,
+        lineManagerId: r.line_manager_id,
+      })),
+    });
+
+    return this.applyOrgDetachPlan(plan);
+  },
+
+  /**
+   * One-shot repair: anyone already INACTIVE stops leading teams / managing reports.
+   * Safe to call on Organización load and after each discharge.
+   */
+  async repairInactiveOrgLinks(): Promise<DischargeOrgDetachPlan> {
+    if (!isSupabaseConfigured()) {
+      return { teamIdsToClearLeader: [], profileIdsToClearManager: [], leaveIdsToRerouteHr: [] };
+    }
+    const orgId = await resolveOrgId();
+    let query = supabase.from('profiles').select('id, status, line_manager_id');
+    if (orgId) query = query.eq('organization_id', orgId);
+    const { data, error } = await query;
+    if (error) throw error;
+    const inactiveIds = dischargedIdsFromProfiles(
+      (data ?? []).map(r => ({ id: r.id, status: r.status, lineManagerId: r.line_manager_id })),
+    );
+    return this.detachDischargedFromOrgGraph(inactiveIds);
+  },
+
+  /**
    * Soft discharge: marks INACTIVE + termination_date, clears clock credential /
    * biometrics / team-shift links, frees corporate e-mail, purges timesheet
    * outside the employment window, and best-effort removes the employee from
@@ -484,6 +677,13 @@ export const employeeService = {
     if (error) throw error;
 
     employeeService.clearCache();
+
+    try {
+      // Drop team lead + reports' manager + open leave waiting on this person (and other stale INACTIVE).
+      await this.repairInactiveOrgLinks();
+    } catch (e) {
+      console.warn('[EmployeeService] repairInactiveOrgLinks on discharge failed:', e);
+    }
 
     try {
       await this.releaseCorporateEmail(id, emp.email);

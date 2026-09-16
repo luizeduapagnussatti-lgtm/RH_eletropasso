@@ -53,6 +53,7 @@ import {
 } from '../components/employees/DmprepLifecycleModal';
 import { ClockBiometricBadge, ClockStatusBadge } from '../components/employees/ClockOnboardingPanel';
 import { formatIsoDateBr } from '../i18n/format';
+import { isInternalAuthEmail } from '../utils/emailUtils';
 import { competenceForDate } from '../utils/payrollPeriod';
 import { DEFAULT_PTRP_POLICY } from '../constants';
 import {
@@ -488,7 +489,19 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
       }
     } catch (err: any) {
       console.error('[EmployeeDirectory] Submit error:', err);
-      setFormError(err.message || t('operationFailed'));
+      const code = String(err?.message || '');
+      const byCode: Record<string, string> = {
+        EMAIL_ACTIVE_CONFLICT: 'onboarding.errors.emailActiveConflict',
+        EMAIL_AUTH_CONFLICT: 'onboarding.errors.emailAuthConflict',
+        EMAIL_LOCKED_DISCHARGED: 'onboarding.errors.emailLockedDischarged',
+        PLACEHOLDER_EMAIL: 'onboarding.errors.passwordNeedsRealEmail',
+        ACCESS_FORBIDDEN: 'onboarding.errors.accessForbidden',
+        AUTH_UPDATE: 'onboarding.errors.authUpdate',
+        PIS_CONFLICT: 'onboarding.errors.pisConflict',
+        PASSWORD_SHORT: 'onboarding.errors.passwordShort',
+        MISSING_FIELDS: 'onboarding.errors.missingFields',
+      };
+      setFormError(byCode[code] ? t(byCode[code]) : (err.message || t('operationFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -1042,9 +1055,12 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
                   {emp.department || t('notAvailable')}
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 text-sm text-slate-600 min-w-0 h-5">
+              <div className="flex items-center gap-2.5 text-sm text-slate-600 min-w-0 min-h-5">
                 <Mail size={16} className="shrink-0 text-slate-400" aria-hidden />
                 <span className="truncate" title={emp.email}>{emp.email}</span>
+                {isInternalAuthEmail(emp.email) ? (
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700">{t('loginNotReady')}</span>
+                ) : null}
               </div>
             </div>
 
@@ -1236,7 +1252,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ user, onNavigate 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1">{t('workEmail')}</label>
-                  <input type="email" required disabled={!!editingId} className="w-full px-5 py-4 bg-slate-100 border border-slate-200 rounded-2xl font-bold text-sm outline-none disabled:opacity-50" value={formState.email} onChange={e => setFormState({...formState, email: e.target.value})} />
+                  <input type="email" required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light" value={formState.email} onChange={e => setFormState({...formState, email: e.target.value})} />
                 </div>
                 
                 <div className="space-y-1.5">
