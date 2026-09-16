@@ -62,7 +62,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, autoStart, onFinish }) =>
     if (isLoading || cameraInitialized.current) return;
     cameraInitialized.current = true;
 
-    detectLocation(true);
+    detectLocation(false);
     startCamera('user');
   }, [isLoading]);
 

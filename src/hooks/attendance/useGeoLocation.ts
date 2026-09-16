@@ -1,32 +1,32 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { OFFICE_LOCATIONS } from '../../constants';
 import { hrService } from '../../services/hrService';
 import { OfficeLocation } from '../../types';
+import {
+  GEO_CACHE_MAX_AGE_MS,
+  isSecureMediaContext,
+  isStandalonePwa,
+  queryGeolocationPermission,
+  readCachedGeo,
+  writeCachedGeo,
+} from '../../utils/pwaMediaPermissions';
 
 /**
  * Geolocation hook for attendance check-in/check-out (PWA / browser only).
  *
  * - Requires HTTPS (or localhost for dev).
- * - PWAs installed via "Add to Home Screen" run in a separate browser context;
- *   permission granted in the browser does NOT carry over — users must grant
- *   again when the PWA prompts.
- * - On Android, location must be enabled at OS level (Settings > Location > On)
- *   AND allowed for the browser (Settings > Apps > Chrome/PWA > Permissions > Location).
- * - On iOS, Settings > Privacy > Location Services > Safari Websites (or PWA name).
- * - If `enableHighAccuracy: true` fails (no GPS / indoors), we automatically
- *   retry with `enableHighAccuracy: false` for network-based location.
+ * - Installed PWA has a separate permission store from the browser tab.
+ * - Prefer calling detectLocation from a user gesture the first time.
+ * - Last successful fix is cached in localStorage and reused briefly when GPS is slow.
  */
 
 /** Returns attendance.json error keys for LocationDisplay to translate. */
-const getLocationErrorMessage = (err: any): string => {
-  const code = err?.code ?? err?.PERMISSION_DENIED;
+const getLocationErrorMessage = (err: unknown): string => {
+  const code = (err as GeolocationPositionError | undefined)?.code;
 
   switch (code) {
     case 1: // PERMISSION_DENIED
-      if (window.matchMedia?.('(display-mode: standalone)')?.matches) {
-        return 'errors.locationDeniedPwa';
-      }
+      if (isStandalonePwa()) return 'errors.locationDeniedPwa';
       return 'errors.locationDeniedBrowser';
 
     case 2: // POSITION_UNAVAILABLE
@@ -41,11 +41,19 @@ const getLocationErrorMessage = (err: any): string => {
 };
 
 export const useGeoLocation = () => {
-  const [location, setLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [location, setLocation] = useState<{
+    lat: number;
+    lng: number;
+    address: string;
+    accuracy?: number | null;
+    fromCache?: boolean;
+  } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [geoFences, setGeoFences] = useState<OfficeLocation[]>(OFFICE_LOCATIONS);
   const watchIdRef = useRef<number | null>(null);
+  const geoFencesRef = useRef(geoFences);
+  geoFencesRef.current = geoFences;
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -54,11 +62,23 @@ export const useGeoLocation = () => {
         if (config.officeLocations && config.officeLocations.length > 0) {
           setGeoFences(config.officeLocations);
         }
-      } catch (e) {
+      } catch {
         // Fallback to constants is already set
       }
     };
-    loadConfig();
+    void loadConfig();
+
+    // Warm UI with a recent cached fix while a fresh request runs.
+    const cached = readCachedGeo();
+    if (cached) {
+      setLocation({
+        lat: cached.lat,
+        lng: cached.lng,
+        address: cached.address,
+        accuracy: cached.accuracy,
+        fromCache: true,
+      });
+    }
   }, []);
 
   const matchOffice = (lat: number, lng: number, fences: OfficeLocation[]): string | null => {
@@ -76,7 +96,7 @@ export const useGeoLocation = () => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=16&addressdetails=1`,
-        { headers: { 'Accept-Language': 'en' } }
+        { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.5' } },
       );
       if (!response.ok) throw new Error('Geocode failed');
       const data = await response.json();
@@ -101,10 +121,14 @@ export const useGeoLocation = () => {
     }
   };
 
-  const resolveAddress = async (lat: number, lng: number, fences: OfficeLocation[]): Promise<string> => {
+  const resolveAddress = async (
+    lat: number,
+    lng: number,
+    fences: OfficeLocation[],
+  ): Promise<string> => {
     const officeName = matchOffice(lat, lng, fences);
     if (officeName) return officeName;
-    return await reverseGeocode(lat, lng);
+    return reverseGeocode(lat, lng);
   };
 
   const getPosition = (options: PositionOptions): Promise<GeolocationPosition> =>
@@ -112,69 +136,133 @@ export const useGeoLocation = () => {
       navigator.geolocation.getCurrentPosition(resolve, reject, options);
     });
 
-  const detectLocation = useCallback(async (force: boolean = false) => {
+  const applyPosition = async (pos: GeolocationPosition) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const accuracy = pos.coords.accuracy;
+    const address = await resolveAddress(lat, lng, geoFencesRef.current);
+    const next = { lat, lng, address, accuracy, fromCache: false as const };
+    writeCachedGeo({ lat, lng, address, accuracy });
+    setLocation(next);
+    setError(null);
+    return next;
+  };
+
+  const detectLocation = useCallback(async (force: boolean = false): Promise<boolean> => {
     setIsLocating(true);
     setError(null);
 
     try {
+      if (!isSecureMediaContext()) {
+        setError('errors.locationInsecureContext');
+        return false;
+      }
       if (!navigator.geolocation) {
-        setError('Geolocation is not supported by this browser. Please use Chrome, Safari, or Firefox.');
-        setIsLocating(false);
-        return;
+        setError('errors.locationGeneric');
+        return false;
       }
 
-      let pos: GeolocationPosition;
-      try {
-        // High accuracy first (GPS)
-        pos = await getPosition({
-          enableHighAccuracy: true,
-          timeout: 30000,
-          maximumAge: force ? 0 : 60000,
-        });
-      } catch (highAccErr: any) {
-        // Retry with network-based location on timeout / unavailable
-        if (highAccErr?.code === 2 || highAccErr?.code === 3) {
-          pos = await getPosition({
-            enableHighAccuracy: false,
-            timeout: 20000,
-            maximumAge: force ? 0 : 60000,
+      const perm = await queryGeolocationPermission();
+      if (perm === 'denied') {
+        setError(
+          isStandalonePwa() ? 'errors.locationDeniedPwa' : 'errors.locationDeniedBrowser',
+        );
+        // Still allow a recent cache so the user can punch if GPS worked minutes ago.
+        const cachedDenied = readCachedGeo(GEO_CACHE_MAX_AGE_MS);
+        if (cachedDenied && !force) {
+          setLocation({
+            lat: cachedDenied.lat,
+            lng: cachedDenied.lng,
+            address: cachedDenied.address,
+            accuracy: cachedDenied.accuracy,
+            fromCache: true,
           });
-        } else {
-          throw highAccErr;
+          return true;
+        }
+        return false;
+      }
+
+      if (!force) {
+        const cached = readCachedGeo();
+        if (cached) {
+          setLocation({
+            lat: cached.lat,
+            lng: cached.lng,
+            address: cached.address,
+            accuracy: cached.accuracy,
+            fromCache: true,
+          });
         }
       }
 
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      const address = await resolveAddress(lat, lng, geoFences);
-      setLocation({ lat, lng, address });
-    } catch (err: any) {
+      const maxAge = force ? 0 : 120_000;
+      let pos: GeolocationPosition | null = null;
+      let lastErr: unknown = null;
+
+      const attempts: PositionOptions[] = [
+        { enableHighAccuracy: true, timeout: 25_000, maximumAge: maxAge },
+        { enableHighAccuracy: false, timeout: 20_000, maximumAge: maxAge },
+        { enableHighAccuracy: false, timeout: 30_000, maximumAge: 300_000 },
+      ];
+
+      for (const opts of attempts) {
+        try {
+          pos = await getPosition(opts);
+          break;
+        } catch (err) {
+          lastErr = err;
+          const code = (err as GeolocationPositionError | undefined)?.code;
+          // Hard deny: stop retrying high/low accuracy loops.
+          if (code === 1 && perm === 'denied') break;
+          // code 1 with "prompt"/"unknown" often means the silent request was ignored —
+          // still try the next (network) attempt once.
+        }
+      }
+
+      if (pos) {
+        await applyPosition(pos);
+        return true;
+      }
+
+      // Fresh GPS failed — keep a recent cache so punch is not blocked outdoors briefly.
+      const cached = readCachedGeo(force ? 60_000 : GEO_CACHE_MAX_AGE_MS);
+      if (cached) {
+        setLocation({
+          lat: cached.lat,
+          lng: cached.lng,
+          address: cached.address,
+          accuracy: cached.accuracy,
+          fromCache: true,
+        });
+        setError(null);
+        return true;
+      }
+
+      throw lastErr || new Error('location_failed');
+    } catch (err: unknown) {
       console.error('Geolocation detection failed:', err);
       setError(getLocationErrorMessage(err));
+      return false;
     } finally {
       setIsLocating(false);
     }
-  }, [geoFences]);
+  }, []);
 
   const watchLocation = useCallback(async () => {
     if (watchIdRef.current !== null) return;
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by this browser.');
+      setError('errors.locationGeneric');
       return;
     }
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        resolveAddress(lat, lng, geoFences).then(address => {
-          setLocation({ lat, lng, address });
-        });
+        void applyPosition(pos);
       },
-      () => setError('Location watch error.'),
-      { enableHighAccuracy: true }
+      () => setError('errors.locationGeneric'),
+      { enableHighAccuracy: true, maximumAge: 30_000 },
     );
-  }, [geoFences]);
+  }, []);
 
   const clearWatch = useCallback(async () => {
     if (watchIdRef.current !== null) {

@@ -16,6 +16,22 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-09-16',
+    title: 'PWA ponto — câmera, GPS e cache',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Ponto pelo app: pede câmera e localização com um toque (gesto do usuário), necessário no PWA instalado mesmo quando o Android já liberou no Chrome; última GPS fica em cache ~15 min se o sinal falhar.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'GPS com várias tentativas (alta precisão → rede) e aviso claro se a página não estiver em HTTPS.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
     title: 'Escalas — PJ presente e sync do relógio',
     entries: [
       {
