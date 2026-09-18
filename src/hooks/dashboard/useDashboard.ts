@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { hrService } from '../../services/hrService';
 import { Employee, Attendance, LeaveBalance, Holiday, Team, AppConfig, LeaveWorkflow, CustomLeaveType } from '../../types';
 import { DEFAULT_LEAVE_TYPES } from '../../constants';
+import { isClockReportEmployee } from '../../utils/roles';
+import { todayIsoLocal } from '../../utils/payrollPeriod';
+import { punchLocalDateKey } from '../../services/punch.service';
 
 export interface DashboardData {
   freshUser: Employee;
@@ -30,22 +33,18 @@ export const useDashboard = (user: any) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayIsoLocal();
         const isAdmin = user.role === 'ADMIN' || user.role === 'HR';
         const isManager = user.role === 'MANAGER' || user.role === 'TEAM_LEAD' || user.role === 'MANAGEMENT';
 
-        // Dashboard only uses today's attendance (to count "present today").
-        // Previously this pulled 30 days × whole-org = thousands of rows just
-        // to filter down to ~today's <N>. Server-side filter is keyed by the
-        // `date` column and the 2-min cache key is query-scoped, so this
-        // coexists with wider queries from Reports / AttendanceLogs.
-        const [active, balance, emps, leaves, hols, atts, teams, config, wfs, leaveTypes] = await Promise.all([
+        const [active, balance, emps, leaves, hols, atts, punches, teams, config, wfs, leaveTypes] = await Promise.all([
           hrService.getActiveAttendance(user.id),
           hrService.getLeaveBalance(user.id),
           hrService.getEmployees(),
           hrService.getLeaves(),
           hrService.getHolidays(),
           hrService.getAttendance({ since: today, until: today, maxRows: 500, skipSelfieUrls: true }),
+          hrService.listPunches({ startDate: today, endDate: today }).catch(() => []),
           hrService.getTeams(),
           hrService.getConfig(),
           hrService.getWorkflows(),
@@ -90,18 +89,52 @@ export const useDashboard = (user: any) => {
           visibleEmployees = emps.filter(e => me.teamId && e.teamId === me.teamId);
         }
 
-        const visibleIds = new Set(visibleEmployees.map(t => t.id));
-        const todayAtts = atts.filter(a => a.date === today && visibleIds.has(a.employeeId));
-        const presentToday = todayAtts.filter(
-          a => a.status === 'PRESENT' || a.status === 'LATE' || a.status === 'EARLY_OUT' || !!a.checkIn
-        );
-        const lateToday = todayAtts.filter(a => a.status === 'LATE');
+        const clockStaff = visibleEmployees.filter(e => isClockReportEmployee(e));
+        const clockByKey = new Map<string, Employee>();
+        for (const e of clockStaff) {
+          if (e.id) clockByKey.set(e.id, e);
+          if (e.employeeId) clockByKey.set(e.employeeId, e);
+          if (e.clockCredential) clockByKey.set(e.clockCredential, e);
+        }
+
+        const presentIds = new Set<string>();
+        const lateIds = new Set<string>();
+
+        const resolveClockPerson = (id?: string | null) => {
+          if (!id) return null;
+          return clockByKey.get(id) ?? null;
+        };
+
+        for (const p of punches) {
+          if (p.ignoredForCalc) continue;
+          if (punchLocalDateKey(p.punchedAt) !== today) continue;
+          const person = resolveClockPerson(p.employeeId);
+          if (person) presentIds.add(person.id);
+        }
+
+        const todayAtts = atts.filter(a => {
+          if (a.date !== today) return false;
+          return Boolean(resolveClockPerson(a.employeeId));
+        });
+        for (const a of todayAtts) {
+          const person = resolveClockPerson(a.employeeId);
+          if (!person) continue;
+          const present =
+            a.status === 'PRESENT' ||
+            a.status === 'LATE' ||
+            a.status === 'EARLY_OUT' ||
+            Boolean(a.checkIn);
+          if (present) presentIds.add(person.id);
+          if (a.status === 'LATE') lateIds.add(person.id);
+        }
 
         const pendingLeaveCount = leaves.filter(l => {
           if (l.status !== 'PENDING_MANAGER' && l.status !== 'PENDING_HR') return false;
+          const person = resolveClockPerson(l.employeeId);
+          if (!person) return false;
           if (isAdmin) return true;
           if (isManager) {
-            return visibleIds.has(l.employeeId) || l.lineManagerId === me.id;
+            return Boolean(person) || l.lineManagerId === me.id;
           }
           return false;
         }).length;
@@ -119,9 +152,9 @@ export const useDashboard = (user: any) => {
           userBalance: balance,
           leaveUsed: myUsedLeaves,
           upcomingHoliday: futureHols[0] || null,
-          teamMembersCount: visibleEmployees.length,
-          activeTeamMembers: presentToday.length,
-          lateTodayCount: lateToday.length,
+          teamMembersCount: clockStaff.length,
+          activeTeamMembers: presentIds.size,
+          lateTodayCount: lateIds.size,
           pendingLeaveCount,
           teamInfo,
           appConfig: config,

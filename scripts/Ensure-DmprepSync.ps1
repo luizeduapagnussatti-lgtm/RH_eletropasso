@@ -1,7 +1,8 @@
 # Garante que dmprep-sync (:3099) esteja no ar. Seguro para Task Scheduler (a cada 5 min).
 param(
   [string]$Runner = 'E:\RH_eletropasso\scripts\run-dmprep-sync.ps1',
-  [int]$Port = 3099
+  [int]$Port = 3099,
+  [string]$FunctionsEnv = 'C:\xampp\htdocs\RH_eletropasso\supabase\functions\.env'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,6 +27,16 @@ function Test-PortOpen([int]$ListenPort) {
   } catch {
     return $false
   }
+}
+
+# Soft check: Edge proxy secrets (Diagnostico / clock-command) must be present.
+if (Test-Path -LiteralPath $FunctionsEnv) {
+  $envText = Get-Content -LiteralPath $FunctionsEnv -Raw -ErrorAction SilentlyContinue
+  if ($envText -notmatch '(?m)^\s*DMPREP_SYNC_URL\s*=' -or $envText -notmatch '(?m)^\s*DMPREP_SYNC_API_KEY\s*=') {
+    Write-WatchLog "WARN: $FunctionsEnv missing DMPREP_SYNC_URL and/or DMPREP_SYNC_API_KEY (UI Diagnostico will fail)"
+  }
+} else {
+  Write-WatchLog "WARN: functions .env missing: $FunctionsEnv"
 }
 
 if (Test-PortOpen $Port) {

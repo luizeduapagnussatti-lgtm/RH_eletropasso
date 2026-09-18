@@ -111,6 +111,7 @@
     "success": "Sincronização concluída.",
     "failed": "Falha na sincronização.",
     "serviceDown": "Serviço dmprep-sync indisponível no servidor (.245:3099). Ele deve subir sozinho em poucos segundos — tente de novo. Se persistir, rode start-rh.ps1 ou Ensure-DmprepSync.ps1.",
+    "notConfigured": "Proxy do relógio não configurado nas Edge Functions (faltam DMPREP_SYNC_URL / DMPREP_SYNC_API_KEY em supabase/functions/.env). Após gravar, reinicie o functions serve.",
     "employeesResult": "Colaboradores: {{created}} novos, {{updated}} atualizados, {{failed}} com erro.",
     "punchesResult": "Batidas: {{newRecords}} novas, {{inserted}} inseridas, {{duplicates}} duplicadas.",
     "punchesSkipped": "{{count}} batida(s) ignorada(s) (colaboradores: {{ids}}).",

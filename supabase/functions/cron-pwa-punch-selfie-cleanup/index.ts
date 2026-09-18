@@ -90,36 +90,15 @@ Deno.serve(async (req: Request) => {
     deletedFiles += batch.length;
   }
 
-  const pathSet = new Set(paths);
-  const { data: appPunches, error: punchErr } = await admin
-    .from('punches')
-    .select('id, raw_payload')
-    .eq('source', 'APP')
-    .not('raw_payload', 'is', null)
-    .limit(5000);
-
+  let clearedPunchPaths = 0;
+  const { data: cleared, error: punchErr } = await admin.rpc('clear_pwa_punch_selfie_paths', {
+    p_paths: paths,
+  });
   if (punchErr) {
-    console.error('[cron-pwa-punch-selfie-cleanup] punches select error:', punchErr.message);
+    console.error('[cron-pwa-punch-selfie-cleanup] punches clear error:', punchErr.message);
     return jsonResponse(500, { error: punchErr.message, deletedFiles });
   }
-
-  let clearedPunchPaths = 0;
-  for (const row of appPunches ?? []) {
-    const raw = (row.raw_payload ?? {}) as Record<string, unknown>;
-    const selfiePath = raw.selfiePath;
-    if (typeof selfiePath !== 'string' || !pathSet.has(selfiePath)) continue;
-    const next = { ...raw };
-    delete next.selfiePath;
-    const { error: upErr } = await admin
-      .from('punches')
-      .update({ raw_payload: next })
-      .eq('id', row.id);
-    if (upErr) {
-      console.error('[cron-pwa-punch-selfie-cleanup] punch update error:', upErr.message, row.id);
-      continue;
-    }
-    clearedPunchPaths++;
-  }
+  clearedPunchPaths = typeof cleared === 'number' ? cleared : Number(cleared ?? 0) || 0;
 
   console.log(
     `[cron-pwa-punch-selfie-cleanup] done deletedFiles=${deletedFiles} clearedPunchPaths=${clearedPunchPaths}`,

@@ -36,4 +36,5 @@ export const EMPLOYEE_MOBILE_NAV_PATHS = new Set([
   'my-roster',
   'profile',
   'leave',
+  'announcements',
 ]);

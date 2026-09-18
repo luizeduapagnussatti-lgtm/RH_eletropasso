@@ -114,14 +114,17 @@ export function toWatchCommSendEmployee(input: {
   name: string;
   employeeId?: string | null;
   clockCredential?: string | null;
-}): { pis: string; name: string; credential: string } | null {
+  cpf?: string | null;
+}): { pis: string; name: string; credential: string; cpf?: string } | null {
   const pis = normalizePis(input.employeeId);
   const credential = clockCredentialSignificantDigits(input.clockCredential);
   if (!pis || !credential) return null;
+  const cpf = normalizeCpf(input.cpf);
   return {
     pis,
     name: String(input.name || '').trim(),
     credential,
+    ...(cpf.length === 11 ? { cpf } : {}),
   };
 }
 

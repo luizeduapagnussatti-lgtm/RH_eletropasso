@@ -23,6 +23,9 @@ param(
   [int]$MaxBatches = 200,
   [int]$MaxRecords = 5000,
   [string]$OutJson = '',
+  [int]$OpenAttempts = 6,
+  [int]$TcpTimeoutMs = 45000,
+  [switch]$SkipLinkPreflight,
   [switch]$ConfirmReceipt
 )
 
@@ -94,7 +97,7 @@ $repoDateMethod = $wcType.GetMethod('RepositioningMRPRecordsPointer', [type[]]@(
 function New-CollectWatchComm {
   $tcpLocal = [Activator]::CreateInstance($tcpType)
   $tcpType.GetMethod('CreateTcpComm', [Type[]]@([string], [int])).Invoke($tcpLocal, @($ClockIp, $ClockPort))
-  try { $tcpLocal.SetTimeOut(20000) } catch {}
+  try { $tcpLocal.SetTimeOut([int]$TcpTimeoutMs) } catch {}
   $wcLocal = [Activator]::CreateInstance($wcType)
   $create.Invoke($wcLocal, @($proto, $tcpLocal, [int]$EquipmentId, $AccessKey, $conn, $FirmwareVersion, $ModulusHex, $ExponentHex, $CommUser, $CommPassword))
   return @{ Tcp = $tcpLocal; Wc = $wcLocal }
@@ -104,7 +107,45 @@ function Test-WatchCommConnected($Watch) {
   try { return [bool]$Watch.Connected } catch { return $false }
 }
 
+function Test-TcpPreflight([string]$Ip, [int]$Port, [int]$TimeoutMs) {
+  $client = New-Object System.Net.Sockets.TcpClient
+  try {
+    $iar = $client.BeginConnect($Ip, $Port, $null, $null)
+    if (-not $iar.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) { return $false }
+    $client.EndConnect($iar)
+    return $client.Connected
+  } catch {
+    return $false
+  } finally {
+    try { $client.Close() } catch {}
+  }
+}
+
 Write-Step ("collect-once {0}:{1} startNsr={2} startDate={3}" -f $ClockIp, $ClockPort, $StartNsr, $(if ($StartDate -gt [datetime]::MinValue) { $StartDate.ToString('s') } else { '-' }))
+
+if (-not $SkipLinkPreflight) {
+  $linkScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\Ensure-PrintPointLink.ps1'))
+  if (Test-Path -LiteralPath $linkScript) {
+    Write-Step 'Ensure-PrintPointLink preflight'
+    $link = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+      '-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', $linkScript,
+      '-ClockIp', $ClockIp,
+      '-ClockPort', ([string]$ClockPort)
+    ) -Wait -PassThru -NoNewWindow
+    if ($link.ExitCode -ne 0) {
+      Write-Step ("link preflight WARN exit={0} - seguindo com OpenConnection" -f $link.ExitCode)
+    }
+  } else {
+    # Inline lightweight TCP warm-up when helper is missing
+    for ($i = 1; $i -le 3; $i++) {
+      $ok = Test-TcpPreflight -Ip $ClockIp -Port $ClockPort -TimeoutMs 2500
+      Write-Step ("inline tcp preflight {0}/3 ok={1}" -f $i, $ok)
+      if ($ok) { break }
+      Start-Sleep -Seconds (2 * $i)
+    }
+  }
+}
 
 $session = New-CollectWatchComm
 $tcp = $session.Tcp
@@ -113,8 +154,14 @@ Write-Step 'CreateWatchComm OK'
 
 $openOk = $false
 $connected = $false
-$maxOpenAttempts = 4
+$maxOpenAttempts = [Math]::Max(1, [int]$OpenAttempts)
 for ($openAttempt = 1; $openAttempt -le $maxOpenAttempts; $openAttempt++) {
+  # Warm the TCP path before WatchComm OpenConnection — reduces false "Connected=false".
+  if (-not (Test-TcpPreflight -Ip $ClockIp -Port $ClockPort -TimeoutMs 2500)) {
+    Write-Step ("OpenConnection attempt {0}/{1}: TCP {2}:{3} ainda fechado" -f $openAttempt, $maxOpenAttempts, $ClockIp, $ClockPort)
+    Start-Sleep -Seconds ([Math]::Min(20, 3 * $openAttempt))
+    continue
+  }
   try {
     $wcType.GetMethod('OpenConnection').Invoke($wc, @())
     $openOk = $true
@@ -126,7 +173,7 @@ for ($openAttempt = 1; $openAttempt -le $maxOpenAttempts; $openAttempt++) {
   if ($connected) { break }
   if ($openAttempt -lt $maxOpenAttempts) {
     try { $wcType.GetMethod('CloseConnection').Invoke($wc, @()) } catch {}
-    Start-Sleep -Seconds (4 * $openAttempt)
+    Start-Sleep -Seconds ([Math]::Min(25, 5 * $openAttempt))
     $session = New-CollectWatchComm
     $tcp = $session.Tcp
     $wc = $session.Wc

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -12,7 +12,6 @@ import {
   UserCircle,
   ChevronRight,
   List,
-  History,
   Shield,
   ClipboardCheck,
   Megaphone,
@@ -26,15 +25,18 @@ import {
   Radio,
   Calculator,
   LayoutGrid,
+  ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
   BookOpen,
   Send,
+  Fingerprint,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import HelpButton from './onboarding/HelpButton';
 import { APP_NAME, APP_ICON_PATH } from '../config/branding';
 import { tRole } from '../i18n/statusMaps';
+import { hrService } from '../services/hrService';
 
 interface SidebarProps {
   currentPath: string;
@@ -62,6 +64,8 @@ interface MenuItem {
   route?: string;
   /** Extra navigation params (e.g. deep-link to an Organization tab). */
   params?: Record<string, unknown>;
+  /** Only show when profiles.allow_pwa_punch is true. */
+  requiresAllowPwaPunch?: boolean;
 }
 
 /** A labelled group of menu items following the DMP intent model. */
@@ -90,6 +94,27 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation(['nav', 'common']);
   const isSuperAdmin = role === 'SUPER_ADMIN';
+  const [allowPwaPunch, setAllowPwaPunch] = useState(!!user?.allowPwaPunch);
+
+  useEffect(() => {
+    setAllowPwaPunch(!!user?.allowPwaPunch);
+  }, [user?.allowPwaPunch, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || isSuperAdmin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const allowed = await hrService.getMyAllowPwaPunch();
+        if (!cancelled) setAllowPwaPunch(allowed);
+      } catch {
+        /* keep prop */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, isSuperAdmin]);
 
   const superAdminSections: MenuSection[] = [
     {
@@ -113,8 +138,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
         { id: 'profile', labelKey: 'myProfile', icon: UserCircle, roles: ALL_ROLES },
         { id: 'help', labelKey: 'help', icon: BookOpen, roles: ALL_ROLES },
-        // Personal punch history (selfie/GPS) — distinct from the REP mirror
-        { id: 'attendance-logs', labelKey: 'myAttendance', icon: History, roles: PUNCHING_ROLES },
+        // PWA punch (secondary to REP) — only when gestor enabled allow_pwa_punch
+        {
+          id: 'pwa-punch',
+          labelKey: 'punchViaApp',
+          icon: Fingerprint,
+          roles: PUNCHING_ROLES,
+          requiresAllowPwaPunch: true,
+        },
       ],
     },
     {
@@ -122,8 +153,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       labelKey: 'section.operacao',
       items: [
         { id: 'ponto', labelKey: 'pontoHub', icon: LayoutGrid, roles: STAFF_ROLES },
-        { id: 'timesheet', labelKey: 'timesheet', icon: CalendarRange, roles: ALL_ROLES },
+        // Gestão: espelho multi-colaborador
+        { id: 'timesheet', labelKey: 'timesheet', icon: CalendarRange, roles: STAFF_ROLES },
+        // Colaborador: espelho pessoal (REP + assinatura)
+        { id: 'my-timesheet', labelKey: 'myTimesheet', icon: CalendarRange, roles: ['EMPLOYEE'] },
+        { id: 'punch-corrections', labelKey: 'punchCorrections', icon: ClipboardList, roles: [...STAFF_ROLES, 'EMPLOYEE'] },
         { id: 'apuracao', labelKey: 'apuracao', icon: Calculator, roles: ADMIN_HR },
+        // Histórico legado selfie → só auditoria staff (não confundir com bater ponto)
+        { id: 'attendance-audit', labelKey: 'attendanceAudit', icon: List, roles: STAFF_ROLES },
       ],
     },
     {
@@ -156,8 +193,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'leave', labelKey: 'leave', icon: CalendarDays, roles: ALL_ROLES },
         { id: 'roster', labelKey: 'roster', icon: CalendarClock, roles: ['ADMIN', 'HR', 'MANAGER'] },
+        { id: 'my-roster', labelKey: 'myRoster', icon: CalendarClock, roles: PUNCHING_ROLES },
         { id: 'messaging-outbox', labelKey: 'messagingOutbox', icon: Send, roles: ADMIN_HR },
-        { id: 'attendance-audit', labelKey: 'attendanceAudit', icon: List, roles: STAFF_ROLES },
         { id: 'performance-review', labelKey: 'performance', icon: ClipboardCheck, roles: ALL_ROLES },
         { id: 'announcements', labelKey: 'announcements', icon: Megaphone, roles: ALL_ROLES },
         { id: 'admin-notifications', labelKey: 'notifications', icon: Bell, roles: ADMIN_HR },
@@ -170,7 +207,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const sections = (isSuperAdmin ? superAdminSections : regularSections)
     .map(section => ({
       ...section,
-      items: section.items.filter(item => item.roles.includes(role)),
+      items: section.items.filter(item => {
+        if (!item.roles.includes(role)) return false;
+        if (item.requiresAllowPwaPunch && !allowPwaPunch) return false;
+        return true;
+      }),
     }))
     .filter(section => section.items.length > 0);
 

@@ -16,17 +16,7 @@ const TODAY = new Date().toISOString().split('T')[0];
 // Static pages with their changefreq and priority
 const STATIC_PAGES = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
-  { path: '/blog', changefreq: 'daily', priority: '0.8' },
-  { path: '/features', changefreq: 'monthly', priority: '0.8' },
-  { path: '/features/attendance-tracking', changefreq: 'monthly', priority: '0.7' },
-  { path: '/features/leave-management', changefreq: 'monthly', priority: '0.7' },
-  { path: '/features/performance-reviews', changefreq: 'monthly', priority: '0.7' },
-  { path: '/features/gps-geofencing', changefreq: 'monthly', priority: '0.7' },
-  { path: '/features/biometric-selfie-verification', changefreq: 'monthly', priority: '0.7' },
-  { path: '/features/employee-directory', changefreq: 'monthly', priority: '0.7' },
-  { path: '/features/reports-analytics', changefreq: 'monthly', priority: '0.7' },
   { path: '/changelog', changefreq: 'weekly', priority: '0.7' },
-  { path: '/how-to-use', changefreq: 'weekly', priority: '0.7' },
   { path: '/privacy', changefreq: 'monthly', priority: '0.3' },
   { path: '/terms', changefreq: 'monthly', priority: '0.3' },
 ];

@@ -16,6 +16,27 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-09-18',
+    title: 'Sync — espelho, coleta, PWA lean e ops LAN',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Correção de batidas (aprovação), alertas de faltas, first-access, coleta WatchComm com banner/sessão, home mobile do gestor e migrations 0049–0053.',
+      },
+      {
+        type: 'breaking',
+        description:
+          'Remoção do marketing/landing/blog/upgrade/ads e do serviço legado rep-gateway; app focado no RH Eletropasso.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Watchdogs/autostart, PrintPoint link, remote access docs (Tailscale/Cloudflare), crons missing-punches e leave-notifications, testes de espelho/escala.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-18',
     title: 'Desligamento — finalizar, dispensar assinatura, revogar PWA',
     entries: [
       {

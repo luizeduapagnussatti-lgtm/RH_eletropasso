@@ -111,6 +111,7 @@
     "success": "Sync completed.",
     "failed": "Sync failed.",
     "serviceDown": "dmprep-sync service is unreachable on the server (.245:3099). It should restart automatically in a few seconds — retry. If it persists, run start-rh.ps1 or Ensure-DmprepSync.ps1.",
+    "notConfigured": "Clock proxy is not configured on Edge Functions (missing DMPREP_SYNC_URL / DMPREP_SYNC_API_KEY in supabase/functions/.env). After saving, restart functions serve.",
     "employeesResult": "Employees: {{created}} new, {{updated}} updated, {{failed}} failed.",
     "punchesResult": "Punches: {{newRecords}} new, {{inserted}} inserted, {{duplicates}} duplicates.",
     "punchesSkipped": "{{count}} punch(es) skipped (employees: {{ids}}).",

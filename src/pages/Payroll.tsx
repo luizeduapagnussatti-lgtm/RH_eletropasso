@@ -25,10 +25,16 @@ import {
 } from '../types';
 import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
 import HelpButton from '../components/onboarding/HelpButton';
+import { minutesToHm } from '../utils/durationHm';
 
 interface Props {
   user: { id: string; role: string };
   onNavigate?: (path: string) => void;
+}
+
+/** Decimal hours (payroll store) → Brazilian HH:mm. */
+function hoursToHm(hours: number): string {
+  return minutesToHm(Math.round((Number(hours) || 0) * 60));
 }
 
 const WORKFLOW_STEPS = [
@@ -389,11 +395,11 @@ const Payroll: React.FC<Props> = ({ user, onNavigate }) => {
                     {rows.map(r => (
                       <tr key={r.id} className="border-t border-slate-100">
                         <td className="px-3 py-2 font-medium">{r.employeeName || r.employeeId}</td>
-                        <td className="px-3 py-2 text-right">{r.extraHours50.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right">{r.extraHours100.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right">{r.nightHours.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right">{r.lateHours.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right">{r.absenceHours.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{hoursToHm(r.extraHours50)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{hoursToHm(r.extraHours100)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{hoursToHm(r.nightHours)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{hoursToHm(r.lateHours)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{hoursToHm(r.absenceHours)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -460,23 +466,23 @@ const Payroll: React.FC<Props> = ({ user, onNavigate }) => {
                       {slips.map(slip => (
                         <tr key={slip.id} className="border-t border-slate-100">
                           <td className="px-3 py-2 font-medium">{slip.employeeName || slip.employeeId}</td>
-                          <td className="px-3 py-2 text-right text-slate-500">{slip.refHe50Hours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{hoursToHm(slip.refHe50Hours)}</td>
                           <td className="px-3 py-2 text-right">
                             <input type="number" step="0.01" className="w-16 text-right border rounded px-1 py-0.5 text-xs" value={slipValue(slip, 'accHe50Hours')} onChange={e => updateSlipEdit(slip.id, 'accHe50Hours', Number(e.target.value))} />
                           </td>
-                          <td className="px-3 py-2 text-right text-slate-500">{slip.refHe100Hours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{hoursToHm(slip.refHe100Hours)}</td>
                           <td className="px-3 py-2 text-right">
                             <input type="number" step="0.01" className="w-16 text-right border rounded px-1 py-0.5 text-xs" value={slipValue(slip, 'accHe100Hours')} onChange={e => updateSlipEdit(slip.id, 'accHe100Hours', Number(e.target.value))} />
                           </td>
-                          <td className="px-3 py-2 text-right text-slate-500">{slip.refNightHours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{hoursToHm(slip.refNightHours)}</td>
                           <td className="px-3 py-2 text-right">
                             <input type="number" step="0.01" className="w-16 text-right border rounded px-1 py-0.5 text-xs" value={slipValue(slip, 'accNightHours')} onChange={e => updateSlipEdit(slip.id, 'accNightHours', Number(e.target.value))} />
                           </td>
-                          <td className="px-3 py-2 text-right text-slate-500">{slip.refLateHours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{hoursToHm(slip.refLateHours)}</td>
                           <td className="px-3 py-2 text-right">
                             <input type="number" step="0.01" className="w-16 text-right border rounded px-1 py-0.5 text-xs" value={slipValue(slip, 'accLateHours')} onChange={e => updateSlipEdit(slip.id, 'accLateHours', Number(e.target.value))} />
                           </td>
-                          <td className="px-3 py-2 text-right text-slate-500">{slip.refAbsenceHours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{hoursToHm(slip.refAbsenceHours)}</td>
                           <td className="px-3 py-2 text-right">
                             <input type="number" step="0.01" className="w-16 text-right border rounded px-1 py-0.5 text-xs" value={slipValue(slip, 'accAbsenceHours')} onChange={e => updateSlipEdit(slip.id, 'accAbsenceHours', Number(e.target.value))} />
                           </td>
@@ -554,7 +560,11 @@ const Payroll: React.FC<Props> = ({ user, onNavigate }) => {
                 {t('advancedEsocial')}
               </button>
               {advancedOpen && (
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                    {t('govTransmissionDisabled')}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={busy || !rows.length} onClick={() => void handleExportJson()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border bg-white text-xs font-semibold disabled:opacity-50">
                     <FileJson size={14} /> {t('exportJson')}
                   </button>
@@ -570,6 +580,7 @@ const Payroll: React.FC<Props> = ({ user, onNavigate }) => {
                   {lastEventId && (
                     <span className="text-xs text-slate-500 self-center">{t('lastEventId', { id: lastEventId.slice(0, 8) })}</span>
                   )}
+                </div>
                 </div>
               )}
             </section>

@@ -11,7 +11,7 @@ if ([IntPtr]::Size -ne 4) {
   exit $process.ExitCode
 }
 
-$rsaCore = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\WatchComm-RsaCore.ps1'))
+$rsaCore = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'lib\WatchComm-RsaCore.ps1'))
 . $rsaCore
 Initialize-WatchCommRsa
 

@@ -56,15 +56,23 @@ try {
   # vite-node inlines VITE_* from .env (https://api-rh.eletropasso.local).
   # Node rejects that self-signed cert → TypeError: fetch failed. Talk to Kong HTTP.
   $env:VITE_SUPABASE_URL = 'http://127.0.0.1:54321'
+  $env:OPENHR_SUPABASE_URL = 'http://127.0.0.1:54321'
   Push-Location $repoRoot
   try {
     # Stream lines. Continue on native stderr so a stack trace does not abort the drain.
     $exitCode = 0
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    & $file @argList 2>&1 | ForEach-Object { Write-Log ([string]$_) }
+    $sawEmpty = $false
+    & $file @argList 2>&1 | ForEach-Object {
+      $s = [string]$_
+      if ($s -match 'Fila vazia') { $sawEmpty = $true }
+      Write-Log $s
+    }
     $ErrorActionPreference = $prevEap
     if ($null -ne $LASTEXITCODE) { $exitCode = [int]$LASTEXITCODE }
+    # vite-node/supabase can abort on Windows shutdown after a successful empty drain.
+    if ($sawEmpty -and $exitCode -ne 0) { $exitCode = 0 }
   } finally {
     Pop-Location
   }

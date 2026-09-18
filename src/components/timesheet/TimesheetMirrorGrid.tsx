@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react';
 import { Punch, TimesheetDay, User } from '../../types';
 import { pairPunchesToSlots, groupPunchesByDate } from '../../services/punch.service';
 import { displayAbsenceMinutes } from '../../utils/timesheetDisplay';
+import { isDayApprovable, dayAckBlockI18nKey } from '../../utils/timesheetDayAckValidation';
 import { formatIsoDateBr, formatTime, getDateLocale } from '../../i18n/format';
 
 type FmtMinutes = (mins: number) => string;
@@ -21,6 +22,12 @@ interface Props {
   onAckEmployee: (dayId: string) => void;
   onAckManager: (dayId: string) => void;
   onRevokeManagerAck: (dayId: string) => void;
+  /** Bulk selection (managed by parent Timesheet page). */
+  selectedDayIds?: string[];
+  onToggleSelectDay?: (id: string) => void;
+  onToggleSelectAll?: () => void;
+  allSelected?: boolean;
+  bulkToolbar?: React.ReactNode;
 }
 
 function formatDayLabel(workDate: string): { primary: string; secondary: string; isWeekend: boolean } {
@@ -45,6 +52,30 @@ function overflowTooltip(punches: Punch[]): string {
   return punches.map(p => formatTime(p.punchedAt, { hour: '2-digit', minute: '2-digit', hour12: false })).join(' · ');
 }
 
+/** Semantic badge classes for timesheet day status (shared with summary table). */
+export function dayStatusBadgeClass(status: string): string {
+  switch (status) {
+    case 'OK':
+      return 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300';
+    case 'OFF':
+    case 'HOLIDAY':
+    case 'LEAVE':
+      return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+    case 'ABSENT':
+    case 'LATE':
+    case 'INCOMPLETE':
+      return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300';
+    case 'ADJUSTED':
+      return 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200';
+    default:
+      return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+  }
+}
+
+const thClass =
+  'px-4 py-3 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide whitespace-nowrap';
+const tdClass = 'px-4 py-3 border-t border-slate-100 dark:border-slate-800 whitespace-nowrap';
+
 export const TimesheetMirrorGrid: React.FC<Props> = ({
   days,
   punches,
@@ -58,8 +89,14 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
   onAckEmployee,
   onAckManager,
   onRevokeManagerAck,
+  selectedDayIds = [],
+  onToggleSelectDay,
+  onToggleSelectAll,
+  allSelected = false,
+  bulkToolbar,
 }) => {
   const { t } = useTranslation('ptrp');
+  const showSelect = isManager && !locked && !!onToggleSelectDay;
 
   const punchesByDate = useMemo(() => groupPunchesByDate(punches), [punches]);
 
@@ -70,27 +107,43 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
   }), [days]);
 
   return (
-    <div className="min-w-0 bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-        <CalendarDays size={16} className="text-primary shrink-0" aria-hidden />
-        <h2 className="text-sm font-semibold text-slate-800">{t('mirrorTitle')}</h2>
+    <div className="min-w-0 w-full bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 space-y-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-primary shrink-0" aria-hidden />
+          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t('mirrorTitle')}</h2>
+        </div>
+        {bulkToolbar}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[44rem] text-left text-sm border-collapse">
-          <thead className="bg-slate-50 text-slate-500 sticky top-0 z-[1]">
+      <div className="w-full overflow-x-auto bg-white dark:bg-slate-900">
+        <table className="w-full min-w-[44rem] text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
+          <thead className="sticky top-0 z-[1]">
             <tr>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('colDay')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('colEntry1')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('colExit1')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('colEntry2')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('colExit2')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('colWorkedShort')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('colOvertimeShort')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap tabular-nums">{t('absence')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('status')}</th>
-              <th className="px-3 py-3 font-semibold whitespace-nowrap">{t('managerAckCol')}</th>
-              <th className="px-3 py-3" />
+              {showSelect && (
+                <th className={`${thClass} w-10`}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary rounded border-slate-300"
+                    checked={allSelected}
+                    disabled={days.length === 0}
+                    onChange={onToggleSelectAll}
+                    aria-label={t('selectAllVisible')}
+                    title={t('selectAllVisible')}
+                  />
+                </th>
+              )}
+              <th className={thClass}>{t('colDay')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('colEntry1')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('colExit1')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('colEntry2')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('colExit2')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('colWorkedShort')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('colOvertimeShort')}</th>
+              <th className={`${thClass} tabular-nums`}>{t('absence')}</th>
+              <th className={thClass}>{t('status')}</th>
+              <th className={thClass}>{t('managerAckCol')}</th>
+              <th className={`${thClass} sticky right-0 z-[2] shadow-[-6px_0_8px_-6px_rgba(15,23,42,0.25)]`} />
             </tr>
           </thead>
           <tbody>
@@ -98,27 +151,43 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
               const dayPunches = punchesByDate.get(day.workDate) ?? [];
               const slots = pairPunchesToSlots(dayPunches, day.workDate);
               const label = formatDayLabel(day.workDate);
-              const rowMuted = label.isWeekend ? 'text-rose-700/80' : 'text-slate-800';
+              const rowMuted = label.isWeekend
+                ? 'text-rose-700 dark:text-rose-400'
+                : 'text-slate-800 dark:text-slate-100';
+              const v = isDayApprovable(day, dayPunches);
 
               return (
                 <tr
                   key={day.id}
-                  className="border-t border-slate-100 hover:bg-slate-50/80 transition-colors duration-150 motion-reduce:transition-none"
+                  className={`hover:bg-primary/10 transition-colors duration-150 motion-reduce:transition-none ${
+                    label.isWeekend ? 'bg-slate-50 dark:bg-slate-800/50' : ''
+                  }`}
                 >
-                  <td className={`px-3 py-2.5 whitespace-nowrap ${rowMuted}`}>
+                  {showSelect && (
+                    <td className={tdClass}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary rounded border-slate-300"
+                        checked={selectedDayIds.includes(day.id)}
+                        onChange={() => onToggleSelectDay?.(day.id)}
+                        aria-label={t('selectDay')}
+                      />
+                    </td>
+                  )}
+                  <td className={`${tdClass} ${rowMuted}`}>
                     <span className="font-semibold block">{label.primary}</span>
                     <span className="text-xs text-slate-500 font-medium tabular-nums">{label.secondary}</span>
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                  <td className={`${tdClass} tabular-nums text-slate-700 dark:text-slate-300`}>
                     {formatSlotTime(slots.entry1)}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                  <td className={`${tdClass} tabular-nums text-slate-700 dark:text-slate-300`}>
                     {formatSlotTime(slots.exit1)}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                  <td className={`${tdClass} tabular-nums text-slate-700 dark:text-slate-300`}>
                     {formatSlotTime(slots.entry2)}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                  <td className={`${tdClass} tabular-nums text-slate-700 dark:text-slate-300`}>
                     <span className="inline-flex items-center gap-1">
                       {formatSlotTime(slots.exit2)}
                       {slots.overflow.length > 0 && (
@@ -131,13 +200,13 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
                       )}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-medium text-slate-800">
+                  <td className={`${tdClass} tabular-nums font-medium text-slate-800 dark:text-slate-100`}>
                     {day.workedMinutes ? fmtMinutes(day.workedMinutes) : '—'}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-primary">
+                  <td className={`${tdClass} tabular-nums text-primary`}>
                     {day.overtimeMinutes ? fmtMinutes(day.overtimeMinutes) : '—'}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
+                  <td className={`${tdClass} tabular-nums`}>
                     {(() => {
                       const absence = displayAbsenceMinutes(day);
                       if (absence > 0) {
@@ -160,15 +229,19 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
                       return <span className="text-slate-400">—</span>;
                     })()}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    <span className="font-medium text-slate-800">{dayStatusLabel(day.status)}</span>
+                  <td className={tdClass}>
+                    <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${dayStatusBadgeClass(day.status)}`}>
+                      {dayStatusLabel(day.status)}
+                    </span>
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
+                  <td className={tdClass}>
                     <div className="flex flex-wrap gap-1 items-center">
                       {!day.managerAck && (isManager || isHr) && !locked && (
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+                          disabled={!v.ok}
+                          title={v.ok ? undefined : t(dayAckBlockI18nKey(v.reason || 'unknown'))}
+                          className="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           onClick={() => onAckManager(day.id)}
                         >
                           {t('managerAck')}
@@ -190,11 +263,12 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
+                  <td className={`${tdClass} sticky right-0 z-[2] bg-white dark:bg-slate-900 shadow-[-6px_0_8px_-6px_rgba(15,23,42,0.25)]`}>
                     {(isHr || isManager) && !locked && (
                       <button
                         type="button"
-                        className="text-primary font-semibold text-sm hover:underline"
+                        className="text-primary font-semibold text-sm hover:underline whitespace-nowrap"
+                        title={t('adjust')}
                         onClick={() => onAdjust(day)}
                       >
                         {t('adjust')}
@@ -205,18 +279,18 @@ export const TimesheetMirrorGrid: React.FC<Props> = ({
               );
             })}
           </tbody>
-          <tfoot className="bg-slate-50 border-t border-slate-200 text-slate-700">
+          <tfoot className="bg-slate-50 border-t border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-200">
             <tr>
-              <td className="px-3 py-3 font-semibold whitespace-nowrap" colSpan={5}>
+              <td className={`${tdClass} font-semibold`} colSpan={showSelect ? 6 : 5}>
                 {t('totals')}
               </td>
-              <td className="px-3 py-3 font-semibold tabular-nums whitespace-nowrap">
+              <td className={`${tdClass} font-semibold tabular-nums`}>
                 {fmtMinutes(totals.worked)}
               </td>
-              <td className="px-3 py-3 font-semibold tabular-nums whitespace-nowrap text-primary">
+              <td className={`${tdClass} font-semibold tabular-nums text-primary`}>
                 {totals.overtime ? fmtMinutes(totals.overtime) : '—'}
               </td>
-              <td className="px-3 py-3 font-semibold tabular-nums whitespace-nowrap">
+              <td className={`${tdClass} font-semibold tabular-nums`}>
                 {totals.absence ? fmtMinutes(totals.absence) : '—'}
               </td>
               <td colSpan={3} />

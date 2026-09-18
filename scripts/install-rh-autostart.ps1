@@ -14,14 +14,18 @@ $TaskName = 'RH_Eletropasso_AutoStart'
 $WatchdogTaskName = 'RH_Eletropasso_DmprepSync_Watchdog'
 $FrontendWatchdogTaskName = 'RH_Eletropasso_Frontend_Watchdog'
 $NpmUpstreamTaskName = 'RH_Eletropasso_NpmUpstream_Watchdog'
+$NpmSslTaskName = 'RH_Eletropasso_NpmSsl_Watchdog'
 $ApiHealthTaskName = 'RH_Eletropasso_SupabaseApi_Watchdog'
+$RecalcQueueTaskName = 'RH_Eletropasso_RecalcQueue_Watchdog'
+$CoreDnsTaskName = 'RH_Eletropasso_CoreDns_Watchdog'
 
 New-Item -ItemType Directory -Force -Path $DeployScripts | Out-Null
 $toCopy = @(
   'start-rh.ps1', 'start-rh-delayed.ps1', 'run-dmprep-sync.ps1',
   'Ensure-DmprepSync.ps1', 'Ensure-Frontend.ps1', 'Watch-Frontend.ps1',
   'Run-WatchFrontend.vbs', 'Run-HiddenPs1.vbs',
-  'Ensure-NpmRhUpstream.ps1', 'Ensure-SupabaseApi.ps1', 'fix-npm-rh-ipv4.py',
+  'Ensure-NpmRhUpstream.ps1', 'Ensure-NpmRhSsl.ps1', 'Ensure-SupabaseApi.ps1',
+  'Ensure-CoreDns.ps1', 'Ensure-RecalcQueue.ps1', 'Run-RecalcQueue.ps1', 'fix-npm-rh-ipv4.py',
   'Apply-SilentWatchdogs.ps1'
 )
 foreach ($f in $toCopy) {
@@ -116,6 +120,16 @@ Register-ScheduledTask `
   -Force | Out-Null
 Write-Host "Tarefa registrada: $NpmUpstreamTaskName (a cada 5 min, silenciosa)"
 
+# NPM mkcert SSL
+Register-ScheduledTask `
+  -TaskName $NpmSslTaskName `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-NpmRhSsl.ps1')) `
+  -Trigger $Every5 `
+  -Settings $WatchdogSettings `
+  -Principal $Principal `
+  -Force | Out-Null
+Write-Host "Tarefa registrada: $NpmSslTaskName (a cada 5 min, silenciosa)"
+
 # API/banco
 Register-ScheduledTask `
   -TaskName $ApiHealthTaskName `
@@ -125,6 +139,57 @@ Register-ScheduledTask `
   -Principal $Principal `
   -Force | Out-Null
 Write-Host "Tarefa registrada: $ApiHealthTaskName (a cada 5 min, silenciosa)"
+
+# Fila de recálculo do espelho (após ingest do relógio)
+$RecalcSettings = New-ScheduledTaskSettingsSet `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries `
+  -StartWhenAvailable `
+  -ExecutionTimeLimit (New-TimeSpan -Minutes 15) `
+  -MultipleInstances IgnoreNew `
+  -Hidden
+Register-ScheduledTask `
+  -TaskName $RecalcQueueTaskName `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-RecalcQueue.ps1')) `
+  -Trigger $Every5 `
+  -Settings $RecalcSettings `
+  -Principal $Principal `
+  -Force | Out-Null
+Write-Host "Tarefa registrada: $RecalcQueueTaskName (a cada 5 min, silenciosa)"
+
+Register-ScheduledTask `
+  -TaskName $CoreDnsTaskName `
+  -Action (New-SilentPs1Action (Join-Path $DeployScripts 'Ensure-CoreDns.ps1')) `
+  -Trigger $Every5 `
+  -Settings $WatchdogSettings `
+  -Principal $Principal `
+  -Force | Out-Null
+Write-Host "Tarefa registrada: $CoreDnsTaskName (a cada 5 min, silenciosa)"
 Write-Host ""
+
+# Weekly missing punches alert + clock collect watchdog (copy scripts then register)
+$extraScripts = @(
+  'Ensure-ClockCollect.ps1',
+  'Install-ClockCollectWatchdog.ps1',
+  'Install-MissingPunchesAlert.ps1',
+  'Invoke-MissingPunchesAlert.ps1'
+)
+foreach ($f in $extraScripts) {
+  $src = Join-Path $RepoScripts $f
+  if (Test-Path $src) {
+    Copy-Item -Path $src -Destination (Join-Path $DeployScripts $f) -Force
+  }
+}
+try {
+  & (Join-Path $DeployScripts 'Install-ClockCollectWatchdog.ps1')
+} catch {
+  Write-Host "WARN Install-ClockCollectWatchdog: $($_.Exception.Message)"
+}
+try {
+  & (Join-Path $RepoScripts 'Install-MissingPunchesAlert.ps1')
+} catch {
+  Write-Host "WARN Install-MissingPunchesAlert: $($_.Exception.Message)"
+}
+
 Write-Host "Atalho: Apply-SilentWatchdogs.ps1 (reaplica sem reinstalação completa)"
 Write-Host "Teste: wscript.exe //nologo `"$vbs`" `"$(Join-Path $DeployScripts 'Ensure-Frontend.ps1')`" -Mode preview"

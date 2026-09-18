@@ -16,7 +16,7 @@ import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type { ClockCommandOp } from '../../types';
-import { extractCommandData, runClockOp } from './clockCommandUi';
+import { extractCommandData, runClockOp, clockProxyErrorI18nKey } from './clockCommandUi';
 import {
   type HealthTone,
   asRecord,
@@ -36,6 +36,7 @@ const ALL_OPS: DiagnosisKind[] = ['status', 'identity', 'employer-read'];
 
 export const ClockDiagnosisTab: React.FC<Props> = ({ onBusyChange }) => {
   const { t } = useTranslation('timeClock');
+  const { t: tHub } = useTranslation('hub');
   const { showToast } = useToast();
   const { canPerformAction } = useSubscription();
   const canWrite = canPerformAction('write');
@@ -45,6 +46,13 @@ export const ClockDiagnosisTab: React.FC<Props> = ({ onBusyChange }) => {
   const [opErrors, setOpErrors] = useState<Partial<Record<DiagnosisKind, string>>>({});
   const [showRaw, setShowRaw] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
+
+  const friendlyError = (message: string) => {
+    const key = clockProxyErrorI18nKey(message);
+    if (key === 'notConfigured') return tHub('comunicacao.notConfigured');
+    if (key === 'serviceDown') return tHub('comunicacao.serviceDown');
+    return message || t('failed');
+  };
 
   const runOne = async (op: DiagnosisKind): Promise<boolean> => {
     let ok = false;
@@ -61,8 +69,9 @@ export const ClockDiagnosisTab: React.FC<Props> = ({ onBusyChange }) => {
         ok = true;
       },
       onError: (message) => {
-        setOpErrors((prev) => ({ ...prev, [op]: message || t('failed') }));
-        showToast(message || t('failed'), 'error');
+        const friendly = friendlyError(message);
+        setOpErrors((prev) => ({ ...prev, [op]: friendly }));
+        showToast(friendly, 'error');
       },
     });
     return ok;

@@ -373,6 +373,8 @@ export interface User {
   verified?: boolean;
   /** Vínculo: PJ = escalas only, sem ponto/espelho. */
   employmentType?: EmploymentType;
+  /** When true, employee may punch via PWA (source=APP). CLOCK remains primary. */
+  allowPwaPunch?: boolean;
 }
 
 export type MessagingChannel = 'EMAIL' | 'WHATSAPP' | 'APP';
@@ -467,6 +469,10 @@ export interface Employee extends User {
   clockOnboardingNotes?: string;
   /** Soft-discharge sync with PrintPoint; credential must remain set when INACTIVE. */
   clockDischargeStatus?: ClockDischargeStatus;
+  /** When true (and not INACTIVE), appears on Saturday/holiday work roster lists. */
+  includeInRoster?: boolean;
+  /** When true, employee may punch via PWA (source=APP). CLOCK remains primary. */
+  allowPwaPunch?: boolean;
 }
 
 export interface Attendance {
@@ -684,11 +690,32 @@ export interface RosterSwapRequest {
 }
 
 export type PunchDirection = 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'UNKNOWN';
-export type PunchSource = 'CLOCK' | 'MANUAL' | 'IMPORT' | 'SYSTEM';
+export type PunchSource = 'CLOCK' | 'MANUAL' | 'IMPORT' | 'SYSTEM' | 'APP';
 /** Who set ignored_for_calc — AUTO from proximity dedupe; MANUAL from manager override. */
 export type PunchIgnoreSource = 'AUTO' | 'MANUAL';
 
+/** Employee-requested punch adjustment for a missing work day. */
+export type PunchCorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface PunchCorrectionRequest {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  profileId?: string;
+  workDate: string;
+  reason: string;
+  status: PunchCorrectionStatus;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolverComment?: string;
+  /** Joined display name when loaded for managers. */
+  employeeName?: string;
+}
+
 export interface Punch {
+
   id: string;
   organizationId?: string;
   employeeId: string;

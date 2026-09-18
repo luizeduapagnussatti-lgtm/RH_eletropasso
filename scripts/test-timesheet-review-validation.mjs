@@ -79,7 +79,6 @@ const fourPunches = [
   const r = validateTimesheetEmployeeReview([{ ...okDay, status: 'INCOMPLETE' }], TODAY);
   assert.equal(r.canSubmit, false);
   assert.ok(r.blockingErrors.includes('reviewBlockIncomplete'));
-  assert.ok(r.blockingErrors.includes('reviewBlockNotApprovable'));
 }
 
 {
@@ -106,7 +105,26 @@ const fourPunches = [
 }
 
 {
-  const r = validateTimesheetEmployeeReview(
+  // Absent without remarks is not approvable until manager acks; with ack, trust gate.
+  const pending = validateTimesheetEmployeeReview(
+    [
+      {
+        ...okDay,
+        status: 'ABSENT',
+        workedMinutes: 0,
+        absenceMinutes: 480,
+        firstPunchAt: undefined,
+        lastPunchAt: undefined,
+        managerAck: false,
+        remarks: '',
+      },
+    ],
+    TODAY
+  );
+  assert.equal(pending.canSubmit, false);
+  assert.ok(pending.blockingErrors.includes('reviewBlockMissingManagerAck'));
+
+  const acked = validateTimesheetEmployeeReview(
     [
       {
         ...okDay,
@@ -116,12 +134,12 @@ const fourPunches = [
         firstPunchAt: undefined,
         lastPunchAt: undefined,
         managerAck: true,
+        remarks: 'Atestado',
       },
     ],
     TODAY
   );
-  assert.equal(r.canSubmit, false);
-  assert.ok(r.blockingErrors.includes('reviewBlockNotApprovable'));
+  assert.equal(acked.canSubmit, true);
 }
 
 {
@@ -134,11 +152,21 @@ const fourPunches = [
         workedMinutes: 0,
         firstPunchAt: undefined,
         lastPunchAt: undefined,
-        managerAck: true,
+        managerAck: false,
       },
     ],
     TODAY,
     []
+  );
+  // OFF does not need manager ciência — sign/PDF gate still opens.
+  assert.equal(r.canSubmit, true);
+}
+
+{
+  // Duty day with managerAck: eligible even without punch list (PWA sign path).
+  const r = validateTimesheetEmployeeReview(
+    [{ ...okDay, managerAck: true }],
+    TODAY
   );
   assert.equal(r.canSubmit, true);
 }
@@ -146,13 +174,19 @@ const fourPunches = [
 console.log('[test-timesheet-review-validation] All checks passed.');
 
 function canApproveEmployeeReviewStatus(status) {
-  if (status === 'APPROVED') return true;
+  if (status === 'APPROVED') return false; // already done — approve button hidden
   return status === 'EMPLOYEE_SIGNED';
+}
+
+/** After employee signs, review must wait for manager/HR approval. */
+function statusAfterEmployeeSign() {
+  return 'EMPLOYEE_SIGNED';
 }
 
 assert.equal(canApproveEmployeeReviewStatus('IN_REVIEW'), false);
 assert.equal(canApproveEmployeeReviewStatus('OPEN'), false);
 assert.equal(canApproveEmployeeReviewStatus('EMPLOYEE_SIGNED'), true);
-assert.equal(canApproveEmployeeReviewStatus('APPROVED'), true);
+assert.equal(canApproveEmployeeReviewStatus('APPROVED'), false);
+assert.equal(statusAfterEmployeeSign(), 'EMPLOYEE_SIGNED');
 
 console.log('[test-timesheet-review-validation] EMPLOYEE_SIGNED approve gate OK.');

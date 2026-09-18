@@ -72,7 +72,7 @@ export function isTimesheetExempt(subject?: RoleSubject, employmentType?: string
   return p.role === 'ADMIN' || p.role === 'SUPER_ADMIN' || p.role === 'MANAGEMENT';
 }
 
-/** Active staff who punch the clock — reports metrics (PJ and Diretoria out). */
+/** Active staff who punch the clock — reports/espelho metrics (PJ and Diretoria out). */
 export function isClockReportEmployee(emp: {
   status?: string | null;
   role?: string | null;
@@ -94,17 +94,23 @@ export function needsClockAdmission(subject?: RoleSubject, employmentType?: stri
 
 /**
  * Who appears on Saturday/holiday work roster grids.
- * Includes CLT punch roles and PJ (EMPLOYEE/MANAGER/TEAM_LEAD + employmentType PJ).
- * Excludes ADMIN/HR/MANAGEMENT/SUPER_ADMIN and INACTIVE.
+ * Active profiles with includeInRoster=true (explicit cadastro flag).
+ * INACTIVE always excluded.
  */
 export function isRosterEligible(emp: {
+  status?: string | null;
+  includeInRoster?: boolean | null;
   role?: string | null;
   employmentType?: string | null;
-  status?: string | null;
 }): boolean {
   if (emp.status === 'INACTIVE') return false;
-  if (isNonPunchingStaff(emp.role) || emp.role === 'SUPER_ADMIN') return false;
-  return emp.role === 'EMPLOYEE' || emp.role === 'MANAGER' || emp.role === 'TEAM_LEAD';
+  return emp.includeInRoster === true;
+}
+
+/** Default for new cadastros: punch/operational roles start included. */
+export function defaultIncludeInRoster(role?: string | null): boolean {
+  const r = String(role || '').toUpperCase();
+  return r === 'EMPLOYEE' || r === 'MANAGER' || r === 'TEAM_LEAD';
 }
 
 /** Login users who can open MyRoster (CLT punchers + PJ). */

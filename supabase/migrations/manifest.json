@@ -244,6 +244,26 @@
       "version": "0048",
       "file": "0048_pwa_punch_selfie_cleanup.sql",
       "title": "RPC list_old_pwa_punch_selfies — limpeza de selfies PWA (90d)"
+    },
+    {
+      "version": "0049",
+      "file": "0049_punches_insert_app_qualify.sql",
+      "title": "punches_insert APP — qualify punches.employee_id/org"
+    },
+    {
+      "version": "0050",
+      "file": "0050_recalc_queue_service_role_auto_ignore.sql",
+      "title": "apply_punch_proximity_auto_ignore — service_role (fila de recálculo)"
+    },
+    {
+      "version": "0051",
+      "file": "0051_first_access_at.sql",
+      "title": "profiles.first_access_at — primeiro acesso"
+    },
+    {
+      "version": "0052",
+      "file": "0052_roster_swap_update_with_check.sql",
+      "title": "roster_swap_requests UPDATE WITH CHECK — peer/manager status transitions"
     }
   ]
 }

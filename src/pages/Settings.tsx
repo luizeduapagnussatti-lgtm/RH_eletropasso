@@ -13,6 +13,7 @@ import { AdminVerificationPanel } from '../components/admin/AdminVerificationPan
 import HelpButton from '../components/onboarding/HelpButton';
 import { ReEnableSetupGuide } from '../components/onboarding/SetupChecklist';
 import { LanSharePanel } from '../components/mobile/LanSharePanel';
+import { PwaInstallTip } from '../components/mobile/PwaInstallTip';
 import { contactService } from '../services/contact.service';
 import { useToast } from '../context/ToastContext';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../config/branding';
@@ -224,6 +225,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
 
       <div className="max-w-3xl space-y-6">
         <LanSharePanel />
+        <PwaInstallTip persistent />
         <LanguageSelector />
         <ThemeSelector />
       </div>
@@ -299,6 +301,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input
                         type={showPassword ? "text" : "password"}
+                        name="current-password"
+                        autoComplete="current-password"
                         placeholder={t('currentPasswordPlaceholder')}
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light"
                         value={currentPassword}
@@ -312,7 +316,9 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
                     <div className="relative">
                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input 
-                        type={showPassword ? "text" : "password"} 
+                        type={showPassword ? "text" : "password"}
+                        name="new-password"
+                        autoComplete="new-password"
                         placeholder={t('newPasswordPlaceholder')}
                         className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light" 
                         value={newPassword}
@@ -328,7 +334,9 @@ const Settings: React.FC<SettingsProps> = ({ user, onBack, onNavigate }) => {
                     <div className="relative">
                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input 
-                        type={showPassword ? "text" : "password"} 
+                        type={showPassword ? "text" : "password"}
+                        name="confirm-new-password"
+                        autoComplete="new-password"
                         placeholder={t('confirmPasswordPlaceholder')}
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-primary-light" 
                         value={confirmPassword}

@@ -1,33 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Building2, Users, Plus, Edit, Trash2, Eye, RefreshCw, X, Save,
+  Building2, Users, Edit, Eye, RefreshCw, X, Save,
   TrendingUp, Clock, AlertTriangle, CheckCircle2, UserCheck, Shield,
-  CreditCard, Monitor, HardDrive, FileText, Star, Share2, BookOpen, Palette, Bell, HelpCircle, Mail, Send
+  HardDrive, BookOpen, Palette, Bell, Trash2
 } from 'lucide-react';
 import { superAdminService } from '../services/superadmin.service';
-import { upgradeService } from '../services/upgrade.service';
-import { Organization, Employee, PlatformStats, User, UpgradeRequest } from '../types';
+import { Organization, Employee, PlatformStats, User } from '../types';
 import { tStatus, tRole } from '../i18n/statusMaps';
-import AdManagement from '../components/superadmin/AdManagement';
 import StorageManagement from '../components/superadmin/StorageManagement';
-import BlogManagement from '../components/superadmin/BlogManagement';
 import TutorialManagement from '../components/superadmin/TutorialManagement';
-import ShowcaseManagement from '../components/superadmin/ShowcaseManagement';
-import SocialLinksManagement from '../components/superadmin/SocialLinksManagement';
 import AppearanceManagement from '../components/superadmin/AppearanceManagement';
 import NotificationRetention from '../components/superadmin/NotificationRetention';
-import GuideLinksManagement from '../components/superadmin/GuideLinksManagement';
-import BulkEmailManager from '../components/superadmin/BulkEmailManager';
-import PushBroadcast from '../components/superadmin/PushBroadcast';
 
 interface SuperAdminProps {
   user: User;
   onNavigate: (path: string) => void;
 }
 
-type ViewMode = 'list' | 'create' | 'edit' | 'users';
-type TabMode = 'organizations' | 'requests' | 'ads' | 'storage' | 'notifications' | 'appearance' | 'bulk-email' | 'broadcast' | 'blog' | 'tutorials' | 'guides' | 'showcase' | 'social';
+type ViewMode = 'list' | 'edit' | 'users';
+type TabMode = 'organizations' | 'storage' | 'notifications' | 'appearance' | 'tutorials';
 
 const SuperAdmin: React.FC<SuperAdminProps> = () => {
   const { t } = useTranslation('superadmin');
@@ -40,25 +32,14 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
   const [orgUsers, setOrgUsers] = useState<Employee[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Upgrade requests state
-  const [upgradeRequests, setUpgradeRequests] = useState<UpgradeRequest[]>([]);
-  const [requestsFilter, setRequestsFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | ''>('PENDING');
-
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    subscriptionStatus: 'TRIAL',
-    trialEndDate: '',
-    adminName: '',
-    adminEmail: '',
-    adminPassword: ''
+    subscriptionStatus: 'ACTIVE',
   });
 
   useEffect(() => {
     loadData();
-    // Also load upgrade requests count for badge
-    loadUpgradeRequests();
   }, []);
 
   const loadData = async () => {
@@ -72,54 +53,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
     setIsLoading(false);
   };
 
-  const loadUpgradeRequests = async () => {
-    const requests = await upgradeService.getAllRequests(requestsFilter);
-    setUpgradeRequests(requests);
-  };
-
-  useEffect(() => {
-    if (activeTab === 'requests') {
-      loadUpgradeRequests();
-    }
-  }, [activeTab, requestsFilter]);
-
-  const handleProcessRequest = async (requestId: string, action: 'APPROVED' | 'REJECTED', notes?: string, days?: number) => {
-    setIsLoading(true);
-    const result = await upgradeService.processRequest(requestId, action, notes, days);
-    if (result.success) {
-      setMessage({ type: 'success', text: result.message });
-      await loadUpgradeRequests();
-    } else {
-      setMessage({ type: 'error', text: result.message });
-    }
-    setIsLoading(false);
-  };
-
-  const handleCreateOrg = async () => {
-    if (!formData.name || !formData.adminName || !formData.adminEmail || !formData.adminPassword) {
-      setMessage({ type: 'error', text: t('shell.errors.fillRequired') });
-      return;
-    }
-
-    if (formData.adminPassword.length < 8) {
-      setMessage({ type: 'error', text: t('shell.errors.passwordMin') });
-      return;
-    }
-
-    setIsLoading(true);
-    const result = await superAdminService.createOrganization(formData);
-
-    if (result.success) {
-      setMessage({ type: 'success', text: result.message });
-      setViewMode('list');
-      setFormData({ name: '', address: '', subscriptionStatus: 'TRIAL', trialEndDate: '', adminName: '', adminEmail: '', adminPassword: '' });
-      await loadData();
-    } else {
-      setMessage({ type: 'error', text: result.message });
-    }
-    setIsLoading(false);
-  };
-
   const handleUpdateOrg = async () => {
     if (!selectedOrg) return;
 
@@ -127,31 +60,13 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
     const result = await superAdminService.updateOrganization(selectedOrg.id, {
       name: formData.name,
       address: formData.address,
-      subscriptionStatus: formData.subscriptionStatus as any,
-      trialEndDate: formData.trialEndDate || undefined
+      subscriptionStatus: formData.subscriptionStatus as Organization['subscriptionStatus'],
     });
 
     if (result.success) {
       setMessage({ type: 'success', text: result.message });
       setViewMode('list');
       setSelectedOrg(null);
-      await loadData();
-    } else {
-      setMessage({ type: 'error', text: result.message });
-    }
-    setIsLoading(false);
-  };
-
-  const handleDeleteOrg = async (org: Organization) => {
-    if (!confirm(t('shell.confirm.deleteOrg', { name: org.name, userCount: org.userCount || 0 }))) {
-      return;
-    }
-
-    setIsLoading(true);
-    const result = await superAdminService.deleteOrganization(org.id);
-
-    if (result.success) {
-      setMessage({ type: 'success', text: result.message });
       await loadData();
     } else {
       setMessage({ type: 'error', text: result.message });
@@ -200,41 +115,14 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
 
   const openEditMode = (org: Organization) => {
     setSelectedOrg(org);
-    // Format trial end date for input (YYYY-MM-DD)
-    let trialEndDateFormatted = '';
-    if (org.trialEndDate) {
-      try {
-        trialEndDateFormatted = new Date(org.trialEndDate).toISOString().split('T')[0];
-      } catch {
-        trialEndDateFormatted = '';
-      }
-    }
+    const status = org.subscriptionStatus;
     setFormData({
       name: org.name,
       address: org.address || '',
-      subscriptionStatus: org.subscriptionStatus || 'TRIAL',
-      trialEndDate: trialEndDateFormatted,
-      adminName: '',
-      adminEmail: '',
-      adminPassword: ''
+      subscriptionStatus:
+        status === 'EXPIRED' || status === 'SUSPENDED' ? status : 'ACTIVE',
     });
     setViewMode('edit');
-  };
-
-  const openCreateMode = () => {
-    // Default trial end date to 14 days from now
-    const defaultTrialEnd = new Date();
-    defaultTrialEnd.setDate(defaultTrialEnd.getDate() + 14);
-    setFormData({
-      name: '',
-      address: '',
-      subscriptionStatus: 'TRIAL',
-      trialEndDate: defaultTrialEnd.toISOString().split('T')[0],
-      adminName: '',
-      adminEmail: '',
-      adminPassword: ''
-    });
-    setViewMode('create');
   };
 
   const getStatusBadge = (status: string) => {
@@ -244,10 +132,9 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
       EXPIRED: 'bg-red-100 text-red-700',
       SUSPENDED: 'bg-slate-100 text-slate-700'
     };
-    return styles[status] || styles.TRIAL;
+    return styles[status] || styles.ACTIVE;
   };
 
-  // Clear message after 5 seconds
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(null), 5000);
@@ -255,9 +142,13 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
     }
   }, [message]);
 
+  const tabClass = (tab: TabMode) =>
+    `py-3 px-2 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
+      activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+    }`;
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight flex items-center gap-3">
@@ -266,14 +157,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
           </h1>
           <p className="text-slate-500 mt-1 text-sm sm:text-base">{t('shell.subtitle')}</p>
         </div>
-        {activeTab === 'organizations' && viewMode === 'list' && (
-          <button
-            onClick={openCreateMode}
-            className="self-start sm:self-auto px-5 sm:px-6 py-3 bg-primary text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-primary-hover transition-all shadow-lg whitespace-nowrap"
-          >
-            <Plus size={20} /> {t('shell.newOrganization')}
-          </button>
-        )}
         {activeTab === 'organizations' && viewMode !== 'list' && (
           <button
             onClick={() => { setViewMode('list'); setSelectedOrg(null); }}
@@ -284,7 +167,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
         )}
       </div>
 
-      {/* Message */}
       {message && (
         <div className={`p-4 rounded-2xl flex items-center gap-3 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
           {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
@@ -292,271 +174,46 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
         </div>
       )}
 
-      {/* Main Tabs */}
-      <div className="space-y-2">
-        {/* Row 1 — Platform Management */}
-        <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('shell.tabGroup.platform')}</p>
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 sm:gap-2 p-1 bg-slate-100 rounded-xl">
-            <button
-              onClick={() => { setActiveTab('organizations'); setViewMode('list'); }}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 relative ${
-                activeTab === 'organizations' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Building2 size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.orgs')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 relative ${
-                activeTab === 'requests' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <CreditCard size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.upgrades')}</span>
-              {upgradeRequests.filter(r => r.status === 'PENDING').length > 0 && (
-                <span className="absolute -top-1 -right-1 sm:static w-5 h-5 sm:w-auto sm:h-auto px-1 sm:px-2 py-0.5 bg-red-500 text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center">
-                  {upgradeRequests.filter(r => r.status === 'PENDING').length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('ads')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'ads' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Monitor size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.ads')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('storage')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'storage' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <HardDrive size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.storage')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('notifications')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'notifications' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Bell size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.notifs')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('appearance')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'appearance' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Palette size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.theme')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('bulk-email')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'bulk-email' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Mail size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.email')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('broadcast')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'broadcast' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Send size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.push')}</span>
-            </button>
-          </div>
-        </div>
-        {/* Row 2 — Content Management */}
-        <div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('shell.tabGroup.content')}</p>
-          <div className="grid grid-cols-5 gap-1 sm:gap-2 p-1 bg-slate-100 rounded-xl">
-            <button
-              onClick={() => setActiveTab('blog')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'blog' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <FileText size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.blog')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('tutorials')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'tutorials' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <BookOpen size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.tutorials')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('guides')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'guides' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <HelpCircle size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.guides')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('showcase')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'showcase' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Star size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.showcase')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('social')}
-              className={`py-3 px-1 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
-                activeTab === 'social' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Share2 size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.social')}</span>
-            </button>
-          </div>
+      <div>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">{t('shell.tabGroup.platform')}</p>
+        <div className="grid grid-cols-5 gap-1 sm:gap-2 p-1 bg-slate-100 rounded-xl">
+          <button
+            onClick={() => { setActiveTab('organizations'); setViewMode('list'); }}
+            className={tabClass('organizations')}
+          >
+            <Building2 size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.orgs')}</span>
+          </button>
+          <button onClick={() => setActiveTab('storage')} className={tabClass('storage')}>
+            <HardDrive size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.storage')}</span>
+          </button>
+          <button onClick={() => setActiveTab('notifications')} className={tabClass('notifications')}>
+            <Bell size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.notifs')}</span>
+          </button>
+          <button onClick={() => setActiveTab('appearance')} className={tabClass('appearance')}>
+            <Palette size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.theme')}</span>
+          </button>
+          <button onClick={() => setActiveTab('tutorials')} className={tabClass('tutorials')}>
+            <BookOpen size={16} className="shrink-0" /> <span className="hidden sm:inline">{t('shell.tab.tutorials')}</span>
+          </button>
         </div>
       </div>
 
-      {/* Upgrade Requests Tab */}
-      {activeTab === 'requests' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-900">{t('shell.upgradesPanel.title')}</h3>
-            <div className="flex gap-2">
-              {['PENDING', 'APPROVED', 'REJECTED', ''].map(filter => (
-                <button
-                  key={filter || 'all'}
-                  onClick={() => setRequestsFilter(filter as any)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    requestsFilter === filter
-                      ? 'bg-primary text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {filter === 'PENDING' ? t('shell.upgradesPanel.filterPending') : filter === 'APPROVED' ? t('shell.upgradesPanel.filterApproved') : filter === 'REJECTED' ? t('shell.upgradesPanel.filterRejected') : t('shell.upgradesPanel.filterAll')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-12 text-slate-400">{t('shell.upgradesPanel.loading')}</div>
-          ) : upgradeRequests.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
-              <CreditCard size={48} className="mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500 font-medium">{t('shell.upgradesPanel.empty')}</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {upgradeRequests.map(req => (
-                <div key={req.id} className="bg-white rounded-2xl border border-slate-100 p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h4 className="font-bold text-slate-900">{req.organizationName}</h4>
-                      <p className="text-sm text-slate-500">
-                        {req.requestType === 'DONATION' && t('shell.upgradesPanel.donation', { amount: req.donationAmount, tier: req.donationTier })}
-                        {req.requestType === 'TRIAL_EXTENSION' && t('shell.upgradesPanel.extension', { days: req.extensionDays })}
-                        {req.requestType === 'AD_SUPPORTED' && t('shell.upgradesPanel.adSupported')}
-                      </p>
-                      {req.donationReference && (
-                        <p className="text-xs text-slate-400 mt-1">{t('shell.upgradesPanel.ref', { ref: req.donationReference })}</p>
-                      )}
-                      {req.extensionReason && (
-                        <p className="text-xs text-slate-400 mt-1">{t('shell.upgradesPanel.reason', { reason: req.extensionReason })}</p>
-                      )}
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      req.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                      req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {req.status === 'PENDING' ? t('shell.upgradesPanel.filterPending') : req.status === 'APPROVED' ? t('shell.upgradesPanel.filterApproved') : req.status === 'REJECTED' ? t('shell.upgradesPanel.filterRejected') : req.status}
-                    </span>
-                  </div>
-
-                  {req.status === 'PENDING' && (
-                    <div className="flex gap-2 pt-4 border-t border-slate-100">
-                      <button
-                        onClick={() => handleProcessRequest(req.id, 'APPROVED')}
-                        className="flex-1 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover transition-all"
-                      >
-                        {t('shell.upgradesPanel.approve')}
-                      </button>
-                      <button
-                        onClick={() => handleProcessRequest(req.id, 'REJECTED')}
-                        className="flex-1 py-2 bg-red-100 text-red-700 rounded-xl font-bold text-sm hover:bg-red-200 transition-all"
-                      >
-                        {t('shell.upgradesPanel.reject')}
-                      </button>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-slate-400 mt-3">
-                    {t('shell.upgradesPanel.submitted', { date: new Date(req.created || '').toLocaleString() })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Ad Management Tab */}
-      {activeTab === 'ads' && (
-        <AdManagement onMessage={setMessage} />
-      )}
-
-      {/* Storage Management Tab */}
       {activeTab === 'storage' && (
         <StorageManagement onMessage={setMessage} />
       )}
 
-      {/* Notification Retention Tab */}
       {activeTab === 'notifications' && (
         <NotificationRetention onMessage={setMessage} />
       )}
 
-      {/* Bulk Email Tab */}
-      {activeTab === 'bulk-email' && (
-        <BulkEmailManager onMessage={setMessage} />
-      )}
-
-      {/* Push Broadcast Tab */}
-      {activeTab === 'broadcast' && (
-        <PushBroadcast onMessage={setMessage} />
-      )}
-
-      {/* Blog Management Tab */}
-      {activeTab === 'blog' && (
-        <BlogManagement onMessage={setMessage} />
-      )}
-
-      {/* Tutorial Management Tab */}
       {activeTab === 'tutorials' && (
         <TutorialManagement onMessage={setMessage} />
       )}
 
-      {/* Guide Links Management Tab */}
-      {activeTab === 'guides' && (
-        <GuideLinksManagement onMessage={setMessage} />
-      )}
-
-      {/* Showcase Management Tab */}
-      {activeTab === 'showcase' && (
-        <ShowcaseManagement onMessage={setMessage} />
-      )}
-
-      {/* Social Links Management Tab */}
-      {activeTab === 'social' && (
-        <SocialLinksManagement onMessage={setMessage} />
-      )}
-
-      {/* Appearance Management Tab */}
       {activeTab === 'appearance' && (
         <AppearanceManagement onMessage={setMessage} />
       )}
 
-      {/* Organizations Tab - Stats Cards */}
       {activeTab === 'organizations' && viewMode === 'list' && stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -628,7 +285,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
         </div>
       )}
 
-      {/* Organization List */}
       {activeTab === 'organizations' && viewMode === 'list' && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -670,16 +326,9 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-col gap-1">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block w-fit ${getStatusBadge(org.subscriptionStatus || 'TRIAL')}`}>
-                            {tStatus('subscription', org.subscriptionStatus || 'TRIAL')}
-                          </span>
-                          {org.subscriptionStatus === 'TRIAL' && org.trialEndDate && (
-                            <span className="text-xs text-slate-400">
-                              {t('shell.orgsPanel.trialEnds', { date: new Date(org.trialEndDate).toLocaleDateString() })}
-                            </span>
-                          )}
-                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block w-fit ${getStatusBadge(org.subscriptionStatus || 'ACTIVE')}`}>
+                          {tStatus('subscription', org.subscriptionStatus || 'ACTIVE')}
+                        </span>
                       </td>
                       <td className="p-4">
                         <span className="font-bold text-slate-700">{org.userCount || 0}</span>
@@ -721,13 +370,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
                           >
                             <Edit size={18} className="text-amber-600" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteOrg(org)}
-                            className="p-2 hover:bg-red-100 rounded-xl transition-all"
-                            title={t('shell.orgsPanel.tooltipDelete')}
-                          >
-                            <Trash2 size={18} className="text-red-600" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -739,11 +381,10 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
         </div>
       )}
 
-      {/* Create/Edit Form */}
-      {activeTab === 'organizations' && (viewMode === 'create' || viewMode === 'edit') && (
+      {activeTab === 'organizations' && viewMode === 'edit' && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
           <h2 className="text-xl font-bold text-slate-900 mb-6">
-            {viewMode === 'create' ? t('shell.form.createTitle') : t('shell.form.editTitle', { name: selectedOrg?.name })}
+            {t('shell.form.editTitle', { name: selectedOrg?.name })}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -765,27 +406,13 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
                 onChange={(e) => setFormData({ ...formData, subscriptionStatus: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
               >
-                <option value="TRIAL">{t('shell.form.statusTrial')}</option>
                 <option value="ACTIVE">{t('shell.form.statusActive')}</option>
                 <option value="EXPIRED">{t('shell.form.statusExpired')}</option>
                 <option value="SUSPENDED">{t('shell.form.statusSuspended')}</option>
               </select>
             </div>
 
-            {formData.subscriptionStatus === 'TRIAL' && (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('shell.form.trialEndDate')}</label>
-                <input
-                  type="date"
-                  value={formData.trialEndDate}
-                  onChange={(e) => setFormData({ ...formData, trialEndDate: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
-                />
-                <p className="text-xs text-slate-400">{t('shell.form.trialEndHint')}</p>
-              </div>
-            )}
-
-            <div className={`space-y-2 ${formData.subscriptionStatus === 'TRIAL' ? '' : 'md:col-span-2'}`}>
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('shell.form.address')}</label>
               <input
                 type="text"
@@ -795,47 +422,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
                 placeholder={t('shell.form.addressPlaceholder')}
               />
             </div>
-
-            {viewMode === 'create' && (
-              <>
-                <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
-                  <h3 className="font-bold text-slate-700 mb-4">{t('shell.form.adminSection')}</h3>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('shell.form.adminName')}</label>
-                  <input
-                    type="text"
-                    value={formData.adminName}
-                    onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
-                    placeholder={t('shell.form.adminNamePlaceholder')}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('shell.form.adminEmail')}</label>
-                  <input
-                    type="email"
-                    value={formData.adminEmail}
-                    onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
-                    placeholder={t('shell.form.adminEmailPlaceholder')}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('shell.form.adminPassword')}</label>
-                  <input
-                    type="password"
-                    value={formData.adminPassword}
-                    onChange={(e) => setFormData({ ...formData, adminPassword: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-primary-light outline-none"
-                    placeholder={t('shell.form.adminPasswordPlaceholder')}
-                  />
-                </div>
-              </>
-            )}
           </div>
 
           <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-slate-100">
@@ -846,18 +432,17 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
               {t('shell.form.cancel')}
             </button>
             <button
-              onClick={viewMode === 'create' ? handleCreateOrg : handleUpdateOrg}
+              onClick={handleUpdateOrg}
               disabled={isLoading}
               className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-50"
             >
               <Save size={18} />
-              {viewMode === 'create' ? t('shell.form.create') : t('shell.form.save')}
+              {t('shell.form.save')}
             </button>
           </div>
         </div>
       )}
 
-      {/* Users View */}
       {activeTab === 'organizations' && viewMode === 'users' && selectedOrg && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100">
@@ -910,7 +495,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
                         <span className="text-sm text-slate-600">{u.department}</span>
                       </td>
                       <td className="p-4">
-                        {(u as any).verified ? (
+                        {(u as Employee & { verified?: boolean }).verified ? (
                           <span className="text-emerald-600 flex items-center gap-1 text-sm">
                             <CheckCircle2 size={14} /> {t('shell.users.verified')}
                           </span>
@@ -922,7 +507,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
-                          {!(u as any).verified && (
+                          {!(u as Employee & { verified?: boolean }).verified && (
                             <button
                               onClick={() => handleVerifyUser(u.id)}
                               className="p-2 hover:bg-emerald-100 rounded-xl transition-all"

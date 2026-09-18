@@ -5,6 +5,15 @@ import { notificationService } from './notification.service';
 import { employeeService } from './employee.service';
 import { formatIsoDateBr } from '../i18n/format';
 import { saturdaysInMonth } from '../utils/rosterDates';
+import { todayIsoLocal } from '../utils/payrollPeriod';
+
+/** Refuse writes for calendar days already past (local wall clock). */
+export function assertWritableRosterDate(workDate: string): void {
+  const today = todayIsoLocal();
+  if (workDate < today) {
+    throw new Error('rosterPastDate');
+  }
+}
 
 const mapRow = (r: any): WorkRosterAssignment => ({
   id: r.id,
@@ -76,6 +85,7 @@ export const rosterService = {
     if (!orgId) throw new Error('No organization ID');
 
     const { workDate, dayKind, assignments, createdBy, notifyEmployees = true } = params;
+    assertWritableRosterDate(workDate);
 
     const { error: delErr } = await supabase
       .from('work_roster_assignments')
@@ -157,17 +167,24 @@ export const rosterService = {
     targetYear: number;
     targetMonth: number;
     createdBy?: string;
-  }): Promise<{ copiedDates: Array<{ from: string; to: string }>; skippedEmpty: number }> {
+  }): Promise<{ copiedDates: Array<{ from: string; to: string }>; skippedEmpty: number; skippedPast: number }> {
     const sourceSaturdays = saturdaysInMonth(params.sourceYear, params.sourceMonth);
     const targetSaturdays = saturdaysInMonth(params.targetYear, params.targetMonth);
 
     const minLen = Math.min(sourceSaturdays.length, targetSaturdays.length);
     let skippedEmpty = 0;
+    let skippedPast = 0;
     const copiedDates: Array<{ from: string; to: string }> = [];
+    const today = todayIsoLocal();
 
     for (let i = 0; i < minLen; i++) {
       const sourceDate = sourceSaturdays[i]!;
       const targetDate = targetSaturdays[i]!;
+
+      if (targetDate < today) {
+        skippedPast++;
+        continue;
+      }
 
       const assignments = await this.listForDate(sourceDate);
       if (assignments.length === 0) {
@@ -190,7 +207,7 @@ export const rosterService = {
       copiedDates.push({ from: sourceDate, to: targetDate });
     }
 
-    return { copiedDates, skippedEmpty };
+    return { copiedDates, skippedEmpty, skippedPast };
   },
 
   /** Assignments for one employee in a date range. */

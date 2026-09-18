@@ -24,6 +24,8 @@ O script:
   - `192.168.15.245 api-rh.eletropasso.local`
 - Importa `eletropasso-lan-ca.cer` em **Autoridades de certificação raiz confiáveis** (se o arquivo existir)
 
+**Importante:** o NPM do servidor usa certificado **mkcert** (mesma CA do `.crt` acima). Não substitua manualmente no painel NPM por outro certificado — o watchdog `Ensure-NpmRhSsl.ps1` restaura o mkcert se detectar regressão.
+
 ## WhatsApp
 
 O WhatsApp **pode não deixar clicar** em endereços `.local`. Peça para **colar** o link completo na barra do navegador:

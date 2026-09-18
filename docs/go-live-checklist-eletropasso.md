@@ -5,9 +5,10 @@ Use após merge na `dev` e antes de promover para `master`.
 ## Relógio / DMPREP
 
 - [ ] `dmprep-sync` responde em `:3099` (`/health`)
+- [ ] `supabase/functions/.env` tem `DMPREP_SYNC_URL` + `DMPREP_SYNC_API_KEY` (proxy Edge → `:3099`; reiniciar `functions serve` após alterar)
 - [ ] Poller WatchComm coleta batidas e `ingest-punches` grava no Supabase
 - [ ] Handshake WatchComm usa `login`/`senha` + RSA do `/chave.cgi` (sem 1732) — ver `docs/watchcomm-printpoint-protocol.md`
-- [ ] UI **Comunicação** envia comando ao relógio sem erro
+- [ ] UI **Comunicação → Diagnóstico → Testar tudo** lê conexão/empregador sem “not configured”
 - [ ] Toast/aviso se `:3099` estiver offline
 
 ## Autenticação / sessão
@@ -35,6 +36,13 @@ Use após merge na `dev` e antes de promover para `master`.
 - [ ] `/blog`, `/features`, `/about` redirecionam para login
 - [ ] Tutoriais abrem autenticados (menu **Ajuda**)
 - [ ] Super Admin: org única, sem ads/upgrade/blog
+
+## Acesso remoto (VPN)
+
+- [ ] **Não** publicar front na Vercel neste modelo (front + API no servidor local)
+- [ ] Tailscale no servidor `.245` com rota `192.168.15.0/24` aprovada — ver `docs/remote-access-tailscale-eletropasso.md`
+- [ ] Sem port forward de Postgres/`54321` no modem
+- [ ] Teste: fora da LAN sem VPN não abre; com VPN + hosts + CA abre `https://rh.eletropasso.local`
 
 ## Validação automatizada
 

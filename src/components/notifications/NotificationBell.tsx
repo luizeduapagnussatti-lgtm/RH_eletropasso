@@ -6,9 +6,11 @@ import { useNotifications } from '../../hooks/notifications/useNotifications';
 import { AppNotification, NotificationType, EmailDigestFrequency } from '../../types';
 import { tStatus } from '../../i18n/statusMaps';
 import { getDateLocale } from '../../i18n/format';
+import { useAuth } from '../../context/AuthContext';
+import { resolveNotificationNav } from '../../utils/notificationNavigation';
 
 interface NotificationBellProps {
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string, params?: Record<string, unknown>) => void;
   /** Dark chrome header (sidebar/header shell) — brand-red icon treatment */
   chrome?: boolean;
 }
@@ -42,6 +44,7 @@ function timeAgo(dateStr: string): string {
 
 const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate, chrome = false }) => {
   const { t } = useTranslation('notifications');
+  const { user } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead, userPreferences, updatePreferences } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
@@ -74,8 +77,9 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate, chrome 
     if (!notification.isRead) {
       await markAsRead(notification.id);
     }
-    if (notification.actionUrl) {
-      onNavigate(notification.actionUrl);
+    const nav = resolveNotificationNav(notification, user);
+    if (nav) {
+      onNavigate(nav.path, nav.params);
     }
     setIsOpen(false);
     setShowPrefs(false);
@@ -244,7 +248,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate, chrome 
                   onClick={() => { onNavigate('announcements'); setIsOpen(false); }}
                   className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  View All Announcements
+                  {t('viewAll')}
                 </button>
               </div>
             </>

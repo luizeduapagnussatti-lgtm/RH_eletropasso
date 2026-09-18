@@ -56,7 +56,7 @@ export const accountingExportService = {
       `Período: ${period.startDate} a ${period.endDate}`,
       '',
       'Arquivos:',
-      '- resumo-contabilidade.csv → totais por colaborador (HE 50/100, noturno, atraso, faltas)',
+      '- resumo-contabilidade.csv → totais por colaborador (HE 60/100, noturno, atraso, faltas)',
       '- espelho-detalhado.csv → dias apurados com batidas consolidadas',
       '',
       'Fluxo: RH envia à contabilidade → contabilidade lança folha → devolve holerites → RH coleta ciência.',

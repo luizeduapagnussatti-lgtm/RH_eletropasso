@@ -10,6 +10,8 @@
   "quickActions": "Quick actions",
   "clockIn": "Clock in",
   "clockOut": "Check out",
+  "pwaPunchEyebrow": "App punch",
+  "pwaPunchAction": "Clock in",
   "applyLeave": "Apply for leave",
   "recentAnnouncements": "Announcements",
   "teamOverview": "Team overview",
@@ -49,5 +51,6 @@
   "pendingLeavesLabel": "Pending leave",
   "teamHeadcountLabel": "Headcount",
   "lateCount": "{{count}} late",
+  "punchCorrections": "Adjustments",
   "timesheet": "Timesheet"
 }

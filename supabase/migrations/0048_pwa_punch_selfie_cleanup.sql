@@ -16,3 +16,29 @@ $$;
 
 revoke all on function public.list_old_pwa_punch_selfies(timestamptz) from public;
 grant execute on function public.list_old_pwa_punch_selfies(timestamptz) to service_role;
+
+-- Remove selfiePath from APP punches after storage objects are deleted.
+create or replace function public.clear_pwa_punch_selfie_paths(p_paths text[])
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer := 0;
+begin
+  if p_paths is null or cardinality(p_paths) = 0 then
+    return 0;
+  end if;
+  update public.punches
+  set raw_payload = raw_payload - 'selfiePath'
+  where source = 'APP'
+    and raw_payload ? 'selfiePath'
+    and raw_payload->>'selfiePath' = any(p_paths);
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.clear_pwa_punch_selfie_paths(text[]) from public;
+grant execute on function public.clear_pwa_punch_selfie_paths(text[]) to service_role;

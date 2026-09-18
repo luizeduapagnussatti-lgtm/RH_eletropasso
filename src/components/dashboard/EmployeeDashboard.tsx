@@ -36,7 +36,7 @@ export const EmployeeDashboard: React.FC<Props> = ({ data, isLoading, onNavigate
         appConfig={data.appConfig}
         isLoading={isLoading}
         onNavigate={onNavigate}
-        showPunchActions
+        showPunchActions={!!data.freshUser.allowPwaPunch}
       />
 
       <DashboardStats

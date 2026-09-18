@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Building, Building2, ArrowRight } from 'lucide-react';
+import { Fingerprint, ArrowRight, Building2 } from 'lucide-react';
 import { Employee, Attendance, AppConfig } from '../../types';
 
 interface Props {
@@ -9,17 +9,14 @@ interface Props {
   appConfig: AppConfig | null;
   isLoading: boolean;
   onNavigate: (path: string) => void;
-  /** When false, hide clock-in/out shortcuts (admin / HR assistant). */
+  /** When false, hide punch shortcut (admin / HR / not allowed for PWA punch). */
   showPunchActions?: boolean;
 }
 
 export const DashboardHeader: React.FC<Props> = ({
-  user, activeShift, appConfig, isLoading, onNavigate, showPunchActions = true,
+  user, appConfig, isLoading, onNavigate, showPunchActions = true,
 }) => {
   const { t } = useTranslation('dashboard');
-
-  const officeLabel = appConfig?.dutyLabel1 || t('office');
-  const factoryLabel = appConfig?.dutyLabel2 || t('factory');
 
   return (
     <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
@@ -37,45 +34,26 @@ export const DashboardHeader: React.FC<Props> = ({
       </div>
 
       {showPunchActions && (
-      <div className="flex items-center gap-3">
-        {isLoading ? (
-          <div className="w-48 h-16 bg-slate-100 rounded-[1.5rem] animate-pulse"></div>
-        ) : activeShift ? (
-          <button
-            onClick={() => onNavigate('attendance-finish')}
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 py-3 md:py-4 bg-rose-500 rounded-2xl md:rounded-[1.5rem] shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all group active:scale-95 animate-in zoom-in"
-          >
-            <div className="relative">
-              <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></div>
-              <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-white animate-ping opacity-75"></div>
-            </div>
-            <div className="text-left">
-              <p className="text-[9px] font-semibold text-rose-100 uppercase tracking-widest leading-none mb-1">
-                {t('sessionActive', { duty: activeShift.dutyType === 'FACTORY' ? factoryLabel : officeLabel })}
-              </p>
-              <p className="text-xs font-semibold text-white uppercase">{t('clockOut')}</p>
-            </div>
-            <ArrowRight size={16} className="text-rose-200 group-hover:text-white transition-colors ml-2" />
-          </button>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto animate-in slide-in-from-right-4">
+        <div className="flex items-center gap-3">
+          {isLoading ? (
+            <div className="w-48 h-16 bg-slate-100 rounded-[1.5rem] animate-pulse" />
+          ) : (
             <button
-              onClick={() => onNavigate('attendance-quick-office')}
-              className="flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-4 bg-primary text-white rounded-2xl md:rounded-[1.5rem] shadow-lg shadow-primary-light hover:bg-primary-hover active:scale-95 transition-all"
+              type="button"
+              onClick={() => onNavigate('pwa-punch')}
+              className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 py-3 md:py-4 bg-primary text-white rounded-2xl md:rounded-[1.5rem] shadow-lg shadow-primary-light hover:bg-primary-hover transition-all group active:scale-95"
             >
-              <Building size={16} />
-              <span className="text-[10px] font-semibold uppercase tracking-widest">{officeLabel}</span>
+              <Fingerprint size={18} aria-hidden />
+              <div className="text-left">
+                <p className="text-[9px] font-semibold text-white/80 uppercase tracking-widest leading-none mb-1">
+                  {t('pwaPunchEyebrow')}
+                </p>
+                <p className="text-xs font-semibold text-white uppercase">{t('pwaPunchAction')}</p>
+              </div>
+              <ArrowRight size={16} className="text-white/70 group-hover:text-white transition-colors ml-2" />
             </button>
-            <button
-              onClick={() => onNavigate('attendance-quick-factory')}
-              className="flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-4 bg-primary text-white rounded-2xl md:rounded-[1.5rem] shadow-lg shadow-primary-light hover:bg-primary-hover active:scale-95 transition-all opacity-80"
-            >
-              <Building2 size={16} />
-              <span className="text-[10px] font-semibold uppercase tracking-widest">{factoryLabel}</span>
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       )}
     </header>
   );

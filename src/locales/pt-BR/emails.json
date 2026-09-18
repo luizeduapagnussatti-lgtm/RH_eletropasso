@@ -1,8 +1,78 @@
 {
-  "leaveSubmittedSubject": "Solicitação de licença enviada",
-  "leaveApprovedSubject": "Solicitação de licença aprovada",
-  "leaveRejectedSubject": "Solicitação de licença recusada",
-  "attendanceLateSubject": "Alerta de atraso no ponto",
-  "dailyReportSubject": "Resumo diário de ponto",
-  "placeholderNote": "Templates de e-mail do servidor — renderização por locale em sprint posterior"
+  "dailyReport": {
+    "subject": "Relatório diário de ponto — {{date}} — {{orgName}}",
+    "title": "Relatório diário de ponto",
+    "labelOrganization": "Organização",
+    "labelDate": "Data",
+    "labelStatus": "Status",
+    "labelCount": "Quantidade",
+    "labelPresent": "Presentes",
+    "labelLate": "Atrasados",
+    "labelAbsent": "Ausentes",
+    "labelOnLeave": "Em licença",
+    "labelTotal": "Total registrado",
+    "footer": "Relatório automático diário do OpenHR."
+  },
+  "leave": {
+    "details": {
+      "employee": "Colaborador",
+      "leaveType": "Tipo de licença",
+      "duration": "Duração",
+      "daysUnit": "dia(s)",
+      "from": "De",
+      "to": "Até",
+      "reason": "Motivo",
+      "notProvided": "Não informado"
+    },
+    "submitted": {
+      "employeeSubject": "Solicitação de licença enviada: {{leaveType}}",
+      "employeeBody": "<h2>Solicitação recebida</h2><p>Olá <b>{{employeeName}}</b>,</p><p>Sua solicitação de licença foi enviada e está <b>{{pendingLabel}}</b>.</p>{{detailsTable}}<p style=\"color:#6b7280;font-size:13px;\">Você receberá outro e-mail quando o status mudar.</p>",
+      "managerSubject": "Ação necessária: licença {{leaveType}} — {{employeeName}}",
+      "managerBody": "<h2>Aprovação de licença necessária</h2><p><b>{{employeeName}}</b> enviou uma solicitação de licença que requer sua aprovação.</p>{{detailsTable}}<p>Acesse o <b>portal OpenHR</b> para aprovar ou recusar.</p>",
+      "adminSubject": "Nova solicitação de licença: {{employeeName}} — {{leaveType}}",
+      "adminBody": "<h2>Nova solicitação de licença</h2><p>Uma nova solicitação foi enviada na sua organização.</p>{{detailsTable}}<p>Status atual: <b>{{status}}</b></p>",
+      "pendingManager": "aguardando aprovação do gestor",
+      "pendingHr": "aguardando análise do RH"
+    },
+    "pendingHr": {
+      "hrSubject": "Aprovação do RH necessária: {{employeeName}} — {{leaveType}}",
+      "hrBody": "<h2>Gestor aprovou — análise do RH necessária</h2><p>A solicitação de <b>{{employeeName}}</b> foi <b style=\"color:#f59e0b;\">aprovada pelo gestor</b> e aguarda sua decisão final.</p>{{detailsTable}}<p><b>Observações do gestor:</b> {{managerRemarks}}</p><p>Acesse o <b>portal OpenHR</b> para aprovar ou recusar.</p>",
+      "employeeSubject": "Atualização: gestor aprovou — aguardando RH",
+      "employeeBody": "<h2>Gestor aprovou sua licença</h2><p>Olá <b>{{employeeName}}</b>,</p><p>Sua solicitação foi <b style=\"color:#f59e0b;\">aprovada pelo gestor</b> e aguarda aprovação final do RH.</p>{{detailsTable}}<p><b>Observações do gestor:</b> {{managerRemarks}}</p><p style=\"color:#6b7280;font-size:13px;\">Você receberá outro e-mail quando o RH decidir.</p>"
+    },
+    "approved": {
+      "employeeSubject": "Licença aprovada: {{leaveType}} ({{startDate}} a {{endDate}})",
+      "employeeBody": "<h2>Solicitação aprovada</h2><p>Olá <b>{{employeeName}}</b>,</p><p>Sua solicitação de licença foi <b style=\"color:#10b981;\">totalmente aprovada</b>.</p>{{detailsTable}}<p><b>Observações do gestor:</b> {{managerRemarks}}</p><p><b>Observações do RH:</b> {{approverRemarks}}</p><p style=\"color:#6b7280;font-size:13px;\">Bom descanso!</p>",
+      "managerSubject": "Licença aprovada (final): {{employeeName}} — {{leaveType}}",
+      "managerBody": "<h2>Licença aprovada — decisão final</h2><p>A solicitação de <b>{{employeeName}}</b> recebeu <b style=\"color:#10b981;\">aprovação final do RH</b>.</p>{{detailsTable}}<p><b>Observações do RH:</b> {{approverRemarks}}</p>",
+      "adminSubject": "Licença aprovada: {{employeeName}} — {{leaveType}}",
+      "adminBody": "<h2>Solicitação totalmente aprovada</h2><p>Esta solicitação de licença foi totalmente aprovada.</p>{{detailsTable}}<p><b>Observações do RH:</b> {{approverRemarks}}</p>"
+    },
+    "rejected": {
+      "employeeSubject": "Licença recusada: {{leaveType}} ({{startDate}})",
+      "employeeBody": "<h2>Solicitação recusada</h2><p>Olá <b>{{employeeName}}</b>,</p><p>Sua solicitação de licença foi <b style=\"color:#ef4444;\">recusada</b>.</p>{{detailsTable}}<p><b>Observações do gestor:</b> {{managerRemarks}}</p><p><b>Observações do RH:</b> {{approverRemarks}}</p><p style=\"color:#6b7280;font-size:13px;\">Em caso de dúvidas, fale com seu gestor ou RH.</p>",
+      "managerSubject": "Licença recusada: {{employeeName}} — {{leaveType}}",
+      "managerBody": "<h2>Licença recusada — decisão final</h2><p>A solicitação de <b>{{employeeName}}</b> foi <b style=\"color:#ef4444;\">recusada</b>.</p>{{detailsTable}}<p><b>Motivo:</b> {{rejectRemarks}}</p>",
+      "adminSubject": "Licença recusada: {{employeeName}} — {{leaveType}}",
+      "adminBody": "<h2>Solicitação recusada</h2><p>A solicitação de licença abaixo foi recusada.</p>{{detailsTable}}<p><b>Motivo:</b> {{rejectRemarks}}</p>"
+    },
+    "noRemarks": "Sem observações"
+  },
+  "review": {
+    "cycleOpen": {
+      "subject": "Ciclo de avaliação aberto: {{cycleName}}",
+      "body": "<h2>Ciclo de avaliação aberto</h2><p>Olá <b>{{recipientName}}</b>,</p><p>O ciclo <b>{{cycleName}}</b> está aberto. {{actionHint}}</p>"
+    },
+    "cycleClosed": {
+      "subject": "Ciclo de avaliação encerrado: {{cycleName}}",
+      "body": "<h2>Ciclo de avaliação encerrado</h2><p>O ciclo <b>{{cycleName}}</b> foi encerrado. {{actionHint}}</p>"
+    },
+    "deadlineReminder": {
+      "subject": "Lembrete: prazo da avaliação em {{daysLeft}} dia(s) — {{cycleName}}",
+      "body": "<h2>Lembrete de prazo</h2><p>Olá <b>{{recipientName}}</b>,</p><p>Faltam <b>{{daysLeft}}</b> dia(s) para o prazo do ciclo <b>{{cycleName}}</b>. {{actionHint}}</p>"
+    },
+    "actionHintEmployee": "Conclua sua autoavaliação no portal OpenHR.",
+    "actionHintManager": "Revise as avaliações pendentes da sua equipe.",
+    "actionHintHr": "Acompanhe o andamento das avaliações na organização."
+  }
 }

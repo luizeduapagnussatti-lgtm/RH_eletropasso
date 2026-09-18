@@ -8,6 +8,7 @@ import {
   checkDayCoherence,
   type DayCoherenceContext,
 } from './timesheetDayCoherence';
+import { isDutyDayNeedingAck } from './timesheetScope';
 
 export type DayAckBlockReason =
   | 'absent'
@@ -200,15 +201,15 @@ export class TimesheetAckValidationError extends Error {
   }
 }
 
-/** Elapsed days in export scope must all have manager_ack. */
+/** Elapsed duty days in export scope must all have manager_ack (OFF/HOLIDAY/LEAVE ignored). */
 export function canExportMirrorPdf(
   days: TimesheetDay[],
   today = todayIsoLocal()
 ): { ok: boolean; pendingCount: number; scopeCount: number } {
-  const scope = days.filter(d => d.workDate <= today);
+  const scope = days.filter(d => d.workDate <= today && isDutyDayNeedingAck(d.status));
   const pendingCount = scope.filter(d => !d.managerAck).length;
   return {
-    ok: scope.length > 0 && pendingCount === 0,
+    ok: pendingCount === 0 && (scope.length > 0 || days.some(d => d.workDate <= today)),
     pendingCount,
     scopeCount: scope.length,
   };

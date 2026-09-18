@@ -11,7 +11,8 @@ New-Item -ItemType Directory -Force -Path $DeployScripts | Out-Null
 $files = @(
   'Run-HiddenPs1.vbs', 'Run-WatchFrontend.vbs',
   'Ensure-Frontend.ps1', 'Ensure-DmprepSync.ps1',
-  'Ensure-NpmRhUpstream.ps1', 'Ensure-SupabaseApi.ps1',
+  'Ensure-NpmRhUpstream.ps1', 'Ensure-NpmRhSsl.ps1', 'Ensure-SupabaseApi.ps1',
+  'Ensure-CoreDns.ps1', 'Ensure-RecalcQueue.ps1', 'Run-RecalcQueue.ps1',
   'Watch-Frontend.ps1', 'start-rh-delayed.ps1', 'start-rh.ps1',
   'fix-npm-rh-ipv4.py', 'install-rh-autostart.ps1'
 )
@@ -118,8 +119,21 @@ Set-SilentPs1Task -TaskName 'RH_Eletropasso_NpmUpstream_Watchdog' `
   -Ps1Path (Join-Path $DeployScripts 'Ensure-NpmRhUpstream.ps1') `
   -Interval (New-TimeSpan -Minutes 5)
 
+Set-SilentPs1Task -TaskName 'RH_Eletropasso_NpmSsl_Watchdog' `
+  -Ps1Path (Join-Path $DeployScripts 'Ensure-NpmRhSsl.ps1') `
+  -Interval (New-TimeSpan -Minutes 5)
+
 Set-SilentPs1Task -TaskName 'RH_Eletropasso_SupabaseApi_Watchdog' `
   -Ps1Path (Join-Path $DeployScripts 'Ensure-SupabaseApi.ps1') `
+  -Interval (New-TimeSpan -Minutes 5)
+
+Set-SilentPs1Task -TaskName 'RH_Eletropasso_RecalcQueue_Watchdog' `
+  -Ps1Path (Join-Path $DeployScripts 'Ensure-RecalcQueue.ps1') `
+  -Interval (New-TimeSpan -Minutes 5) `
+  -ExecLimit (New-TimeSpan -Minutes 15)
+
+Set-SilentPs1Task -TaskName 'RH_Eletropasso_CoreDns_Watchdog' `
+  -Ps1Path (Join-Path $DeployScripts 'Ensure-CoreDns.ps1') `
   -Interval (New-TimeSpan -Minutes 5)
 
 Write-Host ''

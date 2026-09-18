@@ -6,6 +6,16 @@ export function isClockBusyError(message: string | undefined | null): boolean {
   return /already running|andamento|busy/i.test(message);
 }
 
+/** Map Edge/proxy English errors to hub.comunicacao.* keys (i18n). */
+export function clockProxyErrorI18nKey(
+  message: string | undefined | null,
+): 'notConfigured' | 'serviceDown' | null {
+  if (!message) return null;
+  if (/not configured on this deployment/i.test(message)) return 'notConfigured';
+  if (/Could not reach the DMPREP|dmprep-sync is running/i.test(message)) return 'serviceDown';
+  return null;
+}
+
 export function digCommandValue(
   data: Record<string, unknown> | undefined,
   keys: string[],

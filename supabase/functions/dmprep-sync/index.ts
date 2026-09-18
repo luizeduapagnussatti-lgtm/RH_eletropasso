@@ -160,6 +160,10 @@ Deno.serve(async (req: Request) => {
       })));
     }
 
+    // punches/all return 202 quickly from local control plane; keep accept timeout short.
+    // Other scopes still run synchronously (default 120s).
+    const isAsyncCollect = scope === 'punches' || scope === 'all';
+    const defaultTimeoutMs = isAsyncCollect ? '30000' : '120000';
     const response = await fetch(`${syncBaseUrl.replace(/\/$/, '')}/sync`, {
       method: 'POST',
       headers: {
@@ -167,7 +171,7 @@ Deno.serve(async (req: Request) => {
         'x-dmprep-sync-key': syncApiKey,
       },
       body: JSON.stringify({ scope, profileIds, ...(masters ? { masters } : {}) }),
-      signal: AbortSignal.timeout(Number(Deno.env.get('DMPREP_SYNC_TIMEOUT_MS') ?? '120000')),
+      signal: AbortSignal.timeout(Number(Deno.env.get('DMPREP_SYNC_TIMEOUT_MS') ?? defaultTimeoutMs)),
     });
 
     const text = await response.text();
@@ -178,7 +182,9 @@ Deno.serve(async (req: Request) => {
       payload = { error: text.slice(0, 500) };
     }
 
-    if (!response.ok) {
+    // 202 Accepted = collect started in background (not an error).
+    const ok = response.ok || response.status === 202;
+    if (!ok) {
       if (isMasterCommand) {
         await adminClient.from('clock_supervisor_command_log').insert({
           organization_id: callerProfile.organization_id,
@@ -206,7 +212,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify(payload), {
-      status: 200,
+      status: response.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

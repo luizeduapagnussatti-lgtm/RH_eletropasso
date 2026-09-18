@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clock, Plus, Trash2, Edit, Star, CalendarClock, Users } from 'lucide-react';
 import { Shift, ShiftOverride, Employee } from '../../types';
+import { minutesToHm } from '../../utils/durationHm';
 
 interface Props {
   shifts: Shift[];
@@ -78,27 +79,27 @@ export const OrgShifts: React.FC<Props> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-white p-2.5 rounded-xl border border-slate-100/50">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('lateGrace')}</p>
-                  <p className="text-xs font-semibold text-slate-700">{t('minutesAbbr', { count: shift.lateGracePeriod })}</p>
+                  <p className="text-xs font-semibold text-slate-700 tabular-nums">{minutesToHm(shift.lateGracePeriod)}</p>
                 </div>
                 <div className="bg-white p-2.5 rounded-xl border border-slate-100/50">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('earlyOut')}</p>
-                  <p className="text-xs font-semibold text-slate-700">{t('minutesAbbr', { count: shift.earlyOutGracePeriod })}</p>
+                  <p className="text-xs font-semibold text-slate-700 tabular-nums">{minutesToHm(shift.earlyOutGracePeriod)}</p>
                 </div>
                 <div className="bg-white p-2.5 rounded-xl border border-slate-100/50 col-span-2">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('breakLabel')}</p>
-                  <p className="text-xs font-semibold text-slate-700">
+                  <p className="text-xs font-semibold text-slate-700 tabular-nums">
                     {!(shift.breakFlexible ?? true) && shift.breakEarliestStart && shift.breakLatestEnd
                       ? t('breakFixedSummary', {
                           start: shift.breakEarliestStart,
                           end: shift.breakLatestEnd,
-                          minutes: shift.breakDurationMinutes ?? 60,
+                          duration: minutesToHm(shift.breakDurationMinutes ?? 60),
                         })
-                      : t('breakFlexibleSummary', { minutes: shift.breakDurationMinutes ?? 60 })}
+                      : t('breakFlexibleSummary', { duration: minutesToHm(shift.breakDurationMinutes ?? 60) })}
                   </p>
                 </div>
                 <div className="bg-white p-2.5 rounded-xl border border-slate-100/50">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">{t('dailyLoad')}</p>
-                  <p className="text-xs font-semibold text-slate-700">{t('minutesAbbr', { count: shift.expectedDailyMinutes ?? 480 })}</p>
+                  <p className="text-xs font-semibold text-slate-700 tabular-nums">{minutesToHm(shift.expectedDailyMinutes ?? 480)}</p>
                 </div>
               </div>
 

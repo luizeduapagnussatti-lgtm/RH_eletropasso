@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Download, Loader2, PenLine, Scale, Wallet } from 'lucide-react';
 import { hrService } from '../services/hrService';
@@ -20,6 +20,9 @@ import { DEFAULT_PTRP_POLICY } from '../constants';
 import { minutesToDisplay, minutesToHm } from '../utils/durationHm';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
 import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidation';
+import { resolveEmployeeKeys, loadTimesheetDaysForEmployee } from '../utils/timesheetEmployeeKeys';
+import { sumPeriodExpectedMinutes } from '../utils/timesheetPeriodExpected';
+import { staleTimesheetWorkDates } from '../utils/timesheetDayStale';
 
 function formatIsoDateBr(iso: string): string {
   const [y, m, d] = iso.split('-');
@@ -40,7 +43,11 @@ function fmtSignedMinutes(mins: number) {
   return mins > 0 ? `+${base}` : base;
 }
 
-function reviewStatusLabel(status: string | undefined, t: (k: string) => string): string {
+function reviewStatusLabel(
+  status: string | undefined,
+  t: (k: string) => string,
+  opts?: { daysEligible?: boolean; hasDays?: boolean },
+): string {
   switch (status) {
     case 'IN_REVIEW':
       return t('mobile:reviewStatusInReview');
@@ -48,7 +55,13 @@ function reviewStatusLabel(status: string | undefined, t: (k: string) => string)
       return t('mobile:reviewStatusEmployeeSigned');
     case 'APPROVED':
       return t('mobile:reviewStatusApproved');
+    case 'OPEN':
+      if (opts?.daysEligible) return t('mobile:reviewStatusInReview');
+      return t('mobile:reviewStatusOpen');
     default:
+      // null review: derive from day ciência when possible
+      if (opts?.daysEligible) return t('mobile:reviewStatusInReview');
+      if (opts?.hasDays) return t('mobile:reviewStatusNoReview');
       return t('mobile:reviewStatusOpen');
   }
 }
@@ -76,31 +89,6 @@ function competenceKey(year: number, month: number): number {
   return year * 12 + month;
 }
 
-/** Prefer badge/crachá, then UUID — both may appear in timesheet_days / punches. */
-function resolveEmployeeKeys(user: User, profile: Employee | undefined): string[] {
-  const keys: string[] = [];
-  const push = (v?: string | null) => {
-    const s = (v || '').trim();
-    if (s && !keys.includes(s)) keys.push(s);
-  };
-  push(profile?.employeeId);
-  push(user.employeeId);
-  push(profile?.id);
-  push(user.id);
-  return keys;
-}
-
-async function loadDaysForKeys(periodId: string, keys: string[]): Promise<TimesheetDay[]> {
-  for (const key of keys) {
-    const rows = await hrService.listTimesheetDays(periodId, key);
-    if (rows.length > 0) return rows;
-  }
-  if (keys.length === 0) return [];
-  const all = await hrService.listTimesheetDays(periodId);
-  const keySet = new Set(keys);
-  return all.filter((d) => keySet.has(d.employeeId));
-}
-
 async function loadPunchesForKeys(
   keys: string[],
   startDate: string,
@@ -118,6 +106,13 @@ async function loadPunchesForKeys(
   return [...byId.values()].sort(
     (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime(),
   );
+}
+
+async function resolvePeriodForEmployee(year: number, month: number): Promise<TimesheetPeriod> {
+  // Prefer read-only: employee must not realign/create (RLS often blocks).
+  const existing = await hrService.getTimesheetPeriod(year, month);
+  if (existing) return existing;
+  return hrService.getOrCreateTimesheetPeriod(year, month);
 }
 
 const MyTimesheet: React.FC<Props> = ({ user }) => {
@@ -142,6 +137,10 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
   const [signOpen, setSignOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [employeeProfile, setEmployeeProfile] = useState<Employee | null>(null);
+  /** Full competence target (26→25) from shift/roster + stored days. */
+  const [periodExpected, setPeriodExpected] = useState(0);
+  const loadingRef = useRef(false);
+  const healedPeriodsRef = useRef<Set<string>>(new Set());
 
   const entryTypeLabel = useCallback(
     (type: string) => {
@@ -170,6 +169,8 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
   };
 
   const load = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setLoadError(null);
     try {
@@ -184,76 +185,123 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
       const keys = resolveEmployeeKeys(user, profile);
       const punchKey = keys[0] || user.id;
 
-      const p = await hrService.getOrCreateTimesheetPeriod(year, month);
+      const p = await resolvePeriodForEmployee(year, month);
       setPeriod(p);
 
-      const [dayList, reviewRowInitial] = await Promise.all([
-        loadDaysForKeys(p.id, keys),
+      const [dayList, reviewRow] = await Promise.all([
+        loadTimesheetDaysForEmployee(p.id, keys),
         hrService.getTimesheetEmployeeReview(p.id, user.id),
       ]);
-      let reviewRow = reviewRowInitial;
-      const eligible =
-        reviewRow?.status !== 'APPROVED' &&
-        reviewRow?.status !== 'EMPLOYEE_SIGNED' &&
-        validateTimesheetEmployeeReview(dayList, undefined, undefined).canSubmit;
-      if (eligible && (!reviewRow || reviewRow.status === 'OPEN')) {
-        try {
-          reviewRow =
-            (await hrService.reconcileTimesheetEmployeeReviewAfterManagerAcks(
-              p.id,
-              user.id,
-              user.id,
-            )) || reviewRow;
-        } catch (e) {
-          console.error('[MyTimesheet] reconcile after manager acks failed', e);
-        }
-      }
-      setDays(dayList);
+      // EMPLOYEE must not upsert reviews (RLS insert = ADMIN/HR/MANAGER only).
       setReview(reviewRow);
+
+      let daysForView = dayList;
+      const reviewClosed =
+        reviewRow?.status === 'APPROVED' || reviewRow?.status === 'EMPLOYEE_SIGNED';
+      const periodClosed = p.status === 'LOCKED' || p.status === 'APPROVED';
+      const healKey = `${p.id}:${keys.join('|')}`;
 
       if (p.startDate && p.endDate) {
         const punchList = await loadPunchesForKeys(keys, p.startDate, p.endDate);
+        // Self-heal stale days only on open periods, once per competence per session.
+        if (
+          p.status === 'OPEN' &&
+          !periodClosed &&
+          !reviewClosed &&
+          !healedPeriodsRef.current.has(healKey)
+        ) {
+          const staleDates = staleTimesheetWorkDates(dayList, punchList).slice(-31);
+          if (staleDates.length > 0) {
+            await Promise.all(
+              staleDates.map((d) =>
+                hrService.recalculateTimesheetDay(punchKey, d, p, { silent: true }).catch(() => null),
+              ),
+            );
+            daysForView = await loadTimesheetDaysForEmployee(p.id, keys);
+          }
+          healedPeriodsRef.current.add(healKey);
+        }
         setPunches(punchList);
       } else {
         setPunches([]);
       }
+      setDays(daysForView);
 
-      const [config, balance, entries] = await Promise.all([
-        hrService.getConfig().catch(() => null),
-        hrService.getHourBankBalance(punchKey).catch(() => 0),
-        p.startDate && p.endDate
-          ? hrService.listHourBankEntries(punchKey, p.startDate, p.endDate).catch(() => [])
-          : Promise.resolve([]),
-      ]);
+      const [config, balance, entries, holidays, leaves, rosterRows, shifts, overrides] =
+        await Promise.all([
+          hrService.getConfig().catch(() => null),
+          hrService.getHourBankBalance(punchKey).catch(() => 0),
+          p.startDate && p.endDate
+            ? hrService.listHourBankEntries(punchKey, p.startDate, p.endDate).catch(() => [])
+            : Promise.resolve([]),
+          hrService.getHolidays().catch(() => []),
+          hrService.getLeaves().catch(() => []),
+          p.startDate && p.endDate
+            ? hrService.listRosterForEmployee(keys, p.startDate, p.endDate).catch(() => [])
+            : Promise.resolve([]),
+          hrService.getShifts().catch(() => []),
+          hrService.getShiftOverrides().catch(() => []),
+        ]);
       setBankEnabled(config?.ptrpPolicy?.bankEnabled ?? DEFAULT_PTRP_POLICY.bankEnabled);
       setBankBalance(balance);
       setBankEntries(entries);
+
+      if (p.startDate && p.endDate) {
+        setPeriodExpected(
+          sumPeriodExpectedMinutes({
+            startDate: p.startDate,
+            endDate: p.endDate,
+            days: daysForView,
+            employee: profile,
+            employeeKeys: keys,
+            shifts,
+            overrides,
+            rosterRows,
+            holidays,
+            leaves,
+            clockStartDate: config?.timesheetClockStartDate,
+          }),
+        );
+      } else {
+        setPeriodExpected(daysForView.reduce((s, d) => s + (d.expectedMinutes || 0), 0));
+      }
     } catch (e) {
       console.error(e);
       setLoadError(t('mobile:timesheetLoadFailed'));
       setDays([]);
       setPunches([]);
+      setPeriodExpected(0);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [month, t, user, year]);
+  }, [month, t, user.id, user, year]);
 
   useEffect(() => {
     void load();
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const unsub = hrService.subscribe(() => {
-      void load();
+      // Ignore bus events while we are already loading (prevents notify→load loops).
+      if (loadingRef.current) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void load();
+      }, 450);
     });
-    return unsub;
+    return () => {
+      unsub();
+      if (timer) clearTimeout(timer);
+    };
   }, [load]);
 
   const totals = useMemo(
     () => ({
-      expected: days.reduce((s, d) => s + (d.expectedMinutes || 0), 0),
+      expected: periodExpected,
       worked: days.reduce((s, d) => s + d.workedMinutes, 0),
       overtime: days.reduce((s, d) => s + d.overtimeMinutes, 0),
       absence: days.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
     }),
-    [days],
+    [days, periodExpected],
   );
 
   const locked = period?.status === 'LOCKED';
@@ -265,7 +313,18 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
     !locked &&
     review?.status !== 'APPROVED' &&
     review?.status !== 'EMPLOYEE_SIGNED' &&
-    (review?.status === 'IN_REVIEW' || daysEligibleForSign);
+    !!review &&
+    (review.status === 'IN_REVIEW' ||
+      (review.status === 'OPEN' && daysEligibleForSign));
+
+  const statusBadgeLabel = reviewStatusLabel(review?.status, t, {
+    daysEligible:
+      !!review &&
+      daysEligibleForSign &&
+      review.status !== 'APPROVED' &&
+      review.status !== 'EMPLOYEE_SIGNED',
+    hasDays: days.length > 0,
+  });
 
   const handleDownloadPdf = async () => {
     if (!period || days.length === 0) {
@@ -302,12 +361,16 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
         colExit2: t('ptrp:pdf.colExit2'),
         colWorked: t('ptrp:pdf.colWorked'),
         colOvertime: t('ptrp:pdf.colOvertime'),
+        colOvertime60: t('ptrp:pdf.colOvertime60'),
+        colOvertime100: t('ptrp:pdf.colOvertime100'),
         colAbsence: t('ptrp:pdf.colAbsence'),
         colStatus: t('ptrp:pdf.colStatus'),
         colEmployee: t('ptrp:pdf.colEmployee'),
         metricExpected: t('ptrp:pdf.metricExpected'),
         metricWorked: t('ptrp:pdf.metricWorked'),
         metricOvertime: t('ptrp:pdf.metricOvertime'),
+        metricOvertime60: t('ptrp:pdf.metricOvertime60'),
+        metricOvertime100: t('ptrp:pdf.metricOvertime100'),
         metricAbsence: t('ptrp:pdf.metricAbsence'),
         summarySection: t('ptrp:pdf.summarySection'),
         generatedBy: t('ptrp:pdf.generatedBy'),
@@ -432,7 +495,7 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#c41e24]/12 text-[#e23d42]">
-          {reviewStatusLabel(review?.status, t)}
+          {statusBadgeLabel}
         </span>
         {locked && (
           <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300">
@@ -476,11 +539,16 @@ const MyTimesheet: React.FC<Props> = ({ user }) => {
           {t('mobile:periodTotals')}
         </h2>
         <div className="flex items-center justify-between rounded-xl border border-[#c41e24]/20 bg-[#c41e24]/10 px-3 py-2 mb-3">
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-            {t('ptrp:pdf.metricExpected')}
-          </span>
-          <span className="text-sm font-bold text-slate-900 dark:text-slate-100 tabular-nums">
-            {fmtMinutes(totals.expected)}
+          <div className="min-w-0 pr-2">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+              {t('ptrp:pdf.metricExpected')}
+            </span>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+              {t('mobile:periodExpectedHint')}
+            </p>
+          </div>
+          <span className="text-sm font-bold text-slate-900 dark:text-slate-100 tabular-nums shrink-0">
+            {periodExpected > 0 ? minutesToHm(periodExpected) : fmtMinutes(periodExpected)}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">

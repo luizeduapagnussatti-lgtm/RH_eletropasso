@@ -1,7 +1,20 @@
 import { createClient, SupabaseClient, Session, User as SupabaseUser } from '@supabase/supabase-js';
 
-const SUPABASE_URL = (import.meta.env?.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL) as string;
-const SUPABASE_ANON_KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY) as string;
+// Scripts (recalc queue) inject URL + service role before importing this module.
+// Prefer OPENHR_* so vite-node does not keep VITE_SUPABASE_URL from a TLS proxy
+// that Node cannot verify (that used to abort the drain and leave days stuck).
+const serviceRoleKey =
+  typeof process !== 'undefined' ? process.env.OPENHR_SUPABASE_SERVICE_ROLE_KEY : undefined;
+const SUPABASE_URL = (
+  (typeof process !== 'undefined' ? process.env.OPENHR_SUPABASE_URL : undefined) ||
+  import.meta.env?.VITE_SUPABASE_URL ||
+  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined)
+) as string;
+const SUPABASE_ANON_KEY = (
+  serviceRoleKey ||
+  import.meta.env?.VITE_SUPABASE_ANON_KEY ||
+  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined)
+) as string;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn('[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
@@ -9,9 +22,9 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+    persistSession: !serviceRoleKey,
+    autoRefreshToken: !serviceRoleKey,
+    detectSessionInUrl: !serviceRoleKey,
   },
 });
 

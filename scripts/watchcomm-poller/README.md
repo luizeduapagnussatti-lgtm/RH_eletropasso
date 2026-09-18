@@ -24,8 +24,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-WatchCommPoller.ps
 
 A instalacao:
 
-- Cria a tarefa `OpenHR-WatchComm-Poller` (**09:00, 15:00 e 19:00** por padrao)
-- Semanal: `Install-WatchCommPoller.ps1 -Weekly`
+- Cria a tarefa `OpenHR-WatchComm-Poller` (**segunda 09:00** por padrao)
+- Preflight LAN: `OpenHR-PrintPoint-Link` (**segunda 08:45**, SYSTEM) — ARP/TCP antes da coleta
+- Coleta manual: botao em Comunicacao com o relogio (qualquer momento)
+- Varios horarios/dia: `Install-WatchCommPoller.ps1 -Daily` (09/15/19) ou `-ScheduleHours 8,12,18`
 - Horario: `Install-WatchCommPoller.ps1 -IntervalHours 1`
 - Com `-Bootstrap`: grava watermark NSR **sem** enviar historico ao RH (so na primeira instalacao)
 

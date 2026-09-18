@@ -1,0 +1,16 @@
+eletropasso.local:53 {
+    errors
+    log
+    hosts {
+        100.125.155.8 rh.eletropasso.local
+        100.125.155.8 api-rh.eletropasso.local
+        100.125.155.8 atendimento.eletropasso.local
+        100.125.155.8 evolution.eletropasso.local
+        100.125.155.8 proxy.eletropasso.local
+        fallthrough
+    }
+}
+.:53 {
+    errors
+    forward . 8.8.8.8 1.1.1.1
+}

@@ -5,7 +5,7 @@ import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type { ClockEmployeeOnDevice, Employee, EmployeeStatus } from '../../types';
-import { extractCommandData, runClockOp } from './clockCommandUi';
+import { extractCommandData, runClockOp, isClockBusyError } from './clockCommandUi';
 import { isNonPunchingStaff, needsClockAdmission } from '../../utils/roles';
 import {
   clockCredentialSignificantDigits,
@@ -92,19 +92,22 @@ export const ClockEmployeesTab: React.FC<Props> = ({ onBusyChange }) => {
     setLoading(true);
     onBusyChange?.(true);
     try {
-      const [empResult, fpResult, rhEmployees] = await Promise.all([
-        hrService.runClockCommand('employee-list-read'),
-        hrService.runClockCommand('fingerprint-list-read').catch((err) => {
-          console.warn('[ClockEmployees] fingerprint-list-read failed', err);
-          return null;
-        }),
-        hrService.getEmployees(),
-      ]);
-
-      if (empResult.busy) {
+      // dmprep-sync allows only one WatchComm op at a time — never parallelize
+      // clock commands (Promise.all made fingerprint-list steal the lock and
+      // employee-list returned busy → false "operação em andamento").
+      const empResult = await hrService.runClockCommand('employee-list-read');
+      if (empResult.busy || isClockBusyError(empResult.error || '')) {
         showToast(t('busy'), 'warning');
         return;
       }
+
+      const fpResult = await hrService
+        .runClockCommand('fingerprint-list-read')
+        .catch((err) => {
+          console.warn('[ClockEmployees] fingerprint-list-read failed', err);
+          return null;
+        });
+      const rhEmployees = await hrService.getEmployees();
 
       const empData = extractCommandData(empResult);
       if (empData.supported === false) {

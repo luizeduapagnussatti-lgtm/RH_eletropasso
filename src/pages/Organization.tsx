@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { hrService } from '../services/hrService';
-import { Holiday, Team, OfficeLocation, LeaveWorkflow, Shift, ShiftOverride, CustomLeaveType, ShiftWeekday, ShiftDaySchedule } from '../types';
+import { Employee, Holiday, Team, OfficeLocation, LeaveWorkflow, Shift, ShiftOverride, CustomLeaveType, ShiftWeekday, ShiftDaySchedule } from '../types';
 import { useSubscription } from '../context/SubscriptionContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,8 @@ import { OrgNotifications } from '../components/organization/OrgNotifications';
 import { OrgMessaging } from '../components/organization/OrgMessaging';
 import HelpButton from '../components/onboarding/HelpButton';
 import { orgTabButtonClass } from '../components/organization/OrgUi';
+import { syncShortDayExpectedMinutes } from '../services/timeCalculation.service';
+import { DurationHmInput } from '../components/ui/DurationHmInput';
 
 type OrgTab = 'STRUCTURE' | 'TEAMS' | 'PLACEMENT' | 'SHIFTS' | 'WORKFLOW' | 'LEAVES' | 'HOLIDAYS' | 'NOTIFICATIONS' | 'SYSTEM';
 
@@ -85,7 +87,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const defaultShiftForm: Partial<Shift> = {
     name: '', code: '', scheduleType: 'FIXED',
     startTime: '09:00', endTime: '18:00',
-    lateGracePeriod: 5, earlyOutGracePeriod: 15,
+    lateGracePeriod: 10, earlyOutGracePeriod: 10,
     earliestCheckIn: '06:00', autoSessionCloseTime: '23:59',
     workingDays: ['Monday','Tuesday','Wednesday','Thursday','Sunday'],
     isDefault: false,
@@ -99,6 +101,9 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
   const [shiftOverrideForm, setShiftOverrideForm] = useState({ employeeId: '', shiftId: '', startDate: '', endDate: '', reason: '' });
   const [memberSearch, setMemberSearch] = useState('');
 
+  const isActiveStaff = (e: Employee) => e.status !== 'INACTIVE';
+  const activeEmployees = employees.filter(isActiveStaff);
+
   // --- Handlers ---
 
   const openModal = (type: typeof modalType, index: number | null = null) => {
@@ -110,7 +115,9 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
       const team = index !== null ? teams[index] : { name: '', leaderId: '', department: '' };
       setTeamForm(team);
       const targetTeamId = index !== null ? teams[index].id : '';
-      const existingMembers = employees.filter(e => e.teamId === targetTeamId).map(e => e.id);
+      const existingMembers = employees
+        .filter(e => e.teamId === targetTeamId && isActiveStaff(e))
+        .map(e => e.id);
       setSelectedEmployeeIds(new Set(existingMembers));
       setMemberSearch('');
     } else if (type === 'LOCATION') {
@@ -149,7 +156,13 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
         await updateHolidays(next);
       } else if (modalType === 'TEAM') {
         const teamId = editIndex !== null ? teams[editIndex].id : null;
-        await saveTeam(teamId, teamForm, selectedEmployeeIds);
+        const activeMemberIds = new Set(
+          [...selectedEmployeeIds].filter(id => employees.find(e => e.id === id && isActiveStaff(e))),
+        );
+        const leaderId = teamForm.leaderId && employees.find(e => e.id === teamForm.leaderId && isActiveStaff(e))
+          ? teamForm.leaderId
+          : '';
+        await saveTeam(teamId, { ...teamForm, leaderId }, activeMemberIds);
       } else if (modalType === 'DEPT') {
         const next = [...departments];
         if (editIndex !== null) next[editIndex] = modalValue.trim();
@@ -184,6 +197,29 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
             return;
           }
           shiftForm.breakDurationMinutes = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+        }
+        const breakMins = shiftForm.breakDurationMinutes ?? 0;
+        shiftForm.expectedDailyMinutes = syncShortDayExpectedMinutes(
+          shiftForm.startTime,
+          shiftForm.endTime,
+          breakMins,
+          shiftForm.expectedDailyMinutes,
+        );
+        if (shiftForm.daySchedules) {
+          const syncedSchedules = { ...shiftForm.daySchedules };
+          for (const [day, sched] of Object.entries(syncedSchedules)) {
+            if (!sched) continue;
+            syncedSchedules[day as ShiftWeekday] = {
+              ...sched,
+              expectedDailyMinutes: syncShortDayExpectedMinutes(
+                sched.startTime,
+                sched.endTime,
+                sched.breakDurationMinutes ?? 0,
+                sched.expectedDailyMinutes,
+              ),
+            };
+          }
+          shiftForm.daySchedules = syncedSchedules;
         }
         if (editIndex !== null) {
           const shiftId = shifts[editIndex].id;
@@ -457,7 +493,23 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                  <div className="space-y-4">
                     <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('teamName')}</label><input required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-4 focus:ring-primary-light transition-all" value={teamForm.name} onChange={e => setTeamForm({...teamForm, name: e.target.value})} /></div>
                     <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('departments')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={teamForm.department} onChange={e => setTeamForm({...teamForm, department: e.target.value})}>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
-                    <div className="space-y-1"><label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('teamLead')}</label><select className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={teamForm.leaderId} onChange={e => setTeamForm({...teamForm, leaderId: e.target.value})}><option value="">{t('assignLead')}</option>{employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('teamLead')}</label>
+                      <select
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        value={teamForm.leaderId}
+                        onChange={e => setTeamForm({...teamForm, leaderId: e.target.value})}
+                      >
+                        <option value="">{t('assignLead')}</option>
+                        {employees
+                          .filter(e => isActiveStaff(e) || e.id === teamForm.leaderId)
+                          .map(e => (
+                            <option key={e.id} value={e.id}>
+                              {e.status === 'INACTIVE' ? `${e.name} (${t('dismissedStaff')})` : e.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('members', { count: selectedEmployeeIds.size })}</label>
                       <div className="relative mb-2">
@@ -471,7 +523,7 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                         />
                       </div>
                       <div className="h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 grid grid-cols-2 gap-2 bg-slate-50/50">
-                        {employees
+                        {activeEmployees
                           .filter(e => !memberSearch || e.name.toLowerCase().includes(memberSearch.toLowerCase()) || (e.employeeId && e.employeeId.toLowerCase().includes(memberSearch.toLowerCase())))
                           .map(e => (
                             <div key={e.id} onClick={() => { const next = new Set(selectedEmployeeIds); if (next.has(e.id)) next.delete(e.id); else next.add(e.id); setSelectedEmployeeIds(next); }} className={`p-2 rounded-lg text-xs font-bold cursor-pointer border ${selectedEmployeeIds.has(e.id) ? 'bg-primary-light border-primary text-primary' : 'bg-white border-slate-100 text-slate-500'}`}>{e.name}</div>
@@ -490,21 +542,69 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('startTime')}</label>
-                      <input type="time" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.startTime} onChange={e => setShiftForm({...shiftForm, startTime: e.target.value})} />
+                      <input
+                        type="time"
+                        required
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        value={shiftForm.startTime}
+                        onChange={e => {
+                          const startTime = e.target.value;
+                          const breakMins = shiftForm.breakDurationMinutes ?? 0;
+                          setShiftForm({
+                            ...shiftForm,
+                            startTime,
+                            expectedDailyMinutes: syncShortDayExpectedMinutes(
+                              startTime,
+                              shiftForm.endTime,
+                              breakMins,
+                              shiftForm.expectedDailyMinutes,
+                            ),
+                          });
+                        }}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('endTime')}</label>
-                      <input type="time" required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.endTime} onChange={e => setShiftForm({...shiftForm, endTime: e.target.value})} />
+                      <input
+                        type="time"
+                        required
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        value={shiftForm.endTime}
+                        onChange={e => {
+                          const endTime = e.target.value;
+                          const breakMins = shiftForm.breakDurationMinutes ?? 0;
+                          setShiftForm({
+                            ...shiftForm,
+                            endTime,
+                            expectedDailyMinutes: syncShortDayExpectedMinutes(
+                              shiftForm.startTime,
+                              endTime,
+                              breakMins,
+                              shiftForm.expectedDailyMinutes,
+                            ),
+                          });
+                        }}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('lateGraceMin')}</label>
-                      <input type="number" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.lateGracePeriod} onChange={e => setShiftForm({...shiftForm, lateGracePeriod: parseInt(e.target.value) || 0})} />
+                      <DurationHmInput
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        valueMinutes={shiftForm.lateGracePeriod ?? 0}
+                        onChangeMinutes={lateGracePeriod => setShiftForm({ ...shiftForm, lateGracePeriod })}
+                        allowOver24h={false}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('earlyOutGraceMin')}</label>
-                      <input type="number" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.earlyOutGracePeriod} onChange={e => setShiftForm({...shiftForm, earlyOutGracePeriod: parseInt(e.target.value) || 0})} />
+                      <DurationHmInput
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        valueMinutes={shiftForm.earlyOutGracePeriod ?? 0}
+                        onChangeMinutes={earlyOutGracePeriod => setShiftForm({ ...shiftForm, earlyOutGracePeriod })}
+                        allowOver24h={false}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -520,17 +620,42 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('breakDurationMin')}</label>
-                      <input type="number" min={0} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.breakDurationMinutes ?? 90} onChange={e => setShiftForm({...shiftForm, breakDurationMinutes: parseInt(e.target.value) || 0})} />
+                      <DurationHmInput
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        valueMinutes={shiftForm.breakDurationMinutes ?? 90}
+                        onChangeMinutes={breakDurationMinutes => {
+                          setShiftForm({
+                            ...shiftForm,
+                            breakDurationMinutes,
+                            expectedDailyMinutes: syncShortDayExpectedMinutes(
+                              shiftForm.startTime,
+                              shiftForm.endTime,
+                              breakDurationMinutes,
+                              shiftForm.expectedDailyMinutes,
+                            ),
+                          });
+                        }}
+                        allowOver24h={false}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('expectedDailyMin')}</label>
-                      <input type="number" min={0} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.expectedDailyMinutes ?? 480} onChange={e => setShiftForm({...shiftForm, expectedDailyMinutes: parseInt(e.target.value) || 0})} />
+                      <DurationHmInput
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        valueMinutes={shiftForm.expectedDailyMinutes ?? 480}
+                        onChangeMinutes={expectedDailyMinutes => setShiftForm({ ...shiftForm, expectedDailyMinutes })}
+                        allowOver24h={false}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('expectedWeeklyMin')}</label>
-                      <input type="number" min={0} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={shiftForm.expectedWeeklyMinutes ?? 2640} onChange={e => setShiftForm({...shiftForm, expectedWeeklyMinutes: parseInt(e.target.value) || 0})} />
+                      <DurationHmInput
+                        className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                        valueMinutes={shiftForm.expectedWeeklyMinutes ?? 2640}
+                        onChangeMinutes={expectedWeeklyMinutes => setShiftForm({ ...shiftForm, expectedWeeklyMinutes })}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase px-1">{t('shiftCode')}</label>
@@ -709,11 +834,21 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
                                     value={override.startTime}
                                     onChange={(e) => {
+                                      const startTime = e.target.value;
                                       setShiftForm({
                                         ...shiftForm,
                                         daySchedules: {
                                           ...(shiftForm.daySchedules || {}),
-                                          [weekday]: { ...override, startTime: e.target.value },
+                                          [weekday]: {
+                                            ...override,
+                                            startTime,
+                                            expectedDailyMinutes: syncShortDayExpectedMinutes(
+                                              startTime,
+                                              override.endTime,
+                                              override.breakDurationMinutes ?? 0,
+                                              override.expectedDailyMinutes,
+                                            ),
+                                          },
                                         },
                                       });
                                     }}
@@ -726,11 +861,21 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
                                     value={override.endTime}
                                     onChange={(e) => {
+                                      const endTime = e.target.value;
                                       setShiftForm({
                                         ...shiftForm,
                                         daySchedules: {
                                           ...(shiftForm.daySchedules || {}),
-                                          [weekday]: { ...override, endTime: e.target.value },
+                                          [weekday]: {
+                                            ...override,
+                                            endTime,
+                                            expectedDailyMinutes: syncShortDayExpectedMinutes(
+                                              override.startTime,
+                                              endTime,
+                                              override.breakDurationMinutes ?? 0,
+                                              override.expectedDailyMinutes,
+                                            ),
+                                          },
                                         },
                                       });
                                     }}
@@ -738,19 +883,24 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-semibold text-slate-400 uppercase px-1">{t('breakDurationMin')}</label>
-                                  <input
-                                    type="number"
-                                    min={0}
+                                  <DurationHmInput
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
-                                    value={override.breakDurationMinutes ?? 0}
-                                    onChange={(e) => {
+                                    valueMinutes={override.breakDurationMinutes ?? 0}
+                                    allowOver24h={false}
+                                    onChangeMinutes={breakDurationMinutes => {
                                       setShiftForm({
                                         ...shiftForm,
                                         daySchedules: {
                                           ...(shiftForm.daySchedules || {}),
                                           [weekday]: {
                                             ...override,
-                                            breakDurationMinutes: parseInt(e.target.value) || 0,
+                                            breakDurationMinutes,
+                                            expectedDailyMinutes: syncShortDayExpectedMinutes(
+                                              override.startTime,
+                                              override.endTime,
+                                              breakDurationMinutes,
+                                              override.expectedDailyMinutes,
+                                            ),
                                           },
                                         },
                                       });
@@ -759,19 +909,18 @@ const Organization: React.FC<OrganizationProps> = ({ initialTab }) => {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-semibold text-slate-400 uppercase px-1">{t('expectedDailyMin')}</label>
-                                  <input
-                                    type="number"
-                                    min={0}
+                                  <DurationHmInput
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
-                                    value={override.expectedDailyMinutes ?? 0}
-                                    onChange={(e) => {
+                                    valueMinutes={override.expectedDailyMinutes ?? 0}
+                                    allowOver24h={false}
+                                    onChangeMinutes={expectedDailyMinutes => {
                                       setShiftForm({
                                         ...shiftForm,
                                         daySchedules: {
                                           ...(shiftForm.daySchedules || {}),
                                           [weekday]: {
                                             ...override,
-                                            expectedDailyMinutes: parseInt(e.target.value) || 0,
+                                            expectedDailyMinutes,
                                           },
                                         },
                                       });

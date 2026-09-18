@@ -231,8 +231,26 @@ lista.
 6. Um cliente de cada vez na porta 3000 do relógio (`dmprep-sync` e o
    poller compartilham lock).
 7. PowerShell **x86**. A DLL é 32-bit.
-8. Envio de empregado: **PIS 12 dígitos** + **credencial curta** (teclado).
-   O relógio autentica por **Credencial**, não por PIS.
+8. **Link LAN oscilante** (IP fixo `192.168.15.201`, ARP dinâmico expirando):
+   - Rodar **como Administrador** uma vez:
+     `powershell -File scripts\Install-PrintPointLink.ps1`
+     (grava ARP estático MAC `f8-f0-05-65-80-11` + tarefa **segunda 08:45**,
+     15 min antes da coleta semanal 09:00).
+   - O poller/watchdog já chama `Ensure-PrintPointLink` (ping + TCP preflight)
+     e a coleta usa `collectRetries: 5` com backoff longo.
+   - Coleta silenciosa: **1x por semana** (segunda 09:00) ou botão manual
+     em Comunicação. Não há coleta diária nem a cada 30 min.
+9. **Limpeza de domingo** (`Cursor-Limpeza-Semanal` 10:00) limpa só resíduos
+   do Cursor IDE — **não** mexe em ARP, WatchComm, Docker nem pastas RH.
+   Poda de logs do poller: `OpenHR-WatchComm-LogCleanup` (domingo 10:30),
+   preserva `state.json` / `last-cycle-result.json`.
+10. Envio de empregado (PrintPoint III / SmartPoint B):
+   - **Não** usar `AddEmployee` 5/7 args (só PrintPoint Li).
+   - Usar `AddFullEmployee(pis, name, password, PrintPointCredential[], fingerprints[])`
+     ou `AddEmployee(pis,name,password)` + `AddCredential` + `IncludeCredentialList`.
+   - Senha/crachá no equipamento fica com **6 dígitos** (`99` → `000099`).
+   - Função 91: digite `99` ou `000099`, ou selecione o nome na lista.
+   - Relógio na tela de ponto (fora do menu) no momento do envio.
 
 Config esperado:
 

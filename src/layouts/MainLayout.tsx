@@ -10,6 +10,7 @@ import { isNonPunchingStaff, isPjContractor } from '../utils/roles';
 import { useEmployeeMobileShell } from '../hooks/useEmployeeMobileShell';
 import { usePendingTimesheetSign } from '../hooks/mobile/usePendingTimesheetSign';
 import { hrService } from '../services/hrService';
+import { ClockCollectBanner } from '../components/timeClock/ClockCollectBanner';
 
 const SIDEBAR_STORAGE_KEY = 'openhr_sidebar_collapsed';
 
@@ -60,8 +61,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   const pendingTimesheetSign = usePendingTimesheetSign(
     employeeMobileShell && !isPjMobile ? user : null,
   );
+  const [pendingRosterSwaps, setPendingRosterSwaps] = useState(0);
   const historyPath = isNonPunchingStaff(user?.role) ? 'attendance-audit' : 'attendance-logs';
   const isWideContent = WIDE_CONTENT_PATHS.has(currentPath);
+
+  useEffect(() => {
+    if (!employeeMobileShell || user?.role !== 'MANAGER') {
+      setPendingRosterSwaps(0);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await hrService.listPendingRosterSwaps();
+        if (!cancelled) setPendingRosterSwaps(rows.length);
+      } catch {
+        if (!cancelled) setPendingRosterSwaps(0);
+      }
+    };
+    void load();
+    const unsub = hrService.subscribe(() => {
+      void load();
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [employeeMobileShell, user?.role]);
 
   useEffect(() => {
     try {
@@ -234,6 +260,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
            </div>
         </header>
 
+        <ClockCollectBanner onNavigate={onNavigate} />
+
         {/* Content */}
         <div
           id="main-content"
@@ -258,6 +286,70 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
           aria-label={t('mobile:bottomNavLabel')}
         >
           {employeeMobileShell ? (
+            user.role === 'MANAGER' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleNavigate('dashboard')}
+                aria-current={currentPath === 'dashboard' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'dashboard'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
+              >
+                <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navHome')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('timesheet')}
+                aria-current={currentPath === 'timesheet' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'timesheet'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
+              >
+                <ClipboardList size={20} className={currentPath === 'timesheet' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:mgrNavTeam')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('roster')}
+                aria-current={currentPath === 'roster' ? 'page' : undefined}
+                className={`relative flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'roster'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
+              >
+                <span className="relative inline-flex">
+                  <CalendarCheck size={20} className={currentPath === 'roster' ? 'scale-110' : ''} />
+                  {pendingRosterSwaps > 0 && (
+                    <span
+                      className="absolute -top-0.5 -right-1.5 h-2 w-2 rounded-full bg-[#c41e24] ring-2 ring-white dark:ring-[#182230]"
+                      aria-hidden
+                    />
+                  )}
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navRoster')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('profile')}
+                aria-current={currentPath === 'profile' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'profile'
+                    ? 'text-[#e23d42]'
+                    : 'text-slate-500 dark:text-white/45'
+                }`}
+              >
+                <UserCircle size={20} className={currentPath === 'profile' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navAccount')}</span>
+              </button>
+            </>
+            ) : (
             <>
               <button
                 type="button"
@@ -322,6 +414,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
                 <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navAccount')}</span>
               </button>
             </>
+            )
           ) : (
             <>
               <button

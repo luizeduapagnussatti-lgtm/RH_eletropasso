@@ -1,7 +1,12 @@
 /**
- * Classify daily overtime into HE 50% vs HE 100% (Eletropasso rule).
- * 100%: Sunday or org holiday; 50%: all other days.
+ * Classify daily overtime into HE 60% vs HE 100% (Eletropasso rule).
+ * Weekday/Saturday: first 120 minutes at 60% (stored as extra50Minutes), remainder at 100%.
+ * Sunday or org holiday: 100% from the first minute.
+ *
+ * extra50Minutes is the lower overtime band (60% pay) — DB column extra_hours_50 is unchanged.
  */
+
+export const WEEKDAY_OT_60_CAP_MINUTES = 120;
 
 export function isSundayDate(workDate: string): boolean {
   return new Date(`${workDate}T12:00:00`).getDay() === 0;
@@ -28,7 +33,10 @@ export function classifyOvertimeMinutes(input: ClassifyOvertimeInput): ClassifyO
   if (sunday || input.isHoliday) {
     return { extra50Minutes: 0, extra100Minutes: ot };
   }
-  return { extra50Minutes: ot, extra100Minutes: 0 };
+
+  const extra50Minutes = Math.min(ot, WEEKDAY_OT_60_CAP_MINUTES);
+  const extra100Minutes = Math.max(0, ot - WEEKDAY_OT_60_CAP_MINUTES);
+  return { extra50Minutes, extra100Minutes };
 }
 
 export function minutesToHours(minutes: number): number {

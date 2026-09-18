@@ -48,6 +48,16 @@ credentials*.json
 exports/
 scripts/migrate-from-pb/exports/
 
+# Local DIMEP dumps / sync fixtures (PII — never commit)
+data/
+
+# Vendor WatchComm DLL drop (local poller; do not commit)
+scripts/watchcomm-poller/lib/dimep-binaries/
+
+# Logo backups
+public/img/*.bak.png
+public/img/*.bak.webp
+
 # Local Claude Code & Agent files (skills are tracked)
 .agents/*
 !.agents/skills/

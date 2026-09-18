@@ -10,6 +10,8 @@
   "quickActions": "Ações rápidas",
   "clockIn": "Entrada",
   "clockOut": "Registrar saída",
+  "pwaPunchEyebrow": "Ponto pelo app",
+  "pwaPunchAction": "Bater ponto",
   "applyLeave": "Solicitar licença",
   "recentAnnouncements": "Comunicados",
   "teamOverview": "Visão da equipe",
@@ -49,5 +51,6 @@
   "pendingLeavesLabel": "Licenças pendentes",
   "teamHeadcountLabel": "Colaboradores",
   "lateCount": "{{count}} atrasos",
+  "punchCorrections": "Ajustes",
   "timesheet": "Espelho"
 }

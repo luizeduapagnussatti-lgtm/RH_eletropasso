@@ -30,6 +30,8 @@ export const usePerformanceReview = (user: any) => {
   const [error, setError] = useState<string | null>(null);
 
   const isAdmin = user.role === 'ADMIN' || user.role === 'HR' || user.role === 'SUPER_ADMIN';
+  const isManagerish =
+    user.role === 'MANAGER' || user.role === 'TEAM_LEAD' || user.role === 'MANAGEMENT';
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -47,7 +49,14 @@ export const usePerformanceReview = (user: any) => {
       }
 
       try {
-        reviews = await hrService.getReviews();
+        // Scope at the API: employee/manager never pull the full org list.
+        if (isAdmin) {
+          reviews = await hrService.getReviews();
+        } else if (isManagerish) {
+          reviews = await hrService.getReviews({ selfOrReportsOf: user.id });
+        } else {
+          reviews = await hrService.getReviews({ employeeId: user.id });
+        }
       } catch (e: any) {
         console.error('[usePerformanceReview] Failed to fetch reviews:', e);
       }
@@ -112,7 +121,9 @@ export const usePerformanceReview = (user: any) => {
         cycles,
         activeCycle,
         upcomingCycle,
-        reviews,
+        reviews: isAdmin ? reviews : reviews.filter(
+          (r) => r.employeeId === user.id || r.lineManagerId === user.id,
+        ),
         myReview,
         directReportReviews,
         allReviews: isAdmin ? reviews : [],
@@ -124,7 +135,7 @@ export const usePerformanceReview = (user: any) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user.id, user.role]);
+  }, [isAdmin, isManagerish, user.id, user.role]);
 
   useEffect(() => {
     setIsLoading(true);

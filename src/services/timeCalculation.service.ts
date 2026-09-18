@@ -9,6 +9,21 @@ import { punchLocalDateKey } from './punch.service';
 /** Expected work minutes at/above this = full journey → exactly 4 punches required. */
 export const FULL_JOURNEY_MIN_EXPECTED_MINUTES = 360;
 
+/** Clock tolerance for late, early-out, overtime floor and jornada shortfall (Eletropasso). */
+export const CLOCK_TOLERANCE_MINUTES = 10;
+
+/**
+ * Count the full delta only when it meets the 10-minute floor (overtime / worked shortfall).
+ * Full-day ABSENT (no punches) does not use this — that still books the whole expected load.
+ */
+export function applyJourneyThreshold(
+  deltaMinutes: number,
+  tolerance = CLOCK_TOLERANCE_MINUTES,
+): number {
+  const d = Math.max(0, Math.round(deltaMinutes || 0));
+  return d >= tolerance ? d : 0;
+}
+
 export function parseHmToMinutes(hm: string | undefined | null): number | null {
   if (!hm) return null;
   const m = String(hm).match(/^(\d{1,2}):(\d{2})/);
@@ -65,6 +80,61 @@ export function getWeekdayName(date: string): ShiftWeekday {
   return WEEKDAY_NAMES[day];
 }
 
+/**
+ * Net work minutes from wall-clock window: (end − start) − break.
+ * Returns null when times are missing/invalid.
+ */
+export function netMinutesFromShiftWindow(
+  startTime?: string | null,
+  endTime?: string | null,
+  breakDurationMinutes = 0,
+): number | null {
+  const startM = parseHmToMinutes(startTime);
+  const endM = parseHmToMinutes(endTime);
+  if (startM == null || endM == null || endM <= startM) return null;
+  return Math.max(0, endM - startM - Math.max(0, breakDurationMinutes));
+}
+
+/**
+ * Jornada prevista: short windows (&lt; 6h net) follow the clock span so meio turno
+ * 08:00–11:45 is 225 even if expectedDailyMinutes was wrongly saved as 240.
+ * Full journeys keep the stored expected (e.g. 480) when present.
+ */
+export function resolveExpectedDailyMinutes(opts: {
+  startTime?: string | null;
+  endTime?: string | null;
+  breakDurationMinutes: number;
+  storedExpected?: number | null;
+}): number {
+  const fromTimes = netMinutesFromShiftWindow(
+    opts.startTime,
+    opts.endTime,
+    opts.breakDurationMinutes,
+  );
+  if (fromTimes != null && fromTimes > 0 && fromTimes < FULL_JOURNEY_MIN_EXPECTED_MINUTES) {
+    return fromTimes;
+  }
+  if (opts.storedExpected != null && opts.storedExpected > 0) {
+    return opts.storedExpected;
+  }
+  if (fromTimes != null && fromTimes > 0) return fromTimes;
+  return 480;
+}
+
+/** If the window is a short day, return net minutes; otherwise keep currentExpected. */
+export function syncShortDayExpectedMinutes(
+  startTime: string | undefined | null,
+  endTime: string | undefined | null,
+  breakDurationMinutes: number,
+  currentExpected: number | undefined | null,
+): number {
+  const fromTimes = netMinutesFromShiftWindow(startTime, endTime, breakDurationMinutes);
+  if (fromTimes != null && fromTimes > 0 && fromTimes < FULL_JOURNEY_MIN_EXPECTED_MINUTES) {
+    return fromTimes;
+  }
+  return currentExpected != null && currentExpected > 0 ? currentExpected : (fromTimes ?? 480);
+}
+
 /** Effective schedule for a calendar date (base shift + optional day_schedules override). */
 export function resolveShiftDay(shift: Shift | null, date: string): {
   startTime?: string;
@@ -99,14 +169,22 @@ export function resolveShiftDay(shift: Shift | null, date: string): {
       }
     }
   }
+  const startTime = override?.startTime || shift.startTime;
+  const endTime = override?.endTime || shift.endTime;
+  const storedExpected = override?.expectedDailyMinutes ?? shift.expectedDailyMinutes;
   return {
-    startTime: override?.startTime || shift.startTime,
-    endTime: override?.endTime || shift.endTime,
+    startTime,
+    endTime,
     breakDurationMinutes,
     breakFlexible,
     breakEarliestStart,
     breakLatestEnd,
-    expectedDailyMinutes: override?.expectedDailyMinutes ?? shift.expectedDailyMinutes ?? 480,
+    expectedDailyMinutes: resolveExpectedDailyMinutes({
+      startTime,
+      endTime,
+      breakDurationMinutes,
+      storedExpected,
+    }),
   };
 }
 
@@ -426,14 +504,18 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
 
   const shiftWorking = shift ? isWorkingDay(date, shift.workingDays || []) : true;
   let working = shiftWorking;
+  // Saturday is roster-gated: unpublished/cleared Saturday is OFF, not a shift working day.
+  if (getWeekdayName(date) === 'Saturday' && rosterStatus == null) {
+    working = false;
+  }
   if (rosterStatus === 'WORK') working = true;
   if (rosterStatus === 'OFF') working = false;
 
   const daySched = resolveShiftDay(shift, date);
   const expected = working ? daySched.expectedDailyMinutes : 0;
   const scheduledBreakMins = daySched.breakDurationMinutes;
-  const grace = shift?.lateGracePeriod ?? 0;
-  const earlyGrace = shift?.earlyOutGracePeriod ?? 0;
+  const grace = CLOCK_TOLERANCE_MINUTES;
+  const earlyGrace = CLOCK_TOLERANCE_MINUTES;
 
   const work = resolveWorkedAndBreakMinutes(punches, date, scheduledBreakMins);
   const first = work.firstIn;
@@ -505,7 +587,7 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
     }
   }
 
-  const overtimeMinutes = Math.max(0, worked - expected);
+  const overtimeMinutes = applyJourneyThreshold(worked - expected);
   const nightMinutes = calcNightMinutes(
     first,
     last,
@@ -526,7 +608,7 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
     status = 'INCOMPLETE';
   }
 
-  const shortfall = Math.max(0, expected - worked);
+  const shortfall = applyJourneyThreshold(expected - worked);
 
   return {
     expectedMinutes: expected,
@@ -536,7 +618,10 @@ export function calculateDay(input: DayCalcInput): DayCalcResult {
     earlyOutMinutes,
     overtimeMinutes,
     nightMinutes,
-    absenceMinutes: shortfall,
+    // Incomplete ≠ falta. Shortfall is only a booked absence on closed days
+    // (OK/LATE) or true ABSENT (no punches). Otherwise PWA "Faltas" sums the
+    // remaining journey while the employee is still at work.
+    absenceMinutes: status === 'INCOMPLETE' ? 0 : shortfall,
     status,
     firstPunchAt: first,
     lastPunchAt: last,

@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   CalendarDays,
   Clock,
+  ClipboardList,
   Megaphone,
   PenLine,
   ArrowRight,
@@ -11,9 +12,12 @@ import {
 import type { Employee, User, WorkRosterAssignment } from '../../types';
 import { hrService } from '../../services/hrService';
 import { isPjContractor } from '../../utils/roles';
-import { competenceForDate } from '../../utils/payrollPeriod';
-import { DEFAULT_PTRP_POLICY } from '../../constants';
-import { minutesToDisplay } from '../../utils/durationHm';
+import { minutesToDisplay, minutesToHm } from '../../utils/durationHm';
+import {
+  resolveEmployeeKeys,
+  loadEmployeeMonthTotals,
+  type EmployeeMonthTotals,
+} from '../../utils/timesheetEmployeeKeys';
 import { formatIsoDateBr } from '../../i18n/format';
 import { useAnnouncements } from '../../hooks/announcements/useAnnouncements';
 import { usePendingTimesheetSign } from '../../hooks/mobile/usePendingTimesheetSign';
@@ -63,37 +67,52 @@ type NextRoster = {
   dayKind: WorkRosterAssignment['dayKind'];
 } | null;
 
-type MonthTotals = {
-  worked: number;
-  overtime: number;
-  absence: number;
-  periodLabel: string;
-} | null;
-
 export const EmployeeMobileHome: React.FC<Props> = ({ user, isLoading, onNavigate }) => {
   const { t } = useTranslation('mobile');
   const isPj = isPjContractor(user);
   const { visibleAnnouncements, isLoading: annLoading } = useAnnouncements(user as User);
   const pendingSign = usePendingTimesheetSign(isPj ? null : (user as User));
 
+  const [allowPwaPunch, setAllowPwaPunch] = useState(!!(user as Employee).allowPwaPunch);
   const [nextRoster, setNextRoster] = useState<NextRoster>(null);
-  const [totals, setTotals] = useState<MonthTotals>(null);
+  const [totals, setTotals] = useState<EmployeeMonthTotals | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
 
-  const employeeKeys = useMemo(
-    () => [user.id, (user as Employee).employeeId].filter(Boolean) as string[],
-    [user],
-  );
+  useEffect(() => {
+    setAllowPwaPunch(!!(user as Employee).allowPwaPunch);
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      setStatusLoading(true);
+    (async () => {
+      try {
+        const allowed = await hrService.getMyAllowPwaPunch();
+        if (!cancelled) setAllowPwaPunch(allowed);
+      } catch {
+        /* keep prop value */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (quiet = false) => {
+      if (!quiet) setStatusLoading(true);
       const today = isoToday();
       const range = addMonthsIsoRange(new Date(), 1);
 
+      const employees = await hrService.getEmployees().catch(() => [] as Employee[]);
+      const profile =
+        employees.find((e) => e.id === user.id) ||
+        employees.find((e) => e.employeeId && e.employeeId === (user as Employee).employeeId) ||
+        null;
+      const keys = resolveEmployeeKeys(user, profile);
+
       const rosterPromise = hrService
-        .listRosterForEmployee(employeeKeys, range.start, range.end)
+        .listRosterForEmployee(keys.length ? keys : [user.id], range.start, range.end)
         .then((rows) => {
           const upcoming = rows
             .filter((r) => r.workDate >= today)
@@ -106,26 +125,11 @@ export const EmployeeMobileHome: React.FC<Props> = ({ user, isLoading, onNavigat
         .catch(() => null);
 
       const totalsPromise = isPj
-        ? Promise.resolve(null as MonthTotals)
-        : (async () => {
-            try {
-              const competence = competenceForDate(new Date(), DEFAULT_PTRP_POLICY.periodStartDay);
-              const period = await hrService.getOrCreateTimesheetPeriod(
-                competence.year,
-                competence.month,
-              );
-              const employeeKey = (user as Employee).employeeId || user.id;
-              const days = await hrService.listTimesheetDays(period.id, employeeKey);
-              return {
-                worked: days.reduce((s, d) => s + d.workedMinutes, 0),
-                overtime: days.reduce((s, d) => s + d.overtimeMinutes, 0),
-                absence: days.reduce((s, d) => s + d.absenceMinutes, 0),
-                periodLabel: `${String(competence.month).padStart(2, '0')}/${competence.year}`,
-              };
-            } catch {
-              return null;
-            }
-          })();
+        ? Promise.resolve(null as EmployeeMonthTotals | null)
+        : loadEmployeeMonthTotals(keys.length ? keys : [user.id]).catch((err) => {
+            console.warn('[EmployeeMobileHome] month totals failed', err);
+            return null;
+          });
 
       const [roster, monthTotals] = await Promise.all([rosterPromise, totalsPromise]);
       if (cancelled) return;
@@ -133,11 +137,15 @@ export const EmployeeMobileHome: React.FC<Props> = ({ user, isLoading, onNavigat
       setTotals(monthTotals);
       setStatusLoading(false);
     };
-    void load();
+    void load(false);
+    const unsub = hrService.subscribe(() => {
+      void load(true);
+    });
     return () => {
       cancelled = true;
+      unsub();
     };
-  }, [employeeKeys, isPj, user]);
+  }, [isPj, user]);
 
   const hour = new Date().getHours();
   const greet = t(greetingKey(hour), { name: firstName(user.name) });
@@ -165,11 +173,14 @@ export const EmployeeMobileHome: React.FC<Props> = ({ user, isLoading, onNavigat
         ? t('rosterSaturday')
         : null;
 
+  const formatMetric = (mins: number) =>
+    totals?.hasDays ? minutesToHm(mins) : minutesToDisplay(mins);
+
   const metrics = totals
     ? [
-        { key: 'worked', label: t('workedHours'), value: minutesToDisplay(totals.worked) },
-        { key: 'ot', label: t('overtimeHours'), value: minutesToDisplay(totals.overtime) },
-        { key: 'absence', label: t('absenceHours'), value: minutesToDisplay(totals.absence) },
+        { key: 'worked', label: t('workedHours'), value: formatMetric(totals.worked) },
+        { key: 'ot', label: t('overtimeHours'), value: formatMetric(totals.overtime) },
+        { key: 'absence', label: t('absenceHours'), value: formatMetric(totals.absence) },
       ]
     : null;
 
@@ -221,24 +232,49 @@ export const EmployeeMobileHome: React.FC<Props> = ({ user, isLoading, onNavigat
         </button>
       )}
 
-      <section
-        className="rounded-xl border border-amber-200/80 bg-amber-50/90 dark:border-amber-500/30 dark:bg-amber-950/40 px-4 py-3.5"
-        aria-label={t('punchBlockedTitle')}
-      >
-        <div className="flex gap-3 items-start">
-          <div className={iconChip} aria-hidden>
-            <Clock size={18} />
+      {allowPwaPunch && !isPj ? (
+        <button
+          type="button"
+          onClick={() => onNavigate('pwa-punch')}
+          className="w-full rounded-xl border border-[#c41e24]/30 bg-[#c41e24]/08 dark:bg-[#c41e24]/15 px-4 py-3.5 text-left active:scale-[0.99] transition-transform"
+          aria-label={t('pwaPunchCta')}
+        >
+          <div className="flex gap-3 items-start">
+            <div className={iconChip} aria-hidden>
+              <Clock size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#c41e24]">{t('pwaPunchCta')}</p>
+              <p className="text-xs mt-1 leading-relaxed text-slate-600 dark:text-slate-300">
+                {t('pwaPunchCtaHint')}
+              </p>
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#c41e24]">
+                {t('pwaPunchCtaAction')}
+                <ArrowRight size={14} aria-hidden />
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
-              {t('punchBlockedTitle')}
-            </p>
-            <p className="text-xs mt-1 leading-relaxed text-amber-900/80 dark:text-amber-200/80">
-              {t('homeClockReminder')}
-            </p>
+        </button>
+      ) : (
+        <section
+          className="rounded-xl border border-amber-200/80 bg-amber-50/90 dark:border-amber-500/30 dark:bg-amber-950/40 px-4 py-3.5"
+          aria-label={t('punchBlockedTitle')}
+        >
+          <div className="flex gap-3 items-start">
+            <div className={iconChip} aria-hidden>
+              <Clock size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                {t('punchBlockedTitle')}
+              </p>
+              <p className="text-xs mt-1 leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+                {t('homeClockReminder')}
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="space-y-2" aria-label={t('homeStatusTitle')}>
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-0.5">
@@ -358,6 +394,22 @@ export const EmployeeMobileHome: React.FC<Props> = ({ user, isLoading, onNavigat
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-0.5">
           {t('homeMoreActions')}
         </h2>
+        <button
+          type="button"
+          onClick={() => onNavigate('punch-corrections')}
+          className="w-full flex items-center gap-3 p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700/80 text-left active:scale-[0.98] transition-transform"
+        >
+          <ClipboardList size={20} className={iconSolo} aria-hidden />
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {t('shortcutPunchCorrections')}
+            </span>
+            <span className="block text-[10px] text-slate-500 leading-snug">
+              {t('shortcutPunchCorrectionsHint')}
+            </span>
+          </span>
+          <ArrowRight size={16} className={chevron} />
+        </button>
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"

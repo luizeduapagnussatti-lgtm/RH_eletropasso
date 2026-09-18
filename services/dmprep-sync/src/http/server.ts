@@ -8,7 +8,7 @@ import { runSyncOnce } from '../sync.js';
 import { runWatchCommCollect } from '../watchcomm/trigger.js';
 import { runWatchCommMasters, type WatchCommMaster } from '../watchcomm/sendMasters.js';
 import { runWatchCommCommand } from '../watchcomm/command.js';
-import { isSyncLocked, withSyncLock } from '../syncLock.js';
+import { isSyncLocked, tryAcquireSyncLock, releaseSyncLock, withSyncLock } from '../syncLock.js';
 import {
   appendSyncHistory,
   mergeLastCycleIntoHistory,
@@ -25,6 +25,9 @@ export type SyncScope =
   | 'send-masters'
   | 'clear-masters'
   | 'clock-command';
+
+/** Long-running scopes: accept immediately and finish in background. */
+const ASYNC_SCOPES: ReadonlySet<SyncScope> = new Set(['punches', 'all']);
 
 export interface ManualSyncResult {
   scope: SyncScope;
@@ -163,7 +166,7 @@ export function startHttpServer(
           }
           throw error;
         }
-        const result = await withSyncLock(async (): Promise<ManualSyncResult> => {
+        const runManualWork = async (): Promise<ManualSyncResult> => {
           const payload: ManualSyncResult = { scope };
           if (scope === 'send-masters') {
             payload.masters = await runWatchCommMasters(config, 'send', masters);
@@ -195,15 +198,10 @@ export function startHttpServer(
               : await runWatchCommCollect(config, undefined, 'manual');
           }
           return payload;
-        });
+        };
 
-        if (result && 'busy' in result && result.busy) {
-          sendJson(res, 409, { error: 'Sync already running', busy: true });
-          return;
-        }
-
-        const manualResult = result as ManualSyncResult;
-        if (manualResult && (scope === 'all' || scope === 'punches' || scope === 'employees')) {
+        const appendHistory = async (manualResult: ManualSyncResult) => {
+          if (!(scope === 'all' || scope === 'punches' || scope === 'employees')) return;
           const kind: SyncHistoryKind =
             scope === 'all' ? 'all' : scope === 'punches' ? 'punches' : 'employees';
           try {
@@ -225,7 +223,57 @@ export function startHttpServer(
           } catch (historyError) {
             logger.warn({ err: historyError }, 'Failed to append sync history');
           }
+        };
+
+        // Punches / all: accept immediately so Edge/UI are not held for 2–5 min.
+        if (ASYNC_SCOPES.has(scope)) {
+          if (!tryAcquireSyncLock()) {
+            sendJson(res, 409, { error: 'Sync already running', busy: true });
+            return;
+          }
+          const startedAt = new Date().toISOString();
+          sendJson(res, 202, {
+            accepted: true,
+            success: true,
+            scope,
+            startedAt,
+            busy: true,
+          });
+          void (async () => {
+            try {
+              const manualResult = await runManualWork();
+              await appendHistory(manualResult);
+              logger.info(manualResult, 'Manual DMPREP sync completed (async)');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              logger.error({ err: error, scope }, 'Manual DMPREP async sync failed');
+              try {
+                await appendSyncHistory(config.statePath, {
+                  at: new Date().toISOString(),
+                  kind: scope === 'all' ? 'all' : 'punches',
+                  trigger: 'manual',
+                  success: false,
+                  error: message,
+                });
+              } catch (historyError) {
+                logger.warn({ err: historyError }, 'Failed to append async sync failure history');
+              }
+            } finally {
+              releaseSyncLock();
+            }
+          })();
+          return;
         }
+
+        const result = await withSyncLock(runManualWork);
+
+        if (result && 'busy' in result && result.busy) {
+          sendJson(res, 409, { error: 'Sync already running', busy: true });
+          return;
+        }
+
+        const manualResult = result as ManualSyncResult;
+        await appendHistory(manualResult);
 
         logger.info(result, 'Manual DMPREP sync completed');
         sendJson(res, 200, { success: true, ...(result as ManualSyncResult) });

@@ -658,9 +658,10 @@ change and requires ALL of the following, no exceptions:
 - `src/services/workday/workdaySessionManager.types.ts`
 - `src/context/AuthContext.tsx` — delegation layer only, do not move
   session logic back into it
-- `Others/pb_hooks/cron.pb.js` — in particular the
-  `cronAdd("auto_close_sessions", ...)` block (every minute)
-- `scripts/validate-pb-hooks.cjs`
+- `Others/pb_hooks/cron.pb.js` — legacy PocketBase cron (if still deployed);
+  **Eletropasso production** uses Supabase Edge `cron-auto-close-sessions`
+  for session auto-close — do not remove client/server closure contract
+- `scripts/validate-pb-hooks.cjs` — PocketBase hook validator (legacy deploy)
 
 ### Invariants (a violation is a bug)
 
@@ -682,10 +683,11 @@ change and requires ALL of the following, no exceptions:
 - **`getActiveAttendance` MUST delegate to
   `workdaySessionManager.reconcileOpenSessions`** — do not add a parallel
   implementation that reads attendance and decides closure rules.
-- **The `auto_close_sessions` cron block in `cron.pb.js` MUST exist** and
-  its job id MUST remain `auto_close_sessions`. The `validate-pb-hooks.cjs`
-  script enforces this at build time (`npm run build` fails if it's
-  missing).
+- **Server auto-close (Eletropasso):** Supabase Edge Function
+  `supabase/functions/cron-auto-close-sessions` is the production cron.
+  Client fallback remains in `workdaySessionManager.ts`. Legacy PocketBase
+  `auto_close_sessions` in `cron.pb.js` applies only if PB hooks are still
+  deployed on a given environment.
 - **`workdaySessionManager` MUST NOT close today's session**. Same-day
   max-time closure is owned by the server cron; a client-side same-day
   close would race the cron and double-close.
@@ -694,7 +696,8 @@ change and requires ALL of the following, no exceptions:
 
 Before shipping any change touching frozen files:
 
-- [ ] `npm run validate:hooks` passes (also runs automatically as `prebuild`).
+- [ ] Session manual checklist (offline 60s, hard 401, yesterday open session).
+- [ ] Confirm `cron-auto-close-sessions` Edge cron is scheduled in Supabase.
 - [ ] Manually verified: login does NOT log out on flaky network — set
       DevTools → Network → Offline for ~60 s, return to Online, session
       must survive; a "Reconnecting…" UI banner is acceptable but a

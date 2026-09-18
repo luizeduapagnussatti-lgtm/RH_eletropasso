@@ -43,6 +43,9 @@ export interface DmprepPunchSyncSummary {
 
 export interface DmprepSyncResponse {
   success?: boolean;
+  /** True when local control plane accepted punches/all and runs in background (HTTP 202). */
+  accepted?: boolean;
+  startedAt?: string;
   scope?: DmprepSyncScope;
   busy?: boolean;
   error?: string;
@@ -171,8 +174,12 @@ export const dmprepSyncService = {
         `Clock sync returned non-JSON (HTTP ${res.status}). Check API gateway and dmprep-sync. ${snippet}`,
       );
     }
-    if (!res.ok) {
+    if (!res.ok && res.status !== 202) {
       throw new Error(json.error || json.message || 'DMPREP sync failed');
+    }
+    // Fetch treats 202 as ok; keep explicit accepted flag for callers.
+    if (res.status === 202 || json.accepted) {
+      return { ...json, accepted: true, success: true, busy: true };
     }
     return json;
   },

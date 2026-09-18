@@ -58,6 +58,8 @@ const TimesheetReviewModal: React.FC<Props> = ({
   const errorCount = (key: string, v: TimesheetReviewValidation) => {
     if (key === 'reviewBlockIncomplete') return v.incompleteCount;
     if (key === 'reviewBlockAdjustedNoRemarks') return v.adjustedNoRemarksCount;
+    if (key === 'reviewBlockNotApprovable') return v.notApprovableCount;
+    if (key === 'reviewBlockMissingManagerAck') return v.missingManagerAckCount;
     return 0;
   };
 

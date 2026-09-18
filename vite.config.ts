@@ -14,6 +14,22 @@ export default defineConfig(({ mode }) => {
         allowedHosts: [
           'rh.eletropasso.local',
           'api-rh.eletropasso.local',
+          'rh.eletropasso-wa.com.br',
+          'api-rh.eletropasso-wa.com.br',
+          'localhost',
+          '127.0.0.1',
+          '192.168.15.245',
+        ],
+      },
+      // Servir build estável na loja (vite preview) — menos queda que `vite` HMR
+      preview: {
+        port: 3000,
+        host: '0.0.0.0',
+        allowedHosts: [
+          'rh.eletropasso.local',
+          'api-rh.eletropasso.local',
+          'rh.eletropasso-wa.com.br',
+          'api-rh.eletropasso-wa.com.br',
           'localhost',
           '127.0.0.1',
           '192.168.15.245',

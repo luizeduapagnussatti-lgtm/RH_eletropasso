@@ -124,12 +124,17 @@ html.dark body {
 
 /* Hover backgrounds */
 .dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }
+.dark .hover\:bg-slate-50\/80:hover { background-color: rgba(59, 130, 246, 0.18) !important; }
 .dark .hover\:bg-slate-100:hover { background-color: #475569 !important; }
 .dark .hover\:bg-slate-200:hover { background-color: #475569 !important; }
 .dark .hover\:bg-white:hover { background-color: #334155 !important; }
 .dark .hover\:bg-gray-50:hover { background-color: #334155 !important; }
 .dark .hover\:bg-gray-100:hover { background-color: #475569 !important; }
 .dark .hover\:bg-rose-50:hover { background-color: #4c1d2e !important; }
+.dark .hover\:bg-primary\/10:hover { background-color: rgba(59, 130, 246, 0.18) !important; }
+.dark .hover\:bg-primary\/15:hover { background-color: rgba(59, 130, 246, 0.22) !important; }
+.dark .bg-primary\/5 { background-color: rgba(59, 130, 246, 0.12) !important; }
+.dark .bg-primary\/10 { background-color: rgba(59, 130, 246, 0.18) !important; }
 
 /* Text — keep hierarchy, but never drop muted copy below ~4.5:1 on #1e293b */
 .dark .text-slate-900 { color: #f1f5f9 !important; }

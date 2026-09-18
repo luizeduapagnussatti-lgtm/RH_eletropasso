@@ -38,14 +38,23 @@ const CATEGORY_ORDER = [
 interface TutorialsPageProps {
   onBack: () => void;
   onRegisterClick?: () => void;
+  /** Authenticated in-app help hub (no public SEO / marketing chrome). */
+  internalHelp?: boolean;
+  onOpenTutorial?: (slug: string) => void;
 }
 
-const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }) => {
+const TutorialsPage: React.FC<TutorialsPageProps> = ({
+  onBack,
+  onRegisterClick,
+  internalHelp = false,
+  onOpenTutorial,
+}) => {
   const { t, i18n } = useTranslation('marketing');
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (internalHelp) return;
     updatePageMeta(
       t('tutorialsPage.seoTitle'),
       t('tutorialsPage.seoDescription'),
@@ -75,7 +84,7 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
       ],
     });
     return () => { setJsonLd(null); };
-  }, [t, i18n.language]);
+  }, [t, i18n.language, internalHelp]);
 
   useEffect(() => {
     loadTutorials();
@@ -89,6 +98,10 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
   };
 
   const navigateToTutorial = (slug: string) => {
+    if (internalHelp && onOpenTutorial) {
+      onOpenTutorial(slug);
+      return;
+    }
     navigateTo(`/how-to-use/${slug}`);
   };
 
@@ -123,8 +136,20 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
       .sort((a, b) => a.displayOrder - b.displayOrder);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <TutorialsNavbar onBack={onBack} onRegisterClick={onRegisterClick} />
+    <div className={`min-h-screen bg-slate-50 flex flex-col ${internalHelp ? '' : ''}`}>
+      {internalHelp ? (
+        <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            ← {t('tutorialsPage.backToApp', { defaultValue: 'Voltar ao painel' })}
+          </button>
+        </div>
+      ) : (
+        <TutorialsNavbar onBack={onBack} onRegisterClick={onRegisterClick} />
+      )}
 
       {/* Header */}
       <div className="bg-white border-b border-slate-100">
@@ -234,7 +259,7 @@ const TutorialsPage: React.FC<TutorialsPageProps> = ({ onBack, onRegisterClick }
         </div>
       </div>
 
-      <TutorialsFooter />
+      {!internalHelp && <TutorialsFooter />}
     </div>
   );
 };

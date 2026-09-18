@@ -23,6 +23,11 @@ export const useOrganization = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
+      try {
+        await hrService.repairInactiveOrgLinks();
+      } catch (e) {
+        console.warn('[useOrganization] repairInactiveOrgLinks failed:', e);
+      }
       const [depts, desigs, hols, wfs, emps, appConfig, teamsList, lPolicy, shiftOverridesList, notifConfig, msgConfig] = await Promise.allSettled([
         hrService.getDepartments(), hrService.getDesignations(), hrService.getHolidays(),
         hrService.getWorkflows(), hrService.getEmployees(), hrService.getConfig(),

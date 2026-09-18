@@ -1,0 +1,30 @@
+---
+description: Impeccable só para design/layout — não usar em tarefas que não sejam UI visual
+alwaysApply: true
+---
+
+# Impeccable — uso exclusivo em design/layout
+
+A skill **impeccable** (`.cursor/skills/impeccable/`) está instalada neste projeto. Usá-la **somente** quando o usuário pedir edição de design, layout, UI visual, tema visual, polish/audit visual, ou invocar explicitamente `/impeccable` (ou subcomandos: `craft`, `shape`, `polish`, `audit`, `live`, `document`, etc.).
+
+## Quando USAR
+
+- Pedidos de redesign, layout, hierarquia visual, tipografia, cores, espaçamento, motion de UI
+- `/impeccable …` ou menção clara a “usar impeccable”
+- Screenshots / live iteration visual (`/impeccable live`)
+
+Antes de qualquer trabalho Impeccable: seguir o `SKILL.md` da skill (rodar `context.mjs`, ler `PRODUCT.md` / `DESIGN.md` / register).
+
+## Quando NÃO USAR
+
+- Backend, PocketBase hooks, serviços, i18n puro de copy, bugs de lógica, migrations, git, auth/session congelados
+- Refactors sem pedido visual
+- Features sem componente visual em discussão
+
+Nesses casos: não carregar a skill impeccable; seguir as regras habituais do repo (`Others/CLAUDE.md`, i18n, branch `dev`).
+
+## Fonte de verdade visual
+
+- Estratégia: `PRODUCT.md` (register `product`, platform `web`)
+- Tokens / look: `DESIGN.md`
+- Branding de assets: `src/config/branding.ts`

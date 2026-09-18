@@ -8,7 +8,7 @@ describe('overtimeClassification', () => {
     assert.equal(isSundayDate('2026-07-27'), false);
   });
 
-  it('weekday overtime goes to 50%', () => {
+  it('weekday overtime up to 2h goes to 60% band', () => {
     const r = classifyOvertimeMinutes({
       workDate: '2026-07-27',
       overtimeMinutes: 120,
@@ -18,7 +18,27 @@ describe('overtimeClassification', () => {
     assert.equal(r.extra100Minutes, 0);
   });
 
-  it('Saturday half-day overtime goes to 50%', () => {
+  it('weekday overtime under 2h stays in 60% band', () => {
+    const r = classifyOvertimeMinutes({
+      workDate: '2026-07-27',
+      overtimeMinutes: 90,
+      isHoliday: false,
+    });
+    assert.equal(r.extra50Minutes, 90);
+    assert.equal(r.extra100Minutes, 0);
+  });
+
+  it('weekday overtime over 2h splits 60% then 100%', () => {
+    const r = classifyOvertimeMinutes({
+      workDate: '2026-07-27',
+      overtimeMinutes: 150,
+      isHoliday: false,
+    });
+    assert.equal(r.extra50Minutes, 120);
+    assert.equal(r.extra100Minutes, 30);
+  });
+
+  it('Saturday half-day overtime goes to 60% band', () => {
     const r = classifyOvertimeMinutes({
       workDate: '2026-07-25',
       overtimeMinutes: 45,

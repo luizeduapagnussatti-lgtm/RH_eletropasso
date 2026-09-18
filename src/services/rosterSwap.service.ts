@@ -3,9 +3,10 @@ import { apiClient } from './api.client';
 import { employeeService } from './employee.service';
 import { notificationService } from './notification.service';
 import { messagingService } from './messaging.service';
-import { rosterService } from './roster.service';
+import { assertWritableRosterDate, rosterService } from './roster.service';
 import { timesheetService } from './timesheet.service';
 import { isRosterEligible } from '../utils/roles';
+import { todayIsoLocal } from '../utils/payrollPeriod';
 import type { Employee, RosterDayKind, RosterSwapRequest, RosterSwapStatus } from '../types';
 
 const mapRow = (r: any): RosterSwapRequest => ({
@@ -56,7 +57,8 @@ async function notifySwap(
   userId: string,
   title: string,
   message: string,
-  workDate: string
+  workDate: string,
+  actionUrl: string = 'my-roster',
 ): Promise<void> {
   await notificationService.createNotification({
     userId,
@@ -65,7 +67,7 @@ async function notifySwap(
     message,
     referenceId: workDate,
     referenceType: 'roster_swap',
-    actionUrl: 'my-roster',
+    actionUrl,
   });
 }
 
@@ -117,8 +119,20 @@ export const rosterSwapService = {
     if (!requester || !target) throw new Error('Employee not found');
     if (requester.id === target.id) throw new Error('swapSameEmployee');
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIsoLocal();
     if (params.workDate <= today) throw new Error('swapPastDate');
+
+    const rows = await rosterService.listForDate(params.workDate);
+    if (rows.length === 0) throw new Error('swapUnpublished');
+
+    const statusOf = (emp: Employee): 'WORK' | 'OFF' => {
+      const keys = [emp.id, emp.employeeId].filter(Boolean) as string[];
+      const hit = rows.find(r => keys.includes(r.employeeId));
+      return hit?.status ?? 'OFF';
+    };
+    const reqStatus = statusOf(requester);
+    const tgtStatus = statusOf(target);
+    if (reqStatus === tgtStatus) throw new Error('swapSameStatus');
 
     const row = {
       organization_id: orgId,
@@ -143,7 +157,7 @@ export const rosterSwapService = {
       target.id,
       'Pedido de troca de escala',
       `${requester.name} quer trocar a escala de ${params.workDate}.`,
-      params.workDate
+      params.workDate,
     );
     void notifySwapWhatsApp(
       target.id,
@@ -201,7 +215,8 @@ export const rosterSwapService = {
         requester.lineManagerId,
         'Aprovar troca de escala',
         `${requester.name} e ${target?.name ?? 'colega'} aguardam aprovação da troca em ${existing.work_date}.`,
-        existing.work_date
+        existing.work_date,
+        'roster',
       );
     }
 
@@ -221,6 +236,8 @@ export const rosterSwapService = {
       .single();
     if (fetchErr) throw fetchErr;
     if (existing.status !== 'PENDING_MANAGER') throw new Error('swapInvalidStatus');
+
+    assertWritableRosterDate(existing.work_date);
 
     const employees = (await employeeService.getEmployees()).filter(
       e => isRosterEligible(e)
@@ -291,6 +308,59 @@ export const rosterSwapService = {
 
     void notifySwapWhatsApp(requester.id, `Troca de escala em ${existing.work_date} aprovada pelo gestor.`, existing.work_date);
     void notifySwapWhatsApp(target.id, `Troca de escala em ${existing.work_date} aprovada pelo gestor.`, existing.work_date);
+
+    apiClient.notify();
+    return mapRow(data);
+  },
+
+  async rejectManager(requestId: string, managerId: string): Promise<RosterSwapRequest> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from('roster_swap_requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+    if (fetchErr) throw fetchErr;
+    if (existing.status !== 'PENDING_MANAGER') throw new Error('swapInvalidStatus');
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('roster_swap_requests')
+      .update({ status: 'REJECTED', resolved_at: now, resolved_by: managerId, updated: now })
+      .eq('id', requestId)
+      .select()
+      .single();
+    if (error) throw error;
+
+    const employees = await employeeService.getEmployees();
+    const requester = employees.find(e => e.id === existing.requester_profile_id);
+    const target = employees.find(e => e.id === existing.target_profile_id);
+
+    const bulk = [];
+    if (requester) {
+      bulk.push({
+        userId: requester.id,
+        type: 'ATTENDANCE' as const,
+        title: 'Troca recusada',
+        message: `O gestor recusou a troca de escala em ${existing.work_date}.`,
+        referenceId: existing.work_date,
+        referenceType: 'roster_swap',
+        actionUrl: 'my-roster',
+      });
+    }
+    if (target) {
+      bulk.push({
+        userId: target.id,
+        type: 'ATTENDANCE' as const,
+        title: 'Troca recusada',
+        message: `O gestor recusou a troca de escala em ${existing.work_date}.`,
+        referenceId: existing.work_date,
+        referenceType: 'roster_swap',
+        actionUrl: 'my-roster',
+      });
+    }
+    if (bulk.length) await notificationService.createBulkNotifications(bulk);
 
     apiClient.notify();
     return mapRow(data);

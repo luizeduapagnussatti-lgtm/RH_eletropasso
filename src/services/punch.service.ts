@@ -315,7 +315,7 @@ export const punchService = {
         toClear: [...new Set([...proximity.toClear, ...appVsClock.toClear])],
       };
       if (plan.toIgnore.length > 0 || plan.toClear.length > 0) {
-        await punchService.applyProximityAutoIgnorePlan(plan);
+        await punchService.applyProximityAutoIgnorePlan(plan, { silent: true });
         changed = true;
       }
     }
@@ -346,7 +346,10 @@ export const punchService = {
    * Apply AUTO proximity plan without touching MANUAL decisions.
    * Uses SECURITY DEFINER RPC for CLOCK rows.
    */
-  async applyProximityAutoIgnorePlan(plan: ProximityAutoIgnorePlan): Promise<void> {
+  async applyProximityAutoIgnorePlan(
+    plan: ProximityAutoIgnorePlan,
+    opts?: { silent?: boolean },
+  ): Promise<void> {
     if (!isSupabaseConfigured()) return;
     if (plan.toIgnore.length === 0 && plan.toClear.length === 0) return;
 
@@ -355,7 +358,7 @@ export const punchService = {
       p_clear_ids: plan.toClear,
     });
     if (error) throw error;
-    apiClient.notify();
+    if (!opts?.silent) apiClient.notify();
   },
 
   async createManualPunch(input: {
@@ -435,14 +438,15 @@ export const punchService = {
     const activeToday = punchesForApuration(existingToday).sort((a, b) =>
       a.punchedAt.localeCompare(b.punchedAt),
     );
-    const last = activeToday[activeToday.length - 1];
     let direction: PunchDirection = input.direction || 'IN';
     if (!input.direction) {
-      if (!last || last.direction === 'OUT' || last.direction === 'BREAK_END') {
-        direction = 'IN';
-      } else {
-        direction = 'OUT';
-      }
+      // CLOCK from the REP is UNKNOWN — do not treat it as IN (that made lunch APP
+      // start a new IN after an already-present morning CLOCK). Slot parity:
+      // 0/2 work marks → next IN; 1/3 → next OUT.
+      const workMarks = activeToday.filter(
+        p => p.direction !== 'BREAK_START' && p.direction !== 'BREAK_END',
+      );
+      direction = workMarks.length % 2 === 0 ? 'IN' : 'OUT';
     }
 
     const selfieBlob = await convertToWebP(input.selfieDataUrl, 0.65, 720);

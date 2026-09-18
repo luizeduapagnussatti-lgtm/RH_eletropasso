@@ -1,4 +1,4 @@
-# Inicia RH Eletropasso após reboot: Docker → Supabase → Edge Functions → dmprep-sync → frontend.
+﻿# Inicia RH Eletropasso apÃ³s reboot: Docker â†’ Supabase â†’ Edge Functions â†’ dmprep-sync â†’ frontend.
 # Logs: E:\RH_eletropasso\logs\
 
 $ErrorActionPreference = 'Continue'
@@ -75,6 +75,18 @@ if ($LASTEXITCODE -ne 0) {
   Write-Warning 'Docker not ready - Supabase/Edge Functions may fail. Check Docker Desktop.'
 }
 
+
+# 1b) CoreDNS (Split DNS Tailscale: eletropasso.local)
+$ensureCoreDns = Join-Path $PSScriptRoot 'Ensure-CoreDns.ps1'
+if (-not (Test-Path $ensureCoreDns)) {
+  $ensureCoreDns = Join-Path $ProjectRoot 'scripts\Ensure-CoreDns.ps1'
+}
+if (Test-Path $ensureCoreDns) {
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ensureCoreDns
+} else {
+  Write-Warning "Missing Ensure-CoreDns.ps1 - remote DNS for *.eletropasso.local may fail after reboot."
+}
+
 # 2) Supabase stack
 Set-Location $ProjectRoot
 Write-Host 'Starting Supabase (npx supabase start)...'
@@ -85,12 +97,19 @@ if (-not (Wait-HttpOk 'http://127.0.0.1:54321/auth/v1/health' 180)) {
 }
 
 # 3) Edge Functions (Sincronizar DMPREP + ingest-punches)
+# Use npx (not `npm exec â€¦ --env-file`): npm steals --env-file as its own flag and
+# can leave edge_runtime with a stale Temp mount â†’ Docker Desktop Start returns HTTP 400.
 if (-not (Get-NodeProcess 'supabase functions serve')) {
-  $npmCmd = (Get-Command npm.cmd -ErrorAction Stop).Source
-  Start-BackgroundProcess 'edge-functions' $npmCmd @(
-    'exec', 'supabase', 'functions', 'serve', '--env-file', 'supabase/functions/.env'
+  # Drop a previous edge_runtime container whose bind-mount points at a deleted Temp file.
+  docker rm -f supabase_edge_runtime_RH_eletropasso 2>$null | Out-Null
+  Get-ChildItem -Path $env:TEMP -Directory -Filter 'supabase-functions-serve-main-*' -ErrorAction SilentlyContinue |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+  $npxCmd = (Get-Command npx.cmd -ErrorAction Stop).Source
+  Start-BackgroundProcess 'edge-functions' $npxCmd @(
+    '--yes', 'supabase', 'functions', 'serve', '--env-file', 'supabase/functions/.env'
   ) $ProjectRoot
-  Start-Sleep -Seconds 8
+  Start-Sleep -Seconds 12
 } else {
   Write-Host 'edge-functions already running - skipped.'
 }
@@ -130,7 +149,7 @@ if (-not (Test-PortListening 3099)) {
   Write-Host 'dmprep-sync already listening on 3099 - skipped.'
 }
 
-# 5) Frontend (:3000) — SEMPRE vite preview (produção). Dev quebra LAN nos clientes.
+# 5) Frontend (:3000) â€” SEMPRE vite preview (produÃ§Ã£o). Dev quebra LAN nos clientes.
 $ensureFrontend = Join-Path $PSScriptRoot 'Ensure-Frontend.ps1'
 if (-not (Test-Path $ensureFrontend)) {
   $ensureFrontend = Join-Path $ProjectRoot 'scripts\Ensure-Frontend.ps1'
@@ -146,7 +165,7 @@ if (Test-Path $ensureFrontend) {
   Write-Host 'frontend already listening on 3000 - skipped.'
 }
 
-# 5b) Supervisor contínuo — reinicia Vite sozinho se cair
+# 5b) Supervisor contÃ­nuo â€” reinicia Vite sozinho se cair
 $frontendWatch = Join-Path $PSScriptRoot 'Watch-Frontend.ps1'
 if (-not (Test-Path $frontendWatch)) {
   $frontendWatch = Join-Path $ProjectRoot 'scripts\Watch-Frontend.ps1'
@@ -161,7 +180,7 @@ if (Test-Path $lockFile) {
   }
 }
 if (-not $supervisorRunning -and (Test-Path $frontendWatch)) {
-  # VBS com shell.Run(..., 0) = sem janela de prompt (mais confiável que WindowStyle Hidden)
+  # VBS com shell.Run(..., 0) = sem janela de prompt (mais confiÃ¡vel que WindowStyle Hidden)
   $frontendWatchVbs = Join-Path $PSScriptRoot 'Run-WatchFrontend.vbs'
   if (-not (Test-Path $frontendWatchVbs)) {
     $frontendWatchVbs = Join-Path $ProjectRoot 'scripts\Run-WatchFrontend.vbs'
@@ -178,6 +197,17 @@ if (-not $supervisorRunning -and (Test-Path $frontendWatch)) {
   }
 } else {
   Write-Host 'frontend supervisor already running - skipped.'
+}
+
+# 5c) NPM HTTPS — manter certificado mkcert (CA instalada nos celulares/PCs)
+$ensureNpmSsl = Join-Path $PSScriptRoot 'Ensure-NpmRhSsl.ps1'
+if (-not (Test-Path $ensureNpmSsl)) {
+  $ensureNpmSsl = Join-Path $ProjectRoot 'scripts\Ensure-NpmRhSsl.ps1'
+}
+if (Test-Path $ensureNpmSsl) {
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ensureNpmSsl
+} else {
+  Write-Warning 'Missing Ensure-NpmRhSsl.ps1 — HTTPS pode voltar ao certificado legado.'
 }
 
 Start-Sleep -Seconds 6

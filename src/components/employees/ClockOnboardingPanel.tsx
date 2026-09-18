@@ -47,6 +47,7 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
   const { showToast } = useToast();
   const [exporting, setExporting] = useState(false);
   const [markingBio, setMarkingBio] = useState(false);
+  const [savingPwa, setSavingPwa] = useState(false);
 
   const pis = formatPisDisplay(employee.employeeId);
   const credRaw = resolveClockCredential(employee.clockCredential, employee.employeeId);
@@ -68,6 +69,7 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
       name: employee.name,
       employeeId: employee.employeeId,
       clockCredential: employee.clockCredential,
+      cpf: employee.cpf || employee.nid,
     });
     if (!payload) {
       showToast(t('clockOnboarding.sendFailed'), 'error');
@@ -125,6 +127,22 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
     }
   };
 
+  const toggleAllowPwaPunch = async (checked: boolean) => {
+    setSavingPwa(true);
+    try {
+      await hrService.updateProfile(employee.id, { allowPwaPunch: checked });
+      showToast(
+        checked ? t('clockOnboarding.pwaPunchEnabled') : t('clockOnboarding.pwaPunchDisabled'),
+        'success',
+      );
+      await onRefresh();
+    } catch (e: any) {
+      showToast(e?.message || t('operationFailed'), 'error');
+    } finally {
+      setSavingPwa(false);
+    }
+  };
+
   const steps = [
     { key: 'rh', done: step >= 1, title: t('clockOnboarding.stepRh'), detail: t('clockOnboarding.stepRhDetail', { pis, credential: credDisplay }) },
     { key: 'export', done: step >= 2, title: t('clockOnboarding.stepExport'), detail: t('clockOnboarding.stepExportDetail') },
@@ -174,6 +192,25 @@ export const ClockOnboardingPanel: React.FC<Props> = ({
           </li>
         ))}
       </ul>
+
+      <label className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 px-4 py-3 cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-0.5 rounded border-slate-300"
+          checked={!!employee.allowPwaPunch}
+          disabled={savingPwa}
+          onChange={e => void toggleAllowPwaPunch(e.target.checked)}
+        />
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+            {t('onboarding.allowPwaPunch')}
+          </span>
+          <span className="block mt-1 text-[11px] text-slate-500 leading-snug">
+            {t('onboarding.allowPwaPunchHint')}
+          </span>
+        </span>
+        {savingPwa ? <Loader2 className="animate-spin shrink-0 text-slate-400" size={16} /> : null}
+      </label>
 
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void copyCredential()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm">

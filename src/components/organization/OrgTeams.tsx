@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Users, Edit3, Trash2, UserCheck } from 'lucide-react';
 import { Team, Employee } from '../../types';
 import { OrgPanel, orgInteractive } from './OrgUi';
+import { activeTeamLeadName } from '../../utils/dischargeOrgDetach';
 
 interface Props {
   teams: Team[];
@@ -25,8 +26,8 @@ export const OrgTeams: React.FC<Props> = ({ teams, employees, onAdd, onEdit, onD
     >
       <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {teams.map((team, i) => {
-          const memberCount = employees.filter(e => e.teamId === team.id).length;
-          const leadName = employees.find(e => e.id === team.leaderId)?.name;
+          const memberCount = employees.filter(e => e.teamId === team.id && e.status !== 'INACTIVE').length;
+          const leadName = activeTeamLeadName(team, employees);
           return (
             <div
               key={team.id}

@@ -12,9 +12,16 @@ import { APP_NAME } from '../config/branding';
 interface TutorialPageProps {
   slug: string;
   onBack: () => void;
+  internalHelp?: boolean;
+  onOpenTutorial?: (slug: string) => void;
 }
 
-const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
+const TutorialPage: React.FC<TutorialPageProps> = ({
+  slug,
+  onBack,
+  internalHelp = false,
+  onOpenTutorial,
+}) => {
   const { t } = useTranslation('marketing');
   const [tutorial, setTutorial] = useState<Tutorial | null>(null);
   const [allTutorials, setAllTutorials] = useState<Tutorial[]>([]);
@@ -43,6 +50,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
     if (tutorialData) {
       setTutorial(tutorialData);
       setAllTutorials(allData.tutorials);
+      if (!internalHelp) {
       updatePageMeta(
         `${tutorialData.title} | ${t('guides')}`,
         tutorialData.excerpt || tutorialData.title,
@@ -112,6 +120,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
       }
 
       setJsonLd({ '@context': 'https://schema.org', '@graph': graph });
+      }
     } else {
       setNotFound(true);
     }
@@ -119,10 +128,18 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
   };
 
   const goToTutorials = () => {
+    if (internalHelp) {
+      onBack();
+      return;
+    }
     navigateTo('/how-to-use');
   };
 
   const navigateToTutorial = (tutorialSlug: string) => {
+    if (internalHelp && onOpenTutorial) {
+      onOpenTutorial(tutorialSlug);
+      return;
+    }
     navigateTo(`/how-to-use/${tutorialSlug}`);
   };
 
@@ -152,7 +169,19 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <TutorialsNavbar onBack={onBack} />
+      {internalHelp ? (
+        <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            ← {t('tutorialsPage.backToGuides')}
+          </button>
+        </div>
+      ) : (
+        <TutorialsNavbar onBack={onBack} />
+      )}
 
       <div className="flex-1">
         {isLoading ? (
@@ -343,7 +372,7 @@ const TutorialPage: React.FC<TutorialPageProps> = ({ slug, onBack }) => {
         )}
       </div>
 
-      <TutorialsFooter />
+      {!internalHelp && <TutorialsFooter />}
     </div>
   );
 };

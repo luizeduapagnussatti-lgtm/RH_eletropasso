@@ -3,7 +3,7 @@
  * Run: npx vite-node scripts/test-timesheet-coherence.mjs
  */
 import assert from 'node:assert/strict';
-import { calculateDay } from '../src/services/timeCalculation.service.ts';
+import { applyJourneyThreshold, calculateDay } from '../src/services/timeCalculation.service.ts';
 import {
   buildDayCoherenceContext,
   checkDayCoherence,
@@ -44,8 +44,8 @@ const ctx = {
     ...ctx,
   });
   assert.ok(result.workedMinutes >= 0);
-  assert.equal(result.overtimeMinutes, Math.max(0, result.workedMinutes - result.expectedMinutes));
-  assert.equal(result.absenceMinutes, Math.max(0, result.expectedMinutes - result.workedMinutes));
+  assert.equal(result.overtimeMinutes, applyJourneyThreshold(result.workedMinutes - result.expectedMinutes));
+  assert.equal(result.absenceMinutes, applyJourneyThreshold(result.expectedMinutes - result.workedMinutes));
 }
 
 {

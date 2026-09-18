@@ -54,6 +54,7 @@ export const hourBankService = {
     periodId?: string;
     notes?: string;
     createdBy?: string;
+    silent?: boolean;
   }): Promise<HourBankLedgerEntry> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
     const orgId = apiClient.getOrganizationId();
@@ -79,7 +80,7 @@ export const hourBankService = {
       .single();
 
     if (error) throw error;
-    apiClient.notify();
+    if (!input.silent) apiClient.notify();
     return mapEntry(data);
   },
 

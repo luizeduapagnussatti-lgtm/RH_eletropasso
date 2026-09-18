@@ -93,6 +93,15 @@ function directionLabel(dir: PunchDirection, t: (k: string) => string): string {
   return t('punchDirUnknown');
 }
 
+function asCoord(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function toCoherenceContext(props: DayCalcContextProps): DayCoherenceContext {
   return {
     shift: props.shift,
@@ -993,10 +1002,10 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
               )}
             </div>
             {(() => {
-              const lat = selfieViewerPunch.rawPayload?.lat;
-              const lng = selfieViewerPunch.rawPayload?.lng;
+              const lat = asCoord(selfieViewerPunch.rawPayload?.lat);
+              const lng = asCoord(selfieViewerPunch.rawPayload?.lng);
               const address = selfieViewerPunch.rawPayload?.address;
-              const hasCoords = typeof lat === 'number' && typeof lng === 'number';
+              const hasCoords = lat !== null && lng !== null;
               const hasAddress = typeof address === 'string' && address.trim().length > 0;
               if (!hasCoords && !hasAddress) return null;
               return (
@@ -1009,8 +1018,8 @@ export const TimesheetAdjustModal: React.FC<Props> = ({
                   {hasCoords ? (
                     <p className="tabular-nums text-slate-600">
                       {t('appPunchLocationCoords', {
-                        lat: Number(lat).toFixed(5),
-                        lng: Number(lng).toFixed(5),
+                        lat: lat.toFixed(5),
+                        lng: lng.toFixed(5),
                       })}
                     </p>
                   ) : null}

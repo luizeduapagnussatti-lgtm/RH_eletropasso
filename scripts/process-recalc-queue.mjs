@@ -30,6 +30,7 @@ const fileEnv = loadEnv('development', process.cwd(), '');
 // Prefer the local stack on this host. User/CI VITE_* can point at a cloud
 // project that Node cannot reach, which left timesheet_days stuck.
 const SUPABASE_URL =
+  process.env.OPENHR_SUPABASE_URL ||
   dmprep.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
   fileEnv.VITE_SUPABASE_URL ||
@@ -50,87 +51,82 @@ const minDate = (process.argv.find(a => a.startsWith('--min-date=')) || '').slic
 
 process.env.VITE_SUPABASE_URL = SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = ANON_KEY;
+process.env.OPENHR_SUPABASE_URL = SUPABASE_URL;
+// Bypass Auth login (password in scripts drifted → LOGIN_FAIL left the queue PENDING
+// and timesheet_days stuck at the last PWA punch). Service role skips RLS.
+process.env.OPENHR_SUPABASE_SERVICE_ROLE_KEY = SERVICE_KEY;
 
-const adminSb = createClient(SUPABASE_URL, SERVICE_KEY);
+const adminSb = createClient(SUPABASE_URL, SERVICE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});
 console.log(`supabase_url ${SUPABASE_URL}`);
 
 let q = adminSb
   .from('timesheet_recalc_queue')
   .select('*')
-  .in('status', ['PENDING', 'FAILED'])
+  .in('status', ['PENDING', 'FAILED', 'PROCESSING'])
   .lt('attempts', maxAttempts);
 if (minDate) q = q.gte('work_date', minDate);
-const { data: pending, error: qErr } = await q
+const { data: queued, error: qErr } = await q
   .order('work_date', { ascending: false })
   .limit(limit);
 
 if (qErr) {
   console.error('queue_read_fail', qErr.message);
-  process.exit(1);
-}
-if (!pending || pending.length === 0) {
-  console.log('Fila vazia — nada a processar.');
-  process.exit(0);
-}
+  process.exitCode = 1;
+} else {
+  const staleProcessingMs = 15 * 60 * 1000;
+  const pending = (queued || []).filter((job) => {
+    if (job.status !== 'PROCESSING') return true;
+    const t = Date.parse(job.updated || job.created || '') || 0;
+    return Date.now() - t > staleProcessingMs;
+  });
+  if (pending.length === 0) {
+    console.log('Fila vazia — nada a processar.');
+  } else {
+    console.log(`Itens a processar: ${pending.length}${minDate ? ` min-date=${minDate}` : ''}`);
 
-console.log(`Itens a processar: ${pending.length}${minDate ? ` min-date=${minDate}` : ''}`);
+    const { apiClient } = await import('../src/services/api.client.ts');
+    const { timesheetService } = await import('../src/services/timesheet.service.ts');
 
-// Auth as an org admin so the service writes pass RLS (ADMIN/HR only).
-const authSb = createClient(SUPABASE_URL, ANON_KEY);
-const email = process.env.TEST_EMAIL || 'eletropasso@eletropasso.loja';
-const password = process.env.TEST_PASSWORD || 'Eletropasso_320*';
-const { data: login, error: loginErr } = await authSb.auth.signInWithPassword({ email, password });
-if (loginErr) {
-  console.error('LOGIN_FAIL:', loginErr.message);
-  process.exit(1);
-}
+    let ok = 0;
+    let fail = 0;
+    for (const job of pending) {
+      apiClient.setOrganizationId(job.organization_id);
+      await adminSb
+        .from('timesheet_recalc_queue')
+        .update({ status: 'PROCESSING', updated: new Date().toISOString() })
+        .eq('id', job.id);
+      try {
+        console.log(`recalc ${job.work_date} ${job.employee_id}`);
+        await timesheetService.recalculateDay(job.employee_id, job.work_date);
+        await adminSb
+          .from('timesheet_recalc_queue')
+          .update({
+            status: 'COMPLETED',
+            attempts: (job.attempts || 0) + 1,
+            last_error: null,
+            processed_at: new Date().toISOString(),
+            updated: new Date().toISOString(),
+          })
+          .eq('id', job.id);
+        ok++;
+      } catch (e) {
+        fail++;
+        await adminSb
+          .from('timesheet_recalc_queue')
+          .update({
+            status: 'FAILED',
+            attempts: (job.attempts || 0) + 1,
+            last_error: String(e?.message || e).slice(0, 500),
+            updated: new Date().toISOString(),
+          })
+          .eq('id', job.id);
+        if (fail <= 5) console.warn('recalc_fail', job.employee_id, job.work_date, e?.message || e);
+      }
+    }
 
-const { supabase } = await import('../src/services/supabase.ts');
-await supabase.auth.setSession({
-  access_token: login.session.access_token,
-  refresh_token: login.session.refresh_token,
-});
-
-const { apiClient } = await import('../src/services/api.client.ts');
-const { timesheetService } = await import('../src/services/timesheet.service.ts');
-
-let ok = 0;
-let fail = 0;
-for (const job of pending) {
-  // Session user is single-org; skip other orgs to avoid RLS write failures.
-  apiClient.setOrganizationId(job.organization_id);
-  await adminSb
-    .from('timesheet_recalc_queue')
-    .update({ status: 'PROCESSING', updated: new Date().toISOString() })
-    .eq('id', job.id);
-  try {
-    console.log(`recalc ${job.work_date} ${job.employee_id}`);
-    await timesheetService.recalculateDay(job.employee_id, job.work_date);
-    await adminSb
-      .from('timesheet_recalc_queue')
-      .update({
-        status: 'COMPLETED',
-        attempts: (job.attempts || 0) + 1,
-        last_error: null,
-        processed_at: new Date().toISOString(),
-        updated: new Date().toISOString(),
-      })
-      .eq('id', job.id);
-    ok++;
-  } catch (e) {
-    fail++;
-    await adminSb
-      .from('timesheet_recalc_queue')
-      .update({
-        status: 'FAILED',
-        attempts: (job.attempts || 0) + 1,
-        last_error: String(e?.message || e).slice(0, 500),
-        updated: new Date().toISOString(),
-      })
-      .eq('id', job.id);
-    if (fail <= 5) console.warn('recalc_fail', job.employee_id, job.work_date, e?.message || e);
+    console.log(`Processados OK=${ok} FAIL=${fail}`);
+    if (fail > 0) process.exitCode = 1;
   }
 }
-
-console.log(`Processados OK=${ok} FAIL=${fail}`);
-process.exit(0);

@@ -24,10 +24,11 @@ import { checkSupabaseConnection, isSupabaseConfigured } from '../services/supab
 import { useToast } from '../context/ToastContext';
 import { APP_NAME, APP_TAGLINE, STORE_LOGO_PATH } from '../config/branding';
 import { PwaLanBanner } from '../components/mobile/EmployeeMobileShortcuts';
+import FirstAccess from './FirstAccess';
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;
-  onRegisterClick: () => void;
+  onRegisterClick?: () => void;
   onBackToLanding?: () => void;
   initError?: string;
 }
@@ -70,6 +71,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotStatus, setForgotStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [forgotError, setForgotError] = useState('');
+  const [showFirstAccess, setShowFirstAccess] = useState(false);
 
   // Install Help State
   const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -385,6 +387,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
     }
   };
 
+  if (showFirstAccess) {
+    return (
+      <FirstAccess
+        onLoginSuccess={onLoginSuccess}
+        onBack={() => setShowFirstAccess(false)}
+      />
+    );
+  }
+
   return (
     <div
       className="min-h-screen w-full flex flex-col text-white items-center justify-center px-4 py-8 sm:px-6 relative overflow-x-hidden"
@@ -405,10 +416,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
           <div className="p-7 sm:p-9 md:p-10 space-y-8">
             {/* Brand Header */}
             <BrandLogo />
-
-            {isMobile && !showForgot && !isInstalled && (
-              <PwaLanBanner variant="dark" />
-            )}
 
             {/* Forgot Password Flow */}
             {showForgot ? (
@@ -573,11 +580,21 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
 
                 <button
                   type="button"
+                  onClick={() => setShowFirstAccess(true)}
+                  className="w-full min-h-11 py-2 text-[var(--brand-red)] text-sm font-semibold hover:text-white transition-colors"
+                >
+                  {t('firstAccess.link')}
+                </button>
+
+                {onRegisterClick && (
+                <button
+                  type="button"
                   onClick={onRegisterClick}
                   className="w-full min-h-12 py-3 bg-transparent text-slate-200 border border-[#3a495e] rounded-xl font-semibold text-sm hover:bg-white/5 hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 transition-all flex items-center justify-center gap-2"
                 >
                   <Building2 size={14} /> {t('registerOrg')}
                 </button>
+                )}
 
                 {/* Back to Home */}
                 {onBackToLanding && (
@@ -626,8 +643,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onRegisterClick, onBackTo
           </div>
         </div>
 
+        {isMobile && !showForgot && !isInstalled && (
+          <div className="mt-3">
+            <PwaLanBanner variant="dark" dense />
+          </div>
+        )}
+
         {/* System Version */}
-        <p className="text-center mt-5 text-xs font-medium text-slate-500">v3.0 · {t('multiTenant')}</p>
+        <p className="text-center mt-4 text-xs font-medium text-slate-500">v3.0 · {t('multiTenant')}</p>
       </div>
 
       {/* Database Connection Indicator — visible on all sizes when API unreachable */}

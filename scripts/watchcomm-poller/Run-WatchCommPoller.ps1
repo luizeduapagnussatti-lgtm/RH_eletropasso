@@ -4,12 +4,12 @@
   Coleta MRP no PrintPoint (:3000) e envia ao ingest-punches.
 
   Deve rodar sob PowerShell x86 (SysWOW64) por causa do WatchComm.dll 32-bit.
-  Agendado 3x ao dia (09:00, 15:00, 19:00) via Task Scheduler.
+  Agendado 1x por semana (segunda 09:00) via Task Scheduler.
   Coleta manual em Comunicacao com o relogio permanece disponivel.
 #>
 [CmdletBinding()]
 param(
-  [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
+  [string]$ConfigPath = '',
   [ValidateSet('manual', 'scheduled')]
   [string]$Trigger = 'scheduled',
   [switch]$Bootstrap
@@ -17,6 +17,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if (-not $ConfigPath) {
+  $root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+  $ConfigPath = Join-Path $root 'config.json'
+}
 
 if ([IntPtr]::Size -ne 4) {
   $x86 = "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
@@ -204,9 +209,30 @@ $forwardEnabled = [bool](Get-ConfigValue $Config 'forwardEnabled' $true)
 
 Write-Log ("cycle start startNsr={0} bootstrap={1} forward={2}" -f $startNsr, $doBootstrap, $forwardEnabled)
 
+# Estabiliza ARP/TCP antes da coleta (link oscilante do PrintPoint na LAN).
+$linkScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'Ensure-PrintPointLink.ps1'
+if (-not (Test-Path -LiteralPath $linkScript)) {
+  $linkScript = Join-Path $PSScriptRoot '..\Ensure-PrintPointLink.ps1'
+}
+$linkScript = [IO.Path]::GetFullPath($linkScript)
+if (Test-Path -LiteralPath $linkScript) {
+  Write-Log 'Ensure-PrintPointLink before collect'
+  $linkProc = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass',
+    '-File', $linkScript,
+    '-ClockIp', ([string]$Config.clockIp),
+    '-ClockPort', ([string][int]$Config.clockPort)
+  ) -Wait -PassThru -NoNewWindow
+  if ($linkProc.ExitCode -ne 0) {
+    Write-Log ("Ensure-PrintPointLink exit={0} - tentando coleta mesmo assim" -f $linkProc.ExitCode) 'WARN'
+  }
+} else {
+  Write-Log ("Ensure-PrintPointLink missing: {0}" -f $linkScript) 'WARN'
+}
+
 $selfX86 = "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
 $accessKey = [string](Get-ConfigValue $Config 'accessKey' '')
-$maxCollectAttempts = [int](Get-ConfigValue $Config 'collectRetries' 3)
+$maxCollectAttempts = [int](Get-ConfigValue $Config 'collectRetries' 5)
 if ($maxCollectAttempts -lt 1) { $maxCollectAttempts = 1 }
 
 $collectExit = -1
@@ -265,7 +291,19 @@ for ($attempt = 1; $attempt -le $maxCollectAttempts; $attempt++) {
   if (-not $collectError) { break }
   Write-Log ("collect attempt {0}/{1} FAIL: {2}" -f $attempt, $maxCollectAttempts, $collectError) 'WARN'
   if ($attempt -lt $maxCollectAttempts) {
-    Start-Sleep -Seconds (15 * $attempt)
+    # Backoff mais longo: PrintPoint costuma voltar em 20–60s apos oscilacao LAN.
+    $backoff = [Math]::Min(90, 20 * $attempt)
+    Write-Log ("collect backoff {0}s before retry" -f $backoff)
+    if (Test-Path -LiteralPath $linkScript) {
+      Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', $linkScript,
+        '-ClockIp', ([string]$Config.clockIp),
+        '-ClockPort', ([string][int]$Config.clockPort),
+        '-TcpAttempts', '4'
+      ) -Wait -PassThru -NoNewWindow | Out-Null
+    }
+    Start-Sleep -Seconds $backoff
   }
 }
 

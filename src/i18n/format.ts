@@ -12,7 +12,12 @@ export function formatIsoDateBr(iso: string): string {
 }
 
 export function formatDate(value: string | number | Date, options?: Intl.DateTimeFormatOptions): string {
-  const d = value instanceof Date ? value : new Date(value);
+  const d =
+    value instanceof Date
+      ? value
+      : typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+        ? new Date(`${value.trim()}T12:00:00`)
+        : new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleDateString(getDateLocale(), options ?? { year: 'numeric', month: 'short', day: 'numeric' });
 }

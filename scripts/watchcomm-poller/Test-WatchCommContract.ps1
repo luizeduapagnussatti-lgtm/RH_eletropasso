@@ -27,7 +27,7 @@ function Assert-HasMethod([Type]$Type, [string]$Name, [int]$MinOverloads = 1) {
   Assert-True ($methods.Count -ge $MinOverloads) ("Missing method: {0} (found {1})" -f $Name, $methods.Count)
 }
 
-$rsaCore = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\services\rep-gateway\research\WatchComm-RsaCore.ps1'))
+$rsaCore = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'lib\WatchComm-RsaCore.ps1'))
 . $rsaCore
 Initialize-WatchCommRsa
 

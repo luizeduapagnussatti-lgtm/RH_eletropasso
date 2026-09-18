@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { UserCheck, RefreshCw, X, ArrowRight } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { LeaveRequest } from '../../types';
@@ -12,6 +12,7 @@ interface Props {
 }
 
 const ManagerLeaveFlow: React.FC<Props> = ({ requests, onRefresh }) => {
+  const { t } = useTranslation('leave');
   const { showToast } = useToast();
   const [showReview, setShowReview] = useState<LeaveRequest | null>(null);
   const [remarks, setRemarks] = useState('');
@@ -66,7 +67,7 @@ const ManagerLeaveFlow: React.FC<Props> = ({ requests, onRefresh }) => {
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Reason for Leave</p>
                 <p className="text-sm font-medium text-slate-600 italic">"{showReview.reason}"</p>
               </div>
-              <textarea placeholder="Your evaluation remarks..." className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold min-h-[100px] outline-none" value={remarks} onChange={e => setRemarks(e.target.value)} />
+              <textarea placeholder={t('managerialRemarksPlaceholder')} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold min-h-[100px] outline-none" value={remarks} onChange={e => setRemarks(e.target.value)} />
               <div className="flex gap-4">
                 <button disabled={isProcessing} onClick={() => handleAction('REJECTED')} className="flex-1 py-5 bg-rose-50 text-rose-600 rounded-[32px] font-semibold uppercase text-[10px]">Reject</button>
                 <button disabled={isProcessing} onClick={() => handleAction('APPROVED')} className="flex-1 py-5 bg-primary text-white rounded-[32px] font-semibold uppercase text-[10px] shadow-xl flex items-center justify-center gap-2 hover:bg-primary-hover">

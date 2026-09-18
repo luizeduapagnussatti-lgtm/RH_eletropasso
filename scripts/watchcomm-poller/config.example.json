@@ -16,7 +16,7 @@
   "maxBatchesPerCycle": 250,
   "maxRecordsPerCycle": 250,
   "forwardEnabled": true,
-  "collectRetries": 3,
+  "collectRetries": 5,
   "bootstrapOnly": false,
   "statePath": "E:\\RH_eletropasso\\logs\\rep-gateway\\watchcomm-poller\\state.json",
   "resultPath": "E:\\RH_eletropasso\\logs\\rep-gateway\\watchcomm-poller\\last-cycle-result.json",

@@ -316,6 +316,32 @@ assert.equal(
     }),
   ];
   assert.equal(canExportMirrorPdf(withFuture, today).ok, true);
+
+  const offWithoutAck = [
+    baseDay({
+      id: 'off1',
+      workDate: '2026-07-18',
+      status: 'OFF',
+      managerAck: false,
+      expectedMinutes: 0,
+      workedMinutes: 0,
+      firstPunchAt: undefined,
+      lastPunchAt: undefined,
+    }),
+    baseDay({
+      id: 'ok1',
+      workDate: '2026-07-15',
+      managerAck: true,
+      firstPunchAt: '2026-07-15T08:00:00',
+      lastPunchAt: '2026-07-15T17:00:00',
+    }),
+  ];
+  assert.equal(
+    canExportMirrorPdf(offWithoutAck, today).ok,
+    true,
+    'OFF/HOLIDAY/LEAVE without managerAck must not block PDF',
+  );
+  assert.equal(canExportMirrorPdf(offWithoutAck, today).pendingCount, 0);
 }
 
 assert.equal(isWorkingDay('2026-07-26', shiftMonFri.workingDays), false);

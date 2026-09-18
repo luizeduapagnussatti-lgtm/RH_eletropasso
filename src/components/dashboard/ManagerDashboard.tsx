@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
-import { ShieldCheck, Plus, Users } from 'lucide-react';
+import { ShieldCheck, Plus, Users, ClipboardList } from 'lucide-react';
 import { DashboardData } from '../../hooks/dashboard/useDashboard';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardStats } from './DashboardStats';
@@ -8,6 +8,10 @@ import { AnnouncementWidget } from './AnnouncementWidget';
 import { isNonPunchingStaff } from '../../utils/roles';
 import { useEmployeeMobileShell } from '../../hooks/useEmployeeMobileShell';
 import { EmployeeMobileHome } from '../mobile/EmployeeMobileHome';
+import { ManagerMobileHome } from '../mobile/ManagerMobileHome';
+import { hrService } from '../../services/hrService';
+import { PunchCorrectionApprovalModal } from '../timesheet/PunchCorrectionApprovalModal';
+import type { PunchCorrectionRequest } from '../../types';
 
 interface Props {
   data: DashboardData;
@@ -17,12 +21,45 @@ interface Props {
 
 export const ManagerDashboard: React.FC<Props> = ({ data, isLoading, onNavigate }) => {
   const { t } = useTranslation('dashboard');
+  const { t: tAtt } = useTranslation('attendance');
   const balanceTypes = data.leaveTypes?.filter(lt => lt.hasBalance) || [];
   const totalRemaining = balanceTypes.reduce((sum, lt) => sum + ((data.userBalance?.[lt.id] as number) || 0), 0);
   const showPunch = !isNonPunchingStaff(data.freshUser?.role);
   const employeeMobileShell = useEmployeeMobileShell();
+  const [pendingCorrections, setPendingCorrections] = useState<PunchCorrectionRequest[]>([]);
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await hrService.listPendingPunchCorrections();
+        if (!cancelled) setPendingCorrections(rows);
+      } catch {
+        if (!cancelled) setPendingCorrections([]);
+      }
+    })();
+    const unsub = hrService.subscribe(() => {
+      void hrService.listPendingPunchCorrections().then(rows => {
+        if (!cancelled) setPendingCorrections(rows);
+      }).catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, []);
 
   if (employeeMobileShell) {
+    if (data.freshUser?.role === 'MANAGER') {
+      return (
+        <ManagerMobileHome
+          user={data.freshUser}
+          isLoading={isLoading}
+          onNavigate={onNavigate}
+        />
+      );
+    }
     return (
       <EmployeeMobileHome
         user={data.freshUser}
@@ -40,7 +77,7 @@ export const ManagerDashboard: React.FC<Props> = ({ data, isLoading, onNavigate 
         appConfig={data.appConfig}
         isLoading={isLoading}
         onNavigate={onNavigate}
-        showPunchActions={showPunch}
+        showPunchActions={showPunch && !!data.freshUser.allowPwaPunch}
       />
 
       <DashboardStats
@@ -51,6 +88,29 @@ export const ManagerDashboard: React.FC<Props> = ({ data, isLoading, onNavigate 
 
       {!isLoading && (
         <>
+          {pendingCorrections.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowCorrectionModal(true)}
+              className="w-full text-left bg-amber-50 border border-amber-100 rounded-xl p-5 flex items-center justify-between gap-4 hover:bg-amber-100/70 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <ClipboardList size={22} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-amber-950">{tAtt('pendingPunchCorrections')}</h4>
+                  <p className="text-xs text-amber-800/80 mt-0.5">
+                    {tAtt('pendingPunchCorrectionsCount', { count: pendingCorrections.length })}
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                {tAtt('reviewPunchCorrections')}
+              </span>
+            </button>
+          )}
+
           <div className="bg-white rounded-xl border border-slate-100 shadow-xl overflow-hidden animate-in slide-in-from-bottom-4">
             <div className="bg-primary p-8 pb-12 relative overflow-hidden flex items-center justify-between">
               <h2 className="text-2xl font-semibold text-white tracking-tight mt-4">{t('leaveAllocation')}</h2>
@@ -110,6 +170,16 @@ export const ManagerDashboard: React.FC<Props> = ({ data, isLoading, onNavigate 
 
           <AnnouncementWidget user={data.freshUser} onNavigate={onNavigate} />
         </>
+      )}
+
+      {showCorrectionModal && (
+        <PunchCorrectionApprovalModal
+          requests={pendingCorrections}
+          onClose={() => setShowCorrectionModal(false)}
+          onChanged={() => {
+            void hrService.listPendingPunchCorrections().then(setPendingCorrections).catch(() => undefined);
+          }}
+        />
       )}
     </div>
   );

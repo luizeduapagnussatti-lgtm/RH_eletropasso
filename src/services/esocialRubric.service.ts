@@ -4,7 +4,7 @@ import { EsocialRubricInternalType, EsocialRubricMapping } from '../types';
 
 const DEFAULT_RUBRICS: Array<Omit<EsocialRubricMapping, 'id' | 'organizationId'>> = [
   { internalType: 'REGULAR', rubricCode: '1000', description: 'Horas normais', active: true },
-  { internalType: 'HE_50', rubricCode: '1200', description: 'Horas extras 50%', active: true },
+  { internalType: 'HE_50', rubricCode: '1200', description: 'Horas extras 60%', active: true },
   { internalType: 'HE_100', rubricCode: '1201', description: 'Horas extras 100%', active: true },
   { internalType: 'NIGHT', rubricCode: '1040', description: 'Adicional noturno', active: true },
   { internalType: 'ABSENCE', rubricCode: '9200', description: 'Faltas', active: true },

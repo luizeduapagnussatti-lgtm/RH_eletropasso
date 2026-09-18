@@ -167,3 +167,21 @@ select cron.schedule(
   );
   $$
 );
+
+-- ============================================================
+-- missing_punches_alert — Monday 09:00 UTC (≈ 06:00 America/Sao_Paulo)
+-- ============================================================
+select cron.schedule(
+  'missing-punches-alert',
+  '0 9 * * 1',
+  $$
+  select net.http_post(
+    url := 'https://cixryuwtlwbofabctrkk.supabase.co/functions/v1/cron-missing-punches-alert',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || current_setting('app.cron_secret', true)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);

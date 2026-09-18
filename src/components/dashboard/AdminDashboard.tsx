@@ -10,6 +10,7 @@ import {
   Settings,
   UserCircle,
   CalendarRange,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
 import { DashboardData } from '../../hooks/dashboard/useDashboard';
@@ -95,6 +96,11 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
               icon={CalendarRange}
               label={t('timesheet')}
               onClick={() => onNavigate('timesheet')}
+            />
+            <NavTile
+              icon={ClipboardList}
+              label={t('punchCorrections')}
+              onClick={() => onNavigate('punch-corrections')}
             />
             <NavTile
               icon={CalendarDays}

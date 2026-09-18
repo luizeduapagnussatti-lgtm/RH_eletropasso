@@ -177,12 +177,26 @@ export const reviewService = {
 
   // ─── Performance Reviews ──────────────────────────────────────
 
-  async getReviews(): Promise<PerformanceReview[]> {
+  async getReviews(opts?: {
+    /** When set, only reviews for this employee (profile id). */
+    employeeId?: string;
+    /** When set, reviews where this user is line manager. */
+    lineManagerId?: string;
+    /** Own + direct reports (employeeId OR lineManagerId). */
+    selfOrReportsOf?: string;
+  }): Promise<PerformanceReview[]> {
     if (!isSupabaseConfigured()) return [];
     try {
       const orgId = apiClient.getOrganizationId();
       let query = supabase.from('performance_reviews').select('*').order('created', { ascending: false }).limit(200);
       if (orgId) query = query.eq('organization_id', orgId);
+      if (opts?.employeeId) query = query.eq('employee_id', opts.employeeId);
+      if (opts?.lineManagerId) query = query.eq('line_manager_id', opts.lineManagerId);
+      if (opts?.selfOrReportsOf) {
+        query = query.or(
+          `employee_id.eq.${opts.selfOrReportsOf},line_manager_id.eq.${opts.selfOrReportsOf}`,
+        );
+      }
       const { data, error } = await query;
       if (error) throw error;
       const reviews: PerformanceReview[] = [];

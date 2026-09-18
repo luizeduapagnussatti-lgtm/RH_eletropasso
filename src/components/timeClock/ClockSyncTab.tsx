@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -15,15 +15,31 @@ import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type {
+  DmprepPunchCycleStatus,
   DmprepSyncHistoryEntry,
   DmprepSyncScope,
   DmprepSyncStatusResponse,
 } from '../../services/dmprepSync.service';
+import {
+  configureClockCollectFormatters,
+  isClockCollectActive,
+  startClockCollect,
+} from '../../services/clockCollectSession';
+import { useClockCollectSession } from '../../hooks/useClockCollectSession';
 import { isClockBusyError } from './clockCommandUi';
 
-function mapClockSyncError(message: string, t: (key: string) => string): string {
+function mapClockSyncError(message: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (/collect_timeout/i.test(message)) {
+    return t('comunicacao.collectTimeout');
+  }
+  if (/Failed to fetch|networkerror|abort/i.test(message)) {
+    return t('comunicacao.collectNetworkRetry');
+  }
   if (/Could not reach the DMPREP|dmprep-sync is running/i.test(message)) {
     return t('comunicacao.serviceDown');
+  }
+  if (/not configured on this deployment/i.test(message)) {
+    return t('comunicacao.notConfigured');
   }
   return message;
 }
@@ -66,12 +82,14 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange, onGoToEmployees })
   const { canPerformAction } = useSubscription();
   const canWrite = canPerformAction('write');
   const locale = i18n.language?.startsWith('en') ? 'en-US' : 'pt-BR';
+  const collectSession = useClockCollectSession();
 
   const [loadingScope, setLoadingScope] = useState<DmprepSyncScope | null>(null);
   const [sessionResult, setSessionResult] = useState<string | null>(null);
   const [status, setStatus] = useState<DmprepSyncStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const lastNotifiedPhase = useRef(collectSession.phase);
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -89,56 +107,73 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange, onGoToEmployees })
   }, [t]);
 
   useEffect(() => {
+    configureClockCollectFormatters({
+      formatSuccess: (cycle: DmprepPunchCycleStatus) =>
+        t('comunicacao.punchesResult', {
+          newRecords: cycle.forwarded ?? cycle.collected ?? 0,
+          inserted: cycle.inserted ?? 0,
+          duplicates: cycle.duplicates ?? 0,
+        }),
+      formatFailure: (message: string) => mapClockSyncError(message, t),
+    });
+  }, [t]);
+
+  useEffect(() => {
     void loadStatus();
     const timer = window.setInterval(() => void loadStatus(), 60_000);
     return () => window.clearInterval(timer);
   }, [loadStatus]);
+
+  // Faster status refresh while collect runs; keep Comunicacao banner in sync.
+  useEffect(() => {
+    const active = isClockCollectActive(collectSession.phase) || Boolean(status?.busy);
+    onBusyChange?.(active);
+    if (!isClockCollectActive(collectSession.phase)) return;
+    const timer = window.setInterval(() => void loadStatus(), 4_000);
+    return () => window.clearInterval(timer);
+  }, [collectSession.phase, status?.busy, onBusyChange, loadStatus]);
+
+  // Reflect global session success/error on this tab (toasts also fire from banner host).
+  useEffect(() => {
+    if (collectSession.phase === lastNotifiedPhase.current) return;
+    lastNotifiedPhase.current = collectSession.phase;
+    if (collectSession.phase === 'success' && collectSession.summary) {
+      setSessionResult(collectSession.summary);
+      void loadStatus();
+    }
+    if (collectSession.phase === 'error' && collectSession.errorMessage) {
+      void loadStatus();
+    }
+  }, [collectSession.phase, collectSession.summary, collectSession.errorMessage, loadStatus]);
 
   const runSync = async (scope: ActionCard['scope']) => {
     if (!canWrite) {
       showToast(t('comunicacao.readOnly'), 'error');
       return;
     }
+    if (isClockCollectActive(collectSession.phase) || status?.busy) {
+      showToast(t('comunicacao.busy'), 'warning');
+      return;
+    }
+
     setLoadingScope(scope);
     onBusyChange?.(true);
     try {
-      const result = await hrService.triggerDmprepSync(scope);
-      if (result.busy || isClockBusyError(result.error)) {
+      const outcome = await startClockCollect({
+        scope,
+        trigger: () => hrService.triggerDmprepSync(scope),
+        getStatus: () => hrService.getDmprepSyncStatus(),
+      });
+      if (outcome === 'busy') {
         showToast(t('comunicacao.busy'), 'warning');
         return;
       }
-
-      const parts: string[] = [];
-      if (result.employees) {
-        parts.push(
-          t('comunicacao.employeesResult', {
-            created: result.employees.created,
-            updated: result.employees.updated,
-            failed: result.employees.failed,
-          }),
-        );
+      if (outcome === 'error') {
+        // Toast comes from ClockCollectBanner (global session).
+        await loadStatus();
+        return;
       }
-      if (result.punches) {
-        parts.push(
-          t('comunicacao.punchesResult', {
-            newRecords: result.punches.newRecords,
-            inserted: result.punches.inserted,
-            duplicates: result.punches.duplicates,
-          }),
-        );
-        if ((result.punches.skippedPunches ?? 0) > 0) {
-          parts.push(
-            t('comunicacao.punchesSkipped', {
-              count: result.punches.skippedPunches,
-              ids: (result.punches.skippedEmployeeIds ?? []).join(', '),
-            }),
-          );
-        }
-      }
-
-      const summary = parts.join(' · ') || t('comunicacao.success');
-      setSessionResult(summary);
-      showToast(summary, 'success');
+      showToast(t('comunicacao.collectStarted'), 'info');
       await loadStatus();
     } catch (error) {
       console.error('DMPREP sync failed:', error);
@@ -151,16 +186,16 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange, onGoToEmployees })
       await loadStatus();
     } finally {
       setLoadingScope(null);
-      onBusyChange?.(false);
     }
   };
 
-  const isLoading = loadingScope !== null;
+  const collectActive = isClockCollectActive(collectSession.phase) || Boolean(status?.busy);
+  const isLoading = loadingScope !== null || collectActive;
   const cycle = status?.lastPunchCycle;
   const cycleOk = cycle ? cycle.success !== false && !cycle.error : null;
   const serviceTone: 'ok' | 'busy' | 'error' | 'idle' = statusError
     ? 'error'
-    : status?.busy
+    : status?.busy || collectActive
       ? 'busy'
       : status?.ok
         ? 'ok'
@@ -171,6 +206,13 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange, onGoToEmployees })
       <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         {t('comunicacao.note')}
       </div>
+
+      {collectActive && (
+        <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900 flex items-center gap-2">
+          <Loader2 size={16} className="animate-spin shrink-0" aria-hidden />
+          {t('comunicacao.collectRunning')}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {ACTIONS.map((action) => (
@@ -194,8 +236,10 @@ export const ClockSyncTab: React.FC<Props> = ({ onBusyChange, onGoToEmployees })
                   : 'bg-white text-slate-800 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              <action.icon size={16} className={loadingScope === action.scope ? 'animate-spin' : ''} />
-              {loadingScope === action.scope ? t('comunicacao.syncing') : t(action.ctaKey)}
+              <action.icon size={16} className={loadingScope === action.scope || collectActive ? 'animate-spin' : ''} />
+              {loadingScope === action.scope || collectActive
+                ? t('comunicacao.collectRunningShort')
+                : t(action.ctaKey)}
             </button>
           </div>
         ))}

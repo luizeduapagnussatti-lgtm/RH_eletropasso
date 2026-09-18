@@ -1,7 +1,7 @@
 // OpenHR / Eletropasso — Messaging dispatch (Evolution WhatsApp + Resend email)
 // POST /functions/v1/messaging-dispatch
 // Body: { action: 'send'|'batch'|'retry'|'health', ... }
-// Auth: Bearer JWT — ADMIN/HR (send/batch/retry) or ADMIN/HR/MANAGER (health)
+// Auth: Bearer JWT — ADMIN/HR/MANAGER (send/batch/retry/health)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const auth = await assertAdminHr(req.headers.get('Authorization'), supabaseUrl, anonKey, serviceKey);
+  const auth = await assertAdminHr(req.headers.get('Authorization'), supabaseUrl, anonKey, serviceKey, true);
   if ('error' in auth && auth.error) return auth.error;
   const { profile, admin } = auth as { profile: { organization_id: string; role: string }; admin: ReturnType<typeof createClient> };
   const orgId = profile.organization_id;
