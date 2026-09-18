@@ -519,17 +519,26 @@ export function timesheetDaysToAttendance(
   return out;
 }
 
-/** Merge legacy attendance with PTRP-derived rows; legacy wins on the same employee+date. */
+/**
+ * Merge legacy attendance with PTRP-derived rows.
+ * PTRP (timesheet_days / clock) wins on the same employee+date;
+ * legacy selfie only fills gaps where there is no espelho day.
+ */
 export function mergeAttendanceSources(
   legacy: Attendance[],
   fromTimesheet: Attendance[]
 ): Attendance[] {
   const map = new Map<string, Attendance>();
-  for (const row of fromTimesheet) {
-    map.set(`${row.employeeId}_${row.date}`, row);
-  }
   for (const row of legacy) {
     map.set(`${row.employeeId}_${row.date}`, row);
   }
+  for (const row of fromTimesheet) {
+    map.set(`${row.employeeId}_${row.date}`, row);
+  }
   return Array.from(map.values());
+}
+
+/** True when a row came from PTRP timesheet mapping (remarks prefix). */
+export function isPtrpAttendanceRow(row: Attendance): boolean {
+  return String(row.remarks || '').startsWith('PTRP:');
 }

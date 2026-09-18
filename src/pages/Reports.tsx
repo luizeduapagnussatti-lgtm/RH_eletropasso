@@ -9,7 +9,7 @@ import {
 import { hrService } from '../services/hrService';
 import { emailService } from '../services/emailService';
 import { organizationService } from '../services/organization.service';
-import { User, Employee, Attendance, LeaveRequest, AppConfig, Holiday, Shift, EmployeeAttendanceSummary } from '../types';
+import { User, Employee, Attendance, LeaveRequest, AppConfig, Holiday, Shift, EmployeeAttendanceSummary, TimesheetPeriod } from '../types';
 import {
   consolidateAttendance,
   getDateRangeFromPreset,
@@ -17,12 +17,16 @@ import {
   ALL_EMPLOYEES_FILTER,
   timesheetDaysToAttendance,
   mergeAttendanceSources,
+  isPtrpAttendanceRow,
   eachLocalISODate,
   localWeekdayLong,
   toLocalISODate,
+  parseLocalISODate,
 } from '../utils/attendanceUtils';
 import { buildTeamSummaryMetrics, topEmployeesByAbsentDays, formatScopeSubtitle } from '../utils/reportMetrics';
+import { assessReportTrust } from '../utils/reportTrust';
 import { ReportsScopeBanner } from '../components/reports/ReportsScopeBanner';
+import { ReportsTrustBanner } from '../components/reports/ReportsTrustBanner';
 import { ReportsSummaryMetrics } from '../components/reports/ReportsSummaryMetrics';
 import { EmployeeSummaryTable } from '../components/reports/EmployeeSummaryTable';
 import { ReportsSidePanel } from '../components/reports/ReportsSidePanel';
@@ -74,14 +78,19 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
   // Filter States
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [employeeFilter, setEmployeeFilter] = useState(ALL_EMPLOYEES_FILTER);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => getDateRangeFromPreset('THIS_MONTH').startDate);
+  const [endDate, setEndDate] = useState(() => getDateRangeFromPreset('THIS_MONTH').endDate);
   
   // Recipient State
   const [customRecipients, setCustomRecipients] = useState('');
 
   // Org Info for PDF header
   const [orgInfo, setOrgInfo] = useState<{ name: string; address: string; logoDataUrl: string | null }>({ name: '', address: '', logoDataUrl: null });
+
+  // PTRP / competence trust
+  const [periodStatuses, setPeriodStatuses] = useState<string[]>([]);
+  const [isReloadingPeriod, setIsReloadingPeriod] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   // UI States
   const [isGenerating, setIsGenerating] = useState(false);
@@ -121,31 +130,60 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
     } catch(e) { console.warn("Failed to fetch logs"); }
   };
 
+  const loadPeriodAttendance = async (
+    rangeStart: string,
+    rangeEnd: string,
+    empList: Employee[],
+    config: AppConfig | null,
+  ) => {
+    const today = toLocalISODate();
+    const effectiveEnd = rangeEnd > today ? today : rangeEnd;
+    const [atts, lvs, timesheetDays, periods] = await Promise.all([
+      hrService.getAttendance({ since: rangeStart, maxRows: 10000 }),
+      hrService.getLeaves(),
+      hrService.listTimesheetDaysInRange(rangeStart, effectiveEnd).catch(() => []),
+      hrService.listTimesheetPeriods().catch(() => [] as TimesheetPeriod[]),
+    ]);
+
+    const fromPtrp = timesheetDaysToAttendance(timesheetDays, empList);
+    const inRangeLegacy = atts.filter(a => a.date >= rangeStart && a.date <= effectiveEnd);
+    setAttendance(mergeAttendanceSources(inRangeLegacy, fromPtrp));
+    setLeaves(lvs);
+
+    const startDay = config?.ptrpPolicy?.periodStartDay ?? DEFAULT_PTRP_POLICY.periodStartDay;
+    const overlappingStatuses: string[] = [];
+    for (const p of periods) {
+      if (p.endDate < rangeStart || p.startDate > effectiveEnd) continue;
+      overlappingStatuses.push(p.status);
+    }
+    // If list is empty, still derive competence labels for the filter window
+    if (overlappingStatuses.length === 0 && rangeStart && effectiveEnd) {
+      const seen = new Set<string>();
+      for (const iso of [rangeStart, effectiveEnd]) {
+        const c = competenceForDate(parseLocalISODate(iso), startDay);
+        const key = `${c.year}-${c.month}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const found = periods.find(p => p.year === c.year && p.month === c.month);
+        if (found) overlappingStatuses.push(found.status);
+      }
+    }
+    setPeriodStatuses(overlappingStatuses);
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Reports page needs a wide window (quarterly/annual summaries).
-        // Default service window is 30d; override to ~1 year here.
-        const yearAgo = new Date();
-        yearAgo.setDate(yearAgo.getDate() - 365);
-        const sinceYearAgo = yearAgo.toISOString().split('T')[0];
-
-        const [emps, atts, lvs, depts, config, hols, shiftsList, overridesList, timesheetDays] = await Promise.all([
+        const [emps, depts, config, hols, shiftsList, overridesList] = await Promise.all([
           hrService.getEmployees(),
-          hrService.getAttendance({ since: sinceYearAgo, maxRows: 10000 }),
-          hrService.getLeaves(),
           hrService.getDepartments(),
           hrService.getConfig(),
           hrService.getHolidays(),
           hrService.getShifts(),
           hrService.getShiftOverrides(),
-          hrService.listTimesheetDaysInRange(sinceYearAgo, new Date().toISOString().split('T')[0]).catch(() => []),
         ]);
         setEmployees(emps);
-        const fromPtrp = timesheetDaysToAttendance(timesheetDays, emps);
-        setAttendance(mergeAttendanceSources(atts, fromPtrp));
-        setLeaves(lvs);
         setDbDepartments(depts);
         setAppConfig(config);
         setHolidays(hols);
@@ -154,7 +192,8 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
         setSelectedDepts(depts);
         setCustomRecipients(config.defaultReportRecipient || user.email || '');
 
-        // Fetch organization info for PDF header
+        await loadPeriodAttendance(startDate, endDate, emps, config);
+
         try {
           const branding = await organizationService.getOrgBranding();
           setOrgInfo(branding);
@@ -182,7 +221,40 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
+  // Initial mount only — period reloads handled below
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
+
+  // Reload PTRP + attendance when the report window changes
+  useEffect(() => {
+    if (isLoading || employees.length === 0) return;
+    let cancelled = false;
+    const run = async () => {
+      setIsReloadingPeriod(true);
+      try {
+        await loadPeriodAttendance(startDate, endDate, employees, appConfig);
+      } catch (err) {
+        console.error('Report period reload failed', err);
+      } finally {
+        if (!cancelled) setIsReloadingPeriod(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
+
+  const reloadPeriodData = async () => {
+    setIsReloadingPeriod(true);
+    try {
+      await loadPeriodAttendance(startDate, endDate, employees, appConfig);
+    } catch (err) {
+      console.error(err);
+      showToast(t('exportFailed'), 'error');
+    } finally {
+      setIsReloadingPeriod(false);
+    }
+  };
 
   const toggleDept = (dept: string) => {
     setSelectedDepts(prev =>
@@ -390,6 +462,41 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
     return employees.find(e => e.id === employeeFilter)?.name;
   }, [employeeFilter, employees]);
 
+  const reportTrust = useMemo(() => {
+    const today = toLocalISODate();
+    const effectiveEnd = endDate > today ? today : endDate;
+    const ptrpInScope = attendance.filter(item => {
+      if (item.date < startDate || item.date > effectiveEnd) return false;
+      if (!isPtrpAttendanceRow(item)) return false;
+      const emp = employees.find(e => e.id === item.employeeId);
+      if (!emp) return false;
+      if (selectedDepts.length === 0 || !selectedDepts.includes(emp.department)) return false;
+      if (employeeFilter !== ALL_EMPLOYEES_FILTER && item.employeeId !== employeeFilter) return false;
+      return true;
+    }).length;
+
+    const expectedSlots = employeeSummaries.reduce((acc, s) => acc + s.totalWorkingDays, 0);
+    return assessReportTrust({
+      ptrpRowCount: ptrpInScope,
+      expectedWorkingDaySlots: expectedSlots,
+      periodStatuses,
+    });
+  }, [attendance, employees, selectedDepts, employeeFilter, startDate, endDate, employeeSummaries, periodStatuses]);
+
+  const canNavigateApuracao = Boolean(onNavigate && (user.role === 'ADMIN' || user.role === 'HR'));
+
+  const exportScopeSlug = () => {
+    if (employeeFilter === ALL_EMPLOYEES_FILTER) return 'todos';
+    const emp = employees.find(e => e.id === employeeFilter);
+    const raw = emp?.employeeId || emp?.name || employeeFilter;
+    return String(raw)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 40) || 'colaborador';
+  };
+
   const exportNotAvailable = t('export.notAvailable');
   const exportNoPunch = t('export.noPunch');
 
@@ -473,7 +580,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
       const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + headers.join(',') + '\n' + rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
       const link = document.createElement("a");
       link.setAttribute("href", encodeURI(csvContent));
-      link.setAttribute("download", `RH_Eletropasso_${reportType}_Export.csv`);
+      link.setAttribute("download", `${APP_NAME}_${reportType}_${exportScopeSlug()}_${startDate}_${endDate}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -528,7 +635,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
         (current, total) => t('pdfPage', { current, total })
       );
 
-      doc.save(`${APP_NAME}_detalhe_${reportType}_${startDate}_${endDate}.pdf`);
+      doc.save(`${APP_NAME}_detalhe_${reportType}_${exportScopeSlug()}_${startDate}_${endDate}.pdf`);
     } catch (err: any) {
       console.error("PDF generation failed:", err);
       showToast(t('pdfFailed', { error: err?.message || err }), "error");
@@ -570,7 +677,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
       const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + headers.join(',') + '\n' + rows.join('\n') + '\n' + totalRow;
       const link = document.createElement('a');
       link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', `${APP_NAME}_resumo_ponto_${startDate}_${endDate}.csv`);
+      link.setAttribute('download', `${APP_NAME}_resumo_ponto_${exportScopeSlug()}_${startDate}_${endDate}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -682,7 +789,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
         (current, total) => t('pdfPage', { current, total })
       );
 
-      doc.save(`${APP_NAME}_resumo_ponto_${startDate}_${endDate}.pdf`);
+      doc.save(`${APP_NAME}_resumo_ponto_${exportScopeSlug()}_${startDate}_${endDate}.pdf`);
     } catch (err: any) {
       console.error("Summary PDF generation failed:", err);
       showToast(t('pdfFailed', { error: err?.message || err }), "error");
@@ -744,38 +851,54 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
   if (isLoading) return <div className="flex flex-col items-center justify-center h-64 text-slate-400"><RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mb-4" /><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{t('loading')}</p></div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2"><h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1><HelpButton helpPointId="reports.generator" /></div>
-          <p className="text-slate-500 font-medium text-sm">{t('subtitle')}</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-24 md:pb-20">
+      <header className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('title')}</h1>
+              <HelpButton helpPointId="reports.generator" />
+            </div>
+            <p className="text-slate-500 font-medium text-sm">{t('subtitle')}</p>
+          </div>
+          {canNavigateApuracao ? (
+            <button
+              type="button"
+              onClick={() => onNavigate?.('apuracao')}
+              className="inline-flex items-center justify-center gap-1.5 self-start rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-primary-hover"
+            >
+              {t('apuracaoIntroCta')}
+            </button>
+          ) : null}
         </div>
-        {onNavigate && (user.role === 'ADMIN' || user.role === 'HR') && (
-          <button
-            type="button"
-            onClick={() => onNavigate('apuracao')}
-            className="inline-flex items-center gap-1.5 self-start rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-          >
-            {t('apuracaoIntroCta')}
-          </button>
-        )}
       </header>
 
-      {(user.role === 'ADMIN' || user.role === 'HR') && (
-        <p className="rounded-xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">
-          {t('apuracaoIntro')}
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div className="xl:col-span-2 space-y-8">
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:gap-8">
+        <div className="lg:col-span-2 space-y-6 md:space-y-8">
 
           {/* ===== SHARED FILTERS ===== */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 md:p-12 space-y-8">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-8 space-y-6">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('filtersTitle')}</p>
+              <button
+                type="button"
+                className="md:hidden text-[10px] font-semibold uppercase text-indigo-600"
+                onClick={() => setFiltersOpen(o => !o)}
+              >
+                {t('filtersToggle')}
+              </button>
+            </div>
+
+            <div className={`space-y-6 ${filtersOpen ? '' : 'hidden md:block'}`}>
             {/* Period Presets */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('period')}</p>
+                {isReloadingPeriod ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
+                    <RefreshCw size={12} className="animate-spin" /> {t('trust.reload')}
+                  </span>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -807,20 +930,35 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               )}
             </div>
 
+            {/* Who? — employee scope first-class */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('whoFilter')}</label>
+              <select
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none"
+                value={employeeFilter}
+                onChange={e => setEmployeeFilter(e.target.value)}
+              >
+                <option value={ALL_EMPLOYEES_FILTER}>{t('allEmployees')}</option>
+                {employees
+                  .filter(e => isClockReportEmployee(e) && selectedDepts.includes(e.department || ''))
+                  .map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
+              </select>
+            </div>
+
             {/* Department Filter */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('departments', { selected: selectedDepts.length, total: dbDepartments.length })}</p>
                 <div className="flex gap-4">
-                  <button onClick={() => setSelectedDepts(dbDepartments)} className="text-[9px] font-semibold uppercase text-indigo-600 hover:underline">{t('selectAll')}</button>
-                  <button onClick={() => setSelectedDepts([])} className="text-[9px] font-semibold uppercase text-rose-500 hover:underline">{t('clearAll')}</button>
+                  <button type="button" onClick={() => setSelectedDepts(dbDepartments)} className="text-[9px] font-semibold uppercase text-indigo-600 hover:underline">{t('selectAll')}</button>
+                  <button type="button" onClick={() => setSelectedDepts([])} className="text-[9px] font-semibold uppercase text-rose-500 hover:underline">{t('clearAll')}</button>
                 </div>
               </div>
-              <div className="max-h-60 overflow-y-auto no-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-1 border border-slate-50 rounded-3xl py-4 bg-slate-50/30">
+              <div className="max-h-48 md:max-h-60 overflow-y-auto no-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-1 border border-slate-50 rounded-3xl py-4 bg-slate-50/30">
                 {dbDepartments.map(dept => {
                   const isSelected = selectedDepts.includes(dept);
                   return (
-                    <button key={dept} onClick={() => toggleDept(dept)} className={`flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left ${isSelected ? 'bg-white border-primary/30 shadow-sm' : 'bg-transparent border-transparent opacity-60'}`}>
+                    <button key={dept} type="button" onClick={() => toggleDept(dept)} className={`flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left ${isSelected ? 'bg-white border-primary/30 shadow-sm' : 'bg-transparent border-transparent opacity-60'}`}>
                       <div className={`p-1 rounded-md ${isSelected ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'}`}>{isSelected ? <CheckSquare size={14} /> : <Square size={14} />}</div>
                       <span className={`text-[11px] font-bold truncate ${isSelected ? 'text-slate-900' : 'text-slate-500'}`}>{dept}</span>
                     </button>
@@ -829,26 +967,15 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               </div>
             </div>
 
-            {/* Employee Scoping + Recipient */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('employeeScoping')}</label>
-                <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)}>
-                  <option value={ALL_EMPLOYEES_FILTER}>{t('allEmployees')}</option>
-                  {employees
-                    .filter(e => isClockReportEmployee(e) && selectedDepts.includes(e.department || ''))
-                    .map(e => <option key={e.id} value={e.id}>{e.name} ({e.employeeId})</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('recipients')}</label>
-                <input type="text" placeholder={t('recipientsPlaceholder')} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={customRecipients} onChange={e => setCustomRecipients(e.target.value)}/>
-              </div>
+            <div className="space-y-1">
+              <label className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-1">{t('recipients')}</label>
+              <input type="text" placeholder={t('recipientsPlaceholder')} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={customRecipients} onChange={e => setCustomRecipients(e.target.value)}/>
+            </div>
             </div>
           </div>
 
           {/* ===== SECTION 1: EMPLOYEE SUMMARY ===== */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 md:p-12 space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-8 space-y-6">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-indigo-100 rounded-xl"><PieChart size={20} className="text-indigo-600" /></div>
               <div>
@@ -867,7 +994,14 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               singleEmployeeName={singleEmployeeName}
             />
 
-            {/* Stat Cards */}
+            <ReportsTrustBanner
+              trust={reportTrust}
+              canNavigateApuracao={canNavigateApuracao}
+              onGoApuracao={() => onNavigate?.('apuracao')}
+              onReload={reloadPeriodData}
+              isReloading={isReloadingPeriod}
+            />
+
             {employeeSummaries.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-100">
                 <Users size={40} className="mx-auto text-slate-300 mb-3" />
@@ -903,18 +1037,21 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
             </p>
             )}
 
-            {/* Summary Export Buttons */}
-            <div className="pt-4 border-t border-slate-50 space-y-3">
-              <div className="flex gap-3">
-                <button onClick={downloadSummaryCSV} disabled={isGenerating || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvSummary')}</button>
-                <button onClick={downloadSummaryPDF} disabled={isGeneratingPDF || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfSummary')}</button>
+            <div className="pt-4 border-t border-slate-50 space-y-3 sticky bottom-16 md:static z-10 bg-white/95 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none pb-1">
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-slate-500 tracking-widest">{t('exportSummaryTitle')}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{t('exportSummaryHint')}</p>
               </div>
-              <button onClick={handleEmailSummaryReport} disabled={isEmailing || employeeSummaries.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailSummaryReport')}</button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button type="button" onClick={downloadSummaryPDF} disabled={isGeneratingPDF || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfSummary')}</button>
+                <button type="button" onClick={downloadSummaryCSV} disabled={isGenerating || employeeSummaries.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvSummary')}</button>
+              </div>
+              <button type="button" onClick={handleEmailSummaryReport} disabled={isEmailing || employeeSummaries.length === 0} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailSummaryReport')}</button>
             </div>
           </div>
 
           {/* ===== SECTION 2: DETAIL RECORDS ===== */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 md:p-12 space-y-8">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-8 space-y-8">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-slate-100 rounded-xl"><FileText size={20} className="text-slate-700" /></div>
               <div>
@@ -923,12 +1060,11 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               </div>
             </div>
 
-            {/* Report Type */}
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-widest">{t('reportType')}</p>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {['ATTENDANCE', 'ABSENT', 'LATE', 'LEAVE', 'TIMESHEET'].map((id) => (
-                  <button key={id} onClick={() => setReportType(id)} className={`flex items-center gap-2 p-4 rounded-xl border transition-all ${reportType === id ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 hover:bg-slate-50'}`}>
+                  <button key={id} type="button" onClick={() => setReportType(id)} className={`flex items-center gap-2 p-4 rounded-xl border transition-all ${reportType === id ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 hover:bg-slate-50'}`}>
                     <div className={`p-2 rounded-lg ${reportType === id ? 'bg-white/10' : 'bg-indigo-500 text-white'}`}><FileText size={14} /></div>
                     <span className="font-semibold text-[10px] uppercase tracking-tight">{t(`reportTypes.${id}`)}</span>
                   </button>
@@ -939,9 +1075,10 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
             {reportType === 'TIMESHEET' ? (
               <div className="pt-4 border-t border-slate-50">
                 <button
+                  type="button"
                   onClick={async () => {
                     try {
-                      const d = new Date(startDate + 'T12:00:00');
+                      const d = parseLocalISODate(startDate);
                       let startDay = DEFAULT_PTRP_POLICY.periodStartDay;
                       try {
                         const cfg = await hrService.getConfig();
@@ -969,7 +1106,6 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               </div>
             ) : (
             <>
-            {/* Configure Columns (collapsible) */}
             <details className="group">
               <summary className="flex items-center gap-2 cursor-pointer text-[10px] font-semibold uppercase text-slate-400 tracking-widest hover:text-slate-600 transition-colors">
                 <Settings2 size={14} />
@@ -978,7 +1114,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               </summary>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-50">
                 {columnOptions.map((col) => (
-                  <button key={col.key} onClick={() => setEnabledColumns(p => ({...p, [col.key]: !p[col.key]}))} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${enabledColumns[col.key] ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                  <button key={col.key} type="button" onClick={() => setEnabledColumns(p => ({...p, [col.key]: !p[col.key]}))} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${enabledColumns[col.key] ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${enabledColumns[col.key] ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'}`}><col.icon size={14} /></div>
                       <span className="text-[10px] font-semibold uppercase tracking-tight">{col.label}</span>
@@ -989,13 +1125,13 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
               </div>
             </details>
 
-            {/* Detail Export Buttons */}
             <div className="pt-4 border-t border-slate-50 space-y-3">
-              <div className="flex gap-3">
-                <button onClick={downloadCSV} disabled={isGenerating || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvExport')}</button>
-                <button onClick={downloadPDF} disabled={isGeneratingPDF || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfExport')}</button>
+              <p className="text-[10px] font-semibold uppercase text-slate-500 tracking-widest">{t('exportDetailTitle')}</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button type="button" onClick={downloadPDF} disabled={isGeneratingPDF || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50">{isGeneratingPDF ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />} {t('pdfExport')}</button>
+                <button type="button" onClick={downloadCSV} disabled={isGenerating || reportData.length === 0} className="flex-1 flex items-center justify-center gap-3 py-4 bg-primary text-white rounded-xl font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50">{isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />} {t('csvExport')}</button>
               </div>
-              <button onClick={handleEmailDetailReport} disabled={isEmailing || reportData.length === 0} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailDetailReport')}</button>
+              <button type="button" onClick={handleEmailDetailReport} disabled={isEmailing || reportData.length === 0} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-semibold uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50">{isEmailing ? <RefreshCw className="animate-spin" size={16} /> : <Mail size={16} />} {t('emailDetailReport')}</button>
             </div>
             </>
             )}
@@ -1003,8 +1139,7 @@ const Reports: React.FC<ReportsProps> = ({ user, onNavigate }) => {
 
         </div>
 
-        {/* ===== SIDE PANEL ===== */}
-        <div className="sticky top-24 h-fit">
+        <div className="lg:sticky lg:top-24 h-fit order-last">
         <ReportsSidePanel
           periodPreset={periodPreset}
           startDate={startDate}

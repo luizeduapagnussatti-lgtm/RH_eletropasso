@@ -16,6 +16,22 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-09-18',
+    title: 'Relatórios — dados do espelho e UX de exportação',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Resumo de ponto passa a priorizar timesheet_days (PTRP) sobre attendance legado; sem espelho apurado, banner alerta estimativa em vez de “faltas reais”.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Relatórios recarregam o período filtrado, mostram cobertura/status da competência, CTA sólido para Apuração e export PDF/CSV/e-mail com escopo Todos/colaborador (Desktop+PWA).',
+      },
+    ],
+  },
+  {
+    date: '2026-09-18',
     title: 'PWA Admin — paridade de navegação',
     entries: [
       {
