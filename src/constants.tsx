@@ -143,6 +143,7 @@ export const DEFAULT_NOTIFICATION_CONFIG: OrgNotificationConfig = {
 export const DEFAULT_USER_NOTIFICATION_PREFS: UserNotificationPreferences = {
   mutedTypes: [],
   emailDigestFrequency: 'IMMEDIATE',
+  soundEnabled: true,
 };
 
 export const TIMEZONE_OPTIONS = [

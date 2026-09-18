@@ -105,11 +105,13 @@
     "installBody": "Instale o RH_Eletropasso no seu dispositivo para acesso rápido."
   },
   "push": {
-    "title": "Ativar lembretes de ponto",
-    "body": "Receba uma notificação 15 minutos antes do turno e um alerta se esquecer de bater o ponto.",
-    "iosTitle": "Instale o app para lembretes",
-    "iosBody": "Toque em Compartilhar no Safari e escolha Adicionar à Tela de Início para receber alertas de ponto.",
-    "enable": "Ativar",
+    "title": "Ativar alertas com som",
+    "body": "Receba notificações do RH no celular e no PC — com som — para ponto, férias, espelho e avisos importantes.",
+    "iosTitle": "Instale o app para alertas",
+    "iosBody": "Toque em Compartilhar no Safari e escolha Adicionar à Tela de Início para receber alertas com som.",
+    "deniedTitle": "Notificações bloqueadas",
+    "deniedBody": "O navegador bloqueou alertas. Abra as configurações do site/app e permita notificações para voltar a ouvir os avisos.",
+    "enable": "Ativar com som",
     "enabling": "Ativando…",
     "notNow": "Agora não",
     "dismiss": "Dispensar"

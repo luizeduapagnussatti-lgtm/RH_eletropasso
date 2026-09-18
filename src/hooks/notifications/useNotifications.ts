@@ -1,9 +1,10 @@
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { hrService } from '../../services/hrService';
 import { supabase } from '../../services/supabase';
 import { AppNotification, UserNotificationPreferences } from '../../types';
 import { DEFAULT_USER_NOTIFICATION_PREFS } from '../../constants';
+import { alertOnNewNotification } from '../../services/notificationAlert.service';
 
 const mapRealtimeRecord = (r: any): AppNotification => ({
   id: r.id,
@@ -26,6 +27,8 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userPreferences, setUserPreferences] = useState<UserNotificationPreferences>(DEFAULT_USER_NOTIFICATION_PREFS);
+  const prefsRef = useRef(userPreferences);
+  prefsRef.current = userPreferences;
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -82,10 +85,20 @@ export function useNotifications() {
           },
           (payload: any) => {
             const record = payload.new;
+            const mapped = mapRealtimeRecord(record);
             setNotifications(prev => {
               // Avoid duplicates (race with initial fetch)
               if (prev.some(n => n.id === record.id)) return prev;
-              return [mapRealtimeRecord(record), ...prev];
+              return [mapped, ...prev];
+            });
+            const prefs = prefsRef.current;
+            void alertOnNewNotification({
+              id: mapped.id,
+              title: mapped.title,
+              body: mapped.message,
+              type: mapped.type,
+              soundEnabled: prefs.soundEnabled !== false,
+              mutedTypes: prefs.mutedTypes || [],
             });
           },
         )

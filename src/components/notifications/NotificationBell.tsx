@@ -1,13 +1,17 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Megaphone, CalendarDays, Clock, ClipboardCheck, Info, CheckCheck, Settings, ArrowLeft, Building2, ArrowUpCircle } from 'lucide-react';
+import { Bell, Megaphone, CalendarDays, Clock, ClipboardCheck, Info, CheckCheck, Settings, ArrowLeft, Building2, ArrowUpCircle, Volume2 } from 'lucide-react';
 import { useNotifications } from '../../hooks/notifications/useNotifications';
 import { AppNotification, NotificationType, EmailDigestFrequency } from '../../types';
 import { tStatus } from '../../i18n/statusMaps';
 import { getDateLocale } from '../../i18n/format';
 import { useAuth } from '../../context/AuthContext';
 import { resolveNotificationNav } from '../../utils/notificationNavigation';
+import {
+  unlockNotificationAudio,
+  playNotificationChime,
+} from '../../services/notificationAlert.service';
 
 interface NotificationBellProps {
   onNavigate: (path: string, params?: Record<string, unknown>) => void;
@@ -97,13 +101,25 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate, chrome 
     updatePreferences({ ...userPreferences, emailDigestFrequency: freq });
   };
 
+  const toggleSound = async () => {
+    const next = !(userPreferences.soundEnabled !== false);
+    await unlockNotificationAudio();
+    await updatePreferences({ ...userPreferences, soundEnabled: next });
+    if (next) void playNotificationChime();
+  };
+
   const displayNotifications = notifications.slice(0, 10);
+  const soundOn = userPreferences.soundEnabled !== false;
 
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
       <button
-        onClick={() => { setIsOpen(!isOpen); if (isOpen) setShowPrefs(false); }}
+        onClick={() => {
+          void unlockNotificationAudio();
+          setIsOpen(!isOpen);
+          if (isOpen) setShowPrefs(false);
+        }}
         className={
           chrome
             ? 'p-2.5 rounded-xl text-[#e23d42]/75 hover:text-[#e23d42] hover:bg-white/5 transition-all relative'
@@ -134,6 +150,25 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate, chrome 
 
               {/* Preferences Content */}
               <div className="max-h-80 overflow-y-auto p-4 space-y-4">
+                {/* Sound toggle */}
+                <div>
+                  <label className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-all border border-slate-100">
+                    <input
+                      type="checkbox"
+                      checked={soundOn}
+                      onChange={() => void toggleSound()}
+                      className="w-3.5 h-3.5 accent-primary rounded mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Volume2 size={14} className="text-slate-500" />
+                        <span className="text-xs font-semibold text-slate-700">{t('soundEnabled')}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{t('soundEnabledHint')}</p>
+                    </div>
+                  </label>
+                </div>
+
                 {/* Mute Toggles */}
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t('title')}</p>

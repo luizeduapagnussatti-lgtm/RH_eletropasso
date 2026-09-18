@@ -238,7 +238,21 @@ export const notificationService = {
   async getUserPreferences(): Promise<UserNotificationPreferences> {
     const userId = await getCurrentUserId();
     if (!userId) return DEFAULT_USER_NOTIFICATION_PREFS;
-    return organizationService.getSetting(`notification_prefs_${userId}`, DEFAULT_USER_NOTIFICATION_PREFS);
+    const stored = await organizationService.getSetting(
+      `notification_prefs_${userId}`,
+      DEFAULT_USER_NOTIFICATION_PREFS,
+    );
+    return {
+      ...DEFAULT_USER_NOTIFICATION_PREFS,
+      ...stored,
+      mutedTypes: Array.isArray(stored?.mutedTypes)
+        ? stored.mutedTypes
+        : DEFAULT_USER_NOTIFICATION_PREFS.mutedTypes,
+      soundEnabled:
+        typeof stored?.soundEnabled === 'boolean'
+          ? stored.soundEnabled
+          : DEFAULT_USER_NOTIFICATION_PREFS.soundEnabled,
+    };
   },
 
   async setUserPreferences(prefs: UserNotificationPreferences): Promise<void> {

@@ -47,6 +47,19 @@ import { DEFAULT_PTRP_POLICY } from '../constants';
 
 const TIMESHEET_SIGN_BUCKET = 'timesheet-signatures';
 
+/** Progress payload for period recalculation sweeps (UI progress bar). */
+export type TimesheetRecalcProgress = {
+  done: number;
+  total: number;
+  failed: number;
+  employeeName: string;
+  workDate: string;
+  employeeIndex: number;
+  employeeTotal: number;
+};
+
+const RECALC_PERIOD_CONCURRENCY = 3;
+
 const mapPeriod = (r: any): TimesheetPeriod => ({
   id: r.id,
   organizationId: r.organization_id,
@@ -442,7 +455,12 @@ export const timesheetService = {
     employeeId: string,
     date: string,
     period?: TimesheetPeriod,
-    opts?: { silent?: boolean },
+    opts?: {
+      silent?: boolean;
+      employee?: Employee;
+      holidays?: Holiday[];
+      leaves?: LeaveRequest[];
+    },
   ): Promise<TimesheetDay> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
     const orgId = apiClient.getOrganizationId();
@@ -465,8 +483,13 @@ export const timesheetService = {
     }
     if (p.status === 'LOCKED') throw new Error('Period is locked');
 
-    const employees = await employeeService.getEmployees();
-    const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId);
+    const emp =
+      opts?.employee &&
+      (opts.employee.id === employeeId || opts.employee.employeeId === employeeId)
+        ? opts.employee
+        : (await employeeService.getEmployees()).find(
+            e => e.id === employeeId || e.employeeId === employeeId,
+          );
     const punchKey = emp?.employeeId || employeeId;
 
     // Timesheet-exempt accounts (system/admin/diretoria) do not punch and must
@@ -501,8 +524,12 @@ export const timesheetService = {
     const [punchesRaw, shift, holidays, leaves, rosterStatus] = await Promise.all([
       punchService.listPunches({ employeeId: punchKey, startDate: date, endDate: date }),
       shiftService.resolveShiftForEmployee(emp?.id || employeeId, emp?.shiftId, date),
-      organizationService.getHolidays().catch(() => [] as Holiday[]),
-      leaveService.getLeaves().catch(() => [] as LeaveRequest[]),
+      opts?.holidays
+        ? Promise.resolve(opts.holidays)
+        : organizationService.getHolidays().catch(() => [] as Holiday[]),
+      opts?.leaves
+        ? Promise.resolve(opts.leaves)
+        : leaveService.getLeaves().catch(() => [] as LeaveRequest[]),
       rosterService.getStatusForEmployee(date, employeeKeys).catch(() => null),
     ]);
 
@@ -750,6 +777,7 @@ export const timesheetService = {
     year: number,
     month: number,
     employeeIds?: string[],
+    onProgress?: (p: TimesheetRecalcProgress) => void,
   ): Promise<{ count: number; failed: number; firstError?: string }> {
     const period = await this.getOrCreatePeriod(year, month);
     if (period.status === 'LOCKED') throw new Error('Period is locked');
@@ -775,31 +803,94 @@ export const timesheetService = {
     const today = todayIsoLocal();
     const endCap = minIsoDate(period.endDate, today);
     const dates = eachDateInRange(period.startDate, endCap);
-    let count = 0;
-    let failed = 0;
-    let firstError: string | undefined;
 
-    for (const emp of targets) {
+    type Job = {
+      emp: Employee;
+      date: string;
+      employeeIndex: number;
+    };
+    const jobs: Job[] = [];
+    targets.forEach((emp, idx) => {
       for (const date of dates) {
         if (emp.joiningDate && date < emp.joiningDate) continue;
         if (emp.terminationDate && date > emp.terminationDate) continue;
+        jobs.push({ emp, date, employeeIndex: idx + 1 });
+      }
+    });
+
+    const total = jobs.length;
+    let done = 0;
+    let failed = 0;
+    let firstError: string | undefined;
+
+    const [holidays, leaves] = await Promise.all([
+      organizationService.getHolidays().catch(() => [] as Holiday[]),
+      leaveService.getLeaves().catch(() => [] as LeaveRequest[]),
+    ]);
+
+    onProgress?.({
+      done: 0,
+      total,
+      failed: 0,
+      employeeName: jobs[0]?.emp.name || jobs[0]?.emp.id || '',
+      workDate: jobs[0]?.date || '',
+      employeeIndex: jobs[0]?.employeeIndex || 0,
+      employeeTotal: targets.length,
+    });
+
+    let next = 0;
+    const worker = async () => {
+      while (true) {
+        const i = next++;
+        if (i >= jobs.length) return;
+        const { emp, date, employeeIndex } = jobs[i];
+        onProgress?.({
+          done,
+          total,
+          failed,
+          employeeName: emp.name || emp.id,
+          workDate: date,
+          employeeIndex,
+          employeeTotal: targets.length,
+        });
         try {
-          await this.recalculateDay(emp.id, date, period);
-          count++;
+          await this.recalculateDay(emp.id, date, period, {
+            silent: true,
+            employee: emp,
+            holidays,
+            leaves,
+          });
+          done++;
         } catch (e: unknown) {
           failed++;
           const msg = e instanceof Error ? e.message : String(e);
           if (!firstError) firstError = `${emp.name || emp.id} @ ${date}: ${msg}`;
           console.error('[timesheet] recalculateDay failed', emp.id, date, e);
         }
+        onProgress?.({
+          done,
+          total,
+          failed,
+          employeeName: emp.name || emp.id,
+          workDate: date,
+          employeeIndex,
+          employeeTotal: targets.length,
+        });
+        // Yield so React can paint progress and the spinner keeps animating.
+        await new Promise<void>(r => setTimeout(r, 0));
       }
-    }
+    };
 
-    if (count === 0 && failed > 0) {
+    const pool = Math.min(RECALC_PERIOD_CONCURRENCY, Math.max(1, jobs.length));
+    await Promise.all(Array.from({ length: pool }, () => worker()));
+
+    apiClient.notify();
+
+    if (done === 0 && failed > 0) {
       throw new Error(firstError || 'recalcFailed');
     }
 
-    return { count, failed, firstError };
+    return { count: done, failed, firstError };
   },
 
   async acknowledgeDay(dayId: string, who: 'employee' | 'manager', acked = true): Promise<void> {

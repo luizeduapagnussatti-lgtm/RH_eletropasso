@@ -105,11 +105,13 @@
     "installBody": "Install RH_Eletropasso on your device for quick access."
   },
   "push": {
-    "title": "Enable check-in reminders",
-    "body": "Get a notification 15 minutes before your shift and an alert if you forget to check in.",
-    "iosTitle": "Install app for reminders",
-    "iosBody": "Tap Share in Safari and choose Add to Home Screen to receive shift check-in alerts.",
-    "enable": "Enable",
+    "title": "Enable alerts with sound",
+    "body": "Get HR notifications on phone and desktop — with sound — for attendance, leave, timesheets and important notices.",
+    "iosTitle": "Install app for alerts",
+    "iosBody": "Tap Share in Safari and choose Add to Home Screen to receive alerts with sound.",
+    "deniedTitle": "Notifications blocked",
+    "deniedBody": "The browser blocked alerts. Open site/app settings and allow notifications to hear alerts again.",
+    "enable": "Enable with sound",
     "enabling": "Enabling…",
     "notNow": "Not now",
     "dismiss": "Dismiss"

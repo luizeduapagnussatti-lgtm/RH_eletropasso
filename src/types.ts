@@ -918,6 +918,8 @@ export interface OrgNotificationConfig {
 export interface UserNotificationPreferences {
   mutedTypes: NotificationType[];
   emailDigestFrequency: EmailDigestFrequency;
+  /** In-app chime + OS toast sound when tab is hidden. Default true. */
+  soundEnabled: boolean;
 }
 
 // Performance Review Types

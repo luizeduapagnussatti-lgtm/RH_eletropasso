@@ -39,5 +39,7 @@
   "usersMatched_one": "{{count}} usuário correspondente",
   "usersMatched_other": "{{count}} usuários correspondentes",
   "selectUsers": "Selecionar usuários ({{count}})",
-  "sending": "Enviando..."
+  "sending": "Enviando...",
+  "soundEnabled": "Som de notificação",
+  "soundEnabledHint": "Toca um alerta no app e usa o som do sistema quando a aba está em segundo plano."
 }

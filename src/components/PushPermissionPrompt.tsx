@@ -6,6 +6,10 @@ import {
   getPushPermissionStatus,
   subscribeToPush,
 } from '../services/pushNotification.service';
+import {
+  unlockNotificationAudio,
+  playNotificationChime,
+} from '../services/notificationAlert.service';
 
 interface Props {
   userId?: string;
@@ -38,7 +42,7 @@ function isSnoozed(userId: string): boolean {
 export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }) => {
   const { t } = useTranslation('common');
   const [visible, setVisible] = useState(false);
-  const [mode, setMode] = useState<'enable' | 'ios-install'>('enable');
+  const [mode, setMode] = useState<'enable' | 'ios-install' | 'denied'>('enable');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -52,8 +56,13 @@ export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }
       return;
     }
 
-    if (!isPushSupported()) return;
+    if (!isPushSupported() && !('Notification' in window)) return;
     const status = getPushPermissionStatus();
+    if (status === 'denied') {
+      setMode('denied');
+      setVisible(true);
+      return;
+    }
     if (status !== 'default') return;
 
     setMode('enable');
@@ -70,14 +79,23 @@ export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }
   const enable = async () => {
     if (!organizationId) return;
     setBusy(true);
+    await unlockNotificationAudio();
     const ok = await subscribeToPush(userId, organizationId);
-    setBusy(false);
-    if (ok) {
+    if (ok || getPushPermissionStatus() === 'granted') {
+      await playNotificationChime();
       setVisible(false);
+    } else if (getPushPermissionStatus() === 'denied') {
+      setMode('denied');
     } else {
       dismiss();
     }
+    setBusy(false);
   };
+
+  const titleKey =
+    mode === 'ios-install' ? 'push.iosTitle' : mode === 'denied' ? 'push.deniedTitle' : 'push.title';
+  const bodyKey =
+    mode === 'ios-install' ? 'push.iosBody' : mode === 'denied' ? 'push.deniedBody' : 'push.body';
 
   return (
     <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-[100] animate-in slide-in-from-bottom-4">
@@ -91,15 +109,15 @@ export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-slate-800 tracking-tight">
-            {mode === 'ios-install' ? t('push.iosTitle') : t('push.title')}
+            {t(titleKey)}
           </p>
           <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
-            {mode === 'ios-install' ? t('push.iosBody') : t('push.body')}
+            {t(bodyKey)}
           </p>
           <div className="flex items-center gap-2 mt-2.5">
             {mode === 'enable' && (
               <button
-                onClick={enable}
+                onClick={() => void enable()}
                 disabled={busy}
                 className="px-3 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
@@ -110,7 +128,7 @@ export const PushPermissionPrompt: React.FC<Props> = ({ userId, organizationId }
               onClick={dismiss}
               className="px-3 py-1.5 text-slate-500 hover:text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
             >
-              {t('push.notNow')}
+              {mode === 'denied' ? t('push.dismiss') : t('push.notNow')}
             </button>
           </div>
         </div>

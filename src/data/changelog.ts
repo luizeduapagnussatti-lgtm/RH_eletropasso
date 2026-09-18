@@ -32,6 +32,28 @@ export const changelog: ChangelogRelease[] = [
   },
   {
     date: '2026-09-18',
+    title: 'Notificações — som no desktop e PWA',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Alertas com som: chime in-app ao chegar notificação, toast do sistema (com som) quando a aba está em segundo plano, prompt de permissão mais claro e toggle “Som de notificação” no sino.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-18',
+    title: 'Apuração — progresso no recálculo',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Recalcular competência mostra barra/contador (colaborador × dia), tempo decorrido e aviso se parar de avançar; sweep mais rápido (preload feriados/férias, 3 dias em paralelo).',
+      },
+    ],
+  },
+  {
+    date: '2026-09-18',
     title: 'PWA Admin — paridade de navegação',
     entries: [
       {

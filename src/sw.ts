@@ -158,6 +158,7 @@ self.addEventListener('push', (event: PushEvent) => {
     badge: '/img/favicon-32.png',
     tag: payload.tag ?? 'rh-eletropasso',
     renotify: true,
+    silent: false,
     data: { url: payload.url ?? '/dashboard' },
     vibrate: [200, 100, 200],
   };

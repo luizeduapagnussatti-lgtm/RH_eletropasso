@@ -4,6 +4,7 @@ import {
   CalendarDays, RefreshCw, Download, Lock, CheckCircle2, Scale, FileJson, Send, FileText,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
+import type { TimesheetRecalcProgress } from '../services/timesheet.service';
 import {
   Employee, Holiday, LeaveRequest, Punch, Shift, TimesheetDay, TimesheetEmployeeReview, TimesheetPeriod, TimesheetPeriodStatus, User, WorkRosterAssignment,
 } from '../types';
@@ -39,6 +40,14 @@ function punchesForTimesheetDay(day: TimesheetDay, all: Punch[]): Punch[] {
   return all.filter(
     p => punchLocalDateKey(p.punchedAt) === day.workDate && p.employeeId === day.employeeId
   );
+}
+
+const RECALC_STALL_MS = 45_000;
+
+function formatRecalcElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
 }
 
 /** Inclusive day range: ALL/ALL = no filter; swap if from > to. */
@@ -130,6 +139,11 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
   const [isLoading, setIsLoading] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isRecalc, setIsRecalc] = useState(false);
+  const [recalcProgress, setRecalcProgress] = useState<TimesheetRecalcProgress | null>(null);
+  const [recalcElapsedSec, setRecalcElapsedSec] = useState(0);
+  const [recalcStalled, setRecalcStalled] = useState(false);
+  const recalcLastProgressAtRef = useRef(0);
+  const recalcLastDoneRef = useRef(0);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [adjustDay, setAdjustDay] = useState<TimesheetDay | null>(null);
   const [pendingPunchCorrections, setPendingPunchCorrections] = useState<
@@ -951,15 +965,48 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
     }
   };
 
+  const handleRecalcProgress = useCallback((p: TimesheetRecalcProgress) => {
+    if (p.done !== recalcLastDoneRef.current) {
+      recalcLastDoneRef.current = p.done;
+      recalcLastProgressAtRef.current = Date.now();
+      setRecalcStalled(false);
+    }
+    setRecalcProgress({ ...p });
+  }, []);
+
+  useEffect(() => {
+    if (!isRecalc || !recalcProgress) {
+      setRecalcElapsedSec(0);
+      setRecalcStalled(false);
+      return;
+    }
+    const started = Date.now();
+    recalcLastProgressAtRef.current = started;
+    recalcLastDoneRef.current = recalcProgress.done;
+    const id = window.setInterval(() => {
+      setRecalcElapsedSec(Math.floor((Date.now() - started) / 1000));
+      setRecalcStalled(Date.now() - recalcLastProgressAtRef.current > RECALC_STALL_MS);
+    }, 1000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restart only when recalc run starts
+  }, [isRecalc, !!recalcProgress]);
+
   const handleRecalc = async () => {
     if (locked) return;
     setIsRecalc(true);
+    setRecalcProgress(null);
+    setRecalcStalled(false);
     try {
       const ids =
         employeeFilter === 'ALL'
           ? undefined
           : [employeeFilter];
-      const result = await hrService.recalculateTimesheetPeriod(year, month, ids);
+      const result = await hrService.recalculateTimesheetPeriod(
+        year,
+        month,
+        ids,
+        handleRecalcProgress,
+      );
       if (result.failed > 0) {
         showToast(t('recalcPartial', { count: result.count, failed: result.failed }), 'warning');
       } else {
@@ -977,6 +1024,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
       showToast(message, 'error');
     } finally {
       setIsRecalc(false);
+      setRecalcProgress(null);
+      setRecalcStalled(false);
     }
   };
 
@@ -1725,6 +1774,47 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
                 {isRecalc ? t('recalculating') : t('recalculate')}
               </button>
             )}
+            {isRecalc && recalcProgress ? (
+              <div
+                className="w-full basis-full rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 px-3 py-2 space-y-1.5"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                  <span className="font-medium">
+                    {t('recalcProgress', {
+                      current: recalcProgress.employeeIndex,
+                      total: recalcProgress.employeeTotal,
+                      date: recalcProgress.workDate,
+                      done: recalcProgress.done,
+                      jobs: recalcProgress.total,
+                    })}
+                  </span>
+                  <span className="tabular-nums text-slate-500">
+                    {t('recalcElapsed', { elapsed: formatRecalcElapsed(recalcElapsedSec) })}
+                    {recalcProgress.total > 0
+                      ? ` · ${Math.min(100, Math.round((recalcProgress.done / recalcProgress.total) * 100))}%`
+                      : ''}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                    style={{
+                      width: `${
+                        recalcProgress.total > 0
+                          ? Math.min(100, Math.round((recalcProgress.done / recalcProgress.total) * 100))
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+                {recalcStalled ? (
+                  <p className="text-[11px] text-amber-800 dark:text-amber-200">{t('recalcStalledHint')}</p>
+                ) : null}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={handleExport}

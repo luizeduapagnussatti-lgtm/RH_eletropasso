@@ -39,5 +39,7 @@
   "usersMatched_one": "{{count}} user matched",
   "usersMatched_other": "{{count}} users matched",
   "selectUsers": "Select users ({{count}})",
-  "sending": "Sending..."
+  "sending": "Sending...",
+  "soundEnabled": "Notification sound",
+  "soundEnabledHint": "Plays an in-app chime and uses the system sound when the tab is in the background."
 }

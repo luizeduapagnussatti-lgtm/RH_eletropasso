@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { hrService } from '../services/hrService';
+import type { TimesheetRecalcProgress } from '../services/timesheet.service';
 import { useToast } from '../context/ToastContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { TimesheetPeriod, TimesheetPeriodStatus } from '../types';
@@ -36,6 +37,14 @@ const STATUS_LABEL: Record<TimesheetPeriodStatus, string> = {
   APPROVED: 'statusApproved',
   LOCKED: 'statusLocked',
 };
+
+const RECALC_STALL_MS = 45_000;
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+}
 
 /** Map technical/service errors to user-facing i18n copy. */
 function friendlyApuracaoError(
@@ -91,6 +100,11 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
   > | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [recalcProgress, setRecalcProgress] = useState<TimesheetRecalcProgress | null>(null);
+  const [recalcElapsedSec, setRecalcElapsedSec] = useState(0);
+  const [recalcStalled, setRecalcStalled] = useState(false);
+  const lastProgressAtRef = useRef(0);
+  const lastDoneRef = useRef(0);
 
   const periodLabel = `${String(month).padStart(2, '0')}/${year}`;
 
@@ -119,8 +133,35 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!busy || !recalcProgress) {
+      setRecalcElapsedSec(0);
+      setRecalcStalled(false);
+      return;
+    }
+    const started = Date.now();
+    lastProgressAtRef.current = started;
+    lastDoneRef.current = recalcProgress.done;
+    const id = window.setInterval(() => {
+      setRecalcElapsedSec(Math.floor((Date.now() - started) / 1000));
+      setRecalcStalled(Date.now() - lastProgressAtRef.current > RECALC_STALL_MS);
+    }, 1000);
+    return () => window.clearInterval(id);
+    // Only restart timer when a recalc run starts (busy flips + first progress).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid reset on every progress tick
+  }, [busy, !!recalcProgress]);
+
   const status = period?.status ?? 'OPEN';
   const locked = status === 'LOCKED';
+
+  const handleRecalcProgress = useCallback((p: TimesheetRecalcProgress) => {
+    if (p.done !== lastDoneRef.current) {
+      lastDoneRef.current = p.done;
+      lastProgressAtRef.current = Date.now();
+      setRecalcStalled(false);
+    }
+    setRecalcProgress({ ...p });
+  }, []);
 
   const handleRecalc = async () => {
     if (!period || locked) return;
@@ -133,8 +174,15 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
       return;
     }
     setBusy(true);
+    setRecalcProgress(null);
+    setRecalcStalled(false);
     try {
-      const result = await hrService.recalculateTimesheetPeriod(year, month);
+      const result = await hrService.recalculateTimesheetPeriod(
+        year,
+        month,
+        undefined,
+        handleRecalcProgress,
+      );
       if (result.failed > 0) {
         showToast(
           t('apuracao.recalcPartial', {
@@ -152,6 +200,8 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
       showToast(friendlyApuracaoError(e, t, tPtrp, 'apuracao.recalcFailed'), 'error');
     } finally {
       setBusy(false);
+      setRecalcProgress(null);
+      setRecalcStalled(false);
     }
   };
 
@@ -210,6 +260,11 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
       </div>
     );
   }
+
+  const progressPct =
+    recalcProgress && recalcProgress.total > 0
+      ? Math.min(100, Math.round((recalcProgress.done / recalcProgress.total) * 100))
+      : 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-16">
@@ -311,48 +366,84 @@ const Apuracao: React.FC<Props> = ({ user, onNavigate }) => {
             <Lock size={16} /> {t('apuracao.lockedNote')}
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy || loading || !canWrite}
-              onClick={() => void handleRecalc()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-50"
-            >
-              <RefreshCw size={16} className={busy ? 'animate-spin' : ''} />
-              {busy ? t('apuracao.recalcing') : t('apuracao.recalc')}
-            </button>
-
-            {(status === 'OPEN' || status === 'IN_REVIEW') && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={busy || !canWrite}
-                onClick={() => void handleApprove()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 text-emerald-800 text-sm font-semibold disabled:opacity-50"
+                disabled={busy || loading || !canWrite}
+                onClick={() => void handleRecalc()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-50"
               >
-                <CheckCircle2 size={16} /> {t('apuracao.approve')}
+                <RefreshCw size={16} className={busy ? 'animate-spin' : ''} />
+                {busy ? t('apuracao.recalcing') : t('apuracao.recalc')}
               </button>
-            )}
 
-            {status === 'APPROVED' && (
-              <>
+              {(status === 'OPEN' || status === 'IN_REVIEW') && (
                 <button
                   type="button"
                   disabled={busy || !canWrite}
-                  onClick={() => void handleReopen()}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold disabled:opacity-50"
+                  onClick={() => void handleApprove()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 text-emerald-800 text-sm font-semibold disabled:opacity-50"
                 >
-                  <Undo2 size={16} /> {t('apuracao.reopen')}
+                  <CheckCircle2 size={16} /> {t('apuracao.approve')}
                 </button>
-                <button
-                  type="button"
-                  disabled={busy || !canWrite}
-                  onClick={() => void handleLock()}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
-                >
-                  <Lock size={16} /> {t('apuracao.lock')}
-                </button>
-              </>
-            )}
+              )}
+
+              {status === 'APPROVED' && (
+                <>
+                  <button
+                    type="button"
+                    disabled={busy || !canWrite}
+                    onClick={() => void handleReopen()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold disabled:opacity-50"
+                  >
+                    <Undo2 size={16} /> {t('apuracao.reopen')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || !canWrite}
+                    onClick={() => void handleLock()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    <Lock size={16} /> {t('apuracao.lock')}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {busy && recalcProgress ? (
+              <div
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 space-y-2"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                  <span className="font-medium text-slate-800">
+                    {t('apuracao.recalcProgress', {
+                      current: recalcProgress.employeeIndex,
+                      total: recalcProgress.employeeTotal,
+                      date: recalcProgress.workDate,
+                      done: recalcProgress.done,
+                      jobs: recalcProgress.total,
+                    })}
+                  </span>
+                  <span className="tabular-nums text-slate-500">
+                    {t('apuracao.recalcElapsed', { elapsed: formatElapsed(recalcElapsedSec) })}
+                    {recalcProgress.total > 0 ? ` · ${progressPct}%` : ''}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                {recalcStalled ? (
+                  <p className="text-xs text-amber-800">{t('apuracao.recalcStalledHint')}</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
 
