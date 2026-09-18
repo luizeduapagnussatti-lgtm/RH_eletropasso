@@ -5,6 +5,7 @@
   "period": "Period",
   "year": "Year",
   "periodHint": "Competence = closing month. E.g. July = 26/06 to 25/07.",
+  "pendingPunchCorrectionsBanner": "{{count}} pending punch adjustment request(s) — review",
   "midPeriodHireHint": "{{name}} hired on {{date}}: days before hire do not count as absence.",
   "midPeriodTermHint": "{{name}} terminated on {{date}}: days after termination do not count as absence.",
   "applyFilters": "Apply filters",
@@ -91,7 +92,7 @@
   "reviewLockForceConfirm": "Force lock",
   "reviewSummaryTitle": "Review status by employee",
   "reviewSummaryHint": "Flow: manager/HR acknowledges each duty day → employee signs in the app (selfie + signature) → manager/HR approves the competence.",
-  "reviewSummaryHintDismissed": "History for this competence: fix the last work day on the profile and close remaining duty-day acknowledgements.",
+  "reviewSummaryHintDismissed": "History for this competence: manager acknowledgements through last work day; no app signature (discharge — physical timesheet at settlement).",
   "reviewSummaryApproved": "{{count}}/{{total}} approved",
   "reviewSummaryPending": "{{count}} pending",
   "reviewColStatus": "Review",
@@ -367,7 +368,10 @@
     "remarksLine": "{{date}} — {{text}}",
     "signatureEmployee": "Employee",
     "signatureManager": "Manager / HR",
+    "signatureDischargeNote": "In-person signature waived — discharge. Physical timesheet delivered at settlement.",
     "totalsRow": "Totals",
     "adjustedDayLegend": "* Day with punch adjustment"
-  }
+  },
+  "reviewDischargeNoEmployeeSign": "Discharge: the employee does not sign on the app. Approve after manager acknowledgements (PDF without in-person signature).",
+  "reviewSignedDischargeSkip": "Waived (discharge)"
 }

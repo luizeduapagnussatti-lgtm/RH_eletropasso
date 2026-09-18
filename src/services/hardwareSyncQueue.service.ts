@@ -194,7 +194,7 @@ export const hardwareSyncQueueService = {
         .from('hardware_sync_queue')
         .update({
           status: isFailed ? 'FAILED' : 'PENDING',
-          error_message: message.slice(0, 500),
+          error_message: message.slice(0, 800),
           next_retry_at: isFailed
             ? null
             : new Date(Date.now() + 5 * 60 * 1000).toISOString(),
@@ -226,6 +226,96 @@ export const hardwareSyncQueueService = {
       })
       .eq('id', queueId);
     if (error) throw error;
+  },
+
+  /**
+   * Operator already removed the employee on the PrintPoint (e.g. function 92).
+   * Verifies PIS is absent via employee-list-read, then marks the queue CONFIRMED.
+   */
+  async confirmManualRemoval(queueId: string): Promise<{ success: boolean; message?: string }> {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+
+    const { data: job, error: fetchErr } = await supabase
+      .from('hardware_sync_queue')
+      .select('*')
+      .eq('id', queueId)
+      .single();
+
+    if (fetchErr || !job) throw new Error('Queue job not found');
+    if (job.status === 'CONFIRMED') return { success: true, message: 'Already confirmed' };
+    if (job.status === 'CANCELLED') throw new Error('Command was cancelled');
+    if (job.command_type !== 'REMOVE_EMPLOYEE') {
+      throw new Error('Confirmação manual só se aplica a remoção de colaborador');
+    }
+
+    const payload = (job.payload || {}) as { pis?: string };
+    const pis = normalizePis(payload.pis || '');
+    if (!pis) throw new Error('Invalid REMOVE_EMPLOYEE payload (PIS required)');
+
+    const result = await clockCommandService.run('employee-list-read');
+    if (result.busy) {
+      throw new Error(
+        'Relógio ocupado. Saia do menu do PrintPoint, aguarde e tente de novo.',
+      );
+    }
+    if (!result.success) {
+      throw new Error(result.error || 'Falha ao ler a lista de colaboradores no relógio');
+    }
+
+    const cmd = (result.command || {}) as Record<string, unknown>;
+    const nested = cmd.data;
+    const data =
+      nested && typeof nested === 'object' && !Array.isArray(nested)
+        ? (nested as Record<string, unknown>)
+        : cmd;
+
+    if (data.supported === false) {
+      throw new Error(
+        String(data.error || 'Não foi possível ler a lista de colaboradores no PrintPoint'),
+      );
+    }
+
+    const rawEmployees = Array.isArray(data.employees) ? data.employees : [];
+    const stillPresent = rawEmployees.some((item) => {
+      const obj = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+      const rowPis = normalizePis(String(obj.pis ?? obj.Pis ?? obj.PIS ?? ''));
+      return rowPis === pis;
+    });
+
+    if (stillPresent) {
+      throw new Error(
+        `PIS ${pis} ainda consta no PrintPoint. Exclua pela função 92 (ou use "Tentar agora") e confirme de novo.`,
+      );
+    }
+
+    await supabase
+      .from('hardware_sync_queue')
+      .update({
+        status: 'CONFIRMED',
+        hardware_response: {
+          manualConfirm: true,
+          alreadyAbsent: true,
+          pis,
+          verifiedAt: new Date().toISOString(),
+          listCount: rawEmployees.length,
+        },
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', queueId);
+
+    if (job.target_employee_id) {
+      await supabase
+        .from('profiles')
+        .update({
+          clock_discharge_status: 'HARDWARE_CONFIRMED',
+          updated: new Date().toISOString(),
+        })
+        .eq('id', job.target_employee_id);
+    }
+
+    apiClient.notify();
+    return { success: true, message: 'Remoção confirmada (PIS ausente no relógio)' };
   },
 };
 

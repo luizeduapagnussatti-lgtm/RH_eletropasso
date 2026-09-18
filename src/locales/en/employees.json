@@ -396,7 +396,10 @@
     "dischargeTimesheetPending": "{{count}} duty day(s) without manager acknowledgement. Close the timesheet and try again.",
     "dischargeTimesheetReady": "Timesheet closed through the last day. You can confirm discharge.",
     "dischargeTimesheetBlocked": "Close the timesheet through the last work day before discharging.",
-    "dischargeTimesheetError": "Could not check the timesheet. Try again or open the timesheet manually."
+    "dischargeTimesheetError": "Could not check the timesheet. Try again or open the timesheet manually.",
+    "dischargeFinalized": "Discharge complete: HR + clock removal confirmed. Badge credential stays reserved (never reused). Employee app access was revoked.",
+    "dischargeFinish": "Finish discharge",
+    "dischargeFinishBlocked": "Confirm PrintPoint removal (queue below) before finishing."
   },
   "clockCredential": "Clock credential (ID/badge)",
   "clockCredentialPlaceholder": "Assigned by the system",

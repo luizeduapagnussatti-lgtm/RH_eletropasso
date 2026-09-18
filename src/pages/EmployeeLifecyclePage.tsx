@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, CalendarDays, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { Employee, TimesheetDay, User } from '../types';
 import { hrService } from '../services/hrService';
 import { useToast } from '../context/ToastContext';
@@ -59,6 +59,7 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
   const [error, setError] = useState<string | null>(null);
   const [simpleConfirming, setSimpleConfirming] = useState(false);
   const [showSyncQueue, setShowSyncQueue] = useState(false);
+  const [pendingRemoveCount, setPendingRemoveCount] = useState(0);
   const [terminationDate, setTerminationDate] = useState(
     () => new Date().toISOString().split('T')[0],
   );
@@ -70,6 +71,23 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
   });
 
   const goDirectory = () => onNavigate('employees');
+
+  const refreshDischargeQueueState = async (empId: string) => {
+    const [list, jobs] = await Promise.all([
+      hrService.getEmployees(),
+      hrService.listHardwareSyncPending(user.organizationId),
+    ]);
+    const fresh = list.find(e => e.id === empId) || null;
+    if (fresh) setEmployee(fresh);
+    setPendingRemoveCount(
+      jobs.filter(
+        j =>
+          j.commandType === 'REMOVE_EMPLOYEE' &&
+          j.targetEmployeeId === empId &&
+          (j.status === 'PENDING' || j.status === 'IN_PROGRESS' || j.status === 'FAILED'),
+      ).length,
+    );
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +114,13 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
         } else if (!cancelled) {
           setEmployee(found);
           if (found.terminationDate) setTerminationDate(found.terminationDate);
+          if (
+            found.status === 'INACTIVE' &&
+            found.clockDischargeStatus &&
+            found.clockDischargeStatus !== 'NOT_APPLICABLE'
+          ) {
+            setShowSyncQueue(true);
+          }
         }
       } catch (e: unknown) {
         if (!cancelled) {
@@ -158,6 +183,26 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
     };
   }, [mode, employee, terminationDate, t]);
 
+  useEffect(() => {
+    if (mode !== 'discharge' || !showSyncQueue || !employeeId) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        await refreshDischargeQueueState(employeeId);
+      } catch {
+        /* keep last known */
+      }
+      if (cancelled) return;
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll while queue visible
+  }, [mode, showSyncQueue, employeeId, user.organizationId]);
+
   const refreshEmployee = async () => {
     if (!employeeId) return;
     const list = await hrService.getEmployees();
@@ -187,6 +232,7 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
       if (clockRole) {
         setShowSyncQueue(true);
         await refreshEmployee();
+        await refreshDischargeQueueState(employee.id);
       } else {
         goDirectory();
       }
@@ -240,9 +286,12 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
   const credDisplay = formatClockCredentialDisplay(
     resolveClockCredential(employee.clockCredential, employee.employeeId)
   );
+  const dischargeFinalized =
+    employee.clockDischargeStatus === 'HARDWARE_CONFIRMED' ||
+    employee.clockDischargeStatus === 'NOT_APPLICABLE';
+  const canFinishDischarge = dischargeFinalized && pendingRemoveCount === 0;
 
-  // Non-punching accounts: simple delete confirm (no fingerprint checklist)
-  if (mode === 'discharge' && !clockRole) {
+  if (mode === 'discharge' && !clockRole && !showSyncQueue) {
     return (
       <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
         <button
@@ -319,17 +368,33 @@ const EmployeeLifecyclePage: React.FC<Props> = ({ user, mode, employeeId, onNavi
         <div className="space-y-4">
           {showSyncQueue ? (
             <div className="space-y-3">
-              <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                {t('timeClock:hardwareSync.dischargePendingHint')}
-              </p>
-              <HardwareSyncQueuePanel organizationId={user.organizationId} />
+              {canFinishDischarge ? (
+                <p className="text-sm text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 inline-flex items-start gap-2">
+                  <CheckCircle2 size={18} className="shrink-0 mt-0.5" aria-hidden />
+                  <span>{t('lifecycle.dischargeFinalized')}</span>
+                </p>
+              ) : (
+                <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  {t('timeClock:hardwareSync.dischargePendingHint')}
+                </p>
+              )}
+              {!canFinishDischarge ? (
+                <HardwareSyncQueuePanel
+                  organizationId={user.organizationId}
+                  onCountChange={() => {
+                    if (employeeId) void refreshDischargeQueueState(employeeId);
+                  }}
+                />
+              ) : null}
               <div className="flex justify-end">
                 <button
                   type="button"
+                  disabled={!canFinishDischarge}
                   onClick={goDirectory}
-                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={canFinishDischarge ? undefined : t('lifecycle.dischargeFinishBlocked')}
                 >
-                  {t('dmprepChecklist.done')}
+                  {t('lifecycle.dischargeFinish')}
                 </button>
               </div>
             </div>

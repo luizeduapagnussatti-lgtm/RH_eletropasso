@@ -5,6 +5,7 @@
   "period": "Competência",
   "year": "Ano",
   "periodHint": "Competência = mês de fechamento. Ex.: julho = 26/06 a 25/07.",
+  "pendingPunchCorrectionsBanner": "{{count}} solicitação(ões) de ajuste de ponto pendente(s) — revisar",
   "midPeriodHireHint": "{{name}} admitido(a) em {{date}}: dias anteriores à admissão não contam como falta.",
   "midPeriodTermHint": "{{name}} demitido(a) em {{date}}: dias posteriores à demissão não contam como falta.",
   "applyFilters": "Aplicar filtros",
@@ -91,7 +92,7 @@
   "reviewLockForceConfirm": "Forçar bloqueio",
   "reviewSummaryTitle": "Status de revisão por colaborador",
   "reviewSummaryHint": "Fluxo: gestor/RH dá ciência em cada dia de jornada → colaborador assina no app (selfie + rubrica) → gestor/RH aprova a competência.",
-  "reviewSummaryHintDismissed": "Histórico desta competência: ajuste o último dia no cadastro e feche as ciências de jornada que faltam.",
+  "reviewSummaryHintDismissed": "Histórico desta competência: ciência do gestor até o último dia; sem assinatura no app (demissão — espelho físico no acerto).",
   "reviewSummaryApproved": "{{count}}/{{total}} aprovados",
   "reviewSummaryPending": "{{count}} pendente(s)",
   "reviewColStatus": "Revisão",
@@ -367,7 +368,10 @@
     "remarksLine": "{{date}} — {{text}}",
     "signatureEmployee": "Colaborador",
     "signatureManager": "Gestor / RH",
+    "signatureDischargeNote": "Assinatura presencial dispensada — desligamento. Espelho físico entregue no acerto.",
     "totalsRow": "Totais",
     "adjustedDayLegend": "* Dia com ajuste de ponto"
-  }
+  },
+  "reviewDischargeNoEmployeeSign": "Desligamento: o colaborador não assina o espelho no app. Use Aprovar após a ciência do gestor (PDF sem assinatura presencial).",
+  "reviewSignedDischargeSkip": "Dispensada (demissão)"
 }

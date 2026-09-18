@@ -25,7 +25,7 @@ import {
   type DayCoherenceContext,
 } from '../utils/timesheetDayCoherence';
 import { shiftService } from './shift.service';
-import { punchService, planProximityAutoIgnores } from './punch.service';
+import { punchService, planProximityAutoIgnores, planAppVsClockIgnores } from './punch.service';
 import { calculateDay, isOutsideEmploymentWindow } from './timeCalculation.service';
 import { hourBankService } from './hourBank.service';
 import { employeeService } from './employee.service';
@@ -41,7 +41,7 @@ import {
   todayIsoLocal,
 } from '../utils/payrollPeriod';
 import { isTimesheetExempt } from '../utils/roles';
-import { isActiveClockStaffInCompetence } from '../utils/timesheetScope';
+import { isActiveClockStaffInCompetence, skipsEmployeeTimesheetSign } from '../utils/timesheetScope';
 import { convertToWebP } from '../utils/imageConvert';
 import { DEFAULT_PTRP_POLICY } from '../constants';
 
@@ -358,6 +358,22 @@ export const timesheetService = {
     return mapPeriod(data);
   },
 
+  /** Read-only period lookup — no create / realign (safe for employee PWA). */
+  async getPeriod(year: number, month: number): Promise<TimesheetPeriod | null> {
+    if (!isSupabaseConfigured()) return null;
+    const orgId = apiClient.getOrganizationId();
+    if (!orgId) return null;
+    const { data, error } = await supabase
+      .from('timesheet_periods')
+      .select('*')
+      .eq('organization_id', orgId)
+      .eq('year', year)
+      .eq('month', month)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapPeriod(data) : null;
+  },
+
   async listPeriods(): Promise<TimesheetPeriod[]> {
     if (!isSupabaseConfigured()) return [];
     const orgId = apiClient.getOrganizationId();
@@ -422,7 +438,12 @@ export const timesheetService = {
     return rows.map(mapDay);
   },
 
-  async recalculateDay(employeeId: string, date: string, period?: TimesheetPeriod): Promise<TimesheetDay> {
+  async recalculateDay(
+    employeeId: string,
+    date: string,
+    period?: TimesheetPeriod,
+    opts?: { silent?: boolean },
+  ): Promise<TimesheetDay> {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
     const orgId = apiClient.getOrganizationId();
     if (!orgId) throw new Error('No organization ID');
@@ -486,14 +507,34 @@ export const timesheetService = {
     ]);
 
     // Auto-dedupe accidental double CLOCK punches (<10 min); never overrides MANUAL.
+    // APP vs CLOCK: APP fills holes only — CLOCK in the same window supersedes APP.
     const proximityPlan = planProximityAutoIgnores(punchesRaw, date);
-    if (proximityPlan.toIgnore.length > 0 || proximityPlan.toClear.length > 0) {
-      await punchService.applyProximityAutoIgnorePlan(proximityPlan);
+    const appVsClockPlan = planAppVsClockIgnores(punchesRaw, date);
+    const combinedPlan = {
+      toIgnore: [...new Set([...proximityPlan.toIgnore, ...appVsClockPlan.toIgnore])],
+      toClear: [...new Set([...proximityPlan.toClear, ...appVsClockPlan.toClear])],
+    };
+    let punches = punchesRaw;
+    if (combinedPlan.toIgnore.length > 0 || combinedPlan.toClear.length > 0) {
+      try {
+        await punchService.applyProximityAutoIgnorePlan(combinedPlan, { silent: opts?.silent });
+        punches = await punchService.listPunches({
+          employeeId: punchKey,
+          startDate: date,
+          endDate: date,
+        });
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!msg.includes('PUNCH_AUTO_IGNORE_FORBIDDEN')) throw e;
+        const ignore = new Set(combinedPlan.toIgnore);
+        const clear = new Set(combinedPlan.toClear);
+        punches = punchesRaw.map(p => {
+          if (ignore.has(p.id)) return { ...p, ignoredForCalc: true };
+          if (clear.has(p.id)) return { ...p, ignoredForCalc: false };
+          return p;
+        });
+      }
     }
-    const punches =
-      proximityPlan.toIgnore.length > 0 || proximityPlan.toClear.length > 0
-        ? await punchService.listPunches({ employeeId: punchKey, startDate: date, endDate: date })
-        : punchesRaw;
 
     const isHoliday = holidays.some(h => h.date === date);
     const approvedLeave = leaves.find(
@@ -594,6 +635,7 @@ export const timesheetService = {
           timesheetDayId: day.id,
           periodId: p.id,
           notes: 'Auto OT credit',
+          silent: opts?.silent,
         });
       }
       if (toBank && calc.absenceMinutes > 0 && calc.status === 'ABSENT') {
@@ -605,11 +647,12 @@ export const timesheetService = {
           timesheetDayId: day.id,
           periodId: p.id,
           notes: 'Auto absence debit',
+          silent: opts?.silent,
         });
       }
     }
 
-    apiClient.notify();
+    if (!opts?.silent) apiClient.notify();
     return day;
   },
 
@@ -1016,7 +1059,18 @@ export const timesheetService = {
     const employees = await employeeService.getEmployees();
     const emp = resolveEmployeeRecord(employees, employeeKey);
     const punchKey = punchKeyForEmployee(emp, employeeKey);
-    const keys = [...new Set([employeeKey, emp?.id, punchKey].filter(Boolean))];
+    const keys = [
+      ...new Set(
+        [
+          employeeKey,
+          emp?.id,
+          punchKey,
+          emp?.employeeId,
+          emp?.clockCredential,
+          emp?.employeeId ? String(emp.employeeId).replace(/\D/g, '') : null,
+        ].filter(Boolean) as string[],
+      ),
+    ];
 
     for (const key of keys) {
       const { data, error } = await supabase
@@ -1049,8 +1103,11 @@ export const timesheetService = {
     if (!emp) return null;
 
     const punchKey = punchKeyForEmployee(emp, employeeKey);
-    const allDays = await this.listDays(periodId, punchKey);
-    const scoped = daysForEmployee(allDays, emp, employeeKey);
+    // Prefer punch-key query; fall back to full period + filter (UUID vs crachá mismatch).
+    let scoped = daysForEmployee(await this.listDays(periodId, punchKey), emp, employeeKey);
+    if (scoped.length === 0) {
+      scoped = daysForEmployee(await this.listDays(periodId), emp, employeeKey);
+    }
     const workDates = scoped.map(d => d.workDate).sort();
     const punches =
       workDates.length > 0
@@ -1069,26 +1126,93 @@ export const timesheetService = {
     }
 
     const now = new Date().toISOString();
+    const dischargeSkipSign = skipsEmployeeTimesheetSign(emp);
 
     if (validation.canSubmit) {
+      // Demissão: sem assinatura no app — fecha direto como APPROVED.
+      if (dischargeSkipSign) {
+        let mapped: TimesheetEmployeeReview;
+        if (existing) {
+          const { data, error } = await supabase
+            .from('timesheet_employee_reviews')
+            .update({
+              status: 'APPROVED' as TimesheetEmployeeReviewStatus,
+              submitted_at: existing.submittedAt || now,
+              submitted_by: existing.submittedBy || actorId || null,
+              approved_at: now,
+              approved_by: actorId || null,
+              profile_id: emp.id,
+              updated: now,
+            })
+            .eq('id', existing.id)
+            .select()
+            .single();
+          if (error) throw error;
+          mapped = mapReview(data);
+        } else {
+          const { data, error } = await supabase
+            .from('timesheet_employee_reviews')
+            .insert({
+              organization_id: orgId,
+              period_id: periodId,
+              employee_id: punchKey,
+              profile_id: emp.id,
+              status: 'APPROVED' as TimesheetEmployeeReviewStatus,
+              submitted_at: now,
+              submitted_by: actorId || null,
+              approved_at: now,
+              approved_by: actorId || null,
+              updated: now,
+            })
+            .select()
+            .single();
+          if (error) throw error;
+          mapped = mapReview(data);
+        }
+        apiClient.notify();
+        return mapped;
+      }
+
       const wasOpen = !existing || status === 'OPEN';
-      const row = {
-        organization_id: orgId,
-        period_id: periodId,
-        employee_id: punchKey,
-        profile_id: emp.id,
-        status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
-        submitted_at: existing?.submittedAt || now,
-        submitted_by: existing?.submittedBy || actorId || null,
-        updated: now,
-      };
-      const { data, error } = await supabase
-        .from('timesheet_employee_reviews')
-        .upsert(row, { onConflict: 'period_id,employee_id' })
-        .select()
-        .single();
-      if (error) throw error;
-      const mapped = mapReview(data);
+      const nowIso = now;
+      let mapped: TimesheetEmployeeReview;
+
+      if (existing) {
+        // Prefer UPDATE — PostgREST upsert requires INSERT privilege even on conflict.
+        const { data, error } = await supabase
+          .from('timesheet_employee_reviews')
+          .update({
+            status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
+            submitted_at: existing.submittedAt || nowIso,
+            submitted_by: existing.submittedBy || actorId || null,
+            profile_id: emp.id,
+            updated: nowIso,
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        mapped = mapReview(data);
+      } else {
+        const row = {
+          organization_id: orgId,
+          period_id: periodId,
+          employee_id: punchKey,
+          profile_id: emp.id,
+          status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
+          submitted_at: nowIso,
+          submitted_by: actorId || null,
+          updated: nowIso,
+        };
+        const { data, error } = await supabase
+          .from('timesheet_employee_reviews')
+          .insert(row)
+          .select()
+          .single();
+        if (error) throw error;
+        mapped = mapReview(data);
+      }
+
       if (wasOpen) {
         await this.notifyTimesheetReviewSubmitted(emp, periodId, punchKey);
       }
@@ -1147,23 +1271,40 @@ export const timesheetService = {
       throw new Error(validation.blockingErrors[0] || 'reviewSubmitBlocked');
     }
 
-    const now = new Date().toISOString();
-    const row = {
-      organization_id: orgId,
-      period_id: periodId,
-      employee_id: punchKey,
-      profile_id: emp.id,
-      status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
-      submitted_at: now,
-      submitted_by: submittedBy,
-      updated: now,
-    };
+    if (skipsEmployeeTimesheetSign(emp)) {
+      throw new Error('reviewDischargeNoEmployeeSign');
+    }
 
-    const { data, error } = await supabase
-      .from('timesheet_employee_reviews')
-      .upsert(row, { onConflict: 'period_id,employee_id' })
-      .select()
-      .single();
+    const now = new Date().toISOString();
+    const existing = await this.getEmployeeReview(periodId, employeeKey);
+    // UPDATE vs INSERT — PostgREST upsert needs INSERT even on conflict.
+    const { data, error } = existing
+      ? await supabase
+          .from('timesheet_employee_reviews')
+          .update({
+            status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
+            submitted_at: now,
+            submitted_by: submittedBy,
+            profile_id: emp.id,
+            updated: now,
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
+      : await supabase
+          .from('timesheet_employee_reviews')
+          .insert({
+            organization_id: orgId,
+            period_id: periodId,
+            employee_id: punchKey,
+            profile_id: emp.id,
+            status: 'IN_REVIEW' as TimesheetEmployeeReviewStatus,
+            submitted_at: now,
+            submitted_by: submittedBy,
+            updated: now,
+          })
+          .select()
+          .single();
     if (error) throw error;
 
     if (!options?.skipNotifications) {
@@ -1209,7 +1350,8 @@ export const timesheetService = {
     if (existing?.status === 'APPROVED') {
       return existing;
     }
-    if (existing?.status !== 'EMPLOYEE_SIGNED') {
+    const dischargeSkip = skipsEmployeeTimesheetSign(emp);
+    if (!dischargeSkip && existing?.status !== 'EMPLOYEE_SIGNED') {
       throw new Error('reviewApproveNeedsEmployeeSign');
     }
 
@@ -1239,7 +1381,7 @@ export const timesheetService = {
           .single()
       : await supabase
           .from('timesheet_employee_reviews')
-          .upsert(upsertBase, { onConflict: 'period_id,employee_id' })
+          .insert(upsertBase)
           .select()
           .single();
     if (error) throw error;
@@ -1392,9 +1534,39 @@ export const timesheetService = {
     const emp = resolveEmployeeRecord(employees, employeeKey);
     if (!emp) throw new Error('Employee not found');
 
+    if (skipsEmployeeTimesheetSign(emp)) {
+      throw new Error('reviewDischargeNoEmployeeSign');
+    }
+
     const punchKey = punchKeyForEmployee(emp, employeeKey);
     const existing = await this.getEmployeeReview(periodId, employeeKey);
-    if (!existing || existing.status !== 'IN_REVIEW') {
+    if (!existing) {
+      throw new Error('reviewNotInReview');
+    }
+    if (existing.status === 'APPROVED' || existing.status === 'EMPLOYEE_SIGNED') {
+      throw new Error('reviewAlreadySigned');
+    }
+    // OPEN is allowed when manager ciência already completed (no employee upsert).
+    if (existing.status !== 'IN_REVIEW' && existing.status !== 'OPEN') {
+      throw new Error('reviewNotInReview');
+    }
+
+    let dayRows = await this.listDays(periodId, punchKey);
+    if (dayRows.length === 0) {
+      dayRows = await this.listDays(periodId);
+    }
+    const days = daysForEmployee(dayRows, emp, employeeKey);
+    const workDates = days.map((d) => d.workDate).sort();
+    const punches =
+      workDates.length > 0
+        ? await punchService.listPunches({
+            employeeId: punchKey,
+            startDate: workDates[0]!,
+            endDate: workDates[workDates.length - 1]!,
+          })
+        : [];
+    const validation = validateTimesheetEmployeeReview(days, todayIsoLocal(), punches);
+    if (!validation.canSubmit && existing.status !== 'IN_REVIEW') {
       throw new Error('reviewNotInReview');
     }
 
@@ -1424,13 +1596,11 @@ export const timesheetService = {
     const { data, error } = await supabase
       .from('timesheet_employee_reviews')
       .update({
-        status: 'APPROVED',
+        status: 'EMPLOYEE_SIGNED',
         employee_signed_at: now,
         employee_selfie_path: selfiePath,
         employee_signature_path: signaturePath,
         employee_sign_metadata: metadata,
-        approved_at: now,
-        approved_by: emp.id,
         updated: now,
       })
       .eq('id', existing.id)

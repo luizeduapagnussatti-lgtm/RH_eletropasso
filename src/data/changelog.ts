@@ -15,6 +15,88 @@ export interface ChangelogRelease {
 
 export const changelog: ChangelogRelease[] = [
   {
+    date: '2026-09-18',
+    title: 'Desligamento — finalizar, dispensar assinatura, revogar PWA',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Após HARDWARE_CONFIRMED o desligamento fecha na UI; demitido não assina espelho no app (PDF sem bloco presencial); login PWA bloqueado (INACTIVE + verified false). Credencial permanece reservada.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-18',
+    title: 'Desligamento — remoção no relógio mais resiliente',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'REMOVE_EMPLOYEE: OpenConnection com preflight/retry (Ensure-PrintPointLink + Connected); exclusão via AddEmployee(pis)+ExcludeEmployeesList(); idempotente se PIS já ausente; botão “Já removi no relógio” na fila hardware.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Diagnóstico do relógio — proxy Edge configurado',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Comunicação → Diagnóstico deixava de falhar com “DMPREP sync service is not configured”: supabase/functions/.env passou a ter DMPREP_SYNC_URL/API_KEY; toast pt-BR para proxy ausente; Ensure-DmprepSync avisa se as chaves faltarem.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Higienização domingo — sem impacto no PrintPoint',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Limpeza Cursor de domingo endurecida (deny-list RH + modo Silent). Nova poda segura de logs WatchComm no domingo 10:30; sync do relógio permanece na segunda 08:45/09:00.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Coleta WatchComm — 1x por semana',
+    entries: [
+      {
+        type: 'improvement',
+        description:
+          'Coleta silenciosa de batidas: 1× por semana (segunda 09:00) ou botão manual. OpenHR-PrintPoint-Link roda na segunda 08:45 (SYSTEM) só para aquecer ARP/TCP antes da sync; sem agenda de 30 min.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'PrintPoint — estabilização do link LAN',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Conexão oscilante com o PrintPoint (192.168.15.201:3000): ARP estático + Ensure-PrintPointLink (preflight TCP) e retries mais longos na coleta WatchComm.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
+    title: 'Notificação semanal de batidas faltantes + Solicitação de ajuste',
+    entries: [
+      {
+        type: 'feature',
+        description:
+          'Job semanal (toda segunda 06:00) avisa colaboradores sobre dias sem batida na semana anterior. Colaborador pode criar solicitação de ajuste com justificativa; gestores aprovam/recusam pelo PWA, Dashboard ou página Ajustes de ponto.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Watchdog de coleta automática de batidas (Ensure-ClockCollect) notifica ADMIN se o relógio falhar em ciclos consecutivos.',
+      },
+    ],
+  },
+  {
     date: '2026-09-16',
     title: 'Login de colaborador — e-mail real e senha',
     entries: [

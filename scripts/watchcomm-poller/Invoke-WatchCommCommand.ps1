@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Generic WatchComm.dll dispatcher for PrintPoint SmartPoint B.
@@ -138,6 +138,11 @@ function Invoke-WatchMethod($Watch, [Type]$Type, [string]$Name, [object[]]$Metho
     }) -join '; '
     throw ("Metodo WatchComm.{0} nao encontrado (args={1}). Disponiveis: {2}" -f $Name, $count, $available)
   }
+  # Parameterless methods must use $null — empty object[] triggers TargetException
+  # ("Objeto nao coincide com o tipo de destino") on some WatchComm builds.
+  if ($count -eq 0) {
+    return $method.Invoke($Watch, $null)
+  }
   return $method.Invoke($Watch, [object[]]@($MethodArgs))
 }
 
@@ -246,27 +251,156 @@ try {
   } | Select-Object -First 1
   if (-not $create) { throw 'CreateWatchCommVB6 (10 args) nao encontrado' }
 
-  $tcp = [Activator]::CreateInstance($tcpType)
-  $tcpType.GetMethod('CreateTcpComm', [Type[]]@([string], [int])).Invoke($tcp, @($clockIp, $clockPort))
-  try { $tcp.SetTimeOut(20000) } catch {}
-
-  $watch = [Activator]::CreateInstance($watchType)
-  [void]$create.Invoke($watch, @($protocol, $tcp, $equipmentId, $accessKey, $connection, $firmwareVersion, $modulusHex, $exponentHex, $commUser, $commPassword))
   $writeOps = @(
     'set-datetime','set-dst','remove-dst','include-holidays','send-display-message','clear-display-message',
     'send-employees','remove-employee','exclude-fingerprint','exclude-fingerprint-orphans',
     'program-biometric-reader-use','program-trigger-type','update-communication-user','set-net-info','change-employer'
   )
-  try {
-    [void]$watchType.GetMethod('OpenConnection').Invoke($watch, @())
-  } catch {
-    $openMsg = Get-InnerMessage $_.Exception
-    # Soft-open (1730) is tolerated. Timeout on write ops causes AddEmployee NullRef later —
-    # fail clearly here instead.
-    if (($writeOps -contains $Operation) -and ($openMsg -match 'tempo limite|timed? ?out|Unable to read data from the transport')) {
-      throw ("OpenConnection falhou ({0}). Saia do menu do PrintPoint, confira cabo/rede e tente de novo." -f $openMsg)
+  $isWriteOp = $writeOps -contains $Operation
+  $openTimeoutMs = if ($isWriteOp) { 45000 } else { 20000 }
+  $openMaxAttempts = if ($isWriteOp) { 6 } else { 1 }
+
+  # LAN preflight (ARP/TCP) before fragile write sessions — same helper as Monday collect.
+  if ($isWriteOp) {
+    $linkScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\Ensure-PrintPointLink.ps1'))
+    if (Test-Path -LiteralPath $linkScript) {
+      try {
+        $link = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+          '-NoProfile', '-ExecutionPolicy', 'Bypass',
+          '-File', $linkScript,
+          '-ClockIp', $clockIp,
+          '-ClockPort', ([string]$clockPort)
+        ) -Wait -PassThru -NoNewWindow
+        if ($link.ExitCode -ne 0) {
+          Write-Warning ("Ensure-PrintPointLink exit={0} - seguindo com OpenConnection" -f $link.ExitCode)
+        }
+      } catch {
+        Write-Warning ("Ensure-PrintPointLink: {0}" -f $_.Exception.Message)
+      }
     }
-    Write-Warning ("OpenConnection: {0}" -f $openMsg)
+  }
+
+  function Test-WatchConnected($WatchObj) {
+    try { return [bool]$WatchObj.Connected } catch { return $false }
+  }
+
+  function New-WatchSession {
+    $tcpLocal = [Activator]::CreateInstance($tcpType)
+    [void]$tcpType.GetMethod('CreateTcpComm', [Type[]]@([string], [int])).Invoke($tcpLocal, @($clockIp, [int]$clockPort))
+    try { $tcpLocal.SetTimeOut([int]$openTimeoutMs) } catch {}
+    $watchLocal = [Activator]::CreateInstance($watchType)
+    [void]$create.Invoke($watchLocal, @(
+      $protocol, $tcpLocal, [int]$equipmentId, $accessKey, $connection,
+      $firmwareVersion, $modulusHex, $exponentHex, $commUser, $commPassword
+    ))
+    # Ensure only the WatchComm instance is returned (no pipeline leaks).
+    return ,$watchLocal
+  }
+
+  function Open-WatchSessionFresh {
+    param([int]$Attempts = 3)
+    $localWatch = $null
+    for ($i = 1; $i -le $Attempts; $i++) {
+      try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $iar = $tcpClient.BeginConnect($clockIp, $clockPort, $null, $null)
+        $ok = $iar.AsyncWaitHandle.WaitOne(3000, $false)
+        $tcpOk = $ok -and $tcpClient.Connected
+        try { $tcpClient.Close() } catch {}
+        if (-not $tcpOk) {
+          Start-Sleep -Seconds ([Math]::Min(2 * $i, 6))
+          continue
+        }
+      } catch {
+        Start-Sleep -Seconds ([Math]::Min(2 * $i, 6))
+        continue
+      }
+      try {
+        if ($null -ne $localWatch) {
+          try { $localWatch.CloseConnection() } catch {}
+        }
+      } catch {}
+      $localWatch = New-WatchSession
+      $openErr = ''
+      try {
+        $localWatch.OpenConnection()
+      } catch {
+        $openErr = Get-InnerMessage $_.Exception
+      }
+      if (Test-WatchConnected $localWatch) { return $localWatch }
+      # Soft-open (1730 / type mismatch) still usable for list reads
+      if ($openErr -and ($openErr -match '1730|coincide com o tipo|tipo de destino')) {
+        return $localWatch
+      }
+      Start-Sleep -Seconds ([Math]::Min(2 * $i, 6))
+    }
+    return $localWatch
+  }
+
+  $lastOpenMsg = ''
+  $opened = $false
+  for ($attempt = 1; $attempt -le $openMaxAttempts; $attempt++) {
+    if ($isWriteOp) {
+      try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $iar = $tcpClient.BeginConnect($clockIp, $clockPort, $null, $null)
+        $ok = $iar.AsyncWaitHandle.WaitOne(3000, $false)
+        if (-not $ok -or -not $tcpClient.Connected) {
+          try { $tcpClient.Close() } catch {}
+          $lastOpenMsg = "TCP ${clockIp}:${clockPort} inacessivel (tentativa $attempt/$openMaxAttempts)"
+          Start-Sleep -Seconds ([Math]::Min(2 * $attempt, 8))
+          continue
+        }
+        try { $tcpClient.Close() } catch {}
+      } catch {
+        $lastOpenMsg = "TCP preflight: $($_.Exception.Message)"
+        Start-Sleep -Seconds ([Math]::Min(2 * $attempt, 8))
+        continue
+      }
+    }
+
+    try {
+      if ($null -ne $watch) {
+        try { $watch.CloseConnection() } catch {}
+      }
+    } catch {}
+    $watch = New-WatchSession
+
+    try {
+      $watch.OpenConnection()
+      $lastOpenMsg = ''
+    } catch {
+      $lastOpenMsg = Get-InnerMessage $_.Exception
+      # Soft-open (1730) is tolerated on reads; write ops need Connected.
+      if (-not $isWriteOp) {
+        Write-Warning ("OpenConnection: {0}" -f $lastOpenMsg)
+        $opened = $true
+        break
+      }
+    }
+
+    if ($isWriteOp) {
+      if (Test-WatchConnected $watch) {
+        $opened = $true
+        break
+      }
+      # remove-employee can succeed idempotently via list-read on soft-open (fn 92 already cleared PIS)
+      if ($Operation -eq 'remove-employee' -and $lastOpenMsg -match '1730|coincide com o tipo|tipo de destino|tempo limite') {
+        Write-Warning ("OpenConnection soft para remove-employee: {0} - seguindo para Exclude/lista" -f $lastOpenMsg)
+        $opened = $true
+        break
+      }
+      $lastOpenMsg = if ($lastOpenMsg) { $lastOpenMsg } else { 'Connected=false apos OpenConnection' }
+      Start-Sleep -Seconds ([Math]::Min(2 * $attempt, 8))
+      continue
+    }
+
+    $opened = $true
+    break
+  }
+
+  if ($isWriteOp -and -not $opened) {
+    throw ("OpenConnection falhou apos {0} tentativas ({1}). Saia do menu do PrintPoint, confira cabo/rede e tente de novo." -f $openMaxAttempts, $lastOpenMsg)
   }
 
   switch ($Operation) {
@@ -335,9 +469,11 @@ try {
     'employee-list-read' {
       try {
         $list = @(Invoke-WatchMethod $watch $watchType 'InquiryEmployeeList')
+        # ConfirmationReceipt is a pending/ack buffer — do NOT replace the full
+        # Inquiry list when it returns fewer rows (that hid everyone except 1).
         try {
           $confirmed = @(Invoke-WatchMethod $watch $watchType 'ConfirmationReceiptEmployeeList')
-          if ($confirmed.Count -gt 0) { $list = $confirmed }
+          if ($confirmed.Count -gt $list.Count) { $list = $confirmed }
         } catch {}
         $employees = @($list | ForEach-Object { Convert-EmployeeRow $_ })
         $data = [pscustomobject]@{
@@ -493,32 +629,65 @@ try {
         throw 'payload.employees e obrigatorio'
       }
       $employees = @($rawEmployees)
-      # PrintPoint III (SmartPoint B): use AddEmployee(pis, name, password).
-      # Overloads with credential (5/7 args) are Face / PrintPoint Li only.
-      # Empty password string NullRefs inside WatchComm — always send a non-empty value
-      # (badge/credential when present, else 000000).
+      # PrintPoint III (SmartPoint B): AddEmployee(7/5) is PrintPoint Li ONLY.
+      # Use AddFullEmployee(pis,name,password,credentials[],fingerprints[]) so the
+      # keypad badge (crachá) is programmed. Fallback: AddEmployee(3) + AddCredential.
+      # Device stores password as 6 digits (99 → 000099).
+      $addFull = Get-WatchMethod $watchType 'AddFullEmployee' 5
       $add3 = Get-WatchMethod $watchType 'AddEmployee' 3
       $add1 = Get-WatchMethod $watchType 'AddEmployee' 1
+      $addCred = Get-WatchMethod $watchType 'AddCredential' 3
+      $includeCred1 = Get-WatchMethod $watchType 'IncludeCredentialList' 1
       $include2 = Get-WatchMethod $watchType 'IncludeEmployeesList' 2
+      $credType = $assembly.GetType('org.cesar.dmplight.watchComm.business.PrintPointCredential')
+      $fpType = $assembly.GetType('org.cesar.dmplight.watchComm.impl.printpoint.PrintPointFingerPrintMessage')
       $added = 0
+      $needIncludeCredentials = $false
       foreach ($item in $employees) {
         $pis = [string](Get-ConfigValue $item 'pis' '')
         $name = [string](Get-ConfigValue $item 'name' '')
         $credential = [string](Get-ConfigValue $item 'credential' '')
         if (-not $pis) { throw 'Employee.pis e obrigatorio' }
-        $password = if (-not [string]::IsNullOrWhiteSpace($credential)) { $credential } else { '000000' }
+        $credDigits = ($credential -replace '\D', '')
+        if (-not $credDigits) { $credDigits = '0' }
+        $badge6 = $credDigits.PadLeft(6, '0')
+        if ($badge6.Length -gt 6) { $badge6 = $badge6.Substring($badge6.Length - 6) }
+        # Empty password NullRefs inside WatchComm — always non-empty 6-digit badge.
+        $password = $badge6
         try {
-          if ($add3 -and $name) {
+          if ($addFull -and $name -and $credType -and $fpType) {
+            $c = [Activator]::CreateInstance($credType)
+            $c.Credential = $badge6
+            $c.Pis = $pis
+            try { $c.Via_version = [int16]0 } catch {}
+            $credArr = [Array]::CreateInstance($credType, 1)
+            $credArr.SetValue($c, 0)
+            $fpArr = [Array]::CreateInstance($fpType, 0)
+            [void]$addFull.Invoke($watch, @($pis, $name, $password, $credArr, $fpArr))
+          } elseif ($add3 -and $name) {
             [void]$add3.Invoke($watch, @($pis, $name, $password))
+            if ($addCred) {
+              [void]$addCred.Invoke($watch, @($badge6, $pis, [byte]0))
+              $needIncludeCredentials = $true
+            }
           } elseif ($add1) {
             [void]$add1.Invoke($watch, @($pis))
           } else {
-            throw 'AddEmployee overload nao encontrado'
+            throw 'AddEmployee/AddFullEmployee overload nao encontrado'
           }
         } catch {
-          throw ("AddEmployee falhou para PIS {0}: {1}" -f $pis, (Get-InnerMessage $_.Exception))
+          throw ("AddEmployee falhou para PIS {0} cred={1}: {2}" -f $pis, $badge6, (Get-InnerMessage $_.Exception))
         }
         $added++
+      }
+      try {
+        # IncludeCredentialList only after AddCredential — not after AddFullEmployee
+        # (Full path embeds credentials; IncludeCredentialList NullRefs otherwise).
+        if ($needIncludeCredentials -and $includeCred1) {
+          [void]$includeCred1.Invoke($watch, @($false))
+        }
+      } catch {
+        throw ("IncludeCredentialList falhou apos AddCredential: {0}" -f (Get-InnerMessage $_.Exception))
       }
       try {
         if ($include2) {
@@ -530,19 +699,112 @@ try {
       } catch {
         throw ("IncludeEmployeesList falhou apos AddEmployee: {0}" -f (Get-InnerMessage $_.Exception))
       }
-      $data = [pscustomobject]@{ added = $added }
+      $data = [pscustomobject]@{
+        added = $added
+        usedAddCredential = $needIncludeCredentials
+        note = 'PrintPoint III: badge=password 6 digitos (ex. 99 -> 000099). Funcao 91: digite 99 ou 000099, ou selecione na lista.'
+      }
     }
 
     'remove-employee' {
       Require-PayloadFields $fields @('pis')
       $pis = [string]$fields.pis
-      $exclude1 = Get-WatchMethod $watchType 'ExcludeEmployeesList' 1
-      if ($exclude1 -and $exclude1.GetParameters()[0].ParameterType -eq [string]) {
-        [void]$exclude1.Invoke($watch, @($pis))
-      } else {
-        [void](Invoke-WatchMethod $watch $watchType 'ExcludeEmployeesList' @() 0)
+      $pisNorm = ($pis -replace '\D', '').PadLeft(12, '0')
+      $excludeError = ''
+      $removedViaApi = $false
+      # PrintPoint III: ExcludeEmployeesList(pis) NullRefs. Working pattern is
+      # stage with AddEmployee(pis) then flush via parameterless ExcludeEmployeesList().
+      try {
+        $add1 = Get-WatchMethod $watchType 'AddEmployee' 1
+        if ($add1) {
+          [void]$add1.Invoke($watch, @($pisNorm))
+        } else {
+          $watch.AddEmployee($pisNorm)
+        }
+        try {
+          $watch.ExcludeEmployeesList()
+        } catch {
+          [void](Invoke-WatchMethod $watch $watchType 'ExcludeEmployeesList' @() 0)
+        }
+        $removedViaApi = $true
+      } catch {
+        $excludeError = Get-InnerMessage $_.Exception
+        # Fallback: string overload (works on some firmwares / when buffer already staged)
+        try {
+          $exclude1 = Get-WatchMethod $watchType 'ExcludeEmployeesList' 1
+          if ($exclude1 -and $exclude1.GetParameters()[0].ParameterType -eq [string]) {
+            [void]$exclude1.Invoke($watch, @($pisNorm))
+            $removedViaApi = $true
+            $excludeError = ''
+          } else {
+            $watch.ExcludeEmployeesList($pisNorm)
+            $removedViaApi = $true
+            $excludeError = ''
+          }
+        } catch {
+          $excludeError = if ($excludeError) {
+            "$excludeError | fallback: $(Get-InnerMessage $_.Exception)"
+          } else {
+            Get-InnerMessage $_.Exception
+          }
+        }
       }
-      $data = [pscustomobject]@{ pis = $pis; removed = $true }
+
+      # Idempotent verify: Prefer a fresh soft-open session — Exclude often poisons the socket
+      # (NullRef / type mismatch) when the PIS was already removed via function 92.
+      function Test-PisPresentInList($WatchObj, [string]$WantedPis) {
+        $list = @(Invoke-WatchMethod $WatchObj $watchType 'InquiryEmployeeList')
+        try {
+          $confirmed = @(Invoke-WatchMethod $WatchObj $watchType 'ConfirmationReceiptEmployeeList')
+          if ($confirmed.Count -gt $list.Count) { $list = $confirmed }
+        } catch {}
+        foreach ($row in $list) {
+          $rowPs = Convert-EmployeeRow $row
+          $rowPis = ([string]$rowPs.pis -replace '\D', '').PadLeft(12, '0')
+          if ($rowPis -eq $WantedPis) { return $true }
+        }
+        return $false
+      }
+
+      $stillPresent = $false
+      $listReadOk = $false
+      $listError = ''
+      try {
+        $stillPresent = Test-PisPresentInList $watch $pisNorm
+        $listReadOk = $true
+      } catch {
+        $listError = Get-InnerMessage $_.Exception
+        try {
+          $verifyWatch = Open-WatchSessionFresh -Attempts 3
+          if ($null -eq $verifyWatch) { throw 'sessao de verificacao indisponivel' }
+          $watch = $verifyWatch
+          $stillPresent = Test-PisPresentInList $watch $pisNorm
+          $listReadOk = $true
+          $listError = ''
+        } catch {
+          $listError = if ($listError) { "$listError | retry: $(Get-InnerMessage $_.Exception)" } else { Get-InnerMessage $_.Exception }
+        }
+      }
+
+      if ($listReadOk -and -not $stillPresent) {
+        $data = [pscustomobject]@{
+          pis = $pisNorm
+          removed = $removedViaApi
+          alreadyAbsent = (-not $removedViaApi)
+          note = $(if ($removedViaApi) { 'excluded via AddEmployee+ExcludeEmployeesList' } else { 'PIS ja ausente na lista do PrintPoint (idempotente)' })
+        }
+      } elseif ($removedViaApi -and -not $listReadOk) {
+        $data = [pscustomobject]@{
+          pis = $pisNorm
+          removed = $true
+          alreadyAbsent = $false
+          note = 'excluded (lista nao verificada)'
+        }
+      } else {
+        $hint = if ($excludeError) { $excludeError } else { 'PIS ainda consta na lista do PrintPoint' }
+        if ($listError) { $hint = "$hint | lista: $listError" }
+        throw ("Nao foi possivel remover PIS {0} do PrintPoint: {1}. Saia do menu do relogio e tente de novo, ou use confirmacao manual se ja excluiu pela funcao 92." -f $pisNorm, $hint)
+      }
     }
 
     'exclude-fingerprint' {
@@ -626,6 +888,6 @@ try {
   exit 1
 } finally {
   if ($null -ne $watch -and $null -ne $watchType) {
-    try { [void]$watchType.GetMethod('CloseConnection').Invoke($watch, @()) } catch {}
+    try { $watch.CloseConnection() } catch {}
   }
 }

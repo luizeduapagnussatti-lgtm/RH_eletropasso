@@ -21,6 +21,7 @@ import { validateTimesheetEmployeeReview } from '../utils/timesheetReviewValidat
 import { PayrollPendenciesPanel } from '../components/payroll/PayrollPendenciesPanel';
 import { clockStaffInCompetence, isDutyDayNeedingAck } from '../utils/timesheetScope';
 import { localWorkDateTimeToIso, punchLocalDateKey } from '../services/punch.service';
+import { staleTimesheetWorkDates } from '../utils/timesheetDayStale';
 import { resolveShiftDay } from '../services/timeCalculation.service';
 import { displayAbsenceMinutes } from '../utils/timesheetDisplay';
 import {
@@ -131,6 +132,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
   const [isRecalc, setIsRecalc] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [adjustDay, setAdjustDay] = useState<TimesheetDay | null>(null);
+  const [pendingPunchCorrections, setPendingPunchCorrections] = useState<
+    Awaited<ReturnType<typeof hrService.listPendingPunchCorrections>>
+  >([]);
   const [showManualPunch, setShowManualPunch] = useState(false);
   const [punchForm, setPunchForm] = useState({
     employeeId: '',
@@ -185,6 +189,11 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
       const staff = clockStaffInCompetence(emps, p);
       setEmployees(staff);
       setPeriod(p);
+
+      void hrService
+        .listPendingPunchCorrections()
+        .then(setPendingPunchCorrections)
+        .catch(() => setPendingPunchCorrections([]));
 
       const empId =
         activeEmployee === 'ALL'
@@ -249,18 +258,9 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
         setBankEntries(entries);
         setPunches(punchList);
 
-        // Auto-recalc days that have clock punches but no espelho row yet (REP ingest).
+        // Auto-recalc when punches arrived after the last save (PWA then CLOCK).
         if (bankEmp && punchList.length > 0 && p.status !== 'LOCKED') {
-          const dayByDate = new Map(filtered.map(d => [d.workDate, d]));
-          const punchDates = [...new Set(punchList.map(px => punchLocalDateKey(px.punchedAt)))].sort();
-          // Newest stale dates first — the oldest 14 dates of the competence
-          // are usually already calculated, so slicing from the start skipped 13/08+.
-          const staleDates = punchDates
-            .filter(d => {
-              const row = dayByDate.get(d);
-              return !row || !row.firstPunchAt;
-            })
-            .slice(-31);
+          const staleDates = staleTimesheetWorkDates(filtered, punchList).slice(-31);
           if (staleDates.length > 0) {
             await Promise.all(
               staleDates.map(d => hrService.recalculateTimesheetDay(bankEmp, d, p).catch(() => null)),
@@ -545,8 +545,43 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
 
   const pendingManagerAckIds = useMemo(() => {
     if (!isManager || locked) return [] as string[];
-    return visibleDays.filter(d => !d.managerAck).map(d => d.id);
+    // Same duty-day rule as PDF / review column (OFF/HOLIDAY/LEAVE ignored).
+    return visibleDays
+      .filter(d => isDutyDayNeedingAck(d.status) && !d.managerAck)
+      .map(d => d.id);
   }, [visibleDays, isManager, locked]);
+
+  /** Days included in mirror PDF gate/export (listed staff only when Todos). */
+  const daysForMirrorPdf = useMemo(() => {
+    if (employeeFilter === 'ALL') {
+      return days.filter(d =>
+        visibleStaff.some(e => e.id === d.employeeId || e.employeeId === d.employeeId),
+      );
+    }
+    return days;
+  }, [days, employeeFilter, visibleStaff]);
+
+  const mirrorPdfGate = useMemo(
+    () => canExportMirrorPdf(daysForMirrorPdf),
+    [daysForMirrorPdf],
+  );
+
+  const mirrorPdfPendingSample = useMemo(() => {
+    const today = todayIsoLocal();
+    const pending = daysForMirrorPdf.filter(
+      d => d.workDate <= today && isDutyDayNeedingAck(d.status) && !d.managerAck,
+    );
+    if (!pending.length) return '';
+    const nameOf = (id: string) => {
+      const e = employees.find(x => x.id === id || x.employeeId === id);
+      return e?.name?.split(/\s+/)[0] || id;
+    };
+    const bits = pending
+      .slice(0, 3)
+      .map(d => `${d.workDate.slice(8, 10)}/${d.workDate.slice(5, 7)} ${nameOf(d.employeeId)}`);
+    const more = pending.length > 3 ? ` +${pending.length - 3}` : '';
+    return bits.join(', ') + more;
+  }, [daysForMirrorPdf, employees]);
 
   const approvablePendingIds = useMemo(() => {
     if (!isManager || locked) return [] as string[];
@@ -791,14 +826,30 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
   const canApproveSelectedEmployee = useMemo(() => {
     if (!selectedEmployee || locked) return false;
     if (currentEmployeeReview?.status === 'APPROVED') return false;
-    if (currentEmployeeReview?.status !== 'EMPLOYEE_SIGNED') return false;
-    if (!employeeReviewValidation.canApprove) return false;
+    const dischargeSkip =
+      selectedEmployee.status === 'INACTIVE' || Boolean(selectedEmployee.terminationDate);
+    if (dischargeSkip) {
+      if (!employeeReviewValidation.canSubmit && !employeeReviewValidation.canApprove) return false;
+    } else {
+      if (currentEmployeeReview?.status !== 'EMPLOYEE_SIGNED') return false;
+      if (!employeeReviewValidation.canApprove) return false;
+    }
     if (isHr) return true;
     return isManager && selectedEmployee.lineManagerId === user.id;
-  }, [selectedEmployee, currentEmployeeReview, locked, employeeReviewValidation.canApprove, isHr, isManager, user.id]);
+  }, [
+    selectedEmployee,
+    currentEmployeeReview,
+    locked,
+    employeeReviewValidation.canApprove,
+    employeeReviewValidation.canSubmit,
+    isHr,
+    isManager,
+    user.id,
+  ]);
 
   const canReleaseForSignSelectedEmployee = useMemo(() => {
     if (!selectedEmployee || locked) return false;
+    if (selectedEmployee.status === 'INACTIVE' || selectedEmployee.terminationDate) return false;
     const status = currentEmployeeReview?.status;
     if (status === 'IN_REVIEW' || status === 'EMPLOYEE_SIGNED' || status === 'APPROVED') return false;
     if (!employeeReviewValidation.canSubmit) return false;
@@ -946,25 +997,24 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
     }
   };
 
+  const toastMirrorPdfPending = (pending: number, sample: string) => {
+    showToast(
+      t('mirrorPdfRequiresAllApproved', {
+        pending,
+        sample: sample ? t('mirrorPdfRequiresAllApprovedSample', { sample }) : '',
+      }),
+      'warning',
+    );
+  };
+
   const handleExportMirrorPdf = async () => {
     if (!period || !hasQuery) return;
-    if (days.length === 0) {
+    if (daysForMirrorPdf.length === 0) {
       showToast(t('mirrorPdfNoDays'), 'warning');
       return;
     }
-    // Same scope as the review table / combined PDF: only staff currently listed
-    // (active or histórico), not orphan days from other people in the period.
-    const daysForPdfGate =
-      employeeFilter === 'ALL'
-        ? days.filter(d =>
-            visibleStaff.some(
-              e => e.id === d.employeeId || e.employeeId === d.employeeId,
-            ),
-          )
-        : days;
-    const pdfGate = canExportMirrorPdf(daysForPdfGate);
-    if (!pdfGate.ok) {
-      showToast(t('mirrorPdfRequiresAllApproved', { pending: pdfGate.pendingCount }), 'warning');
+    if (!mirrorPdfGate.ok) {
+      toastMirrorPdfPending(mirrorPdfGate.pendingCount, mirrorPdfPendingSample);
       return;
     }
     setIsExportingPdf(true);
@@ -992,12 +1042,16 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
         colExit2: t('pdf.colExit2'),
         colWorked: t('pdf.colWorked'),
         colOvertime: t('pdf.colOvertime'),
+        colOvertime60: t('pdf.colOvertime60'),
+        colOvertime100: t('pdf.colOvertime100'),
         colAbsence: t('pdf.colAbsence'),
         colStatus: t('pdf.colStatus'),
         colEmployee: t('pdf.colEmployee'),
         metricExpected: t('pdf.metricExpected'),
         metricWorked: t('pdf.metricWorked'),
         metricOvertime: t('pdf.metricOvertime'),
+        metricOvertime60: t('pdf.metricOvertime60'),
+        metricOvertime100: t('pdf.metricOvertime100'),
         metricAbsence: t('pdf.metricAbsence'),
         summarySection: t('pdf.summarySection'),
         generatedBy: t('pdf.generatedBy'),
@@ -1008,6 +1062,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
         remarksLine: t('pdf.remarksLine'),
         signatureEmployee: t('pdf.signatureEmployee'),
         signatureManager: t('pdf.signatureManager'),
+        signatureDischargeNote: t('pdf.signatureDischargeNote'),
         totalsRow: t('pdf.totalsRow'),
         adjustedDayLegend: t('pdf.adjustedDayLegend'),
       };
@@ -1015,7 +1070,7 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
         period,
         employeeFilter,
         employees: employeeFilter === 'ALL' ? visibleStaff : employees,
-        days: daysForPdfGate,
+        days: daysForMirrorPdf,
         punches,
         reviews: employeeReviews,
         labels,
@@ -1044,8 +1099,8 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
       } else if (raw === 'employee_no_days') {
         showToast(t('mirrorPdfNoDays'), 'warning');
       } else if (raw === 'mirror_pdf_requires_all_approved') {
-        const gate = canExportMirrorPdf(daysForPdfGate);
-        showToast(t('mirrorPdfRequiresAllApproved', { pending: gate.pendingCount }), 'warning');
+        const gate = canExportMirrorPdf(daysForMirrorPdf);
+        toastMirrorPdfPending(gate.pendingCount, mirrorPdfPendingSample);
       } else {
         showToast(raw || t('loadFailed'), 'error');
       }
@@ -1428,6 +1483,15 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
           </div>
           <p className="text-sm text-slate-500 mt-1">{t('subtitle')}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{t('periodHint')}</p>
+          {pendingPunchCorrections.length > 0 && onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('punch-corrections')}
+              className="mt-2 text-left text-xs font-medium text-amber-950 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 inline-block hover:bg-amber-100"
+            >
+              {t('pendingPunchCorrectionsBanner', { count: pendingPunchCorrections.length })}
+            </button>
+          )}
           {periodSummary ? (
             <p className="text-xs text-slate-400 mt-0.5">{periodSummary}</p>
           ) : null}
@@ -1672,11 +1736,18 @@ const Timesheet: React.FC<Props> = ({ user, onNavigate, initialEmployeeId, initi
             <button
               type="button"
               onClick={() => void handleExportMirrorPdf()}
-              disabled={!period || !hasQuery || days.length === 0 || isExportingPdf}
+              disabled={!period || !hasQuery || daysForMirrorPdf.length === 0 || isExportingPdf}
               title={
-                !hasQuery || days.length === 0
+                !hasQuery || daysForMirrorPdf.length === 0
                   ? t('mirrorPdfNoDays')
-                  : undefined
+                  : !mirrorPdfGate.ok
+                    ? t('mirrorPdfRequiresAllApproved', {
+                        pending: mirrorPdfGate.pendingCount,
+                        sample: mirrorPdfPendingSample
+                          ? t('mirrorPdfRequiresAllApprovedSample', { sample: mirrorPdfPendingSample })
+                          : '',
+                      })
+                    : undefined
               }
               className="h-10 px-4 bg-transparent text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             >

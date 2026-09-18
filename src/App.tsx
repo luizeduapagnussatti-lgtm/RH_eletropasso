@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Analytics } from '@vercel/analytics/react';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -55,6 +54,8 @@ const WorkRoster = lazyWithReload(() => import('./pages/WorkRoster'));
 const MessagingOutbox = lazyWithReload(() => import('./pages/MessagingOutbox'));
 const MyTimesheet = lazyWithReload(() => import('./pages/MyTimesheet'));
 const MyRoster = lazyWithReload(() => import('./pages/MyRoster'));
+const PwaPunch = lazyWithReload(() => import('./pages/PwaPunch'));
+const PunchCorrections = lazyWithReload(() => import('./pages/PunchCorrections'));
 
 import { navigateTo } from './utils/seo';
 import { PushPermissionPrompt } from './components/PushPermissionPrompt';
@@ -103,6 +104,31 @@ const AppContent: React.FC = () => {
   const employeeMobileShell = useEmployeeMobileShell();
   const [currentPath, setCurrentPath] = useState('dashboard');
   const [navParams, setNavParams] = useState<any>(null);
+
+  // Revoke PWA session if profile was soft-discharged (INACTIVE) without editing frozen sessionManager.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (String(profile?.status || '').toUpperCase() === 'INACTIVE') {
+          showToast('Conta encerrada por desligamento. Procure o RH.', 'error');
+          await logout();
+        }
+      } catch {
+        /* ignore transient */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, logout, showToast]);
 
   // Public Pages State — login is the default entry
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
@@ -299,6 +325,19 @@ const AppContent: React.FC = () => {
       return;
     }
 
+    if (path === 'pwa-punch') {
+      if (isPjContractor(user)) {
+        showToast(tMobile('punchBlockedMessage'), 'info');
+        setCurrentPath('dashboard');
+        setNavParams(null);
+        return;
+      }
+      // Live flag is checked inside PwaPunch (auth user may be stale after manager toggle).
+      setCurrentPath('pwa-punch');
+      setNavParams(params || null);
+      return;
+    }
+
     if (path === 'attendance-quick-office') {
       setCurrentPath('attendance');
       setNavParams({ autoStart: 'OFFICE' });
@@ -308,7 +347,11 @@ const AppContent: React.FC = () => {
     } else if (path === 'attendance-finish') {
       setCurrentPath('attendance');
       setNavParams({ autoStart: 'FINISH' });
-    } else if (path === 'timesheet' && employeeMobileShell) {
+    } else if (
+      path === 'timesheet' &&
+      user?.role !== 'MANAGER' &&
+      (employeeMobileShell || user?.role === 'EMPLOYEE')
+    ) {
       setCurrentPath('my-timesheet');
       setNavParams(params || null);
     } else if (path === 'my-timesheet' || path === 'my-roster') {
@@ -462,21 +505,35 @@ const AppContent: React.FC = () => {
             />
           </ErrorBoundary>
         );
+      case 'pwa-punch':
+        if (isPjContractor(user)) {
+          return <Dashboard user={user} onNavigate={handleNavigate} />;
+        }
+        return (
+          <ErrorBoundary>
+            <PwaPunch user={user} onFinish={() => handleNavigate('dashboard')} />
+          </ErrorBoundary>
+        );
       case 'attendance-logs':
         if (user.role === 'ADMIN' || user.role === 'HR') {
-          return <AttendanceLogs user={user} viewMode="AUDIT" />;
+          return <AttendanceLogs user={user} viewMode="AUDIT" onNavigate={handleNavigate} />;
         }
-        return <AttendanceLogs user={user} viewMode="MY" />;
-      case 'attendance-audit': return <AttendanceLogs user={user} viewMode="AUDIT" />;
-      case 'timesheet': return (
-        <Timesheet
-          user={user}
-          onNavigate={handleNavigate}
-          initialEmployeeId={navParams?.employeeId}
-          initialYear={navParams?.year}
-          initialMonth={navParams?.month}
-        />
-      );
+        return <AttendanceLogs user={user} viewMode="MY" onNavigate={handleNavigate} />;
+      case 'attendance-audit':
+        return <AttendanceLogs user={user} viewMode="AUDIT" onNavigate={handleNavigate} />;
+      case 'timesheet':
+        if (user.role === 'EMPLOYEE' || (needsClockAdmission(user) && !['ADMIN', 'HR', 'MANAGER', 'TEAM_LEAD', 'MANAGEMENT'].includes(user.role))) {
+          return <MyTimesheet user={user} onNavigate={handleNavigate} />;
+        }
+        return (
+          <Timesheet
+            user={user}
+            onNavigate={handleNavigate}
+            initialEmployeeId={navParams?.employeeId}
+            initialYear={navParams?.year}
+            initialMonth={navParams?.month}
+          />
+        );
       case 'my-timesheet':
         if (isPjContractor(user)) {
           return <MyRoster user={user} onNavigate={handleNavigate} />;
@@ -485,9 +542,29 @@ const AppContent: React.FC = () => {
           return <MyTimesheet user={user} onNavigate={handleNavigate} />;
         }
         return <Timesheet user={user} onNavigate={handleNavigate} />;
+      case 'punch-corrections':
+        return (
+          <PunchCorrections
+            user={user}
+            openRequest={Boolean(navParams?.openRequest)}
+            missingDates={
+              Array.isArray(navParams?.missingDates)
+                ? navParams.missingDates.filter((d: unknown): d is string => typeof d === 'string')
+                : undefined
+            }
+          />
+        );
       case 'my-roster':
         if (canAccessMyRoster(user)) {
-          return <MyRoster user={user} onNavigate={handleNavigate} />;
+          return (
+            <MyRoster
+              user={user}
+              onNavigate={handleNavigate}
+              initialYear={typeof navParams?.year === 'number' ? navParams.year : undefined}
+              initialMonth={typeof navParams?.month === 'number' ? navParams.month : undefined}
+              focusDate={typeof navParams?.focusDate === 'string' ? navParams.focusDate : undefined}
+            />
+          );
         }
         return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'payroll': return <Payroll user={user} onNavigate={handleNavigate} />;
@@ -508,7 +585,15 @@ const AppContent: React.FC = () => {
         return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'roster':
         if (user.role === 'ADMIN' || user.role === 'HR' || user.role === 'MANAGER') {
-          return <WorkRoster user={user} />;
+          return (
+            <WorkRoster
+              user={user}
+              onNavigate={handleNavigate}
+              initialYear={typeof navParams?.year === 'number' ? navParams.year : undefined}
+              initialMonth={typeof navParams?.month === 'number' ? navParams.month : undefined}
+              focusDate={typeof navParams?.focusDate === 'string' ? navParams.focusDate : undefined}
+            />
+          );
         }
         return <Dashboard user={user} onNavigate={handleNavigate} />;
       case 'leave': return <Leave user={user} autoOpen={navParams?.autoOpen} />;
@@ -541,7 +626,7 @@ const AppContent: React.FC = () => {
     <PushPermissionPrompt userId={user.id} organizationId={user.organizationId as string | undefined} />
   ) : null;
 
-  if (currentPath === 'attendance') {
+  if (currentPath === 'attendance' || currentPath === 'pwa-punch') {
     return (
       <>
         <Suspense fallback={suspenseFallback}>{renderContent()}</Suspense>
@@ -567,7 +652,6 @@ const App: React.FC = () => {
             <SearchProvider>
               <AppContent />
               <SearchDialog />
-              <Analytics />
               <CookieConsent />
               <PWAUpdateBanner />
             </SearchProvider>

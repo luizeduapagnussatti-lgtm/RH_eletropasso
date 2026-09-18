@@ -10,6 +10,7 @@ import { timesheetService } from './timesheet.service';
 import { hourBankService } from './hourBank.service';
 import { rosterService } from './roster.service';
 import { rosterSwapService } from './rosterSwap.service';
+import { punchCorrectionService } from './punchCorrection.service';
 import { reviewService } from './review.service';
 import { announcementService } from './announcement.service';
 import { notificationService } from './notification.service';
@@ -124,7 +125,15 @@ export const hrService = {
   createRosterSwapRequest: rosterSwapService.createRequest.bind(rosterSwapService),
   respondRosterSwapPeer: rosterSwapService.respondPeer.bind(rosterSwapService),
   approveRosterSwap: rosterSwapService.approveManager.bind(rosterSwapService),
+  rejectRosterSwap: rosterSwapService.rejectManager.bind(rosterSwapService),
   cancelRosterSwapRequest: rosterSwapService.cancelRequest.bind(rosterSwapService),
+
+  listMyPunchCorrections: punchCorrectionService.listMyRequests.bind(punchCorrectionService),
+  listPendingPunchCorrections: punchCorrectionService.listPendingForManager.bind(punchCorrectionService),
+  listPunchCorrectionsForDates: punchCorrectionService.listForDates.bind(punchCorrectionService),
+  createPunchCorrection: punchCorrectionService.createRequest.bind(punchCorrectionService),
+  resolvePunchCorrection: punchCorrectionService.updateStatus.bind(punchCorrectionService),
+  cancelPunchCorrection: punchCorrectionService.cancelRequest.bind(punchCorrectionService),
 
   // PTRP — punches / timesheet / hour bank
   // listPunches uses `this.applyProximityAutoIgnorePlan` — must keep punchService as `this`
@@ -137,6 +146,7 @@ export const hrService = {
   setPunchIgnoredForCalc: punchService.setPunchIgnoredForCalc.bind(punchService),
   applyFixedBreakPunches: punchService.applyFixedBreakPunches.bind(punchService),
   getOrCreateTimesheetPeriod: timesheetService.getOrCreatePeriod.bind(timesheetService),
+  getTimesheetPeriod: timesheetService.getPeriod.bind(timesheetService),
   listTimesheetPeriods: timesheetService.listPeriods.bind(timesheetService),
   setTimesheetPeriodStatus: timesheetService.setPeriodStatus.bind(timesheetService),
   listTimesheetDays: timesheetService.listDays.bind(timesheetService),
@@ -265,4 +275,7 @@ export const hrService = {
   countHardwareSyncPending: hardwareSyncQueueService.countPending.bind(hardwareSyncQueueService),
   processHardwareSyncCommand: hardwareSyncQueueService.processCommand.bind(hardwareSyncQueueService),
   cancelHardwareSyncCommand: hardwareSyncQueueService.cancelCommand.bind(hardwareSyncQueueService),
+  confirmHardwareSyncManualRemoval: hardwareSyncQueueService.confirmManualRemoval.bind(
+    hardwareSyncQueueService,
+  ),
 };

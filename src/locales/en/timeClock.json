@@ -239,6 +239,12 @@
     "cancelOk": "Command cancelled.",
     "footerHint": "Badge credentials are never reused after discharge. Finish clock removal to avoid ghost names on punches.",
     "pendingBadge": "{{count}} pending",
-    "dischargePendingHint": "HR discharge is done. Remove the employee from the clock via the queue below (or Communication → Sync)."
+    "dischargePendingHint": "HR discharge is done. Remove the employee from the clock via the queue below (or Communication → Sync).",
+    "manualConfirm": "Already removed on clock",
+    "manualConfirmHint": "Confirm after manual PrintPoint removal (function 92). The system checks that the PIS is gone from the list.",
+    "manualConfirmPrompt": "Did you already remove this employee on the PrintPoint (function 92)? The system will read the clock list and only confirm if the PIS is no longer there.",
+    "manualConfirmOk": "Removal confirmed — PIS absent on the clock.",
+    "errorTimeout": "Connection to the PrintPoint timed out. Leave the clock menu, check cable/network, and try again.",
+    "errorStillOnClock": "The PIS still appears on the PrintPoint list. Remove it on the device and confirm again."
   }
 }

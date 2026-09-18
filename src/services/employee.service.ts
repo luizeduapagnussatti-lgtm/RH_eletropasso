@@ -667,6 +667,8 @@ export const employeeService = {
         // Do NOT clear clock_credential — reserved for this person historically.
         clock_onboarding_status: 'NOT_APPLICABLE',
         clock_discharge_status: clockDischargeStatus,
+        // Revoke PWA / first-access while keeping reserved badge credential.
+        verified: false,
         // Detach from live org graph so demitidos leave active team/shift filters.
         team_id: null,
         shift_id: null,

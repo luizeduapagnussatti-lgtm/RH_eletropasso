@@ -403,6 +403,9 @@
     "dischargeTimesheetPending": "{{count}} dia(s) de jornada sem ciência do gestor. Feche o ponto e tente de novo.",
     "dischargeTimesheetReady": "Ponto fechado até o último dia. Pode confirmar o desligamento.",
     "dischargeTimesheetBlocked": "Feche o ponto até o último dia trabalhado antes de desligar.",
-    "dischargeTimesheetError": "Não foi possível conferir o espelho. Tente de novo ou abra o espelho manualmente."
+    "dischargeTimesheetError": "Não foi possível conferir o espelho. Tente de novo ou abra o espelho manualmente.",
+    "dischargeFinalized": "Desligamento finalizado: RH + exclusão no relógio confirmados. Credencial permanece reservada (não reutilizada). Acesso ao app do colaborador foi revogado.",
+    "dischargeFinish": "Concluir desligamento",
+    "dischargeFinishBlocked": "Confirme a remoção no PrintPoint (fila abaixo) antes de concluir."
   }
 }

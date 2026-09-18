@@ -154,7 +154,11 @@ const TimesheetReviewSummaryPanel: React.FC<Props> = ({ rows, locked, dismissedS
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <ReviewSignatureCell review={review} />
+                    {employee.status === 'INACTIVE' ? (
+                      <span className="text-xs text-slate-500">{t('reviewSignedDischargeSkip')}</span>
+                    ) : (
+                      <ReviewSignatureCell review={review} />
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">
                     {pendingManagerAck > 0 ? (

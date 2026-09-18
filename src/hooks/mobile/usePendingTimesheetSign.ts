@@ -1,13 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { User } from '../../types';
+import type { Employee, User } from '../../types';
 import { hrService } from '../../services/hrService';
-import { competenceForDate } from '../../utils/payrollPeriod';
+import { competenceForDate, normalizePeriodStartDay } from '../../utils/payrollPeriod';
 import { DEFAULT_PTRP_POLICY } from '../../constants';
 import { validateTimesheetEmployeeReview } from '../../utils/timesheetReviewValidation';
+import {
+  loadTimesheetDaysForEmployee,
+  resolveEmployeeKeys,
+} from '../../utils/timesheetEmployeeKeys';
+
+function shiftCompetence(
+  year: number,
+  month: number,
+  delta: number,
+): { year: number; month: number } {
+  const d = new Date(year, month - 1 + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
 
 /**
- * True when the current competence is available for the employee to sign:
- * manager ciência complete (or review already IN_REVIEW) and not yet signed/approved.
+ * True when a recent competence is available for the employee to sign.
+ * Never upserts reviews (EMPLOYEE has no INSERT on timesheet_employee_reviews).
  */
 export function usePendingTimesheetSign(user?: User | null): boolean {
   const [pending, setPending] = useState(false);
@@ -18,32 +31,62 @@ export function usePendingTimesheetSign(user?: User | null): boolean {
       return;
     }
     try {
-      const competence = competenceForDate(new Date(), DEFAULT_PTRP_POLICY.periodStartDay);
-      const period = await hrService.getOrCreateTimesheetPeriod(competence.year, competence.month);
-      let review = await hrService.getTimesheetEmployeeReview(period.id, user.id);
-      if (review?.status === 'APPROVED' || review?.status === 'EMPLOYEE_SIGNED') {
+      let startDay = DEFAULT_PTRP_POLICY.periodStartDay;
+      try {
+        const config = await hrService.getConfig();
+        startDay = normalizePeriodStartDay(
+          config?.ptrpPolicy?.periodStartDay ?? DEFAULT_PTRP_POLICY.periodStartDay,
+        );
+      } catch {
+        /* keep default */
+      }
+
+      const employees = await hrService.getEmployees().catch(() => [] as Employee[]);
+      const profile =
+        employees.find((e) => e.id === user.id) ||
+        employees.find(
+          (e) => e.employeeId && e.employeeId === (user as Employee).employeeId,
+        ) ||
+        null;
+      if (profile?.status === 'INACTIVE' || profile?.terminationDate) {
         setPending(false);
         return;
       }
-      if (review?.status === 'IN_REVIEW') {
-        setPending(true);
-        return;
+      const keys = resolveEmployeeKeys(user, profile);
+
+      let competence = competenceForDate(new Date(), startDay);
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const period = await hrService.getOrCreateTimesheetPeriod(
+          competence.year,
+          competence.month,
+        );
+        const review = await hrService.getTimesheetEmployeeReview(period.id, user.id);
+
+        if (review?.status === 'APPROVED' || review?.status === 'EMPLOYEE_SIGNED') {
+          competence = shiftCompetence(competence.year, competence.month, -1);
+          continue;
+        }
+        if (review?.status === 'IN_REVIEW') {
+          setPending(true);
+          return;
+        }
+
+        const days = await loadTimesheetDaysForEmployee(
+          period.id,
+          keys.length ? keys : [user.id],
+        );
+        const eligible = validateTimesheetEmployeeReview(days).canSubmit;
+        // Need a review row — employee cannot create it (no INSERT RLS).
+        if (eligible && review?.status === 'OPEN') {
+          setPending(true);
+          return;
+        }
+
+        competence = shiftCompetence(competence.year, competence.month, -1);
       }
 
-      const employeeKey = (user as { employeeId?: string }).employeeId || user.id;
-      const days = await hrService.listTimesheetDays(period.id, employeeKey);
-      const eligible = validateTimesheetEmployeeReview(days).canSubmit;
-
-      if (eligible) {
-        review =
-          (await hrService.reconcileTimesheetEmployeeReviewAfterManagerAcks(
-            period.id,
-            user.id,
-            user.id,
-          )) || review;
-      }
-
-      setPending(review?.status === 'IN_REVIEW' || eligible);
+      setPending(false);
     } catch {
       setPending(false);
     }

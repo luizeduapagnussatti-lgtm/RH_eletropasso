@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Loader2, RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, X } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { useToast } from '../../context/ToastContext';
 import type { HardwareSyncQueueJob } from '../../types';
@@ -11,6 +11,22 @@ interface Props {
   organizationId?: string;
   onCountChange?: (count: number) => void;
   compact?: boolean;
+}
+
+function friendlyQueueError(raw: string, t: (key: string) => string): string {
+  const msg = raw.trim();
+  if (!msg) return '';
+  if (/tempo limite|timed?\s*out|OpenConnection/i.test(msg)) {
+    return t('hardwareSync.errorTimeout');
+  }
+  if (/ainda consta|still present/i.test(msg)) {
+    return t('hardwareSync.errorStillOnClock');
+  }
+  if (/ocupado|busy|em andamento/i.test(msg)) {
+    return t('busy');
+  }
+  // Prefer full message over truncated path-only noise
+  return msg.length > 280 ? `${msg.slice(0, 277)}…` : msg;
 }
 
 export const HardwareSyncQueuePanel: React.FC<Props> = ({
@@ -65,6 +81,22 @@ export const HardwareSyncQueuePanel: React.FC<Props> = ({
       await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : t('hardwareSync.processFailed'), 'error');
+    }
+  };
+
+  const handleManualConfirm = async (jobId: string) => {
+    if (!window.confirm(t('hardwareSync.manualConfirmPrompt'))) return;
+    setProcessingId(jobId);
+    try {
+      await hrService.confirmHardwareSyncManualRemoval(jobId);
+      showToast(t('hardwareSync.manualConfirmOk'), 'success');
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : t('hardwareSync.processFailed');
+      showToast(isClockBusyError(msg) ? t('busy') : friendlyQueueError(msg, t) || msg, 'error');
+      await load();
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -152,12 +184,15 @@ export const HardwareSyncQueuePanel: React.FC<Props> = ({
                   })}
                 </p>
                 {job.errorMessage ? (
-                  <p className="text-[11px] text-rose-700 mt-0.5 truncate" title={job.errorMessage}>
-                    {job.errorMessage}
+                  <p
+                    className="text-[11px] text-rose-700 mt-0.5 whitespace-pre-wrap break-words"
+                    title={job.errorMessage}
+                  >
+                    {friendlyQueueError(job.errorMessage, t)}
                   </p>
                 ) : null}
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex flex-wrap gap-2 shrink-0">
                 <button
                   type="button"
                   disabled={busy}
@@ -167,6 +202,18 @@ export const HardwareSyncQueuePanel: React.FC<Props> = ({
                   {busy ? <Loader2 size={12} className="animate-spin" /> : null}
                   {busy ? t('running') : t('hardwareSync.processNow')}
                 </button>
+                {job.commandType === 'REMOVE_EMPLOYEE' ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleManualConfirm(job.id)}
+                    className="h-8 px-3 rounded-lg border border-emerald-600 text-emerald-800 bg-emerald-50 text-xs font-semibold hover:bg-emerald-100 disabled:opacity-50 inline-flex items-center gap-1.5"
+                    title={t('hardwareSync.manualConfirmHint')}
+                  >
+                    {busy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} aria-hidden />}
+                    {t('hardwareSync.manualConfirm')}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={busy}

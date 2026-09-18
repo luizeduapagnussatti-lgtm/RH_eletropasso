@@ -239,6 +239,12 @@
     "cancelOk": "Comando cancelado.",
     "footerHint": "A credencial do crachá nunca é reutilizada após o desligamento. Finalize a exclusão no relógio para evitar nomes fantasma nas batidas.",
     "pendingBadge": "{{count}} pendente(s)",
-    "dischargePendingHint": "Desligamento no RH concluído. Remova o colaborador do relógio pela fila abaixo (ou em Comunicação → Sincronização)."
+    "dischargePendingHint": "Desligamento no RH concluído. Remova o colaborador do relógio pela fila abaixo (ou em Comunicação → Sincronização).",
+    "manualConfirm": "Já removi no relógio",
+    "manualConfirmHint": "Confirma após exclusão manual no PrintPoint (função 92). O sistema verifica se o PIS sumiu da lista.",
+    "manualConfirmPrompt": "Você já excluiu este colaborador no PrintPoint (função 92)? O sistema vai ler a lista do relógio e só confirmar se o PIS não estiver mais lá.",
+    "manualConfirmOk": "Remoção confirmada — PIS ausente no relógio.",
+    "errorTimeout": "Tempo esgotado na conexão com o PrintPoint. Saia do menu do relógio, confira cabo/rede e tente de novo.",
+    "errorStillOnClock": "O PIS ainda aparece na lista do PrintPoint. Exclua no equipamento e confirme de novo."
   }
 }

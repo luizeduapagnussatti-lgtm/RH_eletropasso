@@ -83,6 +83,14 @@ export const authService = {
       };
     }
 
+    if (String(profile.status || '').toUpperCase() === 'INACTIVE') {
+      await supabase.auth.signOut();
+      return {
+        user: null,
+        error: 'Conta encerrada por desligamento. Procure o RH.',
+      };
+    }
+
     const appUser = profileToUser({ ...profile, email: authData.user.email });
     apiClient.setOrganizationId(profile.organization_id);
     apiClient.setAuthRole(profile.role);
@@ -259,6 +267,11 @@ export const authService = {
       .single();
 
     if (!profile) return null;
+    if (String(profile.status || '').toUpperCase() === 'INACTIVE') {
+      await sessionManager.forceLogout('USER_INITIATED');
+      await supabase.auth.signOut();
+      return null;
+    }
     // Keep apiClient org ID warm for page-refresh case (login() not called)
     apiClient.setOrganizationId(profile.organization_id ?? undefined);
     apiClient.setAuthRole(profile.role ?? undefined);

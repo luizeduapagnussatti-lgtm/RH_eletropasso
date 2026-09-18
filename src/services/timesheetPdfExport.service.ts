@@ -7,6 +7,10 @@ import { canExportMirrorPdf } from '../utils/timesheetDayAckValidation';
 import { minutesToDisplay } from '../utils/durationHm';
 import { APP_NAME } from '../config/branding';
 import {
+  classifyOvertimeMinutes,
+  type ClassifyOvertimeResult,
+} from './overtimeClassification.service';
+import {
   applyStandardTable,
   createPdfDocument,
   drawMetricStrip,
@@ -47,7 +51,10 @@ export type TimesheetPdfLabels = {
   colEntry2: string;
   colExit2: string;
   colWorked: string;
-  colOvertime: string;
+  /** @deprecated Prefer colOvertime60 / colOvertime100. Kept as fallback label. */
+  colOvertime?: string;
+  colOvertime60: string;
+  colOvertime100: string;
   /** @deprecated Not shown on PDF (accounting prefers absence only). Kept optional for callers. */
   colLate?: string;
   colAbsence: string;
@@ -55,7 +62,10 @@ export type TimesheetPdfLabels = {
   colEmployee: string;
   metricExpected?: string;
   metricWorked: string;
-  metricOvertime: string;
+  /** @deprecated Prefer metricOvertime60 / metricOvertime100. */
+  metricOvertime?: string;
+  metricOvertime60: string;
+  metricOvertime100: string;
   /** @deprecated Not shown on PDF. Kept optional for callers. */
   metricLate?: string;
   metricAbsence: string;
@@ -68,23 +78,48 @@ export type TimesheetPdfLabels = {
   remarksLine: string;
   signatureEmployee: string;
   signatureManager: string;
+  /** Replaces employee signature line when status is INACTIVE (demissão). */
+  signatureDischargeNote?: string;
   totalsRow: string;
   /** Legend for rows marked with * (manual punch adjustment). */
   adjustedDayLegend?: string;
 };
 
-/** Portrait A4 usable width (~182mm) - 9-column mirror (no late/atraso). */
+/** Portrait A4 usable width (~182mm) — 10 columns (HE 60% + HE 100%). */
 const MIRROR_TABLE_COLUMN_STYLES: Record<number, { cellWidth?: number; halign?: 'center' | 'left' | 'right' }> = {
-  0: { cellWidth: 28 },
-  1: { cellWidth: 18 },
-  2: { cellWidth: 18 },
-  3: { cellWidth: 18 },
-  4: { cellWidth: 18 },
-  5: { cellWidth: 18, halign: 'center' },
-  6: { cellWidth: 14, halign: 'center' },
-  7: { cellWidth: 18, halign: 'center' },
-  8: { cellWidth: 24 },
+  0: { cellWidth: 24 },
+  1: { cellWidth: 15 },
+  2: { cellWidth: 15 },
+  3: { cellWidth: 15 },
+  4: { cellWidth: 15 },
+  5: { cellWidth: 16, halign: 'center' },
+  6: { cellWidth: 16, halign: 'center' },
+  7: { cellWidth: 16, halign: 'center' },
+  8: { cellWidth: 16, halign: 'center' },
+  9: { cellWidth: 22 },
 };
+
+/** HE bands for one mirror day (same rule as folha / classifyOvertimeMinutes). */
+export function overtimeBandsForTimesheetDay(
+  day: Pick<TimesheetDay, 'workDate' | 'overtimeMinutes' | 'status'>,
+): ClassifyOvertimeResult {
+  return classifyOvertimeMinutes({
+    workDate: day.workDate,
+    overtimeMinutes: day.overtimeMinutes || 0,
+    isHoliday: day.status === 'HOLIDAY',
+  });
+}
+
+function sumOvertimeBands(days: TimesheetDay[]): ClassifyOvertimeResult {
+  let extra50Minutes = 0;
+  let extra100Minutes = 0;
+  for (const d of days) {
+    const band = overtimeBandsForTimesheetDay(d);
+    extra50Minutes += band.extra50Minutes;
+    extra100Minutes += band.extra100Minutes;
+  }
+  return { extra50Minutes, extra100Minutes };
+}
 
 /** Strip English sentinel fallbacks from employee.service / session mapping. */
 const EMPTY_FIELD_SENTINELS = new Set([
@@ -433,10 +468,12 @@ async function renderMirrorForEmployee(
     { columns: 2 },
   );
 
+  const otBands = sumOvertimeBands(periodDays);
   const totals = {
     expected: periodDays.reduce((s, d) => s + (d.expectedMinutes || 0), 0),
     worked: periodDays.reduce((s, d) => s + (d.workedMinutes || 0), 0),
-    overtime: periodDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0),
+    overtime60: otBands.extra50Minutes,
+    overtime100: otBands.extra100Minutes,
     absence: periodDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0),
   };
 
@@ -448,7 +485,16 @@ async function renderMirrorForEmployee(
         ? [{ label: labels.metricExpected, value: minutesToDisplay(totals.expected), tone: 'neutral' as const }]
         : []),
       { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
-      { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
+      {
+        label: labels.metricOvertime60 || labels.metricOvertime || 'HE 60%',
+        value: minutesToDisplay(totals.overtime60),
+        tone: 'leave',
+      },
+      {
+        label: labels.metricOvertime100 || 'HE 100%',
+        value: minutesToDisplay(totals.overtime100),
+        tone: 'leave',
+      },
       {
         label: labels.metricAbsence,
         value: minutesToDisplay(totals.absence),
@@ -502,6 +548,7 @@ async function renderMirrorForEmployee(
     }
 
     const statusText = statusLabel(day.status) + (adjusted ? '*' : '');
+    const bands = overtimeBandsForTimesheetDay(day);
 
     return [
       formatDayCell(day.workDate),
@@ -510,7 +557,8 @@ async function renderMirrorForEmployee(
       slotTime(slots.entry2),
       exit2Cell,
       minutesToDisplay(day.workedMinutes),
-      minutesToDisplay(day.overtimeMinutes),
+      minutesToDisplay(bands.extra50Minutes),
+      minutesToDisplay(bands.extra100Minutes),
       minutesToDisplay(displayAbsenceMinutes(day)),
       statusText,
     ];
@@ -529,7 +577,8 @@ async function renderMirrorForEmployee(
       labels.colEntry2,
       labels.colExit2,
       labels.colWorked,
-      labels.colOvertime,
+      labels.colOvertime60 || labels.colOvertime || 'HE 60%',
+      labels.colOvertime100 || 'HE 100%',
       labels.colAbsence,
       labels.colStatus,
     ]],
@@ -541,7 +590,8 @@ async function renderMirrorForEmployee(
       '',
       '',
       minutesToDisplay(totals.worked),
-      minutesToDisplay(totals.overtime),
+      minutesToDisplay(totals.overtime60),
+      minutesToDisplay(totals.overtime100),
       minutesToDisplay(totals.absence),
       '',
     ]],
@@ -584,10 +634,25 @@ async function renderMirrorForEmployee(
   }
 
   afterY = ensureSpace(doc, afterY, 22);
-  drawSignatureBlock(doc, afterY, [
-    { label: labels.signatureEmployee, name: displayField(employee.name, '') },
-    { label: labels.signatureManager, name: displayField(managerName, '') },
-  ]);
+  if (employee.status === 'INACTIVE' && labels.signatureDischargeNote) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    const noteWrapped = doc.splitTextToSize(
+      labels.signatureDischargeNote,
+      doc.internal.pageSize.getWidth() - 28,
+    );
+    doc.text(noteWrapped, 14, afterY);
+    afterY += noteWrapped.length * 4 + 6;
+    drawSignatureBlock(doc, afterY, [
+      { label: labels.signatureManager, name: displayField(managerName, '') },
+    ]);
+  } else {
+    drawSignatureBlock(doc, afterY, [
+      { label: labels.signatureEmployee, name: displayField(employee.name, '') },
+      { label: labels.signatureManager, name: displayField(managerName, '') },
+    ]);
+  }
 }
 
 /** Draws the all-employees summary overview (one row per employee) into a doc. */
@@ -620,7 +685,7 @@ async function renderSummarySection(
       const review = resolveReview(reviews, emp);
       const expected = empDays.reduce((s, d) => s + (d.expectedMinutes || 0), 0);
       const worked = empDays.reduce((s, d) => s + (d.workedMinutes || 0), 0);
-      const overtime = empDays.reduce((s, d) => s + (d.overtimeMinutes || 0), 0);
+      const bands = sumOvertimeBands(empDays);
       const absence = empDays.reduce((s, d) => s + displayAbsenceMinutes(d), 0);
       return {
         name: emp.name || '',
@@ -628,13 +693,15 @@ async function renderSummarySection(
           emp.name,
           emp.employeeId || '—',
           minutesToDisplay(worked),
-          minutesToDisplay(overtime),
+          minutesToDisplay(bands.extra50Minutes),
+          minutesToDisplay(bands.extra100Minutes),
           minutesToDisplay(absence),
           reviewStatusLabel(review, empDays, labels, revLabel),
         ],
         expected,
         worked,
-        overtime,
+        overtime60: bands.extra50Minutes,
+        overtime100: bands.extra100Minutes,
         absence,
       };
     })
@@ -643,7 +710,8 @@ async function renderSummarySection(
     row: string[];
     expected: number;
     worked: number;
-    overtime: number;
+    overtime60: number;
+    overtime100: number;
     absence: number;
   }>;
 
@@ -653,10 +721,11 @@ async function renderSummarySection(
     (acc, e) => ({
       expected: acc.expected + e.expected,
       worked: acc.worked + e.worked,
-      overtime: acc.overtime + e.overtime,
+      overtime60: acc.overtime60 + e.overtime60,
+      overtime100: acc.overtime100 + e.overtime100,
       absence: acc.absence + e.absence,
     }),
-    { expected: 0, worked: 0, overtime: 0, absence: 0 },
+    { expected: 0, worked: 0, overtime60: 0, overtime100: 0, absence: 0 },
   );
 
   y = drawMetricStrip(doc, y, [
@@ -664,7 +733,16 @@ async function renderSummarySection(
       ? [{ label: labels.metricExpected, value: minutesToDisplay(totals.expected), tone: 'neutral' as const }]
       : []),
     { label: labels.metricWorked, value: minutesToDisplay(totals.worked), tone: 'neutral' },
-    { label: labels.metricOvertime, value: minutesToDisplay(totals.overtime), tone: 'leave' },
+    {
+      label: labels.metricOvertime60 || labels.metricOvertime || 'HE 60%',
+      value: minutesToDisplay(totals.overtime60),
+      tone: 'leave',
+    },
+    {
+      label: labels.metricOvertime100 || 'HE 100%',
+      value: minutesToDisplay(totals.overtime100),
+      tone: 'leave',
+    },
     { label: labels.metricAbsence, value: minutesToDisplay(totals.absence), tone: 'absent' },
   ]);
 
@@ -674,7 +752,8 @@ async function renderSummarySection(
       labels.colEmployee,
       labels.employeeId,
       labels.colWorked,
-      labels.colOvertime,
+      labels.colOvertime60 || labels.colOvertime || 'HE 60%',
+      labels.colOvertime100 || 'HE 100%',
       labels.colAbsence,
       labels.reviewStatus,
     ]],
@@ -683,7 +762,8 @@ async function renderSummarySection(
       labels.totalsRow,
       '',
       minutesToDisplay(totals.worked),
-      minutesToDisplay(totals.overtime),
+      minutesToDisplay(totals.overtime60),
+      minutesToDisplay(totals.overtime100),
       minutesToDisplay(totals.absence),
       '',
     ]],

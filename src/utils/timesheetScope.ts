@@ -26,6 +26,17 @@ export function isActiveClockStaff(emp: {
   return !isTimesheetExempt(emp);
 }
 
+/**
+ * Discharged employees do not sign the mirror on the PWA / presencial PDF block.
+ * Physical copy is handed at settlement.
+ */
+export function skipsEmployeeTimesheetSign(emp: {
+  status?: string | null;
+  terminationDate?: string | null;
+}): boolean {
+  return emp.status === 'INACTIVE' || Boolean(emp.terminationDate);
+}
+
 export function isActiveClockStaffInCompetence(
   emp: Employee,
   period: CompetenceWindow,
