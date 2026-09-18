@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, LayoutDashboard, Clock, CalendarDays, UserCircle, Sun, Moon, PanelLeftClose, PanelLeftOpen, ClipboardList, CalendarCheck } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Clock, CalendarDays, UserCircle, Sun, Moon, PanelLeftClose, PanelLeftOpen, ClipboardList, CalendarCheck, CalendarRange, Users, MoreHorizontal } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import NotificationBell from '../components/notifications/NotificationBell';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { APP_NAME, STORE_LOGO_PATH } from '../config/branding';
-import { isNonPunchingStaff, isPjContractor } from '../utils/roles';
+import { isNonPunchingStaff, isPjContractor, isStaffAdmin } from '../utils/roles';
 import { useEmployeeMobileShell } from '../hooks/useEmployeeMobileShell';
 import { usePendingTimesheetSign } from '../hooks/mobile/usePendingTimesheetSign';
 import { hrService } from '../services/hrService';
@@ -58,6 +58,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   const [hardwareSyncPending, setHardwareSyncPending] = useState(0);
   const employeeMobileShell = useEmployeeMobileShell();
   const isPjMobile = employeeMobileShell && isPjContractor(user);
+  const staffAdminMobile = !employeeMobileShell && isStaffAdmin(user?.role);
   const pendingTimesheetSign = usePendingTimesheetSign(
     employeeMobileShell && !isPjMobile ? user : null,
   );
@@ -415,6 +416,77 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
               </button>
             </>
             )
+          ) : staffAdminMobile ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleNavigate('dashboard')}
+                aria-current={currentPath === 'dashboard' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'dashboard' ? 'text-primary' : 'text-slate-400'
+                }`}
+              >
+                <LayoutDashboard size={20} className={currentPath === 'dashboard' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navHome')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('timesheet')}
+                aria-current={currentPath === 'timesheet' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'timesheet' ? 'text-primary' : 'text-slate-400'
+                }`}
+              >
+                <CalendarRange size={20} className={currentPath === 'timesheet' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navTimesheet')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('roster')}
+                aria-current={currentPath === 'roster' ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'roster' ? 'text-primary' : 'text-slate-400'
+                }`}
+              >
+                <CalendarCheck size={20} className={currentPath === 'roster' ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:navRoster')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('employees')}
+                aria-current={
+                  currentPath === 'employees' || currentPath.startsWith('employee-') ? 'page' : undefined
+                }
+                className={`flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  currentPath === 'employees' || currentPath.startsWith('employee-')
+                    ? 'text-primary'
+                    : 'text-slate-400'
+                }`}
+              >
+                <Users size={20} className={currentPath === 'employees' || currentPath.startsWith('employee-') ? 'scale-110' : ''} />
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:adminNavTeam')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                aria-expanded={isMobileMenuOpen}
+                aria-label={t('mobile:adminNavMore')}
+                className={`relative flex flex-col items-center gap-1 transition-all min-w-0 flex-1 py-1 ${
+                  isMobileMenuOpen ? 'text-primary' : 'text-slate-400'
+                }`}
+              >
+                <span className="relative inline-flex">
+                  <MoreHorizontal size={20} className={isMobileMenuOpen ? 'scale-110' : ''} />
+                  {hardwareSyncPending > 0 && (
+                    <span
+                      className="absolute -top-0.5 -right-1.5 h-2 w-2 rounded-full bg-[#c41e24] ring-2 ring-white"
+                      aria-hidden
+                    />
+                  )}
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-tighter">{t('mobile:adminNavMore')}</span>
+              </button>
+            </>
           ) : (
             <>
               <button

@@ -62,7 +62,7 @@ import { PushPermissionPrompt } from './components/PushPermissionPrompt';
 import { useToast } from './context/ToastContext';
 import { useEmployeeMobileShell } from './hooks/useEmployeeMobileShell';
 import { isAttendanceRoute, shouldUseEmployeeMobileShell } from './utils/mobileShell';
-import { canAccessMyRoster, isPjContractor, needsClockAdmission } from './utils/roles';
+import { canAccessMyRoster, isNonPunchingStaff, isOrgAdmin, isPjContractor, isStaffAdmin, needsClockAdmission } from './utils/roles';
 
 // Legacy SaaS marketing paths — redirect to login on load
 const DEPRECATED_PUBLIC_PREFIXES = ['/blog', '/features', '/about'];
@@ -325,9 +325,63 @@ const AppContent: React.FC = () => {
       return;
     }
 
+    // Staff without punch (ADMIN / HR / MANAGEMENT): personal punch/roster routes soft-deny with a clear toast.
+    if (
+      user &&
+      isNonPunchingStaff(user.role) &&
+      (path === 'my-roster' ||
+        path === 'attendance' ||
+        path === 'attendance-quick-office' ||
+        path === 'attendance-quick-factory' ||
+        path === 'attendance-finish' ||
+        isAttendanceRoute(path))
+    ) {
+      showToast(tMobile('staffRouteBlocked'), 'info');
+      setCurrentPath('dashboard');
+      setNavParams(null);
+      return;
+    }
+
+    if (user && path === 'comunicacao' && !isOrgAdmin(user.role) && user.role !== 'SUPER_ADMIN') {
+      showToast(tMobile('adminOnlyRoute'), 'info');
+      setCurrentPath('dashboard');
+      setNavParams(null);
+      return;
+    }
+
+    if (
+      user &&
+      (path === 'apuracao' || path === 'payroll' || path === 'messaging-outbox' || path === 'reports') &&
+      !isStaffAdmin(user.role) &&
+      user.role !== 'SUPER_ADMIN'
+    ) {
+      showToast(tMobile('staffOnlyRoute'), 'info');
+      setCurrentPath('dashboard');
+      setNavParams(null);
+      return;
+    }
+
+    if (user && path === 'organization' && !isStaffAdmin(user.role) && user.role !== 'SUPER_ADMIN') {
+      showToast(tMobile('staffOnlyRoute'), 'info');
+      setCurrentPath('dashboard');
+      setNavParams(null);
+      return;
+    }
+
+    if (user && path === 'settings' && !isOrgAdmin(user.role) && user.role !== 'SUPER_ADMIN') {
+      // Profile remains available; full settings is ADMIN-only in the sidebar.
+      showToast(tMobile('adminOnlyRoute'), 'info');
+      setCurrentPath('profile');
+      setNavParams(null);
+      return;
+    }
+
     if (path === 'pwa-punch') {
-      if (isPjContractor(user)) {
-        showToast(tMobile('punchBlockedMessage'), 'info');
+      if (isPjContractor(user) || (user && isNonPunchingStaff(user.role))) {
+        showToast(
+          isNonPunchingStaff(user?.role) ? tMobile('staffRouteBlocked') : tMobile('punchBlockedMessage'),
+          'info',
+        );
         setCurrentPath('dashboard');
         setNavParams(null);
         return;

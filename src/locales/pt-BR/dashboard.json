@@ -52,5 +52,11 @@
   "teamHeadcountLabel": "Colaboradores",
   "lateCount": "{{count}} atrasos",
   "punchCorrections": "Ajustes",
-  "timesheet": "Espelho"
+  "timesheet": "Espelho",
+  "roster": "Escalas",
+  "pontoHub": "Operação do ponto",
+  "communication": "Comunicação",
+  "payroll": "Folha",
+  "apuracao": "Apuração",
+  "messagingOutbox": "Fila de mensagens"
 }

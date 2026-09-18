@@ -52,5 +52,11 @@
   "teamHeadcountLabel": "Headcount",
   "lateCount": "{{count}} late",
   "punchCorrections": "Adjustments",
-  "timesheet": "Timesheet"
+  "timesheet": "Timesheet",
+  "roster": "Schedules",
+  "pontoHub": "Time clock ops",
+  "communication": "Clock sync",
+  "payroll": "Payroll",
+  "apuracao": "Settlement",
+  "messagingOutbox": "Message outbox"
 }

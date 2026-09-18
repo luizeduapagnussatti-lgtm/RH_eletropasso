@@ -11,6 +11,12 @@ import {
   UserCircle,
   CalendarRange,
   ClipboardList,
+  CalendarClock,
+  LayoutGrid,
+  Radio,
+  Wallet,
+  Calculator,
+  Send,
   type LucideIcon,
 } from 'lucide-react';
 import { DashboardData } from '../../hooks/dashboard/useDashboard';
@@ -18,6 +24,7 @@ import { DashboardHeader } from './DashboardHeader';
 import { DashboardStats } from './DashboardStats';
 import { AnnouncementWidget } from './AnnouncementWidget';
 import SetupChecklist from '../onboarding/SetupChecklist';
+import { isOrgAdmin } from '../../utils/roles';
 
 interface Props {
   data: DashboardData;
@@ -58,6 +65,7 @@ function NavTile({
 
 export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate }) => {
   const { t } = useTranslation('dashboard');
+  const isAdmin = isOrgAdmin(data.freshUser?.role);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 motion-reduce:animate-none">
@@ -86,7 +94,7 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
       <div className="space-y-5">
         <div>
           <p className="text-xs font-semibold text-slate-500 mb-2 px-0.5">{t('management')}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
             <NavTile
               icon={List}
               label={t('audit')}
@@ -102,6 +110,23 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
               label={t('punchCorrections')}
               onClick={() => onNavigate('punch-corrections')}
             />
+            <NavTile
+              icon={CalendarClock}
+              label={t('roster')}
+              onClick={() => onNavigate('roster')}
+            />
+            <NavTile
+              icon={LayoutGrid}
+              label={t('pontoHub')}
+              onClick={() => onNavigate('ponto')}
+            />
+            {isAdmin && (
+              <NavTile
+                icon={Radio}
+                label={t('communication')}
+                onClick={() => onNavigate('comunicacao')}
+              />
+            )}
             <NavTile
               icon={CalendarDays}
               label={t('leave')}
@@ -123,6 +148,21 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
               label={t('reports')}
               onClick={() => onNavigate('reports')}
             />
+            <NavTile
+              icon={Wallet}
+              label={t('payroll')}
+              onClick={() => onNavigate('payroll')}
+            />
+            <NavTile
+              icon={Calculator}
+              label={t('apuracao')}
+              onClick={() => onNavigate('apuracao')}
+            />
+            <NavTile
+              icon={Send}
+              label={t('messagingOutbox')}
+              onClick={() => onNavigate('messaging-outbox')}
+            />
           </div>
         </div>
 
@@ -130,7 +170,7 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
           <p className="text-xs font-semibold text-slate-500 mb-2 px-0.5">{t('personal')}</p>
           <div
             className={`grid gap-2 ${
-              data.freshUser?.role === 'ADMIN' ? 'grid-cols-2' : 'grid-cols-1 max-w-xs'
+              isAdmin ? 'grid-cols-2' : 'grid-cols-1 max-w-xs'
             }`}
           >
             <NavTile
@@ -138,7 +178,7 @@ export const AdminDashboard: React.FC<Props> = ({ data, isLoading, onNavigate })
               label={t('profile')}
               onClick={() => onNavigate('profile')}
             />
-            {data.freshUser?.role === 'ADMIN' && (
+            {isAdmin && (
               <NavTile
                 icon={Settings}
                 label={t('settings')}

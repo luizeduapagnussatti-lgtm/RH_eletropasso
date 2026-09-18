@@ -16,6 +16,22 @@ export interface ChangelogRelease {
 export const changelog: ChangelogRelease[] = [
   {
     date: '2026-09-18',
+    title: 'PWA Admin — paridade de navegação',
+    entries: [
+      {
+        type: 'fix',
+        description:
+          'Admin/RH no celular: bottom nav passa a ter Início, Espelho, Escalas, Equipe e Mais (abre o menu completo). Antes só havia Histórico/Férias/Conta e parecia “sem acesso”.',
+      },
+      {
+        type: 'improvement',
+        description:
+          'Painel Admin ganha atalhos para escalas, operação do ponto, comunicação com o relógio, folha, apuração e fila de mensagens; soft-redirect de rotas inadequáveis agora mostra toast claro.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-18',
     title: 'Sync — espelho, coleta, PWA lean e ops LAN',
     entries: [
       {
